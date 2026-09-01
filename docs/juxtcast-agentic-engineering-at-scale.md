@@ -274,6 +274,7 @@ Mapping our harness onto the grid, with the misfits kept rather than smoothed:
 | Orient step | feed-forward, informative | a forced re-read |
 | `docs/wiki/`, `docs/contexts/`, glossary | feed-forward, informative | his "map" |
 | Reality audit | informative feedback, judged by a human | the human supplies the judgment |
+| Persona missions with a separate judge (retired) | informative feedback | the cell actually filled, once, in the production pipeline this method was distilled from; row added 2026-09-01, see the correction under a |
 | `fence.sh` | no cell | it *removes* feed-forward context |
 | Held-back items, the visible/held-back gap | feedback, normative, and invisible | no cell for hiding a check |
 | `score.py`, `scoreboard.py` | feedback, but not to the agent | it feeds the operator, over weeks |
@@ -298,6 +299,55 @@ the limit: the fourth-pass defect (a control under the keyboard) would still be 
 because a screenshot harness has no software keyboard, which is precisely the note
 already in kalibra's audit, "no test that inspects a rendered tree has a software
 keyboard". A sensor closes some of the gap and not all of it.
+
+**Correction, 2026-09-01, after this section was written.** The heading above is half
+wrong, and the wrong half changes what the presentation should claim.
+
+*What survives.* Nothing in this repository, in `saunavuoro`, or in the workshop archive
+has ever driven a running interface. Every finding on record in those was found by reading
+a document, which is the conclusion `saunavuoro/docs/dtr/four-kinds-of-harness.md` reaches
+about itself: "Informative feedback holds nothing that has ever run." The defect list above
+is still the evidence for why that matters, and it is still true that all four passes of
+kalibra's reality audit were a person looking.
+
+*What does not survive: "our only sensor is a person looking at a phone".* The production
+pipeline this method was distilled from once ran persona-driven exploratory missions. An
+agent was handed a plain-language user goal, phrased the way a user would phrase it and
+naming no selector, endpoint or internal function, drove the real interface through a
+browser toolbelt, and recorded a journey log and screenshots. That record was then assessed
+by a **separate judging pass**, not by the agent that produced it. That is Ford's
+informative-feedback cell built and staffed, with the independence the cell's value depends
+on. It is the same shape the master reference this method was distilled from still carries
+as a rule (human-realistic missions, where an unreachable path is a finding rather than a
+workaround) and `saunavuoro/docs/dtr/gap-analysis.md` §G4 still carries as a degeneration
+tell.
+
+*It was retired, and the reason is the interesting part.* It was retired on measured cost,
+not on principle: judging was measured at several times the cost of generating, against a
+weekly capacity limit that cannot be bought through. So the sentence to say is the harder
+one. Our position in this cell is not an absence, it is a **loss**. The one implementation
+that filled it could afford to build it and could not afford to run it every week.
+
+*Which cuts against the economics argument in section 6 below.* Ford's claim at `[37:18]`
+is that the two-day improvement nobody could justify now costs an afternoon. Our one
+measured case says a perception pass was affordable to build and unaffordable to run on a
+cadence, which is the barrier moving rather than disappearing: from the cost of building
+the thing to the cost of running it. That is not a refutation of his point, it is the
+qualification a room of practitioners will supply for us if we do not supply it ourselves.
+
+*What would change, restated.* The proposal above stands with its purpose changed. The job
+is not to invent a sensor step, it is to rebuild one inside a cost envelope, which means
+deciding in advance what share of a cycle's budget perception may take, and what gets
+judged by machine, by a person, or not at all. The honest limit is unchanged: a screenshot
+harness has no software keyboard.
+
+*On naming.* That implementation is called "the production pipeline this method was
+distilled from" here and nowhere else by any other name, which is the register
+`saunavuoro/harness/README.md` already uses in its section "What the full pipeline has that
+this demo elides". The shape of a mechanism crosses that boundary. Names, repositories,
+paths, figures and cadence dates do not, per
+`~/common/projects/assistant/wiki/environment.md`, "The two sides share insight and never
+share artefacts".
 
 **b. The grid is a better slide than the current guardrail table.** `harness.md` §3 is
 ten rows with no organising principle; it reads as ten war stories, which is honest but
@@ -325,6 +375,34 @@ team of humans mostly gets for free, which is who controls the harness. In a roo
 Thoughtworks-adjacent people, "we added an axis to Chris Ford's grid" is a stronger and
 more defensible claim than any of the resonances.
 
+**Correction, 2026-09-01, examined the same day.** That last claim does not survive being
+held against the grid, and it should not be made in that room. Custody was taken apart in
+`saunavuoro/docs/dtr/custody.md`, section "Is custody a third axis, or is it what the
+crossing requires?", and the answer there is **one axis and a half**.
+
+**Visibility is derived, not additional.** A previous run's output, its failure notes and
+the scoring criteria are all informative feedback about one round, and each becomes a
+corruption of the measurement the moment it becomes feed-forward input to the next.
+Fencing it is therefore not a new dimension. It is the crossing noticing that a signal has
+changed quadrant, which makes `fence.sh` the grid's own boundary condition rather than
+something outside the grid.
+
+**Independence is genuinely additional.** Neither axis can ask who *authored* the verdict.
+A check is normative feedback whether the agent wrote it or somebody else did, and that
+difference is the entire content of `verify.sh:2`, a done claim ratified by a script the
+claimant does not control. Authorship is a fact about provenance, not about the timing or
+the bindingness of a signal, and no crossing of the two axes produces it.
+
+So the line to use is not "we added an axis to Chris Ford's grid". It is: **his two axes,
+plus half of one. Visibility falls out of the crossing once you take leakage seriously;
+independence does not fall out of anything, and a single operator has to construct it,
+because in a team it arrives for free with other people.** That is the smaller claim, and
+in exactly the room this document is aimed at it is the stronger one: a Thoughtworks
+audience will test a new axis against the grid in the ten seconds after the slide goes up,
+and half of ours does not hold. Claiming the half that holds, and naming the half that does
+not and why, survives the question from the floor. The presentable version of this position
+is `docs/ford-overlap.html`, section "One axis and a half, not a third axis".
+
 ### 2. Feed-forward versus feedback: are we unbalanced?
 
 Ford's warning, twice. `[40:33]`: "if you only operate with feedforward, which is
@@ -345,6 +423,11 @@ order, the orient step). Feedback normative is very well served (tests, gate, or
 content probe, checklist). Feed-forward normative is arguably over-served (RED/GREEN,
 spec-lock, scope fence, twelve invariants). Feedback informative is empty. The method
 does not lack signal; it lacks *unjudged* signal.
+
+(**Corrected 2026-09-01:** feedback informative is empty in the implementations that can be
+shown, and was filled and then retired on cost in the production pipeline this method was
+distilled from. See the correction under finding a above. The claim it sits beside is
+unaffected: the shortage is of unjudged signal either way.)
 
 The sharpest evidence for this is in our own record, not in the episode. Kalibra's slice
 01 ran an unattended night under the tightest feedback discipline available, and the
@@ -438,6 +521,19 @@ two-day project that nobody used to be able to justify. Presenting them as *rigo
 makes them sound like discipline the audience does not have time for. Presenting them
 as *things that now cost an afternoon* makes them sound like something to try on
 Monday. Same content, and the second framing is Ford's, and it is better.
+
+**Correction, 2026-09-01: we have one measured case where it does not hold.** The framing
+holds for the mechanisms listed in the paragraph above, and it holds for a reason worth
+naming: every one of them is deterministic, so once it is built, running it again costs a
+script's runtime. It does not hold generally, and our own record is the counter-example.
+The persona-driven exploratory missions described in the correction to finding 1a were
+affordable to build and were retired because they were unaffordable to run every week:
+judging cost several times what generating cost, against a weekly capacity limit that
+cannot be bought through. Ford's argument is about the cost of *building* a thing that might
+help. It says nothing about the cost of *running* it on a cadence, and for a harness that
+asks a model for judgment the running cost is the one that decides. Present both: the build
+barrier really has fallen, and the recurring bill is now the constraint that retires a
+control.
 
 ---
 

@@ -227,7 +227,7 @@
     padding: 3px 8px;
   }
 
-  /* the empty cell carries the finding, and is the only place the rust appears */
+  /* the weakest cell carries the finding, and is the only place the rust appears */
   .cell.gap { background: var(--absent-wash); }
   .cell.gap .cell-name { color: var(--absent); }
   .cell.gap .his { border-left-color: var(--absent); }
@@ -244,6 +244,26 @@
     color: var(--absent);
     margin: 0;
   }
+  /* a claim that has been superseded stays on the page, struck through */
+  .was {
+    display: block;
+    color: var(--faint);
+    font-weight: 500;
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+    margin-bottom: 7px;
+  }
+  .corrected {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--absent);
+    display: block;
+    margin-bottom: 4px;
+  }
+  .note .was { font-family: var(--body); font-size: 16px; }
+  .note .corrected { color: var(--ours); }
 
   /* ---- what falls out ---- */
   .falls {
@@ -315,7 +335,7 @@
       Two crossed distinctions, and the four cells they make. Ford's thesis is that all four
       matter: <q>if you over-index on any subset of harness, you're likely to not get as good
       results</q> <span class="ts">[43:30]</span>. Our own mechanisms are mapped in, which is
-      how we found the cell we have left empty.
+      how we found the cell we do not staff.
     </p>
   </header>
 
@@ -409,8 +429,15 @@
         <div class="ours-label">Ours</div>
         <div class="chips">
           <span class="chip">a person looking at a phone</span>
+          <span class="chip">persona missions, judged separately, retired</span>
         </div>
-        <p class="verdict">This cell is empty, and it is where our defects live.</p>
+        <p class="verdict">
+          <span class="was">This cell is empty, and it is where our defects live.</span>
+          <span class="corrected">Corrected 2026-09-01</span>
+          Empty in everything we can show, and not empty in what was built. This cell was
+          staffed once and retired on cost, so our position here is a loss rather than an
+          absence.
+        </p>
       </div>
     </div>
   </section>
@@ -439,10 +466,26 @@
       <p>Be honest about the limit. The keyboard defect would still be missed, because a
         screenshot harness has no software keyboard. A sensor closes some of the gap and not
         all of it.</p>
-      <h2 style="margin-top:14px">A third axis, ours</h2>
-      <p>Two of our mechanisms have no cell at all. The fence <strong>removes</strong>
-        feed-forward context; the holdback <strong>hides</strong> a check. Both are about
-        custody rather than content: who may see the harness, and who may write it.</p>
+      <p><span class="corrected">Corrected 2026-09-01</span>
+        The job is not to invent this step, it is to rebuild it <strong>inside a cost
+        envelope</strong>. The production pipeline this method was distilled from ran it:
+        an agent given a plain-language user goal, driving the real interface through a
+        browser toolbelt, recording a journey log and screenshots, with the result assessed
+        by a <strong>separate judging pass</strong>. It was retired on measured cost rather
+        than on principle, judging costing several times what generating cost against a
+        weekly capacity limit that cannot be bought through. So the open question is what
+        share of a cycle's budget perception may take, and what gets judged by machine, by a
+        person, or not at all.</p>
+      <h2 style="margin-top:14px">One axis and a half, not a third axis</h2>
+      <p><span class="was">Two of our mechanisms have no cell at all, so custody is a third
+        axis that is ours.</span>
+        The fence <strong>removes</strong> feed-forward context and the holdback
+        <strong>hides</strong> a check, and both are about custody rather than content. But
+        only half of custody is a new dimension. <strong>Visibility is derived:</strong> a
+        previous run's output is feedback about one round that becomes feed-forward input to
+        the next, so fencing it is the crossing noticing that a signal changed quadrant.
+        <strong>Independence is additional:</strong> neither axis can ask who authored the
+        verdict, which is provenance, not the timing or the bindingness of a signal.</p>
     </div>
   </section>
 
@@ -458,8 +501,8 @@
       <div class="misfit"><code>score.py, scoreboard.py</code>
         <span>Feedback, but not to the agent. It feeds the operator, over weeks.</span></div>
       <div class="misfit"><code>reality audit</code>
-        <span>Informative feedback where a human supplies the judgment, which is the empty
-          cell staffed by a person.</span></div>
+        <span>Informative feedback where a human supplies the judgment, which is this cell
+          staffed by a person rather than by a harness.</span></div>
       <div class="misfit"><code>verify.sh</code>
         <span>Feedback and normative, but not a loop signal: the agent cannot iterate against
           a gate it does not control.</span></div>
@@ -474,6 +517,21 @@
       ours, for the sake of having something to point at. Garner calls the informative
       feedback cell <q>sensors</q> <span class="ts">[39:17]</span>, which is not established
       as Ford's own term.</p>
+    <p>Corrected on 2026-09-01. This page first said the informative-feedback cell was
+      simply empty and that custody was a third axis of our own. The struck-through
+      sentences above are what it said. Both claims were cut back that day: the cell was
+      filled once and retired on cost, and custody is one axis and a half. The argument is
+      in <code>docs/juxtcast-agentic-engineering-at-scale.md</code>, findings a and c under
+      <q>What deepens it</q>, and in <code>saunavuoro/docs/dtr/custody.md</code>.</p>
+    <p>One consequence worth carrying: it cuts against Ford's economics argument at
+      <span class="ts">[37:18]</span>, that the two-day improvement nobody could justify now
+      costs an afternoon. Our one measured case says this improvement was affordable to
+      build and unaffordable to run every week. The build barrier fell; the recurring bill
+      is what retired the control.</p>
+    <p>The fullest implementation is referred to only as <q>the production pipeline this
+      method was distilled from</q>, which is the register its own distillation uses. It is
+      not ours to show: the shape of a mechanism crosses that boundary, and names, paths,
+      figures and cadence dates do not.</p>
   </footer>
 
 </div>
