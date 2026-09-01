@@ -1,0 +1,736 @@
+<title>The Ford Overlap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+  :root {
+    --ground:   #EFF2F3;
+    --surface:  #FFFFFF;
+    --sunken:   #E4E9EB;
+    --ink:      #16202A;
+    --muted:    #5F7280;
+    --faint:    #8496A1;
+    --rule:     #D2DADE;
+    --ours:     #0F6D7A;
+    --ours-fill: rgba(15, 109, 122, 0.13);
+    --his:      #6A4C93;
+    --his-fill: rgba(106, 76, 147, 0.13);
+    --shared:   #2C5F6B;
+    --clash:    #A8452B;
+    --clash-wash: #F6E7E2;
+
+    --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --body:    "Source Serif 4", Georgia, "Times New Roman", serif;
+    --mono:    "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #10171C;
+      --surface:  #172128;
+      --sunken:   #0C1216;
+      --ink:      #E6EDF0;
+      --muted:    #9BAEB8;
+      --faint:    #6E828D;
+      --rule:     #2A3841;
+      --ours:     #5FC4D0;
+      --ours-fill: rgba(95, 196, 208, 0.15);
+      --his:      #B39BDC;
+      --his-fill: rgba(179, 155, 220, 0.15);
+      --shared:   #8FD4DE;
+      --clash:    #E08767;
+      --clash-wash: #33201A;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:   #10171C;
+    --surface:  #172128;
+    --sunken:   #0C1216;
+    --ink:      #E6EDF0;
+    --muted:    #9BAEB8;
+    --faint:    #6E828D;
+    --rule:     #2A3841;
+    --ours:     #5FC4D0;
+    --ours-fill: rgba(95, 196, 208, 0.15);
+    --his:      #B39BDC;
+    --his-fill: rgba(179, 155, 220, 0.15);
+    --shared:   #8FD4DE;
+    --clash:    #E08767;
+    --clash-wash: #33201A;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.55;
+  }
+
+  .page {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 56px 28px 96px;
+    display: flex;
+    flex-direction: column;
+    gap: 48px;
+  }
+
+  header { display: flex; flex-direction: column; gap: 14px; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(30px, 5vw, 46px);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .standfirst {
+    margin: 0;
+    max-width: 62ch;
+    font-size: 19px;
+    color: var(--muted);
+  }
+  .standfirst strong { color: var(--ink); font-weight: 600; }
+
+  figure { margin: 0; display: flex; flex-direction: column; gap: 14px; }
+  .figwrap { overflow-x: auto; }
+  svg { display: block; width: 100%; height: auto; min-width: 820px; }
+
+  svg .mk { font-family: var(--mono); font-size: 12.5px; letter-spacing: 6px; }
+  svg .on  { fill: var(--ink);   font-weight: 500; }
+  svg .off { fill: var(--faint); }
+
+  figcaption {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--faint);
+    max-width: 78ch;
+  }
+
+  .cols {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    align-items: start;
+    gap: 26px;
+  }
+
+  .col {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 22px 22px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .col.his    { border-top: 3px solid var(--his); }
+  .col.shared { border-top: 3px solid var(--shared); }
+  .col.ours   { border-top: 3px solid var(--ours); }
+
+  .col h2 {
+    font-family: var(--display);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0;
+  }
+  .col.his h2    { color: var(--his); }
+  .col.shared h2 { color: var(--shared); }
+  .col.ours h2   { color: var(--ours); }
+
+  .col h3 {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin: 4px 0 -4px;
+    padding-top: 6px;
+    border-top: 1px solid var(--rule);
+  }
+
+  .col > p.lede { margin: 0; font-size: 15.5px; color: var(--muted); }
+
+  dl { margin: 0; display: flex; flex-direction: column; gap: 13px; }
+  dt {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 15.5px;
+    line-height: 1.3;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 10px;
+  }
+  dd { margin: 3px 0 0; font-size: 15.5px; color: var(--muted); }
+
+  .mk {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.34em;
+    white-space: nowrap;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 1px 2px 1px 7px;
+  }
+  .mk .on  { color: var(--ink); font-weight: 500; }
+  .mk .off { color: var(--faint); }
+
+  .ts {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--faint);
+    white-space: nowrap;
+  }
+
+  .key {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 24px 26px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .key h2 {
+    font-family: var(--display);
+    font-size: 21px;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .key > p { margin: 0; max-width: 74ch; }
+
+  .impls {
+    max-width: 94ch;
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 14px 18px;
+    align-items: baseline;
+  }
+  .impls dt {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ours);
+    letter-spacing: 0.02em;
+    display: block;
+  }
+  .impls dd { margin: 0; color: var(--muted); }
+  .impls dd b { color: var(--ink); font-weight: 600; }
+
+  .note {
+    background: var(--sunken);
+    border-left: 3px solid var(--ours);
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .note h2 {
+    font-family: var(--display);
+    font-size: 19px;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .note p { margin: 0; max-width: 70ch; }
+
+  .clash {
+    background: var(--clash-wash);
+    border: 1px solid var(--clash);
+    border-radius: 3px;
+    padding: 24px 26px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .clash h2 {
+    font-family: var(--display);
+    font-size: 21px;
+    margin: 0;
+    color: var(--clash);
+    letter-spacing: -0.01em;
+  }
+  .clash > p { margin: 0; max-width: 70ch; color: var(--ink); }
+
+  .tablewrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 15.5px; }
+  th, td { text-align: left; vertical-align: top; padding: 11px 14px 11px 0; }
+  thead th {
+    font-family: var(--display);
+    font-size: 12px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--clash);
+    border-bottom: 1px solid var(--clash);
+    white-space: nowrap;
+  }
+  tbody tr + tr td { border-top: 1px solid var(--rule); }
+  tbody td:first-child { font-family: var(--display); font-weight: 600; width: 30%; }
+
+  code { font-family: var(--mono); font-size: 0.88em; }
+  q { font-style: italic; }
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--faint);
+    line-height: 1.7;
+  }
+</style>
+
+<div class="page">
+
+  <header>
+    <div class="eyebrow">JUXTCast, Chris Ford, What Coding Agents Still Need From Us</div>
+    <h1>The Ford overlap</h1>
+    <p class="standfirst">
+      Two accounts of working with coding agents, written without knowledge of each other.
+      One comes from consulting at scale, on other people's legacy systems. One comes from a
+      single operator, and exists in four implementations of the same method at different
+      levels of completeness, only one of which is public. <strong>The interesting part is not
+      that they agree. It is which things each side had to build that the other never needed,
+      and how much of ours a reader can actually go and look at.</strong>
+    </p>
+  </header>
+
+  <figure>
+    <div class="figwrap">
+      <svg viewBox="0 0 1260 940" role="img"
+           aria-label="A Venn diagram with an oversized right lobe. The left circle, his account, holds five items: harnesses shared across a team, socialised not just shared, custody named as four quadrants, guardrails have a shelf life, and two days becomes an afternoon. The overlap holds six items arrived at independently: decision records, guides as context, elicitation by interaction, marking its own homework, tools the model writes, and plural multimodal specs. The right circle, our method, holds twelve items in two groups. Seven are present in every implementation: the destructive cut, a fence proven on the graph, ids that outlive the wording, honest denominators, a seeded holdback, an instrument rather than a harness, and docs that name no stack. Five exist only in the fuller implementations: a probe only the app can pass, an independent oracle, unattended rounds on a clock, contracts compiled from docs, and one spec built in three stacks. Each right-hand item carries a four-slot mark, L S K P, showing which implementations have it. A line below the diagram notes that five positions actively conflict and a Venn cannot hold a contradiction.">
+
+        <circle cx="440" cy="470" r="310" fill="var(--his-fill)"  stroke="var(--his)"  stroke-width="1.5"/>
+        <circle cx="800" cy="470" r="390" fill="var(--ours-fill)" stroke="var(--ours)" stroke-width="1.5"/>
+
+        <text x="270" y="44" font-family="Archivo, sans-serif" font-size="18" font-weight="700"
+              fill="var(--his)" letter-spacing="1.4" text-anchor="middle">HIS ONLY</text>
+        <text x="580" y="44" font-family="Archivo, sans-serif" font-size="18" font-weight="700"
+              fill="var(--shared)" letter-spacing="1.4" text-anchor="middle">BOTH</text>
+        <text x="968" y="44" font-family="Archivo, sans-serif" font-size="18" font-weight="700"
+              fill="var(--ours)" letter-spacing="1.4" text-anchor="middle">OURS ONLY</text>
+
+        <text x="270" y="66" font-family="IBM Plex Mono, monospace" font-size="12"
+              fill="var(--faint)" text-anchor="middle">what scale needs</text>
+        <text x="580" y="66" font-family="IBM Plex Mono, monospace" font-size="12"
+              fill="var(--faint)" text-anchor="middle">arrived at twice</text>
+        <text x="968" y="66" font-family="IBM Plex Mono, monospace" font-size="12"
+              fill="var(--faint)" text-anchor="middle">what one operator has to construct</text>
+
+        <g font-family="Archivo, sans-serif" font-size="16" fill="var(--ink)" text-anchor="middle">
+          <text x="270" y="402">Harnesses shared by a team</text>
+          <text x="270" y="436">Socialised, not just shared</text>
+          <text x="270" y="470">Custody as four quadrants</text>
+          <text x="270" y="504">Guardrails have a shelf life</text>
+          <text x="270" y="538">Two days becomes an afternoon</text>
+
+          <text x="580" y="385">Decision records</text>
+          <text x="580" y="419">Guides as context</text>
+          <text x="580" y="453">Elicitation by interaction</text>
+          <text x="580" y="487">Marking its own homework</text>
+          <text x="580" y="521">Tools the model writes</text>
+          <text x="580" y="555">Plural, multimodal specs</text>
+        </g>
+
+        <text x="806" y="272" font-family="IBM Plex Mono, monospace" font-size="11.5"
+              fill="var(--faint)" letter-spacing="0.9">in every implementation</text>
+
+        <g font-family="Archivo, sans-serif" font-size="15" fill="var(--ink)" text-anchor="start">
+          <text x="806" y="294">The destructive cut</text>
+          <text x="806" y="324">A fence, proven on the graph</text>
+          <text x="806" y="354">Ids that outlive the wording</text>
+          <text x="806" y="384">Honest denominators</text>
+          <text x="806" y="414">A seeded holdback</text>
+          <text x="806" y="444">An instrument, not a harness</text>
+          <text x="806" y="474">Docs that name no stack</text>
+        </g>
+
+        <g class="mk" text-anchor="end">
+          <text x="1130" y="294"><tspan class="on">LSKP</tspan></text>
+          <text x="1130" y="324"><tspan class="on">LSKP</tspan></text>
+          <text x="1130" y="354"><tspan class="on">LSKP</tspan></text>
+          <text x="1130" y="384"><tspan class="on">LSKP</tspan></text>
+          <text x="1130" y="414"><tspan class="on">LSKP</tspan></text>
+          <text x="1130" y="444"><tspan class="on">LSKP</tspan></text>
+          <text x="1130" y="474"><tspan class="on">LSKP</tspan></text>
+        </g>
+
+        <line x1="806" y1="496" x2="1130" y2="496" stroke="var(--ours)" stroke-width="1"
+              stroke-dasharray="3 4" opacity="0.7"/>
+        <text x="806" y="516" font-family="IBM Plex Mono, monospace" font-size="11.5"
+              fill="var(--faint)" letter-spacing="0.9">only in the fuller ones</text>
+
+        <g font-family="Archivo, sans-serif" font-size="15" fill="var(--ink)" text-anchor="start">
+          <text x="806" y="538">A probe only the app can pass</text>
+          <text x="806" y="568">An independent oracle</text>
+          <text x="806" y="598">Unattended rounds, on a clock</text>
+          <text x="806" y="628">Contracts compiled from docs</text>
+          <text x="806" y="658">One spec, three stacks</text>
+        </g>
+
+        <g class="mk" text-anchor="end">
+          <text x="1130" y="538"><tspan class="off">··</tspan><tspan class="on">K</tspan><tspan class="off">·</tspan></text>
+          <text x="1130" y="568"><tspan class="off">··</tspan><tspan class="on">KP</tspan></text>
+          <text x="1130" y="598"><tspan class="off">···</tspan><tspan class="on">P</tspan></text>
+          <text x="1130" y="628"><tspan class="off">···</tspan><tspan class="on">P</tspan></text>
+          <text x="1130" y="658"><tspan class="off">···</tspan><tspan class="on">P</tspan></text>
+        </g>
+
+        <text x="806" y="702" font-family="IBM Plex Mono, monospace" font-size="12"
+              fill="var(--faint)" letter-spacing="0.5">twelve, and five of them not on show</text>
+
+        <line x1="580" y1="880" x2="580" y2="902" stroke="var(--clash)" stroke-width="1.5"/>
+        <text x="580" y="924" font-family="IBM Plex Mono, monospace" font-size="12.5"
+              fill="var(--clash)" text-anchor="middle">five positions actively conflict, and a Venn cannot hold a contradiction</text>
+      </svg>
+    </div>
+    <figcaption>
+      The overlap was not borrowed in either direction. Neither party had read the other when
+      these were written, which is what makes the six shared items worth more than the
+      twenty-two others: they are the parts two independent attempts both had to invent. The
+      right lobe is drawn larger because it holds more, not because it is worth more, and the
+      four-slot mark on each of its items says which implementations actually carry it.
+    </figcaption>
+  </figure>
+
+  <section class="key">
+    <h2>Four implementations, and which of them you can inspect</h2>
+    <p>
+      The right-hand column is the method as built, not the method as described, so every item
+      in it carries the same four-slot mark. The slots are always in the same order and a slot
+      is either its letter (present) or a dot (absent), so <span class="mk"><span
+      class="off">..</span><span class="on">KP</span></span> reads as the third and fourth
+      only. Position carries the meaning, not colour, which is what makes it survive a theme
+      switch and a photocopier.
+    </p>
+    <dl class="impls">
+      <dt>L</dt>
+      <dd><b>Löyly</b>, the public demonstration, deliberately minimal: one slice, one domain,
+        the whole machinery small enough to read in an evening. <b>This is the one you can go
+        and look at</b> (<code>github.com/skallinen/loyly</code>), and it is the reason the
+        marks exist, because seven of the twelve are in it and five are not.</dd>
+      <dt>S</dt>
+      <dd><b>Saunavuoro</b>, the same shape against a real corpus of transcribed cooperative
+        mail, with a working harness directory and five method pages written against it.
+        A private company repository.</dd>
+      <dt>K</dt>
+      <dd><b>Kalibra</b>, a calibration trainer whose core is arithmetic, which is what bought
+        it the oracle and the first reality audit anyone here has actually run. Private.</dd>
+      <dt>P</dt>
+      <dd><b>The production pipeline</b>, the fullest version: it regenerates an entire
+        application from its specification every week, unsupervised, and scores the result.
+        It is not ours to show. Nothing of it appears on this page except the mechanisms,
+        which is the same register its own distillation uses.</dd>
+    </dl>
+    <p>
+      The marks cut both ways, and the sibling grid page counts the cost. The cell Ford calls
+      informative feedback, giving the agent eyes, is filled in two implementations of the four:
+      a reality audit driving the real interface has been run in the trainer and in the
+      production pipeline, and never in either sauna repository. Every finding on record in
+      those two was found by reading a document.
+    </p>
+  </section>
+
+  <div class="cols">
+
+    <section class="col his">
+      <h2>His only</h2>
+      <p class="lede">Everything here follows from having colleagues, clients and a codebase
+        older than the method. We have none of those.</p>
+      <dl>
+        <div>
+          <dt>Harnesses shared by a team</dt>
+          <dd>An organisation packages a harness so others can make new checks with it, rather
+            than each person rebuilding one. <span class="ts">[38:13]</span></dd>
+        </div>
+        <div>
+          <dt>Socialised, not just shared</dt>
+          <dd>Shipping the artefact is not enough: it has to be accompanied by explaining to
+            people why they should care. A single operator never notices this cost.
+            <span class="ts">[38:41]</span></dd>
+        </div>
+        <div>
+          <dt>Custody as four quadrants</dt>
+          <dd>Is the code durable, is the spec durable, and has the team agreed which one it
+            is looking after. He gives the vocabulary for the position we occupy and had never
+            named in one sentence. <span class="ts">[29:50]</span></dd>
+        </div>
+        <div>
+          <dt>Guardrails have a shelf life</dt>
+          <dd>A normative harness written for today's model may be dead weight against a better
+            one. Nothing in any of our four implementations has an expiry date on it, and it
+            should. <span class="ts">[43:48]</span></dd>
+        </div>
+        <div>
+          <dt>Two days becomes an afternoon</dt>
+          <dd>The barrier was never knowing what would help, it was the two days you could not
+            justify to a sprint. This reframes our whole instrument from rigour, which sounds
+            like discipline nobody has time for, into something to try on Monday.
+            <span class="ts">[37:18]</span></dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="col shared">
+      <h2>Both</h2>
+      <p class="lede">Six mechanisms two independent attempts both arrived at. Convergence is
+        the evidence here, not agreement.</p>
+      <dl>
+        <div>
+          <dt>Decision records</dt>
+          <dd>A record exists to keep the branch that was not taken, so a later reader can see
+            what was pruned and why. Our decision logs and his answer the same need.</dd>
+        </div>
+        <div>
+          <dt>Guides as context</dt>
+          <dd>A map of the domain handed to the agent before it writes anything. His guides,
+            our wiki and contexts. Same cell of his own grid.</dd>
+        </div>
+        <div>
+          <dt>Elicitation by interaction</dt>
+          <dd>He objects to making an expert review generated markdown, on the grounds that it
+            is not what you would do for a new colleague. Our workshop ran recorded rounds with
+            the room and merged the transcripts, without having heard the objection.</dd>
+        </div>
+        <div>
+          <dt>Marking its own homework</dt>
+          <dd>A check the agent can iterate against, inside the loop. He means it approvingly.
+            We say <q>done is ratified, never self-asserted</q>, which is the same mechanism
+            with the opposite rhetoric.</dd>
+        </div>
+        <div>
+          <dt>Tools the model writes</dt>
+          <dd>Have the model build a deterministic tool, then run the tool without the model.
+            The checklist generator, the id stamper and the scoreboard are exactly this, and
+            all three are in every implementation.</dd>
+        </div>
+        <div>
+          <dt>Plural, multimodal specs</dt>
+          <dd>Prose, scenarios, statecharts and a hand-worked fixture, so different people can
+            describe what they want in the form that suits them. We had four modalities and had
+            never said so.</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="col ours">
+      <h2>Ours only</h2>
+      <p class="lede">Everything here answers a question he does not have to ask: how does one
+        person, who both writes the spec and grades it, avoid grading themselves. Seven of the
+        twelve are in every implementation. Five are not, and the marks say which.</p>
+
+      <h3>In every implementation</h3>
+      <dl>
+        <div>
+          <dt>The destructive cut <span class="mk"><span class="on">LSKP</span></span></dt>
+          <dd>An observation not written into the spec by the deadline dies with the
+            implementation, on purpose, because the code cannot carry it forward. Nothing in
+            the episode destroys anything deliberately. It runs weekly only in the production
+            pipeline; in the other three it is demonstrated rather than lived.</dd>
+        </div>
+        <div>
+          <dt>A fence, proven on the graph <span class="mk"><span class="on">LSKP</span></span></dt>
+          <dd>The clean room is physical: the prior implementation and every measurement are
+            deleted from the working tree and from the object graph, and the probe checks the
+            graph rather than the tree, because a weaker probe once passed while last week's
+            answer was still readable one commit back. It asserts the property, not the
+            procedure believed to imply it.</dd>
+        </div>
+        <div>
+          <dt>Ids that outlive the wording <span class="mk"><span class="on">LSKP</span></span></dt>
+          <dd>Every scenario carries an id stamped once and never derived from its own words,
+            so an editorial pass over the spec cannot silently reset a week-over-week
+            comparison.</dd>
+        </div>
+        <div>
+          <dt>Honest denominators <span class="mk"><span class="on">LSKP</span></span></dt>
+          <dd>Zero verdicts is a grading run that did not happen, not a score of zero, and an item the grader
+            never reached is filed as a failure, so a gap can never quietly shrink the
+            denominator. A moved denominator is restated out loud. Both rules were bought:
+            a scoring run whose every batch failed on an outage once committed <q>scored</q>
+            over an empty record.</dd>
+        </div>
+        <div>
+          <dt>A seeded holdback <span class="mk"><span class="on">LSKP</span></span></dt>
+          <dd>A quarter of the checklist is scored and never listed, membership computed from a
+            seeded hash at report time, and the gap between the visible rate and the held-back
+            one is the alarm for fitting the spec to the checklist. This is the mechanism with
+            no counterpart anywhere in the episode. It is also weaker than it sounds: not
+            materialised is not the same as not computable, and the seed and the hash both
+            survive the fence, so inside the clean room the held-back set can be enumerated in
+            one command. That hole is written up rather than fixed.</dd>
+        </div>
+        <div>
+          <dt>An instrument, not a harness <span class="mk"><span class="on">LSKP</span></span></dt>
+          <dd>His definition of a feedback harness is one that reports back into generation. Our
+            most valuable measurement never reaches the agent at all: it reports to the operator,
+            once a cycle. By his definition it is not a harness, and keeping the two words apart
+            is worth doing. The machinery is installed in all four, and only the production
+            pipeline has ever produced a scored cycle from it.</dd>
+        </div>
+        <div>
+          <dt>Docs that name no stack <span class="mk"><span class="on">LSKP</span></span></dt>
+          <dd>No language, framework or database appears anywhere in the specification, ever,
+            and the harness's entire contract with an implementation is two executables: run
+            the suite, serve the app. A small rule, and it is what buys the last item in this
+            column.</dd>
+        </div>
+      </dl>
+
+      <h3>Only in the fuller ones</h3>
+      <dl>
+        <div>
+          <dt>A probe only the app can pass <span class="mk"><span class="off">··</span><span class="on">K</span><span class="off">·</span></span></dt>
+          <dd>A gate once ratified a build that was serving the framework's starter template:
+            three suites green, the port answering, the page correctly titled. A name is carried
+            by templates, error pages and placeholders; the vocabulary a product is specified in
+            is not. The probe now reads the compiled artefact and requires the product's own
+            domain words, and it was proved against a stub that had the name and none of
+            them.</dd>
+        </div>
+        <div>
+          <dt>An independent oracle <span class="mk"><span class="off">··</span><span class="on">KP</span></span></dt>
+          <dd>A third implementation of the core arithmetic, written from the prose rather than
+            from any running system, because two tracks agreeing proves only that they agree.
+            It carries a precedence rule fixed in advance, so nobody decides under pressure
+            which of the spec and the oracle is the bug. The two sauna repositories have
+            nothing of the kind, and one of them says so in writing.</dd>
+        </div>
+        <div>
+          <dt>Unattended rounds, on a clock <span class="mk"><span class="off">···</span><span class="on">P</span></span></dt>
+          <dd>The loop runs itself: rounds against a deadline, the gate run from outside after
+            each one rather than by the agent reporting its own result, a backoff when a limit
+            is real, and a ledger and a live stream so an unattended night is still observable.
+            Each cycle ends deployed, with a record of what was decided. The other three are
+            driven by a person deciding when to stop.</dd>
+        </div>
+        <div>
+          <dt>Contracts compiled from docs <span class="mk"><span class="off">···</span><span class="on">P</span></span></dt>
+          <dd>A generator walks the specification and emits the machine-readable contracts, and
+            the build regenerates them, so the document and the contract cannot disagree:
+            one is computed from the other. The demonstrations hold the same rule by discipline
+            alone, which is a weaker thing.</dd>
+        </div>
+        <div>
+          <dt>One spec, three stacks <span class="mk"><span class="off">···</span><span class="on">P</span></span></dt>
+          <dd>The same specification built three times with the instrument held still, so the
+            stack is the only variable. Portability stops being a claim and becomes a number.
+            It is the item a reader is most likely to assume the public demonstration can show,
+            and it cannot: one implementation has ever run it, and it is the one nobody outside
+            can see.</dd>
+        </div>
+      </dl>
+    </section>
+
+  </div>
+
+  <section class="note">
+    <h2>One axis and a half, not a third axis</h2>
+    <p>
+      The tempting claim is that we added an axis to his grid: he classifies a harness by what
+      it <em>says</em>, and half our mechanisms are about <em>custody</em>, who may see the
+      harness and who may write it. That claim is half right, and the honest version is
+      stronger for being smaller.
+    </p>
+    <p>
+      <strong>Visibility is derived, not additional.</strong> A previous run's output, or the
+      scoring criteria, is feedback about one round that becomes feed-forward input to the next.
+      Fencing it is not a new dimension, it is the crossing noticing that a signal moved
+      quadrant. <strong>Independence is genuinely additional.</strong> Neither axis can ask who
+      authored the verdict, and that is a question about provenance rather than about the timing
+      or the bindingness of a signal. A gate the claimant does not control differs from one they
+      wrote in no way either axis can express.
+    </p>
+    <p>
+      So: one axis and a half. It is a smaller claim than the one we wanted to make, and unlike
+      the larger one it survives contact with the grid. It also explains why the column above is
+      the length it is. In a team, independence arrives for free with other people: somebody else
+      wrote the check, somebody else reads the report, somebody else does not know which cases
+      you skipped. One operator working with agents gets none of that, and an agent is not a
+      second person, so the independence has to be constructed piece by piece. That construction
+      is most of what the fuller implementations have and the smaller ones do not.
+    </p>
+  </section>
+
+  <section class="clash">
+    <h2>Where the two actively conflict</h2>
+    <p>
+      These are not regions of a Venn. Each is a place where his recommendation and our practice
+      point in opposite directions, and a diagram that folded them into <q>his only</q> would be
+      hiding the interesting part.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Subject</th><th>His position</th><th>Ours</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Spec-lock</td>
+            <td>The agent should be able to update the specification as it learns.</td>
+            <td>Edits to the spec during a build round are reverted, in all four. Specs change
+              in planning rounds, on purpose.</td>
+          </tr>
+          <tr>
+            <td>Rebuild from spec</td>
+            <td>Sceptical of Phoenix architecture, regenerating a system from its description.</td>
+            <td>In the production pipeline it is the main loop, weekly and unsupervised. In the
+              other three it is a demonstrated step rather than a lived cadence, which is a
+              distinction the argument has to keep. And our own instrument gives him partial
+              support, which is worth saying out loud.</td>
+          </tr>
+          <tr>
+            <td>Greenfield</td>
+            <td>Demonstrations on new code mislead people about what the method costs on legacy
+              systems.</td>
+            <td>Three of the four are greenfield. The fourth is a real system with real users,
+              but it was built under this method from its first commit, so it is not the legacy
+              case either. The objection lands and we have no answer from evidence.</td>
+          </tr>
+          <tr>
+            <td>Markdown</td>
+            <td>Piling up generated markdown scales worse than it looks, and asking an expert to
+              read it is not respectful of their time.</td>
+            <td>The method is markdown most of the way down.</td>
+          </tr>
+          <tr>
+            <td>Quality is optional</td>
+            <td>Some software does not warrant this care, and saying so is honest.</td>
+            <td>Cuts against the implicit pitch of any method presentation, including ours.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    Sources: the episode transcript is auto-generated captions, so timestamps locate a claim and
+    nothing here is presented as a verbatim quotation of the speaker. Full mapping with 107 cited
+    timestamps: <code>docs/juxtcast-agentic-engineering-at-scale.md</code>. The four-cell version
+    of his taxonomy, and the count of which cell is empty:
+    <code>docs/harness-grid.html</code>. The machinery and the incidents behind each rule:
+    <code>harness/README.md</code> here, and its fuller sibling in <code>saunavuoro/</code>. The
+    custody reading and the hole in our own fence: <code>saunavuoro/docs/dtr/custody.md</code>.
+    The oracle and the audit that only looking could produce: <code>kalibra/harness/README.md</code>.
+    The production pipeline is described only through mechanisms distilled from it, exactly as
+    <code>saunavuoro/harness/README.md</code> describes it: names, stacks and plumbing are
+    deliberately absent, here and there.
+  </footer>
+
+</div>
