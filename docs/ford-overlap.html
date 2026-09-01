@@ -192,6 +192,13 @@
   }
   .mk .on  { color: var(--ink); font-weight: 500; }
   .mk .off { color: var(--faint); }
+  /* a slot that was filled and is no longer run: same ink, lowercase letter. No strike,
+     because the trailing letter-space gets decorated too and the rule reads as a dash. */
+  .mk .ret, svg .ret {
+    color: var(--ink);
+    fill: var(--ink);
+    font-weight: 500;
+  }
 
   .ts {
     font-family: var(--mono);
@@ -307,14 +314,16 @@
       single operator, and exists in four implementations of the same method at different
       levels of completeness, only one of which is public. <strong>The interesting part is not
       that they agree. It is which things each side had to build that the other never needed,
-      and how much of ours a reader can actually go and look at.</strong>
+      and how much of ours a reader can actually go and look at.</strong> The right-hand
+      column is a record of what has been built, not a status board: one of its items ran for
+      a while and was retired on cost, and the marks say so.
     </p>
   </header>
 
   <figure>
     <div class="figwrap">
       <svg viewBox="0 0 1260 940" role="img"
-           aria-label="A Venn diagram with an oversized right lobe. The left circle, his account, holds five items: harnesses shared across a team, socialised not just shared, custody named as four quadrants, guardrails have a shelf life, and two days becomes an afternoon. The overlap holds six items arrived at independently: decision records, guides as context, elicitation by interaction, marking its own homework, tools the model writes, and plural multimodal specs. The right circle, our method, holds twelve items in two groups. Seven are present in every implementation: the destructive cut, a fence proven on the graph, ids that outlive the wording, honest denominators, a seeded holdback, an instrument rather than a harness, and docs that name no stack. Five exist only in the fuller implementations: a probe only the app can pass, an independent oracle, unattended rounds on a clock, contracts compiled from docs, and one spec built in three stacks. Each right-hand item carries a four-slot mark, L S K P, showing which implementations have it. A line below the diagram notes that five positions actively conflict and a Venn cannot hold a contradiction.">
+           aria-label="A Venn diagram with an oversized right lobe. The left circle, his account, holds five items: harnesses shared across a team, socialised not just shared, custody named as four quadrants, guardrails have a shelf life, and two days becomes an afternoon. The overlap holds six items arrived at independently: decision records, guides as context, elicitation by interaction, marking its own homework, tools the model writes, and plural multimodal specs. The right circle, our method, holds thirteen items in two groups. Seven are present in every implementation: the destructive cut, a fence proven on the graph, ids that outlive the wording, honest denominators, a seeded holdback, an instrument rather than a harness, and docs that name no stack. Six exist only in the fuller implementations: a probe only the app can pass, an independent oracle, unattended rounds on a clock, contracts compiled from docs, one spec built in three stacks, and a perception pass that was built and then retired. Each right-hand item carries a four-slot mark, L S K P, showing which implementations have it, with a lowercase letter for one that was built in an implementation and is no longer run there. A line below the diagram notes that five positions actively conflict and a Venn cannot hold a contradiction.">
 
         <circle cx="440" cy="470" r="310" fill="var(--his-fill)"  stroke="var(--his)"  stroke-width="1.5"/>
         <circle cx="800" cy="470" r="390" fill="var(--ours-fill)" stroke="var(--ours)" stroke-width="1.5"/>
@@ -362,38 +371,40 @@
         </g>
 
         <g class="mk" text-anchor="end">
-          <text x="1130" y="294"><tspan class="on">LSKP</tspan></text>
-          <text x="1130" y="324"><tspan class="on">LSKP</tspan></text>
-          <text x="1130" y="354"><tspan class="on">LSKP</tspan></text>
-          <text x="1130" y="384"><tspan class="on">LSKP</tspan></text>
-          <text x="1130" y="414"><tspan class="on">LSKP</tspan></text>
-          <text x="1130" y="444"><tspan class="on">LSKP</tspan></text>
-          <text x="1130" y="474"><tspan class="on">LSKP</tspan></text>
+          <text x="1118" y="294"><tspan class="on">LSKP</tspan></text>
+          <text x="1118" y="324"><tspan class="on">LSKP</tspan></text>
+          <text x="1118" y="354"><tspan class="on">LSKP</tspan></text>
+          <text x="1118" y="384"><tspan class="on">LSKP</tspan></text>
+          <text x="1118" y="414"><tspan class="on">LSKP</tspan></text>
+          <text x="1118" y="444"><tspan class="on">LSKP</tspan></text>
+          <text x="1118" y="474"><tspan class="on">LSKP</tspan></text>
         </g>
 
-        <line x1="806" y1="496" x2="1130" y2="496" stroke="var(--ours)" stroke-width="1"
+        <line x1="806" y1="494" x2="1118" y2="494" stroke="var(--ours)" stroke-width="1"
               stroke-dasharray="3 4" opacity="0.7"/>
-        <text x="806" y="516" font-family="IBM Plex Mono, monospace" font-size="11.5"
+        <text x="806" y="514" font-family="IBM Plex Mono, monospace" font-size="11.5"
               fill="var(--faint)" letter-spacing="0.9">only in the fuller ones</text>
 
         <g font-family="Archivo, sans-serif" font-size="15" fill="var(--ink)" text-anchor="start">
-          <text x="806" y="538">A probe only the app can pass</text>
-          <text x="806" y="568">An independent oracle</text>
-          <text x="806" y="598">Unattended rounds, on a clock</text>
-          <text x="806" y="628">Contracts compiled from docs</text>
-          <text x="806" y="658">One spec, three stacks</text>
+          <text x="806" y="534">A probe only the app can pass</text>
+          <text x="806" y="562">An independent oracle</text>
+          <text x="806" y="590">Unattended rounds, on a clock</text>
+          <text x="806" y="618">Contracts compiled from docs</text>
+          <text x="806" y="646">One spec, three stacks</text>
+          <text x="806" y="674">A perception pass, since retired</text>
         </g>
 
         <g class="mk" text-anchor="end">
-          <text x="1130" y="538"><tspan class="off">··</tspan><tspan class="on">K</tspan><tspan class="off">·</tspan></text>
-          <text x="1130" y="568"><tspan class="off">··</tspan><tspan class="on">KP</tspan></text>
-          <text x="1130" y="598"><tspan class="off">···</tspan><tspan class="on">P</tspan></text>
-          <text x="1130" y="628"><tspan class="off">···</tspan><tspan class="on">P</tspan></text>
-          <text x="1130" y="658"><tspan class="off">···</tspan><tspan class="on">P</tspan></text>
+          <text x="1118" y="534"><tspan class="off">··</tspan><tspan class="on">K</tspan><tspan class="off">·</tspan></text>
+          <text x="1118" y="562"><tspan class="off">··</tspan><tspan class="on">KP</tspan></text>
+          <text x="1118" y="590"><tspan class="off">···</tspan><tspan class="on">P</tspan></text>
+          <text x="1118" y="618"><tspan class="off">···</tspan><tspan class="on">P</tspan></text>
+          <text x="1118" y="646"><tspan class="off">···</tspan><tspan class="on">P</tspan></text>
+          <text x="1118" y="674"><tspan class="off">···</tspan><tspan class="ret">p</tspan></text>
         </g>
 
-        <text x="806" y="702" font-family="IBM Plex Mono, monospace" font-size="12"
-              fill="var(--faint)" letter-spacing="0.5">twelve, and five of them not on show</text>
+        <text x="806" y="714" font-family="IBM Plex Mono, monospace" font-size="12"
+              fill="var(--faint)" letter-spacing="0.5">thirteen, six not on show, one retired</text>
 
         <line x1="580" y1="880" x2="580" y2="902" stroke="var(--clash)" stroke-width="1.5"/>
         <text x="580" y="924" font-family="IBM Plex Mono, monospace" font-size="12.5"
@@ -403,7 +414,7 @@
     <figcaption>
       The overlap was not borrowed in either direction. Neither party had read the other when
       these were written, which is what makes the six shared items worth more than the
-      twenty-two others: they are the parts two independent attempts both had to invent. The
+      twenty-three others: they are the parts two independent attempts both had to invent. The
       right lobe is drawn larger because it holds more, not because it is worth more, and the
       four-slot mark on each of its items says which implementations actually carry it.
     </figcaption>
@@ -412,19 +423,22 @@
   <section class="key">
     <h2>Four implementations, and which of them you can inspect</h2>
     <p>
-      The right-hand column is the method as built, not the method as described, so every item
-      in it carries the same four-slot mark. The slots are always in the same order and a slot
-      is either its letter (present) or a dot (absent), so <span class="mk"><span
-      class="off">..</span><span class="on">KP</span></span> reads as the third and fourth
-      only. Position carries the meaning, not colour, which is what makes it survive a theme
-      switch and a photocopier.
+      The right-hand column is the method as built, not the method as described, and not the
+      method as running this week: an item is listed once it has been built and run somewhere,
+      and one of them is no longer run anywhere. Every item carries the same four-slot mark.
+      The slots are always in the same order and a slot is either its letter (present) or a
+      dot (absent), so <span class="mk"><span class="off">..</span><span class="on">KP</span></span>
+      reads as the third and fourth only. A <strong>lowercase letter</strong> is the one
+      further state: <span class="mk"><span class="off">...</span><span class="ret">p</span></span>
+      means the fourth implementation built it and has stopped running it. Position and letter-case carry the meaning, not colour, which is what makes
+      the marks survive a theme switch and a photocopier.
     </p>
     <dl class="impls">
       <dt>L</dt>
       <dd><b>Löyly</b>, the public demonstration, deliberately minimal: one slice, one domain,
         the whole machinery small enough to read in an evening. <b>This is the one you can go
         and look at</b> (<code>github.com/skallinen/loyly</code>), and it is the reason the
-        marks exist, because seven of the twelve are in it and five are not.</dd>
+        marks exist, because seven of the thirteen are in it and six are not.</dd>
       <dt>S</dt>
       <dd><b>Saunavuoro</b>, the same shape against a real corpus of transcribed cooperative
         mail, with a working harness directory and five method pages written against it.
@@ -440,10 +454,12 @@
     </dl>
     <p>
       The marks cut both ways, and the sibling grid page counts the cost. The cell Ford calls
-      informative feedback, giving the agent eyes, is filled in two implementations of the four:
-      a reality audit driving the real interface has been run in the trainer and in the
+      informative feedback, giving the agent eyes, was filled in two implementations of the
+      four: a reality audit driving the real interface has been run in the trainer and in the
       production pipeline, and never in either sauna repository. Every finding on record in
-      those two was found by reading a document.
+      those two was found by reading a document. Neither of those two runs it today, which is
+      why the last item in the right-hand column carries a lowercase mark: our position in that
+      cell is a loss rather than an absence.
     </p>
   </section>
 
@@ -533,7 +549,8 @@
       <h2>Ours only</h2>
       <p class="lede">Everything here answers a question he does not have to ask: how does one
         person, who both writes the spec and grades it, avoid grading themselves. Seven of the
-        twelve are in every implementation. Five are not, and the marks say which.</p>
+        thirteen are in every implementation. Six are not, and the marks say which, including
+        one that was built and is no longer run.</p>
 
       <h3>In every implementation</h3>
       <dl>
@@ -626,6 +643,21 @@
             the build regenerates them, so the document and the contract cannot disagree:
             one is computed from the other. The demonstrations hold the same rule by discipline
             alone, which is a weaker thing.</dd>
+        </div>
+        <div>
+          <dt>A perception pass, since retired <span class="mk"><span class="off">···</span><span class="ret">p</span></span></dt>
+          <dd>An agent was handed a plain-language user goal, phrased the way a user would
+            phrase it and naming no selector, endpoint or internal function, drove the real
+            interface through a browser toolbelt, and recorded a journey log and screenshots.
+            That record was then assessed by a <strong>separate judging pass</strong>, not by
+            the agent that produced it. It is the cell Ford calls informative feedback, built
+            and staffed, with the independence the cell's value depends on. It was retired on
+            measured cost rather than on principle: judging cost several times what generating
+            cost, against a weekly capacity limit that cannot be bought through. So this is the
+            one row where the mark says <em>was</em>, and it is the more interesting claim,
+            because a loss is harder to say than an absence and it qualifies the economics
+            argument in his own column: this improvement was affordable to build and
+            unaffordable to run every week.</dd>
         </div>
         <div>
           <dt>One spec, three stacks <span class="mk"><span class="off">···</span><span class="on">P</span></span></dt>
@@ -723,8 +755,8 @@
     Sources: the episode transcript is auto-generated captions, so timestamps locate a claim and
     nothing here is presented as a verbatim quotation of the speaker. Full mapping with 107 cited
     timestamps: <code>docs/juxtcast-agentic-engineering-at-scale.md</code>. The four-cell version
-    of his taxonomy, and the count of which cell is empty:
-    <code>docs/harness-grid.html</code>. The machinery and the incidents behind each rule:
+    of his taxonomy, and the count of what fills each cell, including the one we no longer
+    staff: <code>docs/harness-grid.html</code>. The machinery and the incidents behind each rule:
     <code>harness/README.md</code> here, and its fuller sibling in <code>saunavuoro/</code>. The
     custody reading and the hole in our own fence: <code>saunavuoro/docs/dtr/custody.md</code>.
     The oracle and the audit that only looking could produce: <code>kalibra/harness/README.md</code>.
