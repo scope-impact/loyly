@@ -30,8 +30,7 @@ plumbing from the original are deliberately absent; every mechanism that matters
 | `fence.sh` | builds the clean-room clone and PROVES it | the fence is physical; a generation that can read last week's answer is not regenerating anything |
 | `verify.sh` | the ratifying gate | a "done" claim is ratified by a script the claimant does not control |
 | `score.py` | files verdicts against the checklist | zero verdicts is a grading run that did not happen, not a score of zero; an unreached item is recorded as `fail`, so a gap can never quietly shrink the denominator |
-| `scoreboard.py` | the four metrics, cycle over cycle | 25% of items are held back and never listed; the visible-minus-held-back gap is the alarm for fitting the checklist; a moved denominator is restated out loud |
-| `score-seed` | the holdback seed | membership is `sha256(seed + id)`, computed at report time, never materialised |
+| `scoreboard.py` | the pass rate, cycle over cycle | both directions on the shared items, never the net; a moved denominator is restated out loud, and new items are counted separately because they are the one holdout nobody has tuned |
 
 ## Walkthrough
 
@@ -94,3 +93,9 @@ Each rule above exists because its absence produced a specific, silent lie:
 - A weaker fence probe once passed while the reference implementation was still readable
   one commit back. The probe now checks the object graph, not the working tree
   (`fence.sh`).
+- A seeded holdback, a quarter of the items scored and never listed, with the gap between
+  the visible and the hidden pass rates as the alarm, was built here and retired on
+  2026-09-02. That gap measures the operator's repairs against the method alone, which
+  means something only when a repair loop runs blind to the hidden items, and none ever ran
+  here; the seed was committed too, so the set was unprinted rather than hidden. New
+  scenarios are the holdout that needs no seed, and the scoreboard already counts them.

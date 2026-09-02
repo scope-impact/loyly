@@ -416,7 +416,6 @@
           <span class="chip">verify.sh</span>
           <span class="chip">oracle.py</span>
           <span class="chip">bundle probe</span>
-          <span class="chip">held-back items</span>
         </div>
       </div>
 
@@ -479,8 +478,8 @@
       <h2 style="margin-top:14px">One axis and a half, not a third axis</h2>
       <p><span class="was">Two of our mechanisms have no cell at all, so custody is a third
         axis that is ours.</span>
-        The fence <strong>removes</strong> feed-forward context and the holdback
-        <strong>hides</strong> a check, and both are about custody rather than content. But
+        The fence <strong>removes</strong> feed-forward context, and the holdback, retired on
+        2026-09-02, <strong>hid</strong> a check; both are about custody rather than content. But
         only half of custody is a new dimension. <strong>Visibility is derived:</strong> a
         previous run's output is feedback about one round that becomes feed-forward input to
         the next, so fencing it is the crossing noticing that a signal changed quadrant.
@@ -495,9 +494,10 @@
       <div class="misfit"><code>fence.sh</code>
         <span>No cell. It removes feed-forward context on purpose, so a regeneration cannot
           read last week's answer.</span></div>
-      <div class="misfit"><code>held-back items</code>
-        <span>Feedback and normative, and deliberately invisible. The grid has no cell for
-          hiding a check from the thing being measured.</span></div>
+      <div class="misfit"><code>held-back items</code> (retired 2026-09-02)
+        <span>Feedback and normative, and deliberately invisible: the grid had no cell for
+          hiding a check from the thing being measured. Retired because no repair loop here
+          ever ran blind to the hidden items, so the gap measured nothing.</span></div>
       <div class="misfit"><code>score.py, scoreboard.py</code>
         <span>Feedback, but not to the agent. It feeds the operator, over weeks.</span></div>
       <div class="misfit"><code>reality audit</code>

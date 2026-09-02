@@ -102,9 +102,10 @@ python3 harness/scoreboard.py 01
 The checklist is derived from the spec (never hand-kept), one item per stamped scenario.
 The scorer enforces the instrument's honesty rules: zero verdicts means the grading did not happen
 and nothing is written, and an item the grader never reached is filed as a fail so the
-denominator cannot quietly shrink. The scoreboard holds back 25% of items from the
-report and prints the gap between visible and held-back pass rates: a positive, growing
-gap is what fitting the checklist instead of meeting the spec looks like.
+denominator cannot quietly shrink. The scoreboard compares cycles on the items both
+scored, prints got-better and got-worse counts rather than a net, and says out loud when
+the denominator moved. (A seeded holdback lived here too until 2026-09-02;
+`harness/README.md` says why it went.)
 
 ### 4. Regenerate
 

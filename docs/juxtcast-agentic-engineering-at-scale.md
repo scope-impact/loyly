@@ -207,8 +207,8 @@ the marking scheme is not yours.
 LLM to help me create deterministic tools that then help it to chew through the code
 base" `[10:14]` to `[10:24]`, framed by a colleague's CPU-versus-GPU distinction
 `[09:49]`. Every file in `harness/` is this: `gen_checklist.py` derives the item list so
-no model has to be trusted to enumerate it, `scoreboard.py` computes holdback
-membership from a seeded hash, `oracle.py` recomputes the arithmetic from the prose.
+no model has to be trusted to enumerate it, `scoreboard.py` compares two cycles on
+the items both scored, `oracle.py` recomputes the arithmetic from the prose.
 This is the single best one-line justification of the harness in the episode, and it
 comes from outside the project.
 
@@ -276,7 +276,7 @@ Mapping our harness onto the grid, with the misfits kept rather than smoothed:
 | Reality audit | informative feedback, judged by a human | the human supplies the judgment |
 | Persona missions with a separate judge (retired) | informative feedback | the cell actually filled, once, in the production pipeline this method was distilled from; row added 2026-09-01, see the correction under a |
 | `fence.sh` | no cell | it *removes* feed-forward context |
-| Held-back items, the visible/held-back gap | feedback, normative, and invisible | no cell for hiding a check |
+| Held-back items, the visible/held-back gap (retired 2026-09-02, see `harness/README.md`) | feedback, normative, and invisible | no cell for hiding a check |
 | `score.py`, `scoreboard.py` | feedback, but not to the agent | it feeds the operator, over weeks |
 
 Three findings fall straight out of that table.
@@ -361,8 +361,8 @@ Two of our mechanisms have no cell because they are not classified by *what the 
 says* but by *who may see it and who may write it*:
 
 - **Visibility.** `fence.sh` deletes context so it cannot be copied. `scoreboard.py`
-  holds back a quarter of the items and never lists them, so "the visible-minus-held-back
-  gap is the alarm for fitting the checklist".
+  held back a quarter of the items and never listed them, until the holdback was retired
+  on 2026-09-02 (`harness/README.md`).
 - **Independence.** `verify.sh` is "a script the claimant does not control". `oracle.py`
   is a third implementation of the same arithmetic, written from the prose rather than
   from the results table, because as kalibra's `harness/README.md` puts it, "two tracks
@@ -515,8 +515,8 @@ be annoyed at me because I quote wasted time unquote on trying something out", a
 conclusion that "it's only the really passionate people who would make it past that
 barrier."
 
-This reframes the whole harness. A seeded holdback, honest denominators, a derived
-checklist and a third independent implementation of the core arithmetic are each a
+This reframes the whole harness. Honest denominators, a derived checklist and a third
+independent implementation of the core arithmetic are each a
 two-day project that nobody used to be able to justify. Presenting them as *rigour*
 makes them sound like discipline the audience does not have time for. Presenting them
 as *things that now cost an afternoon* makes them sound like something to try on
@@ -620,8 +620,8 @@ buys a fresh agent.
   tradition they carry. The best non-technical slide available, and the reason a
   business audience should care about externalised intent at all.
 - **Mutation testing's renaissance and the two-day barrier** `[36:14]` to `[37:46]`.
-  Illustrates why a single operator can now afford an oracle, a holdback and a seeded
-  hash.
+  Illustrates why a single operator can now afford an oracle and a derived
+  checklist.
 - **Wirth's law** `[58:06]` to `[58:26]`: "the faster the hardware gets, the more we
   waste. And the the limit is basically the point at which our users will refuse to
   engage with our software." Illustrates why measuring is the point, and it closes a

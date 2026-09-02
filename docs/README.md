@@ -52,7 +52,8 @@ move.
    costs an afternoon: this improvement was affordable to build and unaffordable to run.
 
 2. It said the fence and the holdback *suggest a third axis that is ours, custody*. Half of
-   that survives. For **visibility** custody is derived rather than additional, because a
+   that survives, and since the holdback was retired on 2026-09-02 the fence carries the
+   visibility half alone. For **visibility** custody is derived rather than additional, because a
    previous run's output is feedback about one round that becomes feed-forward input to the
    next, so fencing it is the crossing noticing that a signal changed quadrant. For
    **independence** custody is genuinely additional, because neither axis can ask who
