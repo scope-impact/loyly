@@ -692,7 +692,61 @@
   </section>
 
   <section>
-    <h2>8. Open decisions</h2>
+    <h2>8. The missing column</h2>
+    <p class="lede">
+      The four gaps this page has been collecting are not four gaps. They are one, and it is a
+      whole column of Ford's grid.
+    </p>
+    <p style="max-width:72ch">
+      The decision that surfaced it is small. This repository documents a convention for
+      architecture decision records, in two files, and has never written one. The tempting
+      cleanup is to delete the convention, on the grounds that the invariant list already records
+      every rule and does it better, because each invariant names the thing that enforces it.
+      That reasoning is wrong, and the way it is wrong is the point of this section.
+    </p>
+    <p style="max-width:72ch">
+      An invariant is feed-forward <b>normative</b>: do this. A decision record is feed-forward
+      <b>informative</b>: here is what is true, and here is how it came to be true. Deleting the
+      one because the other exists does not tidy a repository. It deletes a column.
+    </p>
+    <table>
+      <tr><th></th><th>normative</th><th>informative</th></tr>
+      <tr>
+        <td class="k">Feed-forward<br><code>before the work</code></td>
+        <td>invariants, principles files, every rule in a spec</td>
+        <td class="miss">decision records. Convention documented in two files, used in none</td>
+      </tr>
+      <tr>
+        <td class="k">Feedback<br><code>after the work</code></td>
+        <td>the ratifying gate, the scope quarantine, the scoring run's refusal to record a
+          failure as a score</td>
+        <td class="miss">the findings socket of section 7. Proposed today, not built</td>
+      </tr>
+    </table>
+    <p style="margin-top:16px; max-width:72ch">
+      Both empty cells are in the same column, and they are the two cells this page has spent
+      itself proposing to fill. That is not a coincidence and it is not four separate oversights.
+      We are good at telling things what to do and bad at writing down what is.
+    </p>
+    <div class="callout">
+      <p><b>What each empty cell costs, concretely.</b> Without the feed-forward cell a rule has
+      no expiry: an invariant records what enforces it but never the circumstances that forced
+      it, so when the circumstances change nothing can tell that the guard is obsolete, and it is
+      enforced forever. Without the feedback cell a perception has no destination: something seen
+      while driving the real application is fixed or is not, and is then seen again next cycle by
+      someone else, who is surprised in the same way.</p>
+    </div>
+    <p style="margin-top:18px; max-width:72ch">
+      There is also a kind of decision that cannot be an invariant at all, and currently has
+      nowhere to live. "This language, not that one" is a real decision with real consequences,
+      and nobody can violate it in a line of code, so it has no enforcement, so the invariant list
+      will not take it. Those decisions are presently held in a model's memory file rather than in
+      the repository, which is the least durable place available.
+    </p>
+  </section>
+
+  <section>
+    <h2>9. Open decisions</h2>
     <p style="max-width:72ch">
       Two are settled since the first draft. <b>Where the non-functional spec lives</b> is
       answered by section 2: it is a repository-wide slice in the same tree as every other slice,
@@ -716,6 +770,11 @@
         no longer an independent observation, because the agent is driving a mission over the
         feature it just wrote. Recorded as a decision either way, never allowed to happen by
         drift.</li>
+      <li><b>How four copies of one harness stay in step.</b> The harness reaches a second
+        repository by being copied and re-pointed by hand, which means a change to the stamper or
+        the checklist deriver lands in one repository and the other three drift from it silently.
+        The change proposed here touches exactly those two scripts, so this is the first time that
+        cost is actually charged. Nothing on this page solves it.</li>
       <li><b>Which of the four implementations goes first.</b> The trainer has run a reality
         audit and the production pipeline has the only real cycle history, so those two can test
         the return arrow. The two sauna repositories cannot, because neither has ever produced a
