@@ -499,12 +499,16 @@ communication alignment, the kind of socialized tacit tacit knowledge transfer o
 explains them why they should care about it".
 
 We have exactly one datapoint and it is better than nothing: the loyly harness was
-ported to kalibra on 2026-08-30, and what changed was "the paths, the content probe and
-the holdback seed". The mechanisms transferred unchanged, including the inherited
+ported to kalibra on 2026-08-30, and what that repository's README recorded as changing,
+on the day, was "the paths, the content probe and the holdback seed". The seed was retired
+from all three demonstration repositories on 2026-09-02, so the README no longer carries
+that phrase and the quotation above is a record of what it said then, not of what it says
+now. The mechanisms transferred unchanged, including the inherited
 incident list, which is carried across explicitly "because they are the reason the
 guards exist". That is a harness behaving like a shareable artefact, with its own
-rationale attached, which is Ford's caveat satisfied by construction. It is n equals two
-and one operator, and it should be presented as such.
+rationale attached, which is Ford's caveat satisfied by construction. It is n equals two,
+and the port was a manual copy inside our own repositories rather than a capability
+published for anyone to pick up, and it should be presented as such.
 
 ### 6. The economics argument for the instrument
 
@@ -637,11 +641,11 @@ Ford's stated target is "20 to 2,000 developers" `[03:45]`, and he deliberately 
 what we are: "The thing I deliberately um tried to stay away from is the personal
 productivity aspect of using coding agents" `[00:50]`, including "how do I structure my
 agents MD better" `[01:05]`. Conway's law, team liquidity, oral tradition, cross-team
-spec custody, organisational harnesses: none of these arise for one operator with one
-repo. `way-of-working.md` already says the method is "a demo-sized distillation ... what
+spec custody, organisational harnesses: none of these arise while a harness never leaves
+the repository it was made for. `way-of-working.md` already says the method is "a demo-sized distillation ... what
 is missing is only scale". Ford's episode is a decent argument that scale is not "only",
-because several of his mechanisms exist to solve coordination problems that a single
-operator does not have, and a method that has never met those problems cannot claim to
+because several of his mechanisms exist to solve coordination problems that repo-scoped
+work does not have, and a method that has never met those problems cannot claim to
 have solved them. Say this from the stage rather than let the room find it.
 
 ### 2. Greenfield. He thinks demos like ours mislead people

@@ -310,9 +310,9 @@
     <h1>The Ford overlap</h1>
     <p class="standfirst">
       Two accounts of working with coding agents, written without knowledge of each other.
-      One comes from consulting at scale, on other people's legacy systems. One comes from a
-      single operator, and exists in four implementations of the same method at different
-      levels of completeness, only one of which is public. <strong>The interesting part is not
+      One comes from consulting at scale, on other people's legacy systems. One comes from
+      inside our own repositories, and exists in four implementations of the same method at
+      different levels of completeness, only one of which is public. <strong>The interesting part is not
       that they agree. It is which things each side had to build that the other never needed,
       and how much of ours a reader can actually go and look at.</strong> The right-hand
       column is a record of what has been built, not a status board: one of its items ran for
@@ -340,7 +340,7 @@
         <text x="580" y="66" font-family="IBM Plex Mono, monospace" font-size="12"
               fill="var(--faint)" text-anchor="middle">arrived at twice</text>
         <text x="968" y="66" font-family="IBM Plex Mono, monospace" font-size="12"
-              fill="var(--faint)" text-anchor="middle">what one operator has to construct</text>
+              fill="var(--faint)" text-anchor="middle">what repo-scoped work has to construct</text>
 
         <g font-family="Archivo, sans-serif" font-size="16" fill="var(--ink)" text-anchor="middle">
           <text x="270" y="402">Harnesses shared by a team</text>
@@ -465,18 +465,23 @@
 
     <section class="col his">
       <h2>His only</h2>
-      <p class="lede">Everything here follows from having colleagues, clients and a codebase
-        older than the method. We have none of those.</p>
+      <p class="lede">Everything here follows from a harness that has to travel: across teams,
+        across clients, across a codebase older than the method. Ours never leaves the
+        repository it was made for.</p>
       <dl>
         <div>
           <dt>Harnesses shared by a team</dt>
           <dd>An organisation packages a harness so others can make new checks with it, rather
-            than each person rebuilding one. <span class="ts">[38:13]</span></dd>
+            than each person rebuilding one. The unit of sharing is the organisation, not the
+            project. Ours are repo-scoped: whoever works in the repository inherits the harness
+            by being there, and it reaches a second repository only by being copied and
+            re-pointed by hand. <span class="ts">[38:13]</span></dd>
         </div>
         <div>
           <dt>Socialised, not just shared</dt>
           <dd>Shipping the artefact is not enough: it has to be accompanied by explaining to
-            people why they should care. A single operator never notices this cost.
+            people why they should care. A harness that never leaves its own repository never
+            presents that bill, because the rationale arrives with the code.
             <span class="ts">[38:41]</span></dd>
         </div>
         <div>

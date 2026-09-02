@@ -1,0 +1,740 @@
+<title>The Method Flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+  :root {
+    --ground:  #EFF2F3;
+    --surface: #FFFFFF;
+    --sunken:  #E4E9EB;
+    --ink:     #16202A;
+    --muted:   #5F7280;
+    --faint:   #8496A1;
+    --rule:    #D2DADE;
+    --rule-hi: #A9B7BE;
+    --ours:    #0F6D7A;
+    --ours-wash:#E2EEF0;
+    --new:     #A8452B;
+    --new-wash:#F6E7E2;
+
+    --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --body:    "Source Serif 4", Georgia, "Times New Roman", serif;
+    --mono:    "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:  #10171C;
+      --surface: #172128;
+      --sunken:  #0C1216;
+      --ink:     #E6EDF0;
+      --muted:   #9BAEB8;
+      --faint:   #6E828D;
+      --rule:    #2A3841;
+      --rule-hi: #3E505B;
+      --ours:    #5FC4D0;
+      --ours-wash:#123136;
+      --new:     #E08767;
+      --new-wash:#33201A;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:  #10171C;
+    --surface: #172128;
+    --sunken:  #0C1216;
+    --ink:     #E6EDF0;
+    --muted:   #9BAEB8;
+    --faint:   #6E828D;
+    --rule:    #2A3841;
+    --rule-hi: #3E505B;
+    --ours:    #5FC4D0;
+    --ours-wash:#123136;
+    --new:     #E08767;
+    --new-wash:#33201A;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+    display: flex;
+    flex-direction: column;
+    gap: 52px;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(34px, 5.2vw, 52px);
+    line-height: 1.04;
+    letter-spacing: -0.022em;
+    margin: 10px 0 0;
+    text-wrap: balance;
+  }
+
+  .standfirst {
+    max-width: 64ch;
+    color: var(--muted);
+    font-size: 18.5px;
+    margin: 18px 0 0;
+  }
+
+  h2 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 25px;
+    letter-spacing: -0.016em;
+    margin: 0 0 6px;
+  }
+  h3 {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ours);
+    margin: 0 0 10px;
+  }
+  h3.newh { color: var(--new); }
+
+  section > p { max-width: 68ch; margin: 0 0 14px; }
+  p.lede { color: var(--muted); max-width: 68ch; margin: 0 0 18px; }
+
+  figure { margin: 0; }
+  .figwrap {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    overflow-x: auto;
+    padding: 8px;
+  }
+  svg { display: block; min-width: 900px; width: 100%; height: auto; }
+  figcaption {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--faint);
+    line-height: 1.7;
+    margin-top: 12px;
+    max-width: 78ch;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+  .swatch {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border: 1px solid var(--rule-hi);
+    vertical-align: -1px;
+    margin-right: 7px;
+  }
+  .sw-now { background: var(--ours-wash); border-color: var(--ours); }
+  .sw-new { background: var(--new-wash); border-color: var(--new); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15.5px;
+  }
+  th, td {
+    border: 1px solid var(--rule);
+    padding: 11px 13px;
+    text-align: left;
+    vertical-align: top;
+    background: var(--surface);
+  }
+  th {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+    font-weight: 500;
+    background: var(--sunken);
+  }
+  td.k { font-family: var(--display); font-weight: 600; width: 20%; }
+  td.miss { color: var(--new); }
+  code { font-family: var(--mono); font-size: 0.87em; }
+
+  .cols {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+  }
+  .col { background: var(--surface); padding: 22px 24px 26px; }
+  .col p { margin: 0 0 12px; font-size: 15.5px; }
+  .col p:last-child { margin-bottom: 0; }
+
+  ol.seq { max-width: 68ch; padding-left: 22px; }
+  ol.seq li { margin-bottom: 9px; }
+
+  .callout {
+    border-left: 3px solid var(--new);
+    background: var(--new-wash);
+    padding: 16px 20px;
+    max-width: 72ch;
+  }
+  .callout p { margin: 0; }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--faint);
+    line-height: 1.7;
+  }
+
+  /* svg text classes */
+  .bx      { fill: var(--surface); stroke: var(--ours); stroke-width: 1.2; }
+  .bx-new  { fill: var(--new-wash); stroke: var(--new); stroke-width: 1.2; }
+  .bx-now  { fill: var(--ours-wash); stroke: var(--ours); stroke-width: 1.2; }
+  .bx-dim  { fill: var(--sunken); stroke: var(--rule-hi); stroke-width: 1; }
+  .t       { font-family: Archivo, sans-serif; font-size: 15px; font-weight: 600; fill: var(--ink); }
+  .t-sm    { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; fill: var(--faint); }
+  .t-lane  { font-family: Archivo, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 1.3px; fill: var(--faint); }
+  .num     { font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 500; }
+  .ar      { stroke: var(--rule-hi); stroke-width: 1.6; fill: none; }
+  .ar-new  { stroke: var(--new); stroke-width: 1.6; fill: none; }
+</style>
+
+<div class="page">
+
+  <header>
+    <div class="eyebrow">Method architecture, working note, 2026-09-02</div>
+    <h1>Where a harness spec would go</h1>
+    <p class="standfirst">
+      The method treats documentation as the source of truth and code as a build product of it.
+      That rule is applied to the application and has never been applied to the machinery that
+      grades the application. This page draws the flow as it stands, then draws the same flow
+      with the harness given the same treatment as the app: a spec it is built from, an id
+      stamper it shares, and a ratifier it does not control.
+      <strong>The load-bearing question is not whether to write it. It is what the harness spec
+      is derived from, and what stops the regress.</strong>
+    </p>
+  </header>
+
+  <section>
+    <h2>1. The flow as it stands</h2>
+    <p class="lede">
+      Every box in the document funnel cites the one above it. That is the minimum reference
+      rule, and it is what makes a claim checkable. One harness artefact obeys it: the checklist
+      is derived from the spec and never hand-kept, because a hand-kept list goes stale
+      silently. The rest of the harness cites nothing, is written by hand, and is the only thing
+      in the repository that is never regenerated.
+    </p>
+
+    <figure>
+      <div class="figwrap">
+        <svg viewBox="0 0 1160 570" role="img"
+             aria-label="The current flow. A vertical funnel on the left runs from raw sources to the domain wiki, the slice plan, the feature spec, the implementation, and the decisions log, each arrow labelled cites. An arrow leads right from the feature spec to a checklist file marked derived, never written. On the right a large box holds the seven harness files, marked written by hand and regenerated never, with arrows leading left showing that it derives the checklist and that it fences, gates and scores the implementation.">
+
+          <!-- funnel -->
+          <g>
+            <rect class="bx-dim" x="40" y="70"  width="280" height="48" rx="2"/>
+            <rect class="bx"     x="40" y="148" width="280" height="48" rx="2"/>
+            <rect class="bx"     x="40" y="226" width="280" height="48" rx="2"/>
+            <rect class="bx-now" x="40" y="304" width="280" height="48" rx="2"/>
+            <rect class="bx-dim" x="40" y="382" width="280" height="48" rx="2"/>
+            <rect class="bx"     x="40" y="460" width="280" height="48" rx="2"/>
+          </g>
+          <g class="t" text-anchor="start">
+            <text x="58" y="93">raw/</text>
+            <text x="58" y="171">docs/wiki/</text>
+            <text x="58" y="249">docs/plan/NN/plan.md</text>
+            <text x="58" y="327">spec.feature</text>
+            <text x="58" y="405">impl/</text>
+            <text x="58" y="483">decisions.md</text>
+          </g>
+          <g class="t-sm" text-anchor="start">
+            <text x="58" y="110">immutable sources</text>
+            <text x="58" y="188">the domain, cited</text>
+            <text x="58" y="266">one slice, scoped</text>
+            <text x="58" y="344">functional rules, slice-scoped</text>
+            <text x="58" y="422">a build product, deletable</text>
+            <text x="58" y="500">what diverged, and why</text>
+          </g>
+
+          <g class="ar" marker-end="url(#hd)">
+            <path d="M180 118 L180 146"/>
+            <path d="M180 196 L180 224"/>
+            <path d="M180 274 L180 302"/>
+            <path d="M180 352 L180 380"/>
+            <path d="M180 430 L180 458"/>
+          </g>
+          <g class="t-sm" text-anchor="start" fill="var(--faint)">
+            <text x="188" y="137">cites</text>
+            <text x="188" y="215">cites</text>
+            <text x="188" y="293">cites</text>
+            <text x="188" y="371">built from</text>
+            <text x="188" y="449">records</text>
+          </g>
+
+          <!-- checklist -->
+          <rect class="bx-now" x="420" y="304" width="200" height="48" rx="2"/>
+          <text class="t"    x="436" y="327">checklist.json</text>
+          <text class="t-sm" x="436" y="344">derived, never written</text>
+          <path class="ar" marker-end="url(#hd)" d="M322 328 L416 328"/>
+
+          <!-- harness -->
+          <rect class="bx" x="700" y="120" width="420" height="388" rx="2"/>
+          <text class="t"    x="722" y="152">harness/</text>
+          <text class="t-sm" x="722" y="170">written by hand, cited by nothing, regenerated never</text>
+          <line x1="722" y1="184" x2="1098" y2="184" stroke="var(--rule)" stroke-width="1"/>
+          <g class="t-sm" font-size="12.5" fill="var(--muted)">
+            <text x="722" y="210">stamp_item_ids.py</text>
+            <text x="722" y="238">gen_checklist.py</text>
+            <text x="722" y="266">fence.sh</text>
+            <text x="722" y="294">verify.sh</text>
+            <text x="722" y="322">score.py</text>
+            <text x="722" y="350">scoreboard.py</text>
+          </g>
+          <line x1="722" y1="398" x2="1098" y2="398" stroke="var(--rule)" stroke-width="1"/>
+          <text class="t-sm" x="722" y="422">README.md holds five incidents in prose,</text>
+          <text class="t-sm" x="722" y="440">one per rule. Nothing executes them.</text>
+          <text class="t-sm" x="722" y="470">docs/wow/harness.md holds six guardrails,</text>
+          <text class="t-sm" x="722" y="488">also prose.</text>
+
+          <path class="ar" marker-end="url(#hd)" d="M696 268 C 660 268, 660 328, 626 328"/>
+          <text class="t-sm" x="632" y="262" text-anchor="start">derives</text>
+
+          <path class="ar" marker-end="url(#hd)" d="M696 406 L326 406"/>
+          <text class="t-sm" x="420" y="398" text-anchor="start">fences, gates and scores</text>
+
+          <defs>
+            <marker id="hd" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--rule-hi)"/>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+      <figcaption>
+        Read the left column downwards: each artefact is built from the one above and cites it.
+        The harness sits outside that discipline entirely. It is the one place in the method
+        where code is durable and there is no spec above it, which is the second of Ford's four
+        custody quadrants and the one we criticise elsewhere.
+      </figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>2. Two kinds of rule, and the scope that separates them</h2>
+    <p class="lede">
+      This began as four kinds. It collapsed to two on inspection, and the collapse is the most
+      useful thing on this page, because it removes two files that were about to be invented.
+    </p>
+    <p style="max-width:72ch">
+      One question separates them. <b>Does the rule survive regeneration, or does it govern
+      regeneration?</b> A rule that has to come back after the implementation is wiped belongs in
+      the spec the agent reads. A rule that watches the agent build cannot live in that spec,
+      because the thing it constrains is the building.
+    </p>
+    <table>
+      <tr>
+        <th></th><th>scope: narrow</th><th>scope: wide</th>
+      </tr>
+      <tr>
+        <td class="k">Product rules<br><code>in the spec, rebuilt from it</code></td>
+        <td>one slice.<br><i>A resident may hold one standing slot.</i></td>
+        <td>every surface, forever.<br><i>No row overflows at phone width; every control clears
+          the software keyboard.</i></td>
+      </tr>
+      <tr>
+        <td class="k">Process rules<br><code>in the harness, watching the build</code></td>
+        <td>this repository.<br><i>The fence asserts the object graph, not the working tree.</i></td>
+        <td>the method, every implementation.<br><i>No plan entry, no code; done is ratified,
+          never self-asserted.</i></td>
+      </tr>
+    </table>
+    <p style="margin-top:16px; max-width:72ch">
+      <b>Functional and non-functional are one kind.</b> Both are product behaviour, both must come
+      back after a wipe, both belong in a feature file the agent reads. The only difference is how
+      many screens the rule quantifies over, and that is a field on the rule, not a category above
+      it.
+    </p>
+    <p style="max-width:72ch">
+      <b>Harness and method are one kind too.</b> A method rule with no enforcement is a hope, and
+      its enforcement lives in a harness, so a method rule is just a harness rule that several
+      repositories happen to share. It gets no file of its own. It gets copied, which is the honest
+      description of how our harness reaches a second repository at all.
+    </p>
+    <div class="callout">
+      <p><b>A correction, made while writing this.</b> The non-functional spec was described here
+      as living nowhere, found once by hand and then forgotten. That was wrong. One of the four
+      implementations has had it all along: a repository-wide slice, stamped and scored every
+      cycle, holding the rules that are true of every screen rather than of one feature. It is
+      named for what it describes rather than for what it is, which is why it was never recognised
+      as the non-functional spec. Nothing needs building there. One sentence in its header, saying
+      what the file is for, would stop the next such rule being filed somewhere else.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>3. What generates the harness spec</h2>
+    <div class="cols">
+      <div class="col">
+        <h3>The answer</h3>
+        <p><b>Incidents generate it, and nothing else may.</b> Every scenario in
+          <code>harness/spec.feature</code> cites a specific failure that actually happened, in
+          the same way a wiki page cites the raw source it distils.</p>
+        <p>The five in <code>harness/README.md</code> are already scenarios in disguise. <i>A
+          weaker fence probe once passed while the reference implementation was still readable
+          one commit back</i> is a Given, a When and a Then that nobody has written on one line.</p>
+      </div>
+      <div class="col">
+        <h3>Why not derive it mechanically</h3>
+        <p>The checklist is derived from the spec by a script because the mapping is exact: one
+          item per scenario. An incident does not determine its own generalisation.</p>
+        <p>Going from <i>this probe read the working tree</i> to <i>a probe asserts the
+          property, never the procedure believed to imply it</i> is a judgment, and judgments are
+          written and cited, not generated. So the incident record is the harness's
+          <code>raw/</code>, and the harness spec is its wiki.</p>
+      </div>
+      <div class="col">
+        <h3>The rule that bounds the cost</h3>
+        <p><b>No incident, no scenario.</b> The exact mirror of "no slice plan, no code".</p>
+        <p>This stops the harness spec from growing into a second method document. It can only
+          contain things that have already gone wrong, which today means five scenarios, and it
+          grows only when something new breaks. A harness spec that grows faster than the
+          incident list is being written speculatively and should be cut back.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4. When the harness is generated, and what stops the regress</h2>
+    <p>
+      The harness is generated <b>before</b> the spec cut, and therefore before the app. That
+      follows from what it is for: the fence, the gate and the instrument all have to exist and
+      be trustworthy at the moment the app run starts, and a harness changed during a run is a
+      moved ruler.
+    </p>
+    <div class="callout">
+      <p><b>The regress stops one step back, not at the bottom.</b> If the harness gets a spec,
+      something has to check the harness that checks the app. That something is the previous
+      cycle's harness. Version N-1 runs version N's spec against version N, and if it is not
+      green there is no cut and no app run this cycle. This is the existing rule, <i>done is
+      ratified by a script the claimant does not control</i>, applied one level up, and it
+      terminates because it only ever needs one step, never infinitely many.</p>
+    </div>
+    <p style="margin-top:18px">
+      The second thing that keeps it finite is an asymmetry worth stating plainly. The app spec
+      is a <b>build input</b>: the app is destroyed and rebuilt from it every cycle. The harness
+      spec is <b>not</b> a build input. The harness is never destroyed, because it is the thing
+      holding the ruler still. Its spec is a regression suite over an artefact that survives, so
+      the destructive cut does not apply to it and must be seen not to apply to it.
+    </p>
+  </section>
+
+  <section>
+    <h2>5. The flow with the harness track added</h2>
+    <div class="legend">
+      <span><span class="swatch sw-now"></span>exists today</span>
+      <span><span class="swatch sw-new"></span>new, or specified and never run</span>
+    </div>
+
+    <figure>
+      <div class="figwrap">
+        <svg viewBox="0 0 1160 1120" role="img"
+             aria-label="The proposed cycle as two lanes read top to bottom. The harness lane holds five new steps: findings and incidents from the last cycle, the harness spec written from those incidents, ids stamped with the same stamper, the harness rebuilt or extended from its spec, and the previous cycle's harness ratifying the new one. Control then crosses to the app lane, which holds seven steps: the app spec cut and frozen, the checklist derived, the fence proving a clean room, the app regenerated from the cut, the gate ratifying, the instrument scoring, and a reality audit driving the real interface. A bracket marks that the ratified harness is what runs the fence, the gate, the instrument and the audit. A return arrow carries findings from the audit back to the top, splitting three ways into the app spec, a new non-functional spec, and the incident record.">
+
+          <!-- lanes -->
+          <rect x="30" y="60" width="500" height="470" fill="var(--new-wash)" opacity="0.35"/>
+          <rect x="600" y="530" width="530" height="590" fill="var(--ours-wash)" opacity="0.4"/>
+          <text class="t-lane" x="30" y="46">HARNESS TRACK</text>
+          <text class="t-lane" x="600" y="516">APP TRACK</text>
+          <text class="t-sm" x="200" y="46">new, runs first</text>
+          <text class="t-sm" x="790" y="516">the cycle as it is today</text>
+
+          <!-- harness steps -->
+          <g>
+            <rect class="bx-new" x="40" y="80"  width="480" height="62" rx="2"/>
+            <rect class="bx-new" x="40" y="168" width="480" height="62" rx="2"/>
+            <rect class="bx-new" x="40" y="256" width="480" height="62" rx="2"/>
+            <rect class="bx-new" x="40" y="344" width="480" height="62" rx="2"/>
+            <rect class="bx-new" x="40" y="432" width="480" height="62" rx="2"/>
+          </g>
+          <g class="num" fill="var(--new)">
+            <text x="58" y="106">01</text><text x="58" y="194">02</text>
+            <text x="58" y="282">03</text><text x="58" y="370">04</text>
+            <text x="58" y="458">05</text>
+          </g>
+          <g class="t" text-anchor="start">
+            <text x="96" y="106">Findings and incidents from last cycle</text>
+            <text x="96" y="194">harness/spec.feature written from them</text>
+            <text x="96" y="282">Ids stamped, by the same stamper</text>
+            <text x="96" y="370">Harness rebuilt or extended from its spec</text>
+            <text x="96" y="458">Cycle N-1 harness ratifies cycle N harness</text>
+          </g>
+          <g class="t-sm" text-anchor="start">
+            <text x="96" y="126">the incident record is the harness's raw/</text>
+            <text x="96" y="214">one scenario per incident, each citing it. No incident, no scenario</text>
+            <text x="96" y="302">ids outlive the wording, so a reworded guard stays comparable</text>
+            <text x="96" y="390">code is a build product here too</text>
+            <text x="96" y="478">not green, no cut and no app run. This is where the regress stops</text>
+          </g>
+          <g class="ar-new" marker-end="url(#hdn)">
+            <path d="M280 142 L280 166"/>
+            <path d="M280 230 L280 254"/>
+            <path d="M280 318 L280 342"/>
+            <path d="M280 406 L280 430"/>
+          </g>
+
+          <!-- cross to app lane -->
+          <path class="ar-new" marker-end="url(#hdn)" d="M280 494 C 280 545, 400 560, 596 560"/>
+          <text class="t-sm" x="330" y="552" text-anchor="start">a trustworthy ruler exists, so the cut may happen</text>
+
+          <!-- app steps -->
+          <g>
+            <rect class="bx-now" x="610" y="540" width="480" height="58" rx="2"/>
+            <rect class="bx-now" x="610" y="624" width="480" height="58" rx="2"/>
+            <rect class="bx-now" x="610" y="708" width="480" height="58" rx="2"/>
+            <rect class="bx-now" x="610" y="792" width="480" height="58" rx="2"/>
+            <rect class="bx-now" x="610" y="876" width="480" height="58" rx="2"/>
+            <rect class="bx-now" x="610" y="960" width="480" height="58" rx="2"/>
+            <rect class="bx-new" x="610" y="1044" width="480" height="58" rx="2"/>
+          </g>
+          <g class="num" fill="var(--ours)">
+            <text x="628" y="566">06</text><text x="628" y="650">07</text>
+            <text x="628" y="734">08</text><text x="628" y="818">09</text>
+            <text x="628" y="902">10</text><text x="628" y="986">11</text>
+          </g>
+          <text class="num" x="628" y="1070" fill="var(--new)">12</text>
+          <g class="t" text-anchor="start">
+            <text x="666" y="566">App spec cut and frozen</text>
+            <text x="666" y="650">Checklist derived from the cut</text>
+            <text x="666" y="734">Fence: clean room, proven on the graph</text>
+            <text x="666" y="818">App regenerated from the cut</text>
+            <text x="666" y="902">Gate ratifies, or the round failed</text>
+            <text x="666" y="986">Instrument scores, denominators restated</text>
+            <text x="666" y="1070">Reality audit drives the real interface</text>
+          </g>
+          <g class="t-sm" text-anchor="start">
+            <text x="666" y="586">tagged; anything unwritten dies here</text>
+            <text x="666" y="670">one item per scenario, never hand-kept</text>
+            <text x="666" y="754">nothing readable, only rebuildable</text>
+            <text x="666" y="838">inside the fence, two-phase, RED/GREEN</text>
+            <text x="666" y="922">a script the builder does not control</text>
+            <text x="666" y="1006">honest denominators; an unreached item fails</text>
+            <text x="666" y="1090">specified since day one and never run here</text>
+          </g>
+          <g class="ar" marker-end="url(#hd2)">
+            <path d="M850 598 L850 622"/>
+            <path d="M850 682 L850 706"/>
+            <path d="M850 766 L850 790"/>
+            <path d="M850 850 L850 874"/>
+            <path d="M850 934 L850 958"/>
+          </g>
+          <path class="ar-new" marker-end="url(#hdn)" d="M850 1018 L850 1042"/>
+
+          <!-- bracket: the ratified harness runs these -->
+          <path class="ar-new" stroke-dasharray="4 5" d="M1104 708 L1130 708 L1130 1102 L1104 1102"/>
+          <text class="t-sm" x="1120" y="900" transform="rotate(90 1120 900)" text-anchor="middle"
+                fill="var(--new)">the ratified harness is what runs 08 to 12</text>
+
+          <!-- return arrow -->
+          <path class="ar-new" marker-end="url(#hdn)"
+                d="M610 1073 L 20 1073 L 20 111 L 36 111"/>
+          <text class="t-sm" x="40" y="1064" text-anchor="start" fill="var(--new)">
+            findings split three ways: app rule, non-functional rule, harness incident
+          </text>
+
+          <defs>
+            <marker id="hd2" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--rule-hi)"/>
+            </marker>
+            <marker id="hdn" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--new)"/>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+      <figcaption>
+        Steps 06 to 11 are today's cycle, unchanged. Steps 01 to 05 are new and run before the
+        cut. Step 12 is the informative feedback cell: specified at
+        <code>docs/wow/harness.md:42</code> and in the master method as the reality audit, and
+        never run in this repository. The return arrow is the part that does not exist at all
+        today: a finding currently has only one destination, the app spec, so a finding that is
+        really a defect in the harness has nowhere to go and becomes a paragraph in a README.
+      </figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>6. What this costs, and what it buys</h2>
+    <div class="cols">
+      <div class="col">
+        <h3 class="newh">What it costs</h3>
+        <p><b>Two spec families instead of one.</b> Product rules where they already are, and a
+          harness spec beside them. One more tree to keep honest, and one more place for a stale
+          line reference to rot. The first draft of this page said three, and one of the three
+          turned out to exist already.</p>
+        <p><b>A bootstrap rule to hold.</b> Keeping the previous cycle's harness runnable is a
+          real obligation, and the day it stops being runnable the whole ratification story is a
+          claim again.</p>
+        <p><b>A first cycle with nothing behind it.</b> Cycle one has no N-1, so its harness is
+          ratified by a person, and that should be recorded as such rather than glossed.</p>
+      </div>
+      <div class="col">
+        <h3>What it buys</h3>
+        <p><b>The incidents become executable.</b> Today, deleting the object-graph check from
+          <code>fence.sh</code> breaks nothing that anyone would notice. With a harness spec,
+          removing a guard fails a scenario that names the incident it came from.</p>
+        <p><b>Guardrails get an expiry.</b> A scenario has an id and a citation, so a guard whose
+          incident belongs to a model two generations old is visible as such. This is the one
+          thing on Ford's list phrased as a defect in our own machinery.</p>
+        <p><b>The tacit half gets a test.</b> The incident list stops being prose that we hope
+          persuades a newcomer, and becomes a thing that fails in front of them.</p>
+      </div>
+      <div class="col">
+        <h3>What it does not fix</h3>
+        <p>It does not make the harness shareable across an organisation. Packaging the machinery
+          so someone else can make new checks with it is a separate move, and this one is a
+          precondition for it rather than a substitute.</p>
+        <p>It does not fill the informative feedback cell. Step 12 is drawn here because the loop
+          does not close without it, but writing a harness spec does not run a single mission.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>7. The socket: where a thing seen becomes a rule</h2>
+    <p class="lede">
+      Everything above is about rules written in advance. This section is about the other
+      direction, which is the cell Ford's grid leaves thin: what happens to something noticed
+      after the fact.
+    </p>
+    <p style="max-width:72ch">
+      We have exactly one sensor that works, and it is not a script. It is an agent driving the
+      real application on the real device and looking at what comes back. It is the only thing in
+      the method that has ever found a defect a green suite could not, and it has done so every
+      time it has been run.
+    </p>
+    <p style="max-width:72ch">
+      What it lacks is anywhere for what it sees to go. A finding lands in a message, is fixed or
+      is not, and evaporates. There is no id, no count, and nothing that notices the same thing
+      being seen twice. So the next thing to build is not another sensor. It is the socket the
+      working sensor plugs into.
+    </p>
+    <div class="callout">
+      <p>One entry, with the four fields that make it more than a note:</p>
+      <p style="margin-top:12px"><code>F-02-004&nbsp; a label passes while the screen is in the
+      wrong language<br>
+      observed&nbsp; driving the deployed surface, cycle 02<br>
+      sensor&nbsp;&nbsp;&nbsp; reality audit<br>
+      item&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; the scenario that passed for the wrong reason<br>
+      becomes&nbsp;&nbsp; that scenario reworded, at the next cut<br>
+      status&nbsp;&nbsp;&nbsp; closed</code></p>
+    </div>
+    <div class="cols" style="margin-top:22px">
+      <div class="col">
+        <h3><code>sensor</code></h3>
+        <p>Which eye saw it. A finding with no sensor was seen by a person reading, which is
+          fine, but it is not perception anyone can run again next cycle.</p>
+      </div>
+      <div class="col">
+        <h3><code>becomes</code></h3>
+        <p>The link from a thing seen to a rule that now exists. This is the whole point of the
+          file. A perception that never becomes a rule was entertainment.</p>
+      </div>
+      <div class="col">
+        <h3><code>status</code></h3>
+        <p>Left open past one cycle, it is an alarm: we saw something, did nothing, and then saw
+          it again. Same shape as an inbox that nobody drains.</p>
+      </div>
+    </div>
+    <p style="margin-top:22px; max-width:72ch">
+      <b>The rule that makes it drain.</b> Every finding written after a generation has, by the
+      next cut, either become a rule or been deferred with a reason. The cut already exists as a
+      hard boundary, since after it nothing can change until the following cycle, so the file
+      inherits its deadline rather than needing one.
+    </p>
+    <p style="max-width:72ch">
+      <b>The one number it buys.</b> Findings the instrument could not see, counted cycle over
+      cycle. If that falls, the spec is learning. If it stays flat, we are finding new things at
+      the rate we always did and the harness is not improving. That is a claim the current
+      pass-rate cannot make.
+    </p>
+    <p style="max-width:72ch">
+      The uncomfortable part, said plainly: of the three eyes designed for this, the independent
+      review and the persona session are both unbuilt. The socket would currently be fed only by a
+      generation's own screenshots, which is the weakest of the three, because the agent is looking
+      at its own work.
+    </p>
+  </section>
+
+  <section>
+    <h2>8. Open decisions</h2>
+    <p style="max-width:72ch">
+      Two are settled since the first draft. <b>Where the non-functional spec lives</b> is
+      answered by section 2: it is a repository-wide slice in the same tree as every other slice,
+      because it is the same kind of rule at a wider scope, and one implementation has been doing
+      this all along. <b>Whether the harness spec is Gherkin</b> is answered yes, so that it
+      reuses the existing stamper and the existing checklist deriver rather than growing a second
+      format with a second parser: harness scenarios take their own file tree and their own id
+      prefix, so the product denominator never absorbs them.
+    </p>
+    <p style="max-width:72ch">What remains open:</p>
+    <ol class="seq">
+      <li><b>Whether a harness scenario reads as Gherkin should.</b> Settling on the format did
+        not settle the register. The actor is a gate rather than a person, and Gherkin exists to
+        be read by a domain expert who will never read one of these. The objection survives the
+        decision, and the first few scenarios are what will show whether it matters.</li>
+      <li><b>How a harness scenario is made RED.</b> The application's scenarios need a fixture.
+        A harness scenario needs a sabotaged machine: to watch the missing-tool guard fail, the
+        tool has to be hidden on purpose. That cost was not visible until the first one was
+        drafted.</li>
+      <li><b>Whether step 12 runs inside or outside the build round.</b> Inside is cheaper and is
+        no longer an independent observation, because the agent is driving a mission over the
+        feature it just wrote. Recorded as a decision either way, never allowed to happen by
+        drift.</li>
+      <li><b>Which of the four implementations goes first.</b> The trainer has run a reality
+        audit and the production pipeline has the only real cycle history, so those two can test
+        the return arrow. The two sauna repositories cannot, because neither has ever produced a
+        finding by driving anything.</li>
+    </ol>
+  </section>
+
+  <footer>
+    Sources, by path. <code>loyly/docs/wow/way-of-working.md</code> for the layer pipeline, the
+    gate, the minimum reference rule and the firewall. <code>loyly/docs/wow/harness.md</code> for
+    two-phase prompting, RED/GREEN and the six guardrails. <code>loyly/harness/README.md</code>
+    for the five mechanisms, the pipeline order and the five incidents each rule was learned
+    from. <code>saunavuoro/docs/dtr/four-kinds-of-harness.md</code> for the two crossed axes and
+    the empty cell. <code>loyly/docs/juxtcast-agentic-engineering-at-scale.md</code> for the Ford
+    material, which works from auto-captions and says so.
+    <br><br>
+    Nothing on this page has been built. It is a design note written 2026-09-02 and revised the same
+    day, and the second figure is a proposal, not a record. Section 2 collapsed four kinds of rule
+    into two, and section 7 was added after the revision.
+  </footer>
+
+</div>
