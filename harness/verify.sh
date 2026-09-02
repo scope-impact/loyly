@@ -23,16 +23,17 @@ URL="http://127.0.0.1:$PORT"
   exit 1
 }
 
-# ---- [0] nothing else may be on the port we are about to grade ------------------
-# An HTTP probe cannot tell its own backend from anyone else's. This lesson was
-# learned from an orphaned server that answered a health probe long after
-# its working directory had been deleted from under it: the probe passed instantly,
-# nothing was booted, and the suite graded someone else's process. Refuse rather
-# than kill: the port may be someone's dev server, and this script does not get to
-# decide that.
+# ---- [0] the port must be free before anything is graded ------------------------
+# An HTTP probe cannot tell this run's server apart from any other process that
+# happens to answer on the same port. An orphaned process from a dead run once
+# answered a health probe long after its working directory had been deleted from
+# under it: the probe passed at once, nothing had been booted, and the suite graded
+# the wrong process. The gate refuses instead of killing whatever holds the port,
+# because it might be a dev server someone is using, and that is not this script's
+# call to make.
 if held="$(lsof -ti:$PORT 2>/dev/null)" && [[ -n "$held" ]]; then
-  echo "FATAL: $URL is already served by pid(s): $held"
-  echo "       This run would grade THAT process, not this checkout. Free the port first."
+  echo "FATAL: $URL is already taken by pid(s): $held"
+  echo "       This run would measure that process instead of this checkout. Free the port first."
   exit 1
 fi
 

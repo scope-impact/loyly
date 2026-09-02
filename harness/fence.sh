@@ -3,10 +3,10 @@
 # and all measurements are deleted from the working tree AND from history, then PROVE
 # it. A generation that can read last week's answer is not regenerating anything.
 #
-# The fence is physical, and proved rather than asserted. In the production pipeline
-# this was distilled from, a weaker probe once passed while the reference
-# implementation was still readable one commit back; since then the probe checks the
-# object graph, not the working tree.
+# The fence is physical, and proved rather than asserted. An earlier and weaker probe
+# once reported success while the previous implementation was still reachable from an
+# older commit, so the probe now inspects the object graph rather than the working
+# tree.
 #
 # Usage: fence.sh /path/to/clean-room
 set -euo pipefail
@@ -18,11 +18,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # The spec, the domain wiki, the sources and the way of working stay: they ARE the input.
 FENCED_PATHS=(impl harness/cycles)
 
-# --depth 1: the clone has ONE commit of history, so a deleted path is unreachable even
-# by archaeology. file:// is LOAD-BEARING, not style: given a plain path, git makes a
-# LOCAL clone that hardlinks the whole object store and silently ignores --depth, and
-# the deleted trees stay readable at HEAD~1. With file:// the depth is real, and the
-# probe below turns any regression of this into a hard failure.
+# --depth 1: the clone carries ONE commit of history, so a deleted path cannot be dug
+# back out of the object store. The file:// prefix is essential rather than decorative:
+# handed a plain path, git makes a LOCAL clone that shares the whole object store and
+# quietly disregards --depth, leaving the deleted trees intact in the clone's own
+# history. With file:// the depth is genuine, and the probe below turns any slip back
+# into a hard failure.
 git clone -q --depth 1 "file://$ROOT" "$TARGET"
 
 for p in "${FENCED_PATHS[@]}"; do
@@ -32,7 +33,7 @@ git -C "$TARGET" add -A
 git -C "$TARGET" -c user.name=fence -c user.email=fence@localhost \
   commit -q -m "the fence: prior implementations and measurements removed"
 
-# Squash to a single root commit so nothing is one commit back.
+# Squash to a single root commit so no earlier commit survives to be read.
 NEW_ROOT="$(git -C "$TARGET" -c user.name=fence -c user.email=fence@localhost \
   commit-tree "$(git -C "$TARGET" rev-parse 'HEAD^{tree}')" -m 'fenced clean room')"
 git -C "$TARGET" reset -q --hard "$NEW_ROOT"
@@ -44,12 +45,12 @@ git -C "$TARGET" gc -q --prune=now --aggressive
 # ---- prove it, do not assert it -------------------------------------------------
 fail() { echo "FENCE FAILED: $*"; exit 1; }
 roots="$(git -C "$TARGET" rev-list --max-parents=0 --all | wc -l | tr -d ' ')"
-(( roots == 1 )) || fail "history has $roots root commits, expected exactly 1"
+(( roots == 1 )) || fail "the clone has $roots root commits; a fenced clean room must have exactly one"
 n="$(git -C "$TARGET" rev-list --all --count)"
 (( n == 1 )) || fail "history is not a single commit ($n): deleted trees may be reachable"
 objects="$(git -C "$TARGET" rev-list --objects --all)"
 for p in "${FENCED_PATHS[@]}"; do
-  [[ -e "$TARGET/$p" ]] && fail "$p still present in the working tree"
+  [[ -e "$TARGET/$p" ]] && fail "$p was not removed from the working tree"
   grep -qE "(^| )${p%/}(/|$)" <<<"$objects" && fail "$p still reachable in the object graph"
 done
 echo "fence OK: $TARGET is a single-commit clean room with no ${FENCED_PATHS[*]} anywhere in it"

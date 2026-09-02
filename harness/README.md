@@ -25,11 +25,11 @@ plumbing from the original are deliberately absent; every mechanism that matters
 
 | file | role | the rule it embodies |
 |---|---|---|
-| `stamp_item_ids.py` | stamps `@item-NN-SSS` on every spec scenario | ids are assigned once and never derived from wording, so rewording a rule cannot break the week-over-week comparison |
+| `stamp_item_ids.py` | stamps `@item-NN-SSS` on every spec scenario | ids are handed out once and are never computed from wording, so rewording a rule cannot break the cycle-to-cycle comparison |
 | `gen_checklist.py` | derives the scoring checklist from the spec | the checklist is derived, never written; a hand-kept list goes stale silently |
 | `fence.sh` | builds the clean-room clone and PROVES it | the fence is physical; a generation that can read last week's answer is not regenerating anything |
 | `verify.sh` | the ratifying gate | a "done" claim is ratified by a script the claimant does not control |
-| `score.py` | files verdicts against the checklist | zero verdicts is a grading run that did not happen, not a score of zero; an unreached item is recorded as `fail`, so a gap can never quietly shrink the denominator |
+| `score.py` | files verdicts against the checklist | zero verdicts means the grading did not happen, not that everything failed; an unreached item is recorded as `fail`, so a gap can never quietly shrink the denominator |
 | `scoreboard.py` | the pass rate, cycle over cycle | both directions on the shared items, never the net; a moved denominator is restated out loud, and new items are counted separately because they are the one holdout nobody has tuned |
 
 ## Walkthrough
@@ -78,20 +78,20 @@ scaffolding around the five mechanisms above, which are the transferable part.
 
 Each rule above exists because its absence produced a specific, silent lie:
 
-- A gate once printed "verify OK" having never opened a browser, because a missing
-  config made the test command a no-op that exits 0. Gates now assert their tools exist
-  before trusting them.
+- A gate once reported success without ever exercising the app, because a missing
+  config turned the test command into a no-op that exits 0. Gates now assert their tools
+  exist before trusting them.
 - A test runner named its suites twice, once in imports and once in a run list, so a
   forgotten suite was silently green. Runners now discover suites from the directory and
   refuse an empty discovery (`verify.sh` does exactly this).
-- An orphaned server from a dead run answered the health probe long afterwards, so a
-  scoring run graded someone else's process. The gate now refuses to start when the port
-  is already held (`verify.sh` [0]).
+- An orphaned process from a dead run once answered a health probe long afterwards, so a
+  scoring run graded the wrong process. The gate now refuses to start when the port is
+  already held (`verify.sh` [0]).
 - A scoring run whose every batch failed on a network outage once committed "scored" over
   an empty record. The instrument now dies loudly instead: an unrecorded measurement is
   recoverable, a false record is not (`score.py`).
-- A weaker fence probe once passed while the reference implementation was still readable
-  one commit back. The probe now checks the object graph, not the working tree
+- A weaker fence probe once passed while the previous implementation was still reachable
+  from an older commit. The probe now checks the object graph, not the working tree
   (`fence.sh`).
 - A seeded holdback, a quarter of the items scored and never listed, with the gap between
   the visible and the hidden pass rates as the alarm, was built here and retired on
@@ -99,3 +99,24 @@ Each rule above exists because its absence produced a specific, silent lie:
   means something only when a repair loop runs blind to the hidden items, and none ever ran
   here; the seed was committed too, so the set was unprinted rather than hidden. New
   scenarios are the holdout that needs no seed, and the scoreboard already counts them.
+
+## The goldens, and the two reasons one can change
+
+`harness/oracle.sh` judges an implementation of these tools against recorded goldens in
+`harness/oracle/`, byte for byte, refusal messages included. A golden that moves is
+normally an alarm, so it is worth writing down each time one moved and why.
+
+Two events look alike in a diff and must never be confused:
+
+- **The instrument's behaviour changed.** Serious. It needs a reason, and a golden may not
+  be re-recorded merely to get the suite green again.
+- **The wording was replaced.** Deliberate, and with no behavioural consequence.
+  Re-recording is then the correct response, and an entry here is the record of it.
+
+**2026-09-02: the wording was replaced with our own.** The comments, docstrings, refusal
+messages and the scoreboard's printed report were rewritten in our own plain language.
+Nothing else moved: no logic, no exit code, no JSON structure or key order, and no change
+to how a rate is formatted. `harness/oracle/checklist.golden.json` came back byte for byte
+identical, which is the check that proves it, and both `harness/oracle.sh py` and
+`harness/oracle.sh bb` pass with the same counts as before. The goldens were regenerated
+with `harness/oracle.sh record` for that reason and no other.
