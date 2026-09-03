@@ -774,7 +774,10 @@
         repository by being copied and re-pointed by hand, which means a change to the stamper or
         the checklist deriver lands in one repository and the other three drift from it silently.
         The change proposed here touches exactly those two scripts, so this is the first time that
-        cost is actually charged. Nothing on this page solves it.</li>
+        cost is actually charged. Charged again on 2026-09-03: fixes to the oracle and to the
+        checklist deriver reached the other two repositories by copying the file. The spec and the
+        oracle now make drift detectable, since a copy that drifts goes red, but nothing prevents
+        it. Module 1 in section 10 is the shape of an answer.</li>
       <li><b>Which of the four implementations goes first.</b> The trainer has run a reality
         audit and the production pipeline has the only real cycle history, so those two can test
         the return arrow. The two sauna repositories cannot, because neither has ever produced a
@@ -782,6 +785,253 @@
     </ol>
   </section>
 
+  <section>
+    <h2>10. One core, or modules: what building it decided</h2>
+    <p class="lede">
+      Sections 1 to 6 were built the day after they were drawn. Building them changed two things
+      this page said, and killed a proposal this page had not yet made.
+    </p>
+
+    <h3>What was built</h3>
+    <p>
+      The harness now has the treatment the app has had all along. A spec of 49 scenarios grouped
+      under 13 Rules, kept outside the plan tree so its ids never enter the product denominator.
+      An oracle that replays recorded exercises against the four tools and compares stdout,
+      stderr, exit codes and written files byte for byte, refusal messages included. And a second
+      implementation, written from the spec alone with the original physically moved out of reach,
+      that the oracle could not tell from the first. The original was then deleted. It is the first
+      time anything in the harness has been regenerated from a document. The spec found one hole in
+      itself doing it, a column width nobody had written down, and one trap: the two languages
+      round a tie in opposite directions, and the spec now says which way is contract.
+    </p>
+
+    <h3>Incidents attach to Rules, not scenarios</h3>
+    <p>
+      Section 3 said every scenario cites an incident, and that nothing else may generate one. The
+      first Rule of the spec broke that, and the break was right. A spec that is a regeneration
+      source has to describe what a tool does when nothing is wrong, or nothing can be built from
+      it, and no incident produced "the stamper gives every scenario an id". So the citation moved
+      up one level. A Rule is either a <b>contract</b>, describing ordinary behaviour and citing
+      nothing, or a <b>guard</b>, and a Rule is a guard when violating it would produce a silent
+      lie: a denominator that shrinks without saying so, a zero that reads as a clean sheet. Guard
+      Rules cite their origin, and the origin is allowed to be reasoning rather than an incident,
+      provided the comment says so plainly. Of the 13 Rules, 9 are guards and 4 are contracts;
+      three of the guards cite reasoning and say that no incident produced them.
+    </p>
+    <p>
+      Section 3's bound survives in a tighter form: no silent lie, no guard, and no guard without
+      a stated origin. The spec still cannot grow into a second method document, because a
+      contract can only say what a tool does, and a guard needs a lie to point at.
+    </p>
+
+    <h3>The shared core, drawn and abandoned</h3>
+    <p>
+      With three copies of one harness agreeing, the obvious next move was a shared core: one
+      lineage carried into each repository as a subtree, and one small file beside it holding
+      everything the repository knows about itself. It was drawn on 2026-09-02 and abandoned on
+      2026-09-03, and the drawing is kept here because the reason it failed is worth more than the
+      drawing was.
+    </p>
+    <figure>
+      <div class="legend">
+        <span><span class="swatch sw-now"></span>shared, one lineage</span>
+        <span><span class="swatch"></span>this repository's own</span>
+      </div>
+      <div class="figwrap">
+<svg role="img" aria-label="The abandoned proposal. One box at the top, the harness core, holds the five tools, the fence, the gate, the spec as contract and the oracle as judge, one lineage with no repository facts. Three columns below it, one per repository, each receiving the core as a subtree and holding beside it a small configuration file, its own harness spec of local incidents, and its own cycle records. A caption reads: a fix travels once, downward; nothing travels sideways, which is what four hand-kept copies do today." viewBox="0 0 1120 620" role="img" aria-label="A shared harness core carried into three repositories by git subtree, each with its own configuration file, own incidents and own cycles.">
+
+        <!-- CORE -->
+        <rect class="bx-new" x="330" y="16" width="460" height="196" rx="3"/>
+        <text class="t-lane" x="352" y="44">HARNESS CORE</text>
+        <text class="t-sm" x="352" y="64">one lineage, pinned commit, no repository facts</text>
+
+        <rect class="bx-dim" x="352" y="78" width="200" height="24" rx="2"/>
+        <text class="t-sm" x="362" y="94">stamp_item_ids.clj</text>
+        <rect class="bx-dim" x="568" y="78" width="200" height="24" rx="2"/>
+        <text class="t-sm" x="578" y="94">gen_checklist.clj</text>
+        <rect class="bx-dim" x="352" y="108" width="200" height="24" rx="2"/>
+        <text class="t-sm" x="362" y="124">score.clj  scoreboard.clj</text>
+        <rect class="bx-dim" x="568" y="108" width="200" height="24" rx="2"/>
+        <text class="t-sm" x="578" y="124">hjson.clj</text>
+        <rect class="bx-dim" x="352" y="138" width="200" height="24" rx="2"/>
+        <text class="t-sm" x="362" y="154">fence.sh  verify.sh</text>
+        <rect class="bx-dim" x="568" y="138" width="200" height="24" rx="2"/>
+        <text class="t-sm" x="578" y="154">spec.feature   the contract</text>
+        <rect class="bx-dim" x="352" y="168" width="416" height="24" rx="2"/>
+        <text class="t-sm" x="362" y="184">oracle.sh   the judge, run after every pull</text>
+
+        <!-- subtree arrows -->
+        <path class="ar-new" d="M 560 212 L 560 244"/>
+        <path class="ar-new" d="M 180 244 L 180 268"/>
+        <path class="ar-new" d="M 560 244 L 560 268"/>
+        <path class="ar-new" d="M 940 244 L 940 268"/>
+        <path class="ar-new" d="M 180 244 L 940 244"/>
+        <text class="t-sm" x="586" y="238">git subtree pull, then oracle.sh</text>
+
+        <!-- REPOS -->
+        <g>
+          <rect class="bx-now" x="40" y="268" width="280" height="300" rx="3"/>
+          <text class="t" x="60" y="298">loyly</text>
+          <text class="t-sm" x="60" y="318">public demo</text>
+        </g>
+        <g>
+          <rect class="bx-now" x="420" y="268" width="280" height="300" rx="3"/>
+          <text class="t" x="440" y="298">saunavuoro</text>
+          <text class="t-sm" x="440" y="318">private</text>
+        </g>
+        <g>
+          <rect class="bx-now" x="800" y="268" width="280" height="300" rx="3"/>
+          <text class="t" x="820" y="298">kalibra</text>
+          <text class="t-sm" x="820" y="318">private, the only scored cycle</text>
+        </g>
+
+        <!-- per repo contents, three columns -->
+        <g>
+          <rect class="bx-new" x="60" y="336" width="240" height="26" rx="2"/>
+          <text class="t-sm" x="70" y="353">harness/core/    subtree</text>
+          <rect class="bx" x="60" y="370" width="240" height="26" rx="2"/>
+          <text class="t-sm" x="70" y="387">harness/harness.conf</text>
+          <rect class="bx" x="60" y="404" width="240" height="26" rx="2"/>
+          <text class="t-sm" x="70" y="421">harness/spec.feature</text>
+          <text class="t-sm" x="70" y="446">own incidents only</text>
+          <rect class="bx" x="60" y="460" width="240" height="26" rx="2"/>
+          <text class="t-sm" x="70" y="477">harness/cycles/</text>
+          <text class="t-sm" x="70" y="510">APP_DIR   impl</text>
+          <text class="t-sm" x="70" y="530">PORT      8901</text>
+          <text class="t-sm" x="70" y="550">FENCED    impl, cycles</text>
+        </g>
+        <g>
+          <rect class="bx-new" x="440" y="336" width="240" height="26" rx="2"/>
+          <text class="t-sm" x="450" y="353">harness/core/    subtree</text>
+          <rect class="bx" x="440" y="370" width="240" height="26" rx="2"/>
+          <text class="t-sm" x="450" y="387">harness/harness.conf</text>
+          <rect class="bx" x="440" y="404" width="240" height="26" rx="2"/>
+          <text class="t-sm" x="450" y="421">harness/spec.feature</text>
+          <text class="t-sm" x="450" y="446">own incidents only</text>
+          <rect class="bx" x="440" y="460" width="240" height="26" rx="2"/>
+          <text class="t-sm" x="450" y="477">harness/cycles/</text>
+          <text class="t-sm" x="450" y="510">APP_DIR   coldrun/grounded</text>
+          <text class="t-sm" x="450" y="530">PORT      8901</text>
+          <text class="t-sm" x="450" y="550">FENCED    coldrun, cycles, scorers</text>
+        </g>
+        <g>
+          <rect class="bx-new" x="820" y="336" width="240" height="26" rx="2"/>
+          <text class="t-sm" x="830" y="353">harness/core/    subtree</text>
+          <rect class="bx" x="820" y="370" width="240" height="26" rx="2"/>
+          <text class="t-sm" x="830" y="387">harness/harness.conf</text>
+          <rect class="bx" x="820" y="404" width="240" height="26" rx="2"/>
+          <text class="t-sm" x="830" y="421">harness/spec.feature</text>
+          <text class="t-sm" x="830" y="446">own incidents only</text>
+          <rect class="bx" x="820" y="460" width="240" height="26" rx="2"/>
+          <text class="t-sm" x="830" y="477">harness/cycles/</text>
+          <text class="t-sm" x="830" y="510">APP_DIR   impl</text>
+          <text class="t-sm" x="830" y="530">PORT      8901</text>
+          <text class="t-sm" x="830" y="550">FENCED    impl, cycles</text>
+        </g>
+
+        <text class="t-sm" x="40" y="596">A fix travels once, downward. Nothing travels sideways, which is what four hand-kept copies do today.</text>
+      </svg>
+      </div>
+      <figcaption>
+        The proposal as drawn, one day before it failed. Two values are corrected from the
+        original: the three ports did not differ, and the two scorer files have since changed
+        names. Everything else is as it was.
+      </figcaption>
+    </figure>
+    <p style="margin-top:18px">
+      Read off the three copies, the configuration file was four lines: the app directory, the
+      fenced paths, the port, and the plan directory. Two things went wrong with it before the
+      fourth implementation was even opened. The port did not differ: all three copies use the same
+      one, and the numbers in the drawing were invented. And a fifth variable was already there,
+      undeclared: the string the gate greps for to prove that the thing answering on the port is
+      this app and not some other process. A surface derived from three siblings built in one week
+      undercounts the siblings.
+    </p>
+    <p>
+      Then the fourth implementation, the production pipeline. It regenerates several application
+      trees in several languages, so the app directory and the port are not scalars but a record
+      per track, and the record is written as data in two places that do not agree on the list of
+      tracks. Its boot step is code, not configuration: each stack is built and started
+      differently, and no config file can carry that. The two-entry-point contract,
+      <code>test.sh</code> and <code>start.sh PORT</code>, does not exist there at all; its start
+      scripts are deployment entrypoints that ignore the argument. Its clean room is made from a tag
+      rather than a working tree. Its fence hides the method documents too, because the agent being
+      fenced is being scored and knowing the rubric is the leak. It has a second thing called a
+      fence, a per-agent write fence with a violation mode, that the small three have no analogue
+      of. And it has judgement the small three have never needed: items excluded with a reason,
+      items an agent judges rather than drives, and a product oracle worked by hand that has to live
+      outside the fence. What it lacks is exactly what the small three have: the contract, a
+      harness spec, and a byte-level oracle. Neither side has both. The four lines became about
+      twenty, of which a dozen carry a value no core could default, and half of those are per
+      track.
+    </p>
+    <div class="callout">
+      <p><b>The verdict.</b> A core does not generalise. The three small copies agree with each
+      other because they are siblings built the same week from the same distillation, not because
+      the design is general, and one implementation unlike them was enough to show it. The right
+      unit is smaller than a harness.</p>
+    </div>
+
+    <h3 style="margin-top:22px">Modules, in adoption order</h3>
+    <table>
+      <tr><th></th><th>module</th><th>what it owns</th><th>who has it today</th><th>where the general one comes from</th></tr>
+      <tr>
+        <td class="num">1</td><td class="k">measure</td>
+        <td>stamp, derive, score, report; the harness spec and the byte-level oracle that judge them</td>
+        <td>the small three, complete; the pipeline has the tools but neither spec nor oracle</td>
+        <td>the small three</td>
+      </tr>
+      <tr>
+        <td class="num">2</td><td class="k">cleanroom</td>
+        <td>the fence: what is removed, how, and the probe that proves it</td>
+        <td>both, by different mechanisms; the pipeline's also hides the rubric</td>
+        <td>both: the probe and the refusal of a path that matches nothing from the small three, the
+          inversion from the pipeline, since a fenced agent that is being scored must not see the
+          method</td>
+      </tr>
+      <tr>
+        <td class="num">3</td><td class="k">gate</td>
+        <td>ratifying "done" through the two-entry-point contract</td>
+        <td>the small three; the pipeline has one gate per stack, each knowing its stack in detail</td>
+        <td>the small three; each pipeline track adopts the contract, rather than a shared gate
+          learning every stack</td>
+      </tr>
+      <tr>
+        <td class="num">4</td><td class="k">tracks</td>
+        <td>several apps in one repository, each a record: directory, port, gate, write fence</td>
+        <td>the pipeline only</td>
+        <td>the pipeline</td>
+      </tr>
+      <tr>
+        <td class="num">5</td><td class="k">roles</td>
+        <td>a task and a principles file per agent, state per role, a write fence with a violation
+          mode</td>
+        <td>the pipeline only</td>
+        <td>the pipeline</td>
+      </tr>
+      <tr>
+        <td class="num">6</td><td class="k">judgement</td>
+        <td>exclusions with reasons, items judged rather than driven, a product oracle that lives
+          outside the fence</td>
+        <td>the pipeline only</td>
+        <td>the pipeline</td>
+      </tr>
+    </table>
+    <p style="margin-top:16px">
+      The small three need modules 1 to 3 and have them, in three hand-kept copies. The pipeline
+      needs all six and has 2, 4, 5 and 6, plus the tools of 1 without its spec. Multi-stack does
+      not break the contract of module 3: the pipeline dropped the contract for deployment reasons,
+      and the cheaper move is for each of its tracks to adopt the contract than for a shared gate to
+      learn every stack. Deployment and citation checking stay outside the harness altogether.
+    </p>
+    <p>
+      What this changes on the page: section 6 said the change does not make the harness shareable
+      across an organisation. Module boundaries are the first concrete statement of what shareable
+      would mean. A module is shareable when its configuration is documented and a repository
+      unlike the others has adopted it without forking it. No module has passed that test. Module 1
+      is closest, because its spec and oracle exist and the pipeline is the natural fourth adopter.
+    </p>
+  </section>
   <footer>
     Sources, by path. <code>loyly/docs/wow/way-of-working.md</code> for the layer pipeline, the
     gate, the minimum reference rule and the firewall. <code>loyly/docs/wow/harness.md</code> for
@@ -791,9 +1041,12 @@
     the empty cell. <code>loyly/docs/juxtcast-agentic-engineering-at-scale.md</code> for the Ford
     material, which works from auto-captions and says so.
     <br><br>
-    Nothing on this page has been built. It is a design note written 2026-09-02 and revised the same
-    day, and the second figure is a proposal, not a record. Section 2 collapsed four kinds of rule
-    into two, and section 7 was added after the revision.
+    Sections 1 to 6 were built on 2026-09-03: the harness spec, the oracle, and a reimplementation
+    from the spec alone, with the original deleted once the oracle could not tell them apart.
+    Section 7 is proposed and unbuilt. Section 10 records a proposal that was abandoned the day
+    after it was drawn, and a plan that replaces it. The second figure is a proposal, not a record.
+    Written 2026-09-02 and revised the same day, when section 2 collapsed four kinds of rule into
+    two and section 7 was added; revised again 2026-09-03 with section 10.
   </footer>
 
 </div>
