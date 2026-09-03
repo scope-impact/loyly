@@ -25,12 +25,12 @@ plumbing from the original are deliberately absent; every mechanism that matters
 
 | file | role | the rule it embodies |
 |---|---|---|
-| `stamp_item_ids.py` | stamps `@item-NN-SSS` on every spec scenario | ids are handed out once and are never computed from wording, so rewording a rule cannot break the cycle-to-cycle comparison |
-| `gen_checklist.py` | derives the scoring checklist from the spec | the checklist is derived, never written; a hand-kept list goes stale silently |
+| `stamp_item_ids.clj` | stamps `@item-NN-SSS` on every spec scenario | ids are handed out once and are never computed from wording, so rewording a rule cannot break the cycle-to-cycle comparison |
+| `gen_checklist.clj` | derives the scoring checklist from the spec | the checklist is derived, never written; a hand-kept list goes stale silently |
 | `fence.sh` | builds the clean-room clone and PROVES it | the fence is physical; a generation that can read last week's answer is not regenerating anything |
 | `verify.sh` | the ratifying gate | a "done" claim is ratified by a script the claimant does not control |
-| `score.py` | files verdicts against the checklist | zero verdicts means the grading did not happen, not that everything failed; an unreached item is recorded as `fail`, so a gap can never quietly shrink the denominator |
-| `scoreboard.py` | the pass rate, cycle over cycle | both directions on the shared items, never the net; a moved denominator is restated out loud, and new items are counted separately because they are the one holdout nobody has tuned |
+| `score.clj` | files verdicts against the checklist | zero verdicts means the grading did not happen, not that everything failed; an unreached item is recorded as `fail`, so a gap can never quietly shrink the denominator |
+| `scoreboard.clj` | the pass rate, cycle over cycle | both directions on the shared items, never the net; a moved denominator is restated out loud, and new items are counted separately because they are the one holdout nobody has tuned |
 
 ## Walkthrough
 
@@ -41,10 +41,10 @@ failure) and `impl/start.sh PORT` (serves the app over HTTP on PORT).
 
 ```bash
 # 1. stamp the spec (idempotent; only untagged scenarios change)
-python3 harness/stamp_item_ids.py
+bb harness/stamp_item_ids.clj
 
 # 2. derive the checklist for cycle 01
-python3 harness/gen_checklist.py --out harness/cycles/01/checklist.json
+bb harness/gen_checklist.clj --out harness/cycles/01/checklist.json
 
 # 3. build a fenced clean room (what a regeneration agent would be pointed at)
 ./harness/fence.sh /tmp/clean-room
@@ -54,10 +54,10 @@ python3 harness/gen_checklist.py --out harness/cycles/01/checklist.json
 
 # 5. grade each checklist item against the running app, however you grade
 #    (an agent driving the app, or a person with the spec in one hand), then file:
-python3 harness/score.py 01 --verdicts my-verdicts.json
+bb harness/score.clj 01 --verdicts my-verdicts.json
 
 # 6. read the measurement
-python3 harness/scoreboard.py 01
+bb harness/scoreboard.clj 01
 ```
 
 No cycle has been scored yet: producing the first `my-verdicts.json` honestly, by
@@ -89,7 +89,7 @@ Each rule above exists because its absence produced a specific, silent lie:
   already held (`verify.sh` [0]).
 - A scoring run whose every batch failed on a network outage once committed "scored" over
   an empty record. The instrument now dies loudly instead: an unrecorded measurement is
-  recoverable, a false record is not (`score.py`).
+  recoverable, a false record is not (`score.clj`).
 - A weaker fence probe once passed while the previous implementation was still reachable
   from an older commit. The probe now checks the object graph, not the working tree
   (`fence.sh`).

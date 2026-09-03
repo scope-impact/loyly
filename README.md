@@ -93,10 +93,10 @@ you built nothing yet, it says so and fails, which is correct behaviour for a ga
 ### 3. Measure
 
 ```bash
-python3 harness/gen_checklist.py --out harness/cycles/01/checklist.json
+bb harness/gen_checklist.clj --out harness/cycles/01/checklist.json
 # grade each item against the running app, however you grade, then:
-python3 harness/score.py 01 --verdicts your-verdicts.json
-python3 harness/scoreboard.py 01
+bb harness/score.clj 01 --verdicts your-verdicts.json
+bb harness/scoreboard.clj 01
 ```
 
 The checklist is derived from the spec (never hand-kept), one item per stamped scenario.
