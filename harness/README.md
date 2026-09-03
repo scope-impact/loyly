@@ -31,6 +31,7 @@ plumbing from the original are deliberately absent; every mechanism that matters
 | `verify.sh` | the ratifying gate | a "done" claim is ratified by a script the claimant does not control |
 | `score.clj` | files verdicts against the checklist | zero verdicts means the grading did not happen, not that everything failed; an unreached item is recorded as `fail`, so a gap can never quietly shrink the denominator |
 | `scoreboard.clj` | the pass rate, cycle over cycle | both directions on the shared items, never the net; a moved denominator is restated out loud, and new items are counted separately because they are the one holdout nobody has tuned |
+| `hjson.clj` | the JSON dialect and the plumbing the four tools share | one copy of the byte contract (one-space indent, key order preserved), because four copies drift into four instruments; it holds no scoring rule, which is why the fence leaves it in the room |
 
 ## Walkthrough
 
