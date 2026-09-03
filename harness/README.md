@@ -120,3 +120,10 @@ to how a rate is formatted. `harness/oracle/checklist.golden.json` came back byt
 identical, which is the check that proves it, and both `harness/oracle.sh py` and
 `harness/oracle.sh bb` pass with the same counts as before. The goldens were regenerated
 with `harness/oracle.sh record` for that reason and no other.
+
+**2026-09-03: the skip lines moved from stdout to stderr.** A behaviour change, the
+serious kind, made on purpose: `gen_checklist` prints "skipping" for a planned or backlog
+slice, and until now that line landed on stdout ahead of the checklist JSON, so
+`gen_checklist | jq` broke on any repository with a planned slice. The oracle's expectation
+moved with it (`@harness-027`, `@harness-028`); no golden changed, because the goldens are
+written through `--out` and never carried the line.

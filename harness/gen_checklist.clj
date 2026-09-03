@@ -80,13 +80,14 @@
       files (hjson/spec-files root)
       ;; The planned-slice filter, and it is loud on purpose: it could obviously be
       ;; abused to shrink a denominator by demoting a slice (@harness-027). The skip
-      ;; lines land on stdout ahead of the JSON, which breaks `gen_checklist | jq`.
-      ;; That is a known wart, specified as it stands (@harness-028).
+      ;; lines go to stderr, so stdout stays the checklist alone and `gen_checklist | jq`
+      ;; works on a repository with a planned slice (@harness-028; they went to stdout
+      ;; until 2026-09-03).
       files (vec (remove (fn [f]
                            (let [dir (.getParentFile f)
                                  status (slice-status dir)]
                              (when (skipped-statuses status)
-                               (hjson/out (str "gen_checklist: skipping " (.getName dir)
+                               (hjson/err (str "gen_checklist: skipping " (.getName dir)
                                                " (status: " status ")\n"))
                                true)))
                          files))]

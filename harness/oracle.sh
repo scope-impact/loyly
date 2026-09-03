@@ -305,8 +305,9 @@ printf '  @item-01-001\n  Scenario: a one\n' >"$FX/docs/plan/01-a/spec.feature"
 printf '  @item-02-001\n  Scenario: b one\n' >"$FX/docs/plan/02-b/spec.feature"
 printf -- '---\nstatus: planned\n---\n' >"$FX/docs/plan/02-b/plan.md"
 run "$FX" "${GEN[@]}" --out "c.json"
-printf 'gen_checklist: skipping 02-b (status: planned)\n' >"$WORK/want"
-expect_text "a planned slice is skipped, out loud, on stdout" "$WORK/want" "$WORK/out"
+printf "gen_checklist: skipping 02-b (status: planned)\nchecklist: {'total': 1}\n" >"$WORK/want"
+expect_text "a planned slice is skipped, out loud, on stderr" "$WORK/want" "$WORK/err"
+expect_empty "with --out, stdout carries nothing" "$WORK/out"
 if grep -q '"02-001"' "$FX/c.json"; then bad "a planned slice stays out of the checklist"; else
   ok "a planned slice stays out of the checklist"; fi
 
@@ -665,7 +666,8 @@ FX="$(new_fixture allplanned)"
 mkdir -p "$FX/docs/plan/01-a"
 printf '  @item-01-001\n  Scenario: a one\n' >"$FX/docs/plan/01-a/spec.feature"
 printf -- '---\nstatus: backlog\n---\n' >"$FX/docs/plan/01-a/plan.md"
-printf 'gen_checklist: no NN-slug/spec.feature under <ROOT>/docs/plan. An empty checklist lets a scoring run report a flawless cycle in which nothing was ever checked, so none is written.\n' >"$WORK/want"
+{ printf 'gen_checklist: skipping 01-a (status: backlog)\n'
+  printf 'gen_checklist: no NN-slug/spec.feature under <ROOT>/docs/plan. An empty checklist lets a scoring run report a flawless cycle in which nothing was ever checked, so none is written.\n'; } >"$WORK/want"
 run "$FX" "${GEN[@]}"
 norm "$FX" "$WORK/err"
 expect_rc "every slice filtered out: exit 1" 1 "$RC"

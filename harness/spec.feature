@@ -470,7 +470,9 @@ Feature: The harness: stamp, derive, score, report
       Given every slice directory is skipped by the status filter below
       When gen_checklist runs
       Then it refuses with the same message and exit code as the scenario above
-      # This matters: the filter cannot be used to reduce the spec to nothing quietly.
+      And the skip lines precede the refusal on stderr
+      # This matters: the filter cannot be used to reduce the spec to nothing quietly,
+      # and the operator sees which slices were skipped on the way to nothing.
 
   # GUARD. Origin unknown as an incident: no failure in harness/README.md produced it. It
   # was added in one repository with its reasoning written into the file, and the
@@ -487,7 +489,7 @@ Feature: The harness: stamp, derive, score, report
       And "docs/plan/02-b/spec.feature" carrying stamped scenarios
       When gen_checklist runs
       Then no item from 02-b appears in the checklist
-      And stdout carries the line:
+      And stderr carries the line:
         """
         gen_checklist: skipping 02-b (status: planned)
         """
@@ -501,16 +503,16 @@ Feature: The harness: stamp, derive, score, report
       # plan.md a human wrote and review reads.
 
     @harness-028
-    Scenario: The skip lines are printed to stdout, before the checklist
+    Scenario: The skip lines go to stderr, so stdout is the checklist alone
       Given a run with no --out and one skipped slice
       When gen_checklist runs
-      Then stdout holds the skip line first and the checklist JSON after it
-      # A THIRD WART, and it is the one most likely to bite: with no --out, the skip
-      # lines land on stdout ahead of the JSON, so `gen_checklist | jq` breaks on a
-      # repository that has a planned slice. It is specified as it stands rather than
-      # quietly moved to stderr, because the oracle compares stdout byte for byte and a
-      # silent improvement here is still a change to the product. Move it deliberately,
-      # in a commit that says so, or not at all.
+      Then stdout holds the checklist JSON and nothing else
+      And stderr holds the skip line, then the counts line
+      # Until 2026-09-03 the skip lines landed on stdout ahead of the JSON, so
+      # `gen_checklist | jq` broke on a repository with a planned slice. That was
+      # specified as it stood rather than quietly fixed, because a silent improvement
+      # is still a change to the product. It was then moved deliberately, in a commit
+      # that says so, with the oracle's expectation moved in the same commit.
 
   # -------------------------------------------------------------------------------
   # score
