@@ -26,7 +26,12 @@ FENCED_PATHS=(impl harness/cycles)
 # into a hard failure.
 git clone -q --depth 1 "file://$ROOT" "$TARGET"
 
+# A fenced path that matches nothing is not a clean pass. It is a typo, or the thing it
+# named has moved, and what it was meant to hide may now sit under another name. Until
+# 2026-09-03 such an entry was removed silently and the probe below then passed, because
+# the probe can only confirm an absence.
 for p in "${FENCED_PATHS[@]}"; do
+  [[ -e "$TARGET/$p" ]] || { echo "FENCE FAILED: $p matches nothing in the clone: fix the entry, or find where it went, before trusting this room"; exit 1; }
   rm -rf "${TARGET:?}/$p"
 done
 git -C "$TARGET" add -A
