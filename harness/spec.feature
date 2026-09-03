@@ -24,23 +24,25 @@
 # CONTRACT scenarios, the ones that only say what the tool does when nothing is wrong,
 # cite nothing. A guard whose incident is not recorded anywhere says so in its comment.
 #
-# THE THREE REPOSITORIES. These tools exist in three repositories and are converging on
-# one implementation. Where the current copies differ, this spec states the TARGET, and a
-# comment marks which behaviour is not yet in every copy. The target is always the
-# stricter one: a guard that exists in one place and not another is a guard that has not
-# finished being learned.
+# THE THREE REPOSITORIES. These tools exist in three repositories as one implementation,
+# copied by hand, and the oracle in each is what shows a copy has drifted. Until 2026-09-03
+# the copies differed, and this spec stated the TARGET with a comment marking which
+# behaviour was not yet in every copy; those comments are kept as history. The target is
+# always the stricter one: a guard that exists in one place and not another is a guard
+# that has not finished being learned.
 #
-# FILE NAMES AND INVOCATION OF THE REIMPLEMENTATION. Four scripts, one per tool, keeping
-# the names they have: harness/stamp_item_ids, harness/gen_checklist, harness/score,
-# harness/scoreboard, with the extension of the language they are written in. They are
-# invoked from the repository root as "<runner> harness/<name>.<ext> <args>", for example
+# FILE NAMES AND INVOCATION. Four scripts, one per tool: harness/stamp_item_ids,
+# harness/gen_checklist, harness/score, harness/scoreboard, with the extension of the
+# language they are written in (today .clj, run by bb; the Python originals were replaced
+# 2026-09-03). They are invoked from the repository root as
+# "<runner> harness/<name>.<ext> <args>", for example
 # "bb harness/gen_checklist.clj --out harness/cycles/01/checklist.json". Two messages name
 # a sibling tool as a command for the operator to run, and those two must name the
-# implementation's own files rather than the ones being replaced (@harness-023,
-# @harness-040); everywhere else the words are fixed.
+# implementation's own files (@harness-023, @harness-040); everywhere else the words are
+# fixed.
 #
-# HOW THIS SPEC IS JUDGED. harness/oracle.sh is the oracle for this file. It runs a
-# candidate against golden bytes recorded from the implementation in service, and it
+# HOW THIS SPEC IS JUDGED. harness/oracle.sh is the oracle for this file. It runs the
+# tools against golden bytes recorded from the implementation in service, and it
 # compares stdout, stderr, exit codes and written files byte for byte. Read it as the
 # executable half of this spec: where the two disagree, the oracle is what ships.
 #
