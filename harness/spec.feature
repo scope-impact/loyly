@@ -427,17 +427,17 @@ Feature: The harness: stamp, derive, score, report
       When gen_checklist runs
       Then stderr is exactly:
         """
-        gen_checklist: some scenarios carry no item id. A checklist built now would quietly score fewer items than the spec contains, so stamp them first with harness/stamp_item_ids.py:
+        gen_checklist: some scenarios carry no item id. A checklist built now would quietly score fewer items than the spec contains, so stamp them first with harness/stamp_item_ids.clj:
           docs/plan/01-x/spec.feature:5: UNSTAMPED: unstamped one
         """
       And the exit code is 1
       And no checklist is written, and nothing is printed to stdout
       # The first line is one line, not wrapped. Each offending scenario is listed on its
       # own line, indented by two spaces, as "<path>:<line>: UNSTAMPED: <title>".
-      # NOTE for the reimplementation: the message names "harness/stamp_item_ids.py".
-      # It must name the stamper as it is actually invoked in the implementation being
-      # built. The reason sentence is fixed; the command it tells the operator to run
-      # points at the real file.
+      # The message names the stamper as it is actually invoked, so an implementation
+      # in another language names its own file. The reason sentence is fixed; the
+      # command it tells the operator to run points at the real file. (The Python
+      # original said "harness/stamp_item_ids.py"; it was replaced 2026-09-03.)
 
     @harness-024
     Scenario: The refusal reports only the first file that has an offender
@@ -655,7 +655,7 @@ Feature: The harness: stamp, derive, score, report
 
   # GUARD. Incident: the same one. An item the grader never reached is a gap in the
   # measurement, and dropping it from the record shrinks the denominator so that the pass
-  # rate rises for the wrong reason (harness/README.md, the table row for score.py).
+  # rate rises for the wrong reason (harness/README.md, the table row for score.clj).
   Rule: An item nobody reached is recorded as a failure, never dropped
 
     @harness-036
@@ -728,16 +728,16 @@ Feature: The harness: stamp, derive, score, report
       Then stderr is exactly:
         """
         score: no harness/cycles/01/checklist.json: generate it first:
-          python3 harness/gen_checklist.py --out harness/cycles/01/checklist.json
+          bb harness/gen_checklist.clj --out harness/cycles/01/checklist.json
         """
       And the exit code is 1
       # The checklist path is printed relative to the repository root, twice.
-      # NOTE for the reimplementation: the second line is a command for the operator to
-      # run, and it must name the checklist generator AS IT IS ACTUALLY INVOKED in the
-      # implementation being built, with the same --out argument. The first line, the
-      # reason, is fixed text. This is the one place where the message deliberately
-      # differs between implementations, and the oracle expects the invocation of
-      # whichever implementation it is exercising.
+      # The second line is a command for the operator to run, and it must name the
+      # checklist generator AS IT IS ACTUALLY INVOKED, with the same --out argument. The
+      # first line, the reason, is fixed text. This is the one place where the message
+      # deliberately differs between implementations, and the oracle expects the
+      # invocation of whichever implementation it is exercising. (The Python original
+      # said "python3 harness/gen_checklist.py"; it was replaced 2026-09-03.)
 
   # -------------------------------------------------------------------------------
   # scoreboard
@@ -803,7 +803,7 @@ Feature: The harness: stamp, derive, score, report
   # and when the spec grows between cycles those two rates have different denominators, so
   # the rate falls with no regression behind it. Both directions are shown separately
   # because a net movement hides a regression behind an unrelated repair
-  # (harness/README.md, the table row for scoreboard.py).
+  # (harness/README.md, the table row for scoreboard.clj).
   Rule: The comparison shows both directions on the shared items, and never a net
 
     @harness-045
