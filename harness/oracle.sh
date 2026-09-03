@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
-# The harness oracle: proof that a candidate implementation of the four harness tools is
-# behaviourally identical to the one in service.
+# The harness oracle: proof that the four harness tools still behave, byte for byte, as
+# the instrument whose output the goldens recorded.
 #
-#   ./harness/oracle.sh py       exercise the Python implementation (harness/*.py)
 #   ./harness/oracle.sh bb       exercise the Babashka implementation (harness/*.clj)
 #   ./harness/oracle.sh record   (re)record this repository's golden files from the
-#                                Python implementation, which is the reference
+#                                Babashka implementation
+#
+# The goldens were first recorded from the Python implementation, and the Babashka one
+# was accepted as its replacement on 2026-09-03 only because this oracle found no byte of
+# difference between them; the Python was deleted the same day. So the reference is now
+# the Babashka, and what `record` captures is whatever it does today, which is why
+# recording is almost never the right response to a red run (see below).
 #
 # It is written to run unchanged in any repository that carries this harness. Everything
 # repository-specific is either read from the repository (the committed cycle 01
@@ -19,13 +24,11 @@
 # messages are the instrument telling an operator why it refused. A reimplementation that
 # refuses for the same reason in different words has changed the product.
 #
-# THE THREE PRE-GUARD BEHAVIOURS. Two of the three repositories carry an older Python that
-# lacks three guards the target implementation must have: the stamper's empty-spec
-# message, score's empty/non-JSON verdicts handling, and gen_checklist's planned-slice
-# filter. Under `py` the oracle detects which of the three the copy in front of it has and
-# asserts that copy's actual behaviour, announcing the gap as an UPGRADE rather than a
-# failure. Under `bb` all three are required. So `oracle.sh py` is green everywhere today
-# and `oracle.sh bb` states the target.
+# THE THREE GUARDS. Until 2026-09-03 two of the three repositories carried an older Python
+# that lacked three guards: the stamper's empty-spec message, score's empty/non-JSON
+# verdicts handling, and gen_checklist's planned-slice filter. A `py` mode then asserted
+# each copy's actual behaviour and announced the gap as an UPGRADE. That mode went with
+# the Python; all three guards are required of the implementation in service.
 #
 # WHEN A GOLDEN MAY BE RE-RECORDED. Almost never. A golden that moves because the tools
 # behave differently is the alarm this file exists to raise, and re-recording to quiet it
@@ -45,8 +48,8 @@ cd "$ROOT" || exit 2
 
 MODE="${1:-}"
 case "$MODE" in
-  py|bb|record) ;;
-  *) echo "usage: harness/oracle.sh py|bb|record" >&2; exit 2 ;;
+  bb|record) ;;
+  *) echo "usage: harness/oracle.sh bb|record" >&2; exit 2 ;;
 esac
 
 GOLD="harness/oracle"
@@ -66,37 +69,21 @@ head1(){ printf '\n%s\n' "$1"; }
 # ---------------------------------------------------------------------------------
 # which implementation
 # ---------------------------------------------------------------------------------
-REF=(python3)                     # the reference, used by `record` and by fixture prep
-if [ "$MODE" = "bb" ]; then
-  EXT="clj"
-  STAMP=(bb harness/stamp_item_ids.clj)
-  GEN=(bb harness/gen_checklist.clj)
-  SCORE=(bb harness/score.clj)
-  BOARD=(bb harness/scoreboard.clj)
-else
-  EXT="py"
-  STAMP=(python3 harness/stamp_item_ids.py)
-  GEN=(python3 harness/gen_checklist.py)
-  SCORE=(python3 harness/score.py)
-  BOARD=(python3 harness/scoreboard.py)
-fi
+PY=(python3)   # the interpreter alone, used to write fixtures inline; no harness tool is Python
+EXT="clj"
+STAMP=(bb harness/stamp_item_ids.clj)
+GEN=(bb harness/gen_checklist.clj)
+SCORE=(bb harness/score.clj)
+BOARD=(bb harness/scoreboard.clj)
 STAMP_FILE="harness/stamp_item_ids.$EXT"
 GEN_CMD="${GEN[*]}"
 
 for f in stamp_item_ids gen_checklist score scoreboard; do
   if [ ! -f "harness/$f.$EXT" ]; then
-    echo "oracle: no harness/$f.$EXT: there is nothing to judge in $MODE mode." >&2
+    echo "oracle: no harness/$f.$EXT: there is nothing to judge." >&2
     exit 2
   fi
 done
-
-# Pre-guard detection, py only. See the header.
-HAS_STAMP_EMPTY=1; HAS_SCORE_JSON_GUARD=1; HAS_STATUS_FILTER=1
-if [ "$MODE" = "py" ]; then
-  grep -q "nothing to stamp yet" harness/stamp_item_ids.py || HAS_STAMP_EMPTY=0
-  grep -q "is not valid JSON"    harness/score.py          || HAS_SCORE_JSON_GUARD=0
-  grep -q "slice_status"         harness/gen_checklist.py  || HAS_STATUS_FILTER=0
-fi
 
 # ---------------------------------------------------------------------------------
 # helpers
@@ -145,23 +132,17 @@ mask_json_detail() {
 }
 
 echo "harness oracle: $MODE, in $(basename "$ROOT")"
-[ "$MODE" = "py" ] && {
-  [ "$HAS_STAMP_EMPTY" = 0 ]      && note "this copy's stamper has no empty-spec message: UPGRADE, required under bb"
-  [ "$HAS_SCORE_JSON_GUARD" = 0 ] && note "this copy's score has no empty/non-JSON verdicts guard: UPGRADE, required under bb"
-  [ "$HAS_STATUS_FILTER" = 0 ]    && note "this copy's gen_checklist has no planned-slice filter: UPGRADE, required under bb"
-  true
-}
 
 # ---------------------------------------------------------------------------------
 # record
 # ---------------------------------------------------------------------------------
 if [ "$MODE" = "record" ]; then
   mkdir -p "$GOLD"
-  "${REF[@]}" harness/gen_checklist.py --out "$GOLD/checklist.golden.json" 2>"$WORK/err" || {
+  "${GEN[@]}" --out "$GOLD/checklist.golden.json" 2>"$WORK/err" || {
     echo "oracle record: gen_checklist refused:" >&2; cat "$WORK/err" >&2; exit 2; }
   echo "recorded $GOLD/checklist.golden.json ($(grep -c '"id"' "$GOLD/checklist.golden.json") items)"
   if [ -f harness/cycles/01/scores.json ]; then
-    "${REF[@]}" harness/scoreboard.py 01 >"$GOLD/scoreboard-01.golden" || {
+    "${BOARD[@]}" 01 >"$GOLD/scoreboard-01.golden" || {
       echo "oracle record: scoreboard refused" >&2; exit 2; }
     echo "recorded $GOLD/scoreboard-01.golden"
   else
@@ -189,10 +170,6 @@ else
       note "the committed harness/cycles/01/checklist.json carries $(grep -c '"id"' harness/cycles/01/checklist.json 2>/dev/null || echo 0)."
       note "That is the spec having grown, not an implementation defect. The golden is the judge here."
     fi
-  elif [ "$MODE" = "py" ]; then
-    bad "the reference implementation no longer reproduces $GOLD/checklist.golden.json"
-    note "the spec has changed since the golden was recorded: re-record with 'harness/oracle.sh record', then re-run"
-    diff -u "$WORK/gold.json" "$WORK/checklist.json" | head -40 | sed 's/^/        /'
   else
     bad "checklist differs from $GOLD/checklist.golden.json"
     diff -u "$WORK/gold.json" "$WORK/checklist.json" | head -60 | sed 's/^/        /'
@@ -328,17 +305,10 @@ printf '  @item-01-001\n  Scenario: a one\n' >"$FX/docs/plan/01-a/spec.feature"
 printf '  @item-02-001\n  Scenario: b one\n' >"$FX/docs/plan/02-b/spec.feature"
 printf -- '---\nstatus: planned\n---\n' >"$FX/docs/plan/02-b/plan.md"
 run "$FX" "${GEN[@]}" --out "c.json"
-if [ "$HAS_STATUS_FILTER" = 1 ]; then
-  printf 'gen_checklist: skipping 02-b (status: planned)\n' >"$WORK/want"
-  expect_text "a planned slice is skipped, out loud, on stdout" "$WORK/want" "$WORK/out"
-  if grep -q '"02-001"' "$FX/c.json"; then bad "a planned slice stays out of the checklist"; else
-    ok "a planned slice stays out of the checklist"; fi
-else
-  note "pre-guard py: no planned-slice filter here, asserting the unfiltered behaviour"
-  expect_empty "no skip line is printed" "$WORK/out"
-  if grep -q '"02-001"' "$FX/c.json"; then ok "unfiltered: the planned slice is scored"; else
-    bad "unfiltered: the planned slice is scored"; fi
-fi
+printf 'gen_checklist: skipping 02-b (status: planned)\n' >"$WORK/want"
+expect_text "a planned slice is skipped, out loud, on stdout" "$WORK/want" "$WORK/out"
+if grep -q '"02-001"' "$FX/c.json"; then bad "a planned slice stays out of the checklist"; else
+  ok "a planned slice stays out of the checklist"; fi
 
 # =================================================================================
 # CHECK 3  the stamper is a no-op on this repository's already-stamped spec
@@ -484,7 +454,7 @@ fi
 # unreached items are filed as failures, on a fixture (@harness-036, @harness-037)
 FX="$(new_fixture unreached)"
 mkdir -p "$FX/harness/cycles/01"
-"${REF[@]}" - "$FX" <<'PYEOF'
+"${PY[@]}" - "$FX" <<'PYEOF'
 import json, sys
 root = sys.argv[1]
 items = [{"id": f"01-{i:03d}", "name": f"n{i}", "rule": "R", "source": f"docs/plan/01-a/spec.feature:{i}"} for i in range(1, 11)]
@@ -532,7 +502,7 @@ fi
 head1 "CHECK 7  scoreboard comparison, denominators, and the rounding of a tie"
 FX="$(new_fixture board)"
 mkdir -p "$FX/harness/cycles/00" "$FX/harness/cycles/01" "$FX/harness/cycles/03" "$FX/harness/cycles/04"
-"${REF[@]}" - "$FX" <<'PYEOF'
+"${PY[@]}" - "$FX" <<'PYEOF'
 import json, sys
 root = sys.argv[1]
 def w(p, items): open(p, "w").write(json.dumps({"items": items}, ensure_ascii=False, indent=1) + "\n")
@@ -616,13 +586,8 @@ expect_rc "no feature files: exit 1" 1 "$RC"
 expect_text "no feature files: message" "$WORK/want" "$WORK/err"
 
 # 8.3 the stamper on the same empty tree
-if [ "$HAS_STAMP_EMPTY" = 1 ]; then
-  { printf 'stamp: no NN-slug/spec.feature under <ROOT>/docs/plan: nothing to stamp yet.\n'
-    printf '       (the spec is written first; stamping is idempotent, run it again then)\n'; } >"$WORK/want"
-else
-  note "pre-guard py: asserting the older stamper's silent zero"
-  printf 'total stamped: 0\n' >"$WORK/want"
-fi
+{ printf 'stamp: no NN-slug/spec.feature under <ROOT>/docs/plan: nothing to stamp yet.\n'
+  printf '       (the spec is written first; stamping is idempotent, run it again then)\n'; } >"$WORK/want"
 run "$FX" "${STAMP[@]}"
 norm "$FX" "$WORK/out"
 expect_rc "no spec to stamp: exit 0" 0 "$RC"
@@ -665,38 +630,19 @@ score_refusal() {  # score_refusal LABEL VERDICTS-CONTENT EXPECTED-FILE
   if [ -f "$FX/harness/cycles/01/scores.json" ]; then bad "$1: nothing is written"; else
     ok "$1: nothing is written"; fi
 }
-score_refusal_rc_only() {  # for the pre-guard py, where the words are a traceback
-  printf '%s' "$2" >"$FX/v.json"
-  rm -f "$FX/harness/cycles/01/scores.json"
-  run "$FX" "${SCORE[@]}" 01 --verdicts v.json
-  expect_rc "$1: exit 1 (pre-guard py, message is a traceback)" 1 "$RC"
-  if [ -f "$FX/harness/cycles/01/scores.json" ]; then bad "$1: nothing is written"; else
-    ok "$1: nothing is written"; fi
-}
 
 # 8.5 zero verdicts
 printf 'score: 0 items scored. A run that graded nothing tells you the grading did not happen, not that every item failed. Nothing recorded.\n' >"$WORK/w-zero"
 score_refusal "an empty verdicts list" '[]' "$WORK/w-zero"
 
 # 8.6 an empty verdicts file
-if [ "$HAS_SCORE_JSON_GUARD" = 1 ]; then
-  score_refusal "an empty verdicts file" '' "$WORK/w-zero"
-else
-  note "pre-guard py: an empty verdicts file dies on the JSON parser, not on the guard"
-  score_refusal_rc_only "an empty verdicts file" ''
-fi
+score_refusal "an empty verdicts file" '' "$WORK/w-zero"
 
 # 8.7 a verdicts file that is not JSON
-if [ "$HAS_SCORE_JSON_GUARD" = 1 ]; then
-  printf 'score: v.json is not valid JSON (<DETAIL>). A measurement that cannot be read is not a measurement: nothing was written.\n' >"$WORK/w-badjson"
-  score_refusal "a verdicts file that is not JSON" 'not json{' "$WORK/w-badjson"
-  printf 'score: v.json should hold a list of verdicts, found dict. Nothing was written.\n' >"$WORK/w-notlist"
-  score_refusal "a verdicts file holding an object" '{"a": 1}' "$WORK/w-notlist"
-else
-  note "pre-guard py: a non-JSON verdicts file dies on the parser, an object on a type error"
-  score_refusal_rc_only "a verdicts file that is not JSON" 'not json{'
-  score_refusal_rc_only "a verdicts file holding an object" '{"a": 1}'
-fi
+printf 'score: v.json is not valid JSON (<DETAIL>). A measurement that cannot be read is not a measurement: nothing was written.\n' >"$WORK/w-badjson"
+score_refusal "a verdicts file that is not JSON" 'not json{' "$WORK/w-badjson"
+printf 'score: v.json should hold a list of verdicts, found dict. Nothing was written.\n' >"$WORK/w-notlist"
+score_refusal "a verdicts file holding an object" '{"a": 1}' "$WORK/w-notlist"
 
 # 8.8 a verdict for an id that is not on the checklist
 printf 'score: verdicts for items not on the checklist (the spec is the only author of the item list): 09-999\n' >"$WORK/w-unknown"
@@ -715,17 +661,15 @@ expect_rc "no scores: exit 1" 1 "$RC"
 expect_text "no scores: message" "$WORK/want" "$WORK/err"
 
 # 8.11 every slice filtered out is still an empty spec
-if [ "$HAS_STATUS_FILTER" = 1 ]; then
-  FX="$(new_fixture allplanned)"
-  mkdir -p "$FX/docs/plan/01-a"
-  printf '  @item-01-001\n  Scenario: a one\n' >"$FX/docs/plan/01-a/spec.feature"
-  printf -- '---\nstatus: backlog\n---\n' >"$FX/docs/plan/01-a/plan.md"
-  printf 'gen_checklist: no NN-slug/spec.feature under <ROOT>/docs/plan. An empty checklist lets a scoring run report a flawless cycle in which nothing was ever checked, so none is written.\n' >"$WORK/want"
-  run "$FX" "${GEN[@]}"
-  norm "$FX" "$WORK/err"
-  expect_rc "every slice filtered out: exit 1" 1 "$RC"
-  expect_text "every slice filtered out: the empty-spec message" "$WORK/want" "$WORK/err"
-fi
+FX="$(new_fixture allplanned)"
+mkdir -p "$FX/docs/plan/01-a"
+printf '  @item-01-001\n  Scenario: a one\n' >"$FX/docs/plan/01-a/spec.feature"
+printf -- '---\nstatus: backlog\n---\n' >"$FX/docs/plan/01-a/plan.md"
+printf 'gen_checklist: no NN-slug/spec.feature under <ROOT>/docs/plan. An empty checklist lets a scoring run report a flawless cycle in which nothing was ever checked, so none is written.\n' >"$WORK/want"
+run "$FX" "${GEN[@]}"
+norm "$FX" "$WORK/err"
+expect_rc "every slice filtered out: exit 1" 1 "$RC"
+expect_text "every slice filtered out: the empty-spec message" "$WORK/want" "$WORK/err"
 
 # =================================================================================
 head1 "$PASSED ok, $FAILED failed, $SKIPPED skipped"
