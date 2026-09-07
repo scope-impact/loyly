@@ -57,6 +57,15 @@ only re-cased per layer ("standing slot" in prose, `StandingSlot` in
 diagrams, `standing-slot` or `standingSlot` in code). If a Gherkin line and
 a code function disagree about a name, that is a bug by construction.
 
+The funnel is one reading of these layers. The other is that they are several
+ways of describing the same rule: prose in the wiki, Gherkin in the acceptance
+criteria, a hand-worked example with an independent recomputation beside it, and
+a state diagram wherever behaviour needs one. Each way suits a different person
+saying what they want, and each leaves gaps the others cover, so a rule written
+four ways has been described from four directions. The two readings disagree
+about one thing. A funnel says a defect caught late means an earlier layer
+failed. Layered descriptions say a defect caught late is the layering working.
+
 ---
 
 ## 2. The gate: no plan entry, no code

@@ -42,6 +42,14 @@ thing a harness would hide that.
 | `probe.sh` | proves the thing answering is THIS application | a name is not evidence; only domain behaviour is, and domain behaviour is code rather than a value |
 | `modules.sh` | proves the shared files are one text and the configuration is complete | three hand-kept copies drift silently, and a drifted instrument reports a difference that was never in the thing measured |
 
+No row of that table covers everything, and the gaps matter as much as the mechanisms.
+The spec cannot say whether the thing answering is the application it names, which is
+why `probe.sh` exists. The gate proves the suite green and says nothing about whether
+the suite exercises the product. The checklist covers what a scenario states and cannot
+cover what nobody wrote down. The scoreboard counts verdicts and cannot tell a wrong
+verdict from a careful one. What is left over is found by a person driving the real
+interface, which is why the failure modes at the bottom of this file read as they do.
+
 ## The three modules, and the check that they have not forked
 
 This harness exists in three repositories: löyly, saunavuoro and kalibra. They are not
