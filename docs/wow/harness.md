@@ -51,6 +51,19 @@ an agent is given something to look at and has to supply its own judgment.
 | Adversarial review | every Nth round reviews instead of builds, hunting for invented rules and spec drift |
 | Human-realistic checks | verification drives the real interface the way a resident would; an unreachable path is a finding, not something to force |
 
+The weak side is a step nobody has built here: nothing in the build loop hands the
+agent an unjudged look at the running product. What would fill it is a perception
+step, screenshots of the real surface at two widths handed back with no verdict
+attached and a question rather than an assertion, so the agent supplies the
+judgment. Two limits belong in the proposal rather than in the eventual
+post-mortem. A screenshot harness has no software keyboard, so a control that
+hides under one is still found only by a person holding a phone. And the fuller
+pipeline this method was distilled from ran such a step, judged by a separate pass,
+and retired it because judging cost several times what generating cost against a
+capacity limit that could not be bought through. So the step has to be rebuilt
+inside a budget agreed in advance: what share of a cycle perception may take, and
+what gets judged by machine, by a person, or not at all.
+
 ## 4. Pointing your own agent at this repo
 
 Give your agent this read order, in this order, before any task:
