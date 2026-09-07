@@ -3,7 +3,9 @@
 # This file describes the observable behaviour of the four harness tools:
 # stamp_item_ids, gen_checklist, score, scoreboard. It is the regeneration source for
 # them, and it is complete enough to reimplement all four without reading any existing
-# implementation.
+# implementation. Since 2026-09-07 it also carries one Rule for a fifth tool, modules.sh,
+# which is not part of the instrument but is what keeps this file the same file in every
+# repository that has it.
 #
 # CONVENTIONS, decided, not open:
 #
@@ -14,7 +16,8 @@
 #   and its scenarios must never land in the product checklist denominator. Anything that
 #   generates a checklist from docs/plan/*/spec.feature will not see this file, which is
 #   the point.
-# - One file, four tools, grouped by `Rule:`.
+# - One file, grouped by `Rule:`: the four tools of the instrument, then the adoption
+#   check that keeps every copy of this file the same file.
 #
 # WHICH SCENARIOS CITE AN INCIDENT. The standing rule for the harness is "no incident, no
 # scenario": a guard exists because something lied once. But a spec that is a regeneration
@@ -31,6 +34,11 @@
 # always the stricter one: a guard that exists in one place and not another is a guard
 # that has not finished being learned.
 #
+# Since 2026-09-07 the copies are held identical by harness/modules.sh rather than by
+# hand: the tools, this spec, the oracle, the fence and the gate are byte identical, and
+# every difference between the repositories is a documented line in harness/config.sh.
+# The last Rule in this file is that check, specified.
+#
 # FILE NAMES AND INVOCATION. Four scripts, one per tool: harness/stamp_item_ids,
 # harness/gen_checklist, harness/score, harness/scoreboard, with the extension of the
 # language they are written in (today .clj, run by bb; the Python originals were replaced
@@ -39,7 +47,9 @@
 # "bb harness/gen_checklist.clj --out harness/cycles/01/checklist.json". Two messages name
 # a sibling tool as a command for the operator to run, and those two must name the
 # implementation's own files (@harness-023, @harness-040); everywhere else the words are
-# fixed.
+# fixed. The fifth script, harness/modules.sh, is bash and is invoked directly as
+# "harness/modules.sh [--siblings PATH...]"; it is the one tool here the oracle does not
+# judge, because what it compares is other repositories and the oracle has only this one.
 #
 # HOW THIS SPEC IS JUDGED. harness/oracle.sh is the oracle for this file. It runs the
 # tools against golden bytes recorded from the implementation in service, and it
@@ -883,3 +893,92 @@ Feature: The harness: stamp, derive, score, report
       # This is the only route to the n/a form, and it is reachable: a spec that renamed
       # every slice would do it. The block still prints, and the denominator block below
       # it then says everything was added and everything was dropped.
+
+  # -------------------------------------------------------------------------------
+  # modules.sh, the adoption check
+  # -------------------------------------------------------------------------------
+  # Added 2026-09-07, when the three copies of this harness stopped being hand-kept and
+  # became one text plus a documented configuration. This tool is not part of the
+  # instrument: it measures nothing about an application, and the oracle does not judge it,
+  # because what it compares is other repositories and the oracle has only this one.
+  #
+  # GUARD. Origin: reasoning, not an incident, and it is worth saying which. Nothing has
+  # yet been measured wrong because a copy drifted; what happened instead is that keeping
+  # three copies identical by hand took a person reading three files side by side, and the
+  # only reason it held is that the same week wrote all three. The silent lie it guards
+  # against is the instrument reporting a difference that was never in the thing measured,
+  # which is exactly the failure the byte-level oracle exists to catch WITHIN a repository
+  # and nothing catches BETWEEN them.
+  Rule: The shared module files are one text, and every difference is a declared value
+
+    @harness-050
+    Scenario: A shared module file that differs in a sibling is a failure
+      Given a sibling repository whose "harness/verify.sh" differs by one byte
+      When modules.sh runs with that repository named after --siblings
+      Then the line for "harness/verify.sh" reads FAIL and names the sibling
+      And the exit code is 1
+      # The comparison is byte for byte, as the oracle's is, and for the same reason: a
+      # copy that behaves the same today for a reason nobody wrote down is a copy that
+      # will behave differently tomorrow. A file missing in a sibling fails the same way,
+      # with the word "missing" rather than "forked", and so does a file missing here.
+      # The shared set is the four tools, hjson, this spec, the oracle, the fence, the gate
+      # and modules.sh itself.
+
+    @harness-051
+    Scenario: A configuration variable one repository declares alone is a failure
+      Given this repository's "harness/config.sh" declares APP_MARKER
+      And a sibling's "harness/config.sh" does not
+      When modules.sh runs with that sibling named
+      Then the line for APP_MARKER reads FAIL and names the sibling
+      And the exit code is 1
+      # The variable set is read from the config files themselves, not from a list inside
+      # this tool, so the check cannot go stale: whatever any repository declares, every
+      # repository must declare. A configuration surface that is complete in one place
+      # only is not a configuration surface, and the value is what may differ, never the
+      # presence of the line.
+
+    @harness-052
+    Scenario: A declared variable left empty is a failure, and APP_MARKER is the exception
+      Given a repository whose APP_DIR is declared with an empty value
+      When modules.sh runs
+      Then the line for APP_DIR reads FAIL and names that repository
+      And the exit code is 1
+      # APP_MARKER alone may be empty, because "this repository has no cheap name check"
+      # is a real answer and the gate says so out loud when it reads one. Every other
+      # variable empty means the line was added and never filled in.
+
+    @harness-053
+    Scenario: The identity probe is required to exist, and is never compared
+      Given three repositories whose "harness/probe.sh" files are all different
+      When modules.sh runs over all three
+      Then the line for "harness/probe.sh" reads ok
+      And no comparison of its content is reported
+      # This is the one declared exemption, and the reason is in harness/README.md: the
+      # probe decides whether the regenerated application is the right application, so its
+      # content is domain behaviour, which is code and cannot be a configuration value.
+      # Absence is still a failure, in any repository, and so is a probe that is not
+      # executable: the gate refuses to run without one.
+
+    @harness-054
+    Scenario: PLAN_DIR must agree with the path the tools resolve for themselves
+      Given "harness/config.sh" declares PLAN_DIR as "docs/specs"
+      And harness/hjson.clj resolves the plan tree as "docs/plan"
+      When modules.sh runs
+      Then the PLAN_DIR line reads FAIL and shows both values
+      And the exit code is 1
+      # PLAN_DIR is declared although no tool reads it at runtime, and this scenario is
+      # why: a documented surface that quietly disagrees with the code is worse than an
+      # undocumented one, because it is believed. The resolved value is obtained by asking
+      # the tools, never by reading the same constant twice.
+
+    @harness-055
+    Scenario: Configuration values that differ are reported and not judged
+      Given three repositories whose APP_DIR values are all different
+      When modules.sh runs over all three
+      Then every value is printed in a table, one column per repository
+      And the rows whose values are not all equal are marked as differing
+      And the exit code is 0 if nothing else failed
+      # This is the whole point of the exercise: after the extraction, a difference
+      # between the repositories is a value in a table rather than a fork in a file. The
+      # table is printed on a green run too, because a difference nobody intended should
+      # be read out loud rather than discovered.
