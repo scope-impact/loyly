@@ -148,12 +148,24 @@ printf '  %-14s' "variable"
 for r in "${REPOS[@]}"; do printf '%-24s' "$(name "$r")"; done
 echo
 for k in $ALL_KEYS; do
-  printf '  %-14s' "$k"
-  for r in "${REPOS[@]}"; do printf '%-24s' "$(value_of "$r" "$k")"; done
   first="$(value_of "${REPOS[0]}" "$k")"
   differs=""
-  for r in "${REPOS[@]:1}"; do [[ "$(value_of "$r" "$k")" == "$first" ]] || differs="  <- differs"; done
-  echo "$differs"
+  widest=0
+  for r in "${REPOS[@]}"; do
+    v="$(value_of "$r" "$k")"
+    (( ${#v} > widest )) && widest=${#v}
+    [[ "$v" == "$first" ]] || differs="  <- differs"
+  done
+  # A value too wide for its column is listed under its own name rather than printed into
+  # the next column: a report that runs together is a report nobody checks.
+  if (( widest > 22 )); then
+    echo "  $k$differs"
+    for r in "${REPOS[@]}"; do printf '      %-18s%s\n' "$(name "$r")" "$(value_of "$r" "$k")"; done
+  else
+    printf '  %-14s' "$k"
+    for r in "${REPOS[@]}"; do printf '%-24s' "$(value_of "$r" "$k")"; done
+    echo "$differs"
+  fi
 done
 
 echo
