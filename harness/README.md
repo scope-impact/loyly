@@ -21,6 +21,12 @@ plumbing from the original are deliberately absent; every mechanism that matters
    carry it. The product is the spec and the instrument; the app is the weekly experiment
    that tests them.
 
+Two words above are kept apart on purpose. A harness feeds what it learns back into the
+generation loop, so the agent can iterate against it, which is what the gate and the fence
+do. An instrument reports to a person, once a cycle, and never into the loop. The most
+valuable measurement here is therefore one the agent never sees, and calling the whole
+thing a harness would hide that.
+
 ## The pieces, in pipeline order
 
 | file | role | the rule it embodies |
