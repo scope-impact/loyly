@@ -1018,7 +1018,15 @@
       </tr>
     </table>
     <p style="margin-top:16px">
-      The small three need modules 1 to 3 and have them, in three hand-kept copies. The pipeline
+      The small three need modules 1 to 3 and have them. Until 2026-09-07 they had them as three
+      hand-kept copies; since then the files are byte identical, every difference between the
+      three is a documented line in <code>harness/config.sh</code>, and
+      <code>harness/modules.sh</code> is what says so rather than a person reading three files at
+      once. Two differences turned out not to be configuration. The identity probe is code, so it
+      is a declared per-repository file the shared gate calls, which is the same answer the
+      pipeline's boot step already forced. And saunavuoro had never adopted the two-entry-point
+      contract, which the gate could not paper over: its application grew the two files. The
+      pipeline
       needs all six and has 2, 4, 5 and 6, plus the tools of 1 without its spec. Multi-stack does
       not break the contract of module 3: the pipeline dropped the contract for deployment reasons,
       and the cheaper move is for each of its tracks to adopt the contract than for a shared gate to
@@ -1028,8 +1036,12 @@
       What this changes on the page: section 6 said the change does not make the harness shareable
       across an organisation. Module boundaries are the first concrete statement of what shareable
       would mean. A module is shareable when its configuration is documented and a repository
-      unlike the others has adopted it without forking it. No module has passed that test. Module 1
-      is closest, because its spec and oracle exist and the pipeline is the natural fourth adopter.
+      unlike the others has adopted it without forking it. Modules 1 to 3 now have the first half:
+      a documented configuration of six variables, and a check that fails when a file forks or a
+      variable is declared in one repository alone. The second half is still unearned, because the
+      three that adopted them are siblings built the same week, which is the exact thing that made
+      a shared core look plausible. The pipeline remains the natural fourth adopter and the only
+      one whose adoption would prove anything.
     </p>
   </section>
   <footer>
