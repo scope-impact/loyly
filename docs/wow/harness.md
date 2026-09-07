@@ -32,6 +32,16 @@ state instruction overrides everything else about what to do next:
 
 Each guardrail exists because agents drift in a specific, observed way.
 
+Two questions sort them. Is the guardrail input to a round, or is it pointed at
+what the round produced? Does it tell the agent correct or incorrect, or does it
+hand back material and leave the verdict to the agent? Spec-lock and the scope
+fence are prohibitions issued before a round starts, the orient step hands back
+material with no verdict attached, ratified DONE and the adversarial review judge
+what a round produced, and the human-realistic check is the only row where anyone
+looks at the running product. Read that way the table is **normative-heavy and
+perception-light**: strong at telling an agent whether it is right, weak wherever
+an agent is given something to look at and has to supply its own judgment.
+
 | Guardrail | What it does |
 |---|---|
 | Spec-lock | edits the agent makes to spec/plan files during a build round are reverted; specs change in planning rounds, on purpose, not mid-build |
