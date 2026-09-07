@@ -32,13 +32,61 @@ plumbing from the original are deliberately absent; every mechanism that matters
 | `score.clj` | files verdicts against the checklist | zero verdicts means the grading did not happen, not that everything failed; an unreached item is recorded as `fail`, so a gap can never quietly shrink the denominator |
 | `scoreboard.clj` | the pass rate, cycle over cycle | both directions on the shared items, never the net; a moved denominator is restated out loud, and new items are counted separately because they are the one holdout nobody has tuned |
 | `hjson.clj` | the JSON dialect and the plumbing the four tools share | one copy of the byte contract (one-space indent, key order preserved), because four copies drift into four instruments; it holds no scoring rule, which is why the fence leaves it in the room |
+| `config.sh` | everything this repository knows about itself | a difference that lives in the code instead of in the configuration is a fork nobody declared |
+| `probe.sh` | proves the thing answering is THIS application | a name is not evidence; only domain behaviour is, and domain behaviour is code rather than a value |
+| `modules.sh` | proves the shared files are one text and the configuration is complete | three hand-kept copies drift silently, and a drifted instrument reports a difference that was never in the thing measured |
+
+## The three modules, and the check that they have not forked
+
+This harness exists in three repositories: löyly, saunavuoro and kalibra. They are not
+three harnesses. They are one, carried by hand, and every file below is byte identical in
+all three.
+
+| module | what it owns | files |
+|---|---|---|
+| 1, measure | stamp, derive, score, report, and the spec and oracle that judge them | `stamp_item_ids.clj`, `gen_checklist.clj`, `score.clj`, `scoreboard.clj`, `hjson.clj`, `spec.feature`, `oracle.sh` |
+| 2, cleanroom | the fence: what is removed, how, and the probe that proves it | `fence.sh` |
+| 3, gate | ratifying "done" through the two-entry-point contract | `verify.sh` |
+| the check itself | that the three above have not forked | `modules.sh` |
+
+Two files in `harness/` are each repository's own, and both are declared rather than
+assumed:
+
+- **`config.sh`** holds the differences, one `KEY=value` line each, every variable
+  documented in place with what reads it and what a wrong value does. If a repository
+  needs a value the others do not have, it goes here in all three on the same day.
+- **`probe.sh`** is the identity probe, and it is the one file whose content is never
+  compared. That exemption is a design decision, not laziness. The probe decides whether
+  the regenerated application is the right application, so it belongs to the measuring
+  apparatus and not to the product, which is why it sits in `harness/` and survives the
+  fence: inside `APP_DIR` it would sit where the agent regenerating the application could
+  write the very thing that judges it. Its content differs because what only the real
+  product can produce is domain behaviour, and that is code, not a configuration value.
+  The check still fails if the file is missing anywhere, or if `APP_PROBE` is unset.
+
+Run it from any of the three, naming the others:
+
+```bash
+./harness/modules.sh --siblings ../saunavuoro ../kalibra
+```
+
+It fails on a forked or missing shared file, on a per-repository file that is absent, on a
+configuration variable one repository has and another does not, on an empty value in
+anything but `APP_MARKER`, and on `PLAN_DIR` disagreeing with the path the Babashka tools
+resolve for themselves. It only reports the configuration values that differ, because that
+is what configuration is for.
+
+One difference it reports today is open rather than settled: saunavuoro fences its scoring
+tools (`score.clj`, `scoreboard.clj`) and löyly and kalibra do not. The siblings do not
+agree, the surface can express either, and nobody has decided which is right.
 
 ## Walkthrough
 
-The spec is `docs/plan/*/spec.feature`; the app under test is whatever gets built in
-`impl/`. The gate's contract with an implementation is two executables, so the docs never
-have to name a stack: `impl/test.sh` (runs the whole suite, exits non-zero on any
-failure) and `impl/start.sh PORT` (serves the app over HTTP on PORT).
+The spec is `docs/plan/*/spec.feature` (`PLAN_DIR`); the app under test is whatever gets
+built in `impl/` (`APP_DIR`). The gate's contract with an implementation is two
+executables, so the docs never have to name a stack: `impl/test.sh` (runs the whole suite,
+exits non-zero on any failure) and `impl/start.sh PORT` (serves the app over HTTP on
+PORT). Both names, and the port, are in `harness/config.sh`.
 
 ```bash
 # 1. stamp the spec (idempotent; only untagged scenarios change)
