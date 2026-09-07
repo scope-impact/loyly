@@ -25,6 +25,11 @@ gets recorded. Because the spec, not any one codebase, is the real asset,
 the implementation can be deleted and regenerated, and the difference
 between two generations tells you how complete the spec is.
 
+Said as custody: the specification is the artefact we look after over time, and
+the code is deliberately not. Both can be looked after, or neither, or only the
+code, and this method picks one of those four positions on purpose. Sections 4
+and 5 below are what that choice costs and what it buys.
+
 ---
 
 ## 1. The layer pipeline
