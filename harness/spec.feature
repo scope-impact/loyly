@@ -1032,6 +1032,49 @@ Feature: The harness: stamp, derive, score, report
       # pass earned by comparing a file with itself. The vacuous case is the dangerous one,
       # because it is the case that runs when somebody forgets the argument.
 
+    @harness-068
+    Scenario: A shared module file a repository fences is absent on purpose
+      Given a repository whose FENCED_PATHS names "harness/score.clj"
+      And that file is absent, as it is inside a clean room
+      When modules.sh runs
+      Then the line for "harness/score.clj" reads as a note saying fenced, not forked
+      And the exit code is 0
+      # GUARD, and the incident is a loop this harness built for itself. harness/verify.sh
+      # runs inside the room harness/fence.sh builds, and since 2026-09-08 it calls
+      # harness/check.sh before it grades anything. Without this exemption the gate refuses
+      # inside the one room it exists to grade: saunavuoro fences harness/score.clj and
+      # harness/scoreboard.clj, so its room has fewer tools than the repository it was
+      # cloned from, and every one of them read as forked. The exemption is exactly as wide
+      # as the list the repository wrote down in FENCED_PATHS. An absence nobody declared is
+      # still a failure, which is @harness-050 with nothing taken out of it.
+
+    @harness-069
+    Scenario: A file in harness/ that is in no list is a failure
+      Given a file "harness/whatever.txt" that no list names
+      When modules.sh runs
+      Then the line reads FAIL and names SHARED, PER_REPO and LOCAL as the three homes it could have
+      And the exit code is 1
+      # GUARD. Incident: harness/oracle.py sat in kalibra exactly like this, named by no
+      # list, for as long as it existed. A file the check holds no opinion about is a file
+      # that can drift for a year in silence, which is the failure this whole Rule is
+      # downstream of, arriving through the one gap the Rule had left open. Only files
+      # directly in harness/ are judged and directories are not walked, because
+      # harness/cycles and harness/oracle hold recordings whose rules are their own and are
+      # written above.
+
+    @harness-070
+    Scenario: A file declared local may exist in one repository alone
+      Given "harness/oracle.py" is declared in LOCAL
+      And it is present in kalibra and in neither sibling
+      When modules.sh runs over all three
+      Then the completeness line reads ok in every repository
+      And the exit code is 0 if nothing else failed
+      # LOCAL is the declaration that says this one belongs to a single repository, and it
+      # is the whole difference between a file somebody decided about and a file nobody
+      # noticed. Presence is required nowhere and content is compared never, which is what
+      # separates it from PER_REPO, where the file must exist in every repository and only
+      # its content is each one's own (@harness-053).
+
   # -------------------------------------------------------------------------------
   # verify.sh, the ratifying gate: the first budget for a quality
   # -------------------------------------------------------------------------------
@@ -1049,13 +1092,17 @@ Feature: The harness: stamp, derive, score, report
   # budget that was absent, which is the margin.
   #
   # WHAT IT COSTS TODAY, measured on the reference machine (Apple Silicon, native arm64,
-  # 2026-09-08). kalibra's warm serve answered in 0.12 to 0.27 seconds over six runs, so
-  # the margin is better than thirty to one. The cold path is what the budget is actually
-  # for: a web build from cold took 37.4 seconds on the same machine, which is why
-  # kalibra's impl/start.sh warms the build inside the untimed suite step and says so in
-  # its own header. loyly and saunavuoro carry no implementation today, so nothing was
-  # measured in either, and their ten seconds is inherited from the code rather than
-  # derived from a run.
+  # 2026-09-08), six runs each and read off the gate's own margin. saunavuoro's
+  # coldrun/grounded answered on poll 2 of 20, 0.59 to 0.61 seconds, and kalibra's warm web
+  # build answered on poll 2 of 20, 0.60 to 0.63 seconds. Eighteen of the twenty polls are
+  # margin in both. Driven directly, without the gate's half second between tries, kalibra
+  # answers in 0.12 to 0.27 seconds, so what the second poll mostly measures is the poll
+  # interval and not the application. loyly carries no implementation, so nothing was
+  # measured there and its ten seconds is inherited from the code rather than from a run.
+  #
+  # The cold path is what the budget is actually for: kalibra's web build from cold took
+  # 37.4 seconds on the same machine, which is why its impl/start.sh warms the build inside
+  # the untimed suite step and says so in its own header.
   #
   # GUARD, and the near miss it is drawn from is written in kalibra's impl/start.sh. A
   # build that stops being warmed does not fail the way a broken build fails. The suite
