@@ -81,4 +81,4 @@ FENCED_PATHS="impl harness/cycles"
 # damage is a comparison silently not made rather than a wrong verdict. A path to a
 # directory that has a harness/ and is not one of ours would be compared and reported as a
 # fork, which is noisy and harmless.
-SIBLING_REPOS="../saunavuoro ../kalibra"
+SIBLING_REPOS="../saunavuoro ../kalibra ../chartroom"
