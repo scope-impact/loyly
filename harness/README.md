@@ -34,7 +34,7 @@ thing a harness would hide that.
 | `stamp_item_ids.clj` | stamps `@item-NN-SSS` on every spec scenario | ids are handed out once and are never computed from wording, so rewording a rule cannot break the cycle-to-cycle comparison |
 | `gen_checklist.clj` | derives the scoring checklist from the spec | the checklist is derived, never written; a hand-kept list goes stale silently |
 | `fence.sh` | builds the clean-room clone and PROVES it | the fence is physical; a generation that can read last week's answer is not regenerating anything |
-| `verify.sh` | the ratifying gate | a "done" claim is ratified by a script the claimant does not control |
+| `verify.sh` | the ratifying gate | a "done" claim is ratified by a script the claimant does not control, inside a boot budget that is named and whose margin is reported |
 | `score.clj` | files verdicts against the checklist | zero verdicts means the grading did not happen, not that everything failed; an unreached item is recorded as `fail`, so a gap can never quietly shrink the denominator |
 | `scoreboard.clj` | the pass rate, cycle over cycle | both directions on the shared items, never the net; a moved denominator is restated out loud, and new items are counted separately because they are the one holdout nobody has tuned |
 | `hjson.clj` | the JSON dialect and the plumbing the four tools share | one copy of the byte contract (one-space indent, key order preserved), because four copies drift into four instruments; it holds no scoring rule, which is why the fence leaves it in the room |
@@ -103,6 +103,20 @@ fork. `harness/check.sh` reads the sibling paths from `SIBLING_REPOS` in `config
 the comparison happens without anybody typing three paths, and a sibling that is not on
 this machine is a loud skip rather than a quiet pass.
 
+A third list was added on 2026-09-08 and it is the one that catches the next file
+nobody thought about: every file directly in `harness/` must be in one of `SHARED`,
+`PER_REPO` or `LOCAL`, or the check refuses. An undeclared file is one the check has no
+opinion about, so a copy of it could drift for a year and nothing would say so.
+`harness/oracle.py` sat in kalibra exactly like that. It is declared `LOCAL` now, meaning
+it belongs to one repository alone and the others are not expected to carry it. **The
+declaration is not the real fix.** That file is kalibra's domain oracle, a third
+implementation of one hand-worked calculation, and it judges kalibra's arithmetic rather
+than this instrument. Sitting in `harness/` under that name it is the third different
+thing called "oracle" in one directory, next to `oracle.sh`, which judges the tools, and
+`oracle/`, which holds their goldens. A rename, or a move out of `harness/` entirely, is
+the better answer, and it was left alone because renaming it touches kalibra's own
+documentation and is somebody's decision rather than a tidy-up.
+
 One difference it reports today is open rather than settled: saunavuoro fences its scoring
 tools (`score.clj`, `scoreboard.clj`) and löyly and kalibra do not. The siblings do not
 agree, the surface can express either, and nobody has decided which is right.
@@ -134,27 +148,66 @@ exactly like a pass.
   these tools will grade, so a room built from a checkout whose tools have moved hands the
   next cycle a judge nobody checked.
 
+**What it costs, measured on the reference machine (Apple Silicon, native arm64,
+2026-09-08):** 7.4 seconds in löyly, 7.6 in saunavuoro, 8.1 in kalibra, for a commit that
+stages anything at all. Most of that is the oracle's CHECK 9, which runs `modules.sh`
+about twenty times over fixture repositories; the rest is `modules.sh` twice more, once
+here and once across the siblings. The number is written down because it is the number
+that decides whether a hook survives: eight seconds is worth paying and thirty would not
+be, and if this figure climbs, the fix is fewer fixture runs rather than a hook nobody
+keeps installed. `bb` is deliberately kept off the PATH for the CHECK 9 runs that are not
+about `PLAN_DIR`, which alone took the oracle from twelve seconds back to seven.
+
 The hook is not a committed file, which is why it is not the only caller. `.git/hooks`
 lives outside the tree, a fresh clone has none until `--install-hook` is run there, and
 `git commit --no-verify` skips it. The two calls inside `verify.sh` and `fence.sh` travel
 with the repository, so the strongest claims this harness makes, "this is ratified" and
 "this room is clean", cannot be made over a red instrument anywhere.
 
-**Two of the three verdicts stop a commit, and the third only reports.** The oracle is
+**Three of the four verdicts stop a commit, and the fourth only reports.** The oracle is
 repository local and deterministic, and so is the adoption check run over this repository
-alone, so both are binding. The adoption check run across the siblings is a statement
-about somebody else's working tree: another agent editing saunavuoro right now would
-otherwise fail a commit in kalibra that has nothing to do with it. It becomes binding in
-the one case where it is the change being made, a commit that touches a shared module
-file, and `--strict` makes it binding on demand.
+alone, so both are binding. So is a third, narrower one: every shared module file the
+commit actually stages must be the same text in every sibling on this machine, checked
+byte for byte. What only reports is the adoption check run across the siblings in full,
+because that is a statement about somebody else's working tree. Another agent halfway
+through editing `spec.feature` in saunavuoro would otherwise fail a commit in kalibra that
+has nothing to do with it, and a check that blocks for somebody else's reason is a check
+that gets uninstalled. A commit is answerable for what it changes, which is what the third
+verdict measures, and `--strict` makes the full comparison binding when that is what you
+want.
 
 **What a red oracle costs, stated plainly.** Growing `docs/plan` changes the checklist,
 which moves `harness/oracle/checklist.golden.json`, which turns the oracle red until the
 golden is re-recorded. That friction is deliberate and it is the point: the golden is the
 scoring denominator, and the denominator moving is exactly the event this repository
 wants a person to notice and write down. Re-record with `harness/oracle.sh record` and add
-the reason under "The goldens, and the two reasons one can change" below. Re-recording to
+the reason under "The goldens, and the three reasons one can change" below. Re-recording to
 get a green destroys the only evidence that anything moved.
+
+## The gate's boot budget
+
+Ten seconds, twenty polls at half a second, declared in `verify.sh` as two constants so
+the seconds and the polls cannot drift apart. The number is not new: the gate has polled
+twenty times at half a second since it was written. What was new on 2026-09-08 is that the
+budget was only ever a loop bound. Nothing named it, nothing reported how much of it was
+used, and a boot creeping from one second to nine looked exactly like a boot that took
+one. So a green run now prints the margin, in polls, and a refusal names the budget in
+seconds and the two ways out.
+
+The clock starts when `start.sh` is launched and stops at the first answer, which is the
+contract that decides where slow work belongs: a build inside `start.sh` is inside the
+budget, a build inside `test.sh` is not, because the suite step is untimed. kalibra's
+`impl/start.sh` is built around exactly that.
+
+Measured 2026-09-08, six runs each: saunavuoro's `coldrun/grounded` answered on poll 2 of
+20 every time, 0.59 to 0.61 seconds of wall clock, and kalibra's warm web build answered
+on poll 2 of 20 every time, 0.60 to 0.63 seconds. Eighteen of the twenty polls are margin
+in both. löyly carries no implementation, so nothing was measured there. The cold path is
+what the budget is for: a kalibra web build from cold takes closer to forty seconds, which
+is why its suite warms the build first.
+
+`harness/spec.feature` states the same ten seconds in `@harness-056` to `@harness-058`. A
+budget changed in one of those two places is a spec that no longer describes the gate.
 
 ## Walkthrough
 
@@ -225,18 +278,38 @@ Each rule above exists because its absence produced a specific, silent lie:
   here; the seed was committed too, so the set was unprinted rather than hidden. New
   scenarios are the holdout that needs no seed, and the scoreboard already counts them.
 
-## The goldens, and the two reasons one can change
+## The goldens, and the three reasons one can change
 
 `harness/oracle.sh` judges an implementation of these tools against recorded goldens in
 `harness/oracle/`, byte for byte, refusal messages included. A golden that moves is
 normally an alarm, so it is worth writing down each time one moved and why.
 
-Two events look alike in a diff and must never be confused:
+Three events look alike in a diff and must never be confused:
 
 - **The instrument's behaviour changed.** Serious. It needs a reason, and a golden may not
   be re-recorded merely to get the suite green again.
 - **The wording was replaced.** Deliberate, and with no behavioural consequence.
   Re-recording is then the correct response, and an entry here is the record of it.
+- **The spec grew.** `checklist.golden.json` records the checklist derived from
+  `docs/plan/`, so adding scenarios there moves it without anything about the instrument
+  having changed at all. Re-recording is correct, and this is the case that will recur,
+  which is exactly why it needs a test somebody can apply rather than a judgement somebody
+  makes. **The test is that the diff is additions only.** No existing item's `id`, `name`,
+  `rule` or `source` line may move, and the only removed line may be the `total` count. A
+  re-record that changes an existing item is not this case, whatever the commit message
+  says, and it is the first case wearing this one's clothes:
+
+  ```bash
+  git diff -- harness/oracle/checklist.golden.json | grep '^-' | grep -v '^---'
+  #   must print the old "total" line and nothing else
+  ```
+
+**2026-09-08: the spec grew, in all three repositories.** Scenarios were added under
+`docs/plan/`, so the derived checklist gained items and the golden moved with it. The
+denominators went from 8 to 11 in löyly, 8 to 11 in saunavuoro and 251 to 255 in kalibra,
+and the harness's own spec went from 55 scenarios to 67. Nothing about the instrument
+changed: the diff in every golden is additions plus the one `total` line, which is the
+test above, and no existing item moved. Recorded here in `c9cd302`.
 
 **2026-09-02: the wording was replaced with our own.** The comments, docstrings, refusal
 messages and the scoreboard's printed report were rewritten in our own plain language.

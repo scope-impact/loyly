@@ -77,8 +77,32 @@ fi
 echo "=== $APP_DIR/test.sh (the whole suite; the gate trusts its exit code, not its prose) ==="
 "$APP/test.sh" || { echo "FATAL: suite red."; exit 1; }
 
-# ---- [3] boot what we are grading, prove the surface answers --------------------
-echo "=== $APP_DIR/start.sh $PORT, then probe the real surface ==="
+# ---- [3] boot what we are grading, inside a budget ------------------------------
+# THE BOOT BUDGET: ten seconds, twenty polls at half a second, and both halves of that
+# sentence are declared here so neither can drift from the other. It is not a new number.
+# The gate has polled twenty times at half a second since it was written; what was missing
+# is that the budget was only ever a loop bound. Nothing named it, nothing reported how
+# much of it was used, and a boot creeping from one second to nine looked exactly like a
+# boot that took one. harness/spec.feature states the same ten seconds (@harness-056 to
+# @harness-058), and a budget changed in one of those two places is a spec that no longer
+# describes the gate.
+#
+# THE CLOCK COVERS EVERYTHING start.sh DOES. It starts when start.sh is launched and stops
+# at the first answer, so a build inside start.sh is inside the budget and a build inside
+# test.sh is not: step [2] above is untimed. That is the contract deciding where slow work
+# belongs, and kalibra's impl/start.sh is built around it, warming the web build inside the
+# suite so the serve step is instant.
+#
+# MEASURED 2026-09-08 on the reference machine (Apple Silicon, native arm64), six runs
+# each: saunavuoro's coldrun/grounded answered on poll 2 of 20 every time, wall 0.59 to
+# 0.61 seconds, and kalibra's warm web build answered on poll 2 of 20 every time, wall
+# 0.60 to 0.63 seconds. Eighteen of the twenty polls are margin in both. loyly carries no
+# implementation today, so nothing was measured there.
+BOOT_BUDGET_SECONDS=10
+BOOT_POLL_SECONDS=0.5
+BOOT_POLLS="$(awk "BEGIN{printf \"%d\", $BOOT_BUDGET_SECONDS / $BOOT_POLL_SECONDS}")"
+
+echo "=== $APP_DIR/start.sh $PORT, then probe the real surface within ${BOOT_BUDGET_SECONDS}s ==="
 "$APP/start.sh" "$PORT" >/dev/null 2>&1 &
 APP_PID=$!
 cleanup() {
@@ -90,12 +114,24 @@ cleanup() {
 }
 trap cleanup EXIT
 
-ok=""
-for _ in $(seq 1 20); do
-  if curl -sf -o /dev/null "$URL"; then ok=yes; break; fi
-  sleep 0.5
+answered=0
+for p in $(seq 1 "$BOOT_POLLS"); do
+  if curl -sf -o /dev/null "$URL"; then answered="$p"; break; fi
+  sleep "$BOOT_POLL_SECONDS"
 done
-[[ -n "$ok" ]] || { echo "FATAL: app never answered on $URL: a boot log is not a served page."; exit 1; }
+if (( answered == 0 )); then
+  echo "FATAL: $URL never answered inside the ${BOOT_BUDGET_SECONDS}s boot budget"
+  echo "       ($BOOT_POLLS polls at ${BOOT_POLL_SECONDS}s): a boot log is not a served page."
+  echo "       Two ways out, and only two. Move the slow part into $APP_DIR/test.sh, which the"
+  echo "       gate does not time, so start.sh serves what the suite already built. Or change"
+  echo "       the budget, in harness/verify.sh and in harness/spec.feature together."
+  exit 1
+fi
+# The margin, printed on a GREEN run, for the reason the configuration table is printed on
+# a green run: a number nobody reads until it fails is a number nobody can see approaching.
+# The poll it answered on is exact and needs no clock, which is why the margin is counted
+# in polls rather than in seconds.
+echo "    boot margin: answered on poll $answered of $BOOT_POLLS, so $(( BOOT_POLLS - answered )) polls of the ${BOOT_BUDGET_SECONDS}s budget were unused."
 
 # ---- [4] the surface must be THIS app, not a page that returns 200 ---------------
 # Two checks, cheap then real. The cheap one is the name: a served page that does not

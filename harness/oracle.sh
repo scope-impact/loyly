@@ -709,6 +709,15 @@ new_mod_fixture() {
   local d="$WORK/mod-$1"
   rm -rf "$d"; mkdir -p "$d/harness/oracle" "$d/docs/plan"
   cp "$ROOT"/harness/*.clj "$ROOT"/harness/*.sh "$ROOT/harness/spec.feature" "$d/harness/" 2>/dev/null
+  printf '# the fixture harness README\n' >"$d/harness/README.md"
+  # The copied config.sh is whichever repository this oracle is running in, and three of
+  # its values differ between them. Normalise the three so that every assertion below
+  # means the same thing everywhere: without this, "an absence nobody declared" passed in
+  # loyly and failed in saunavuoro, whose FENCED_PATHS already names harness/score.clj.
+  sed -e 's#^APP_DIR=.*#APP_DIR=impl#' \
+      -e 's#^APP_MARKER=.*#APP_MARKER=fixture#' \
+      -e 's#^FENCED_PATHS=.*#FENCED_PATHS="impl harness/cycles"#' \
+      "$d/harness/config.sh" >"$d/harness/config.norm" && mv "$d/harness/config.norm" "$d/harness/config.sh"
   cp "$ROOT/harness/oracle/checklist.golden.json" "$d/harness/oracle/" 2>/dev/null \
     || printf '{}\n' >"$d/harness/oracle/checklist.golden.json"
   chmod +x "$d/harness"/*.sh
@@ -719,9 +728,19 @@ new_mod_fixture() {
   ( cd "$d" && pwd -P )
 }
 
+# Asking Babashka where the plan tree is costs about a quarter of a second per repository,
+# and this section runs modules.sh some twenty times over two or three of them. Paid on
+# every call it turns a two second oracle into a twelve second one, and this oracle now
+# runs on every commit, so it would be paid at every commit by everyone. So bb is hidden
+# from the PATH for every call except the one that is ABOUT that question: modules.sh then
+# prints its own "bb is not on PATH here, this is not a pass" line and carries on, and the
+# sections these checks assert on do not involve it. @harness-054 below sets MOD_PATH back
+# to the real one, because there the resolution is the thing under test.
+MOD_PATH="/usr/bin:/bin"
+
 mod_run() {  # mod_run DIR [ARG...] -> RC, stdout and stderr together in $WORK/out
   local d="$1"; shift
-  ( cd "$d" && ./harness/modules.sh "$@" ) >"$WORK/out" 2>&1
+  ( cd "$d" && PATH="$MOD_PATH" ./harness/modules.sh "$@" ) >"$WORK/out" 2>&1
   RC=$?
 }
 
@@ -819,7 +838,7 @@ sed 's#^PLAN_DIR=.*#PLAN_DIR=docs/specs#' "$MB/harness/config.sh" >"$MB/harness/
 if ! command -v bb >/dev/null 2>&1; then
   skip "@harness-054 PLAN_DIR: bb is not on PATH, so the tools cannot be asked"
 else
-  mod_run "$MA" --siblings "$MB"
+  MOD_PATH="$PATH" mod_run "$MA" --siblings "$MB"
   expect_rc "@harness-054 PLAN_DIR disagreeing with the tools: exit 1" 1 "$RC"
   has_line "@harness-054 the line reads FAIL and shows both values" \
     "  FAIL  mod-b: PLAN_DIR is 'docs/specs' and the tools resolve 'docs/plan'. Change both or neither."
@@ -827,9 +846,8 @@ fi
 
 # 9.8  @harness-055  values that differ are reported and not judged
 MB="$(new_mod_fixture b)"; MC="$(new_mod_fixture c)"
-sed 's#^APP_DIR=.*#APP_DIR=coldrun/grounded#' "$MB/harness/config.sh" >"$MB/harness/config.tmp" && mv "$MB/harness/config.tmp" "$MB/harness/config.sh"
-sed 's#^APP_DIR=.*#APP_DIR=app#' "$MC/harness/config.sh" >"$MC/harness/config.tmp" && mv "$MC/harness/config.tmp" "$MC/harness/config.sh"
-mkdir -p "$MB/coldrun/grounded" "$MC/app"
+sed 's#^APP_DIR=.*#APP_DIR=impl-b#' "$MB/harness/config.sh" >"$MB/harness/config.tmp" && mv "$MB/harness/config.tmp" "$MB/harness/config.sh"
+sed 's#^APP_DIR=.*#APP_DIR=impl-c#' "$MC/harness/config.sh" >"$MC/harness/config.tmp" && mv "$MC/harness/config.tmp" "$MC/harness/config.sh"
 mod_run "$MA" --siblings "$MB" "$MC"
 expect_rc "@harness-055 three different APP_DIR values: exit 0" 0 "$RC"
 has_line_matching "@harness-055 the table has one column per repository" '^  variable *mod-a *mod-b *mod-c *$'
@@ -857,7 +875,40 @@ expect_rc "the scoreboard golden recorded: exit 0" 0 "$RC"
 has_line "the golden and the cycle it records are reported together" \
   "  ok    mod-b: harness/oracle/scoreboard-01.golden present, with harness/cycles/01/scores.json here to round-trip it"
 
-# 9.10  the vacuous green: no sibling named
+# 9.10  every file in harness/ is in one of the lists
+# An undeclared file is one the check has no opinion about. kalibra's harness/oracle.py
+# sat there for a week: neither held identical nor declared different, so a copy of it
+# could have drifted for a year and nothing would have said so.
+MB="$(new_mod_fixture b)"
+printf 'x\n' >"$MB/harness/a_file_nobody_declared.txt"
+mod_run "$MA" --siblings "$MB"
+expect_rc "an undeclared file in harness/: exit 1" 1 "$RC"
+has_line "an undeclared file names itself and the three lists it could join" \
+  "  FAIL  mod-b: harness/a_file_nobody_declared.txt is in no list, so nothing here has an opinion about it. Add it to SHARED, PER_REPO or LOCAL, with the reason."
+rm -f "$MB/harness/a_file_nobody_declared.txt"
+printf 'x\n' >"$MB/harness/oracle.py"
+mod_run "$MA" --siblings "$MB"
+expect_rc "a declared local file present in one repository only: exit 0" 0 "$RC"
+has_line "a declared local file passes the completeness check" "  ok    mod-b: every file directly in harness/ is declared"
+
+# 9.11  a shared file this repository fences is absent on purpose
+# harness/verify.sh runs inside the clean room harness/fence.sh builds, and saunavuoro
+# fences two of the shared tools. Without this the gate would refuse inside the very room
+# it exists to grade, reporting a deliberate absence as a fork.
+MB="$(new_mod_fixture b)"
+sed 's#^FENCED_PATHS=.*#FENCED_PATHS="impl harness/cycles harness/score.clj"#' "$MB/harness/config.sh" >"$MB/harness/config.tmp" && mv "$MB/harness/config.tmp" "$MB/harness/config.sh"
+rm -f "$MB/harness/score.clj"
+mod_run "$MA" --siblings "$MB"
+expect_rc "a fenced shared file absent in a sibling: exit 0" 0 "$RC"
+has_line "the absence is reported as a fenced one, not as a fork" \
+  "  note  harness/score.clj is fenced and absent in: mod-b, and identical everywhere it is present"
+MB="$(new_mod_fixture b)"
+rm -f "$MB/harness/score.clj"
+mod_run "$MA" --siblings "$MB"
+expect_rc "an unfenced shared file absent in a sibling is still a failure: exit 1" 1 "$RC"
+has_line "an absence nobody declared is still missing" "  FAIL  harness/score.clj is missing in: mod-b"
+
+# 9.12  the vacuous green: no sibling named
 # Until 2026-09-08 this printed "identical in 1 repository" for every shared file, which is
 # a pass earned by comparing a file with itself. Nothing else in this harness reports a
 # comparison it did not make, and this one did.

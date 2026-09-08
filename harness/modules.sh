@@ -16,6 +16,7 @@
 # WHAT IT REFUSES:
 #   - a shared module file that differs between two repositories, or is missing in one
 #   - a declared per-repository file that is missing, or the probe not being executable
+#   - a file in harness/ that is in none of the lists, so nothing has an opinion about it
 #   - a recorded golden that is missing where the oracle needs it
 #   - a configuration variable declared in one repository and absent in another
 #   - a variable other than APP_MARKER left with an empty value
@@ -73,7 +74,19 @@ SHARED=(
 )
 # Declared per-repository files. Their CONTENT is never compared: each is this
 # repository's own by design, and the design reason is written in the file itself.
-PER_REPO=(harness/config.sh harness/probe.sh)
+# Required in every repository: a harness with no README is a module nobody can adopt.
+PER_REPO=(harness/config.sh harness/probe.sh harness/README.md)
+
+# Declared local files: they may exist in one repository and not the others, and they
+# belong to that repository alone. Naming one here is a decision somebody made, which is
+# the whole difference between a local file and an undeclared one.
+#   harness/oracle.py   kalibra's domain oracle: a third implementation of one hand-worked
+#                       calculation, used to check the recomputation against a table worked
+#                       by hand. It judges kalibra's arithmetic and not this instrument,
+#                       and it is nothing to do with harness/oracle.sh despite the name.
+#                       The name is the real problem and a rename is the better fix; see
+#                       harness/README.md.
+LOCAL=(harness/oracle.py)
 
 # Recorded goldens. Content is never compared either, for a different reason: each is
 # recorded from this repository's own spec and its own scored cycle, so there is no single
@@ -104,26 +117,49 @@ name() { basename "$1"; }
 
 echo "repositories: $(for r in "${REPOS[@]}"; do printf '%s ' "$(name "$r")"; done)"
 
+# A shared file that a repository FENCES is absent from a clean room on purpose, and a
+# clean room is where harness/verify.sh runs. saunavuoro fences harness/score.clj and
+# harness/scoreboard.clj, so without this the gate would refuse inside the very room it
+# exists to grade, reporting a missing module file as a fork. Being fenced is read from
+# that repository's own FENCED_PATHS, so the exemption is exactly as wide as the list the
+# repository wrote down, and it says which room it thinks it is in rather than passing
+# quietly.
+fenced_in() {  # fenced_in REPO PATH
+  local paths p
+  paths="$( set +u; . "$1/harness/config.sh" >/dev/null 2>&1; printf '%s' "${FENCED_PATHS-}" )"
+  for p in $paths; do
+    [[ "$2" == "$p" || "$2" == "$p"/* ]] && return 0
+  done
+  return 1
+}
+
 echo
 echo "== the shared module files: one text, or a fork"
 for f in "${SHARED[@]}"; do
   if [[ ! -f "$ROOT/$f" ]]; then
-    bad "$f is missing here"
+    if fenced_in "$ROOT" "$f"; then
+      note "$f is absent here and is in this repository's FENCED_PATHS: a clean room, not a fork"
+    else
+      bad "$f is missing here"
+    fi
     continue
   fi
   if (( ${#REPOS[@]} == 1 )); then
     skip "$f present here, and compared with nothing: name a sibling to compare it"
     continue
   fi
-  missing=() forked=()
+  missing=() forked=() fenced=()
   for r in "${REPOS[@]:1}"; do
-    if [[ ! -f "$r/$f" ]]; then missing+=("$(name "$r")")
+    if [[ ! -f "$r/$f" ]]; then
+      if fenced_in "$r" "$f"; then fenced+=("$(name "$r")"); else missing+=("$(name "$r")"); fi
     elif ! cmp -s "$ROOT/$f" "$r/$f"; then forked+=("$(name "$r")"); fi
   done
   if (( ${#missing[@]} )); then
     bad "$f is missing in: ${missing[*]}"
   elif (( ${#forked[@]} )); then
     bad "$f has forked in: ${forked[*]} (diff it against this one and reconcile to a single text)"
+  elif (( ${#fenced[@]} )); then
+    note "$f is fenced and absent in: ${fenced[*]}, and identical everywhere it is present"
   else
     ok "$f identical in ${#REPOS[@]} repositories"
   fi
@@ -172,6 +208,29 @@ for pair in "${GOLDEN_IF[@]}"; do
       ok "$(name "$r"): no $src, so no $g is expected"
     fi
   done
+done
+
+echo
+echo "== every file in harness/ is in one of the lists above"
+# An undeclared file is one this check has no opinion about: it is neither held identical
+# nor declared different, so a copy of it could drift for a year and nothing would say so.
+# harness/oracle.py sat in kalibra like that until 2026-09-08. Directories are not walked,
+# because harness/cycles and harness/oracle hold recordings rather than module files, and
+# those have their own sections above.
+for r in "${REPOS[@]}"; do
+  undeclared=0
+  while IFS= read -r f; do
+    rel="harness/$(basename "$f")"
+    declared=""
+    for a in "${SHARED[@]}" "${PER_REPO[@]}" "${LOCAL[@]}"; do
+      [[ "$a" == "$rel" ]] && { declared=yes; break; }
+    done
+    if [[ -z "$declared" ]]; then
+      bad "$(name "$r"): $rel is in no list, so nothing here has an opinion about it. Add it to SHARED, PER_REPO or LOCAL, with the reason."
+      undeclared=$((undeclared + 1))
+    fi
+  done < <(find "$r/harness" -maxdepth 1 -type f 2>/dev/null | sort)
+  (( undeclared )) || ok "$(name "$r"): every file directly in harness/ is declared"
 done
 
 # ---- the configuration ----------------------------------------------------------

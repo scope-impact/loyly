@@ -39,14 +39,18 @@
 #   this repository alone   no value but APP_MARKER is empty, PLAN_DIR agrees with what the
 #                           tools resolve, the per-repository files and the goldens are
 #                           where the oracle needs them.
-#   the adoption check,     REPORTED, unless --strict or a commit that touches a shared
-#   across the siblings     module file. A sibling's working tree is not a property of the
-#                           change being committed: another agent editing saunavuoro right
-#                           now would otherwise block a commit in kalibra that has nothing
-#                           to do with it. The exception is the case where it IS the
-#                           change: a commit that edits a shared module file and leaves the
-#                           copies forked is exactly the thing the adoption check exists to
-#                           catch, so the hook escalates to strict for those commits alone.
+#   the adoption check,     REPORTED, unless --strict. A sibling's working tree is not a
+#   across the siblings     property of the change being committed: another agent editing
+#                           saunavuoro right now would otherwise block a commit in kalibra
+#                           that has nothing to do with it, and a check that blocks for
+#                           somebody else's reason is a check that gets uninstalled.
+#   the shared module       HARD, in hook mode, and ONLY over the files this commit stages.
+#   files this commit       A commit that edits a shared module file and leaves the copies
+#   stages                  forked is the exact thing the adoption check exists to catch,
+#                           and it is a property of the change: the file being committed
+#                           either matches its copies or does not. Every other shared file
+#                           is somebody else's business, which is why this is narrower than
+#                           the check above rather than the same one made binding.
 #
 # EXIT 2 FROM THE ORACLE IS A SKIP, NOT A FAILURE. It means a tool it judges is absent, and
 # a fenced clean room is the case that produces it on purpose: saunavuoro fences
@@ -102,6 +106,7 @@ LOG="$(mktemp "${TMPDIR:-/tmp}/harness-check.XXXXXX")"
 trap 'rm -f "$LOG"' EXIT
 
 fails=0
+ORACLE_SKIPPED=""
 say()  { [[ -n "$QUIET" ]] || echo "$*"; }
 loud() { echo "$*"; }
 
@@ -117,15 +122,16 @@ step() {
 
 dump() { sed 's/^/    /' "$LOG"; }
 
-# ---- the shared module files this commit touches ---------------------------------
-# Only in hook mode, and only to decide whether the cross-repository comparison is
-# advisory or binding. The list comes from harness/modules.sh itself rather than from a
-# second copy here: two lists of the same files is the fork this harness exists to refuse.
+# ---- the shared module files this commit stages ----------------------------------
+# The list comes from harness/modules.sh itself rather than from a second copy here: two
+# lists of the same files is the fork this harness exists to refuse.
+STAGED_SHARED=()
+present=()
 if [[ "$MODE" == "--hook" ]]; then
   staged="$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null)"
   while IFS= read -r f; do
     [[ -n "$f" ]] || continue
-    if grep -Fqx "$f" <<<"$staged"; then STRICT=yes; break; fi
+    grep -Fqx "$f" <<<"$staged" && STAGED_SHARED+=("$f")
   done < <("$ROOT/harness/modules.sh" --list-shared 2>/dev/null)
 fi
 
@@ -133,7 +139,8 @@ fi
 step "the oracle: harness/oracle.sh bb" "$ROOT/harness/oracle.sh" bb
 case "$RC" in
   0) say "the oracle is green." ;;
-  2) loud "SKIP  the oracle cannot judge this tree: a tool it grades is absent."
+  2) ORACLE_SKIPPED=yes
+     loud "SKIP  the oracle cannot judge this tree: a tool it grades is absent."
      loud "      A fenced clean room is the case that does this on purpose. It is not a pass."
      dump ;;
   *) loud ""
@@ -159,7 +166,6 @@ fi
 if [[ "$MODE" != "--local" ]]; then
   ( set +u; . "$ROOT/harness/config.sh" >/dev/null 2>&1; printf '%s' "${SIBLING_REPOS-}" ) >"$LOG.sib"
   read -r -a DECLARED <<<"$(cat "$LOG.sib")"; rm -f "$LOG.sib"
-  present=()
   for s in "${DECLARED[@]:-}"; do
     [[ -n "$s" ]] || continue
     if [[ -d "$ROOT/$s/harness" ]]; then present+=("$ROOT/$s"); else
@@ -189,6 +195,30 @@ if [[ "$MODE" != "--local" ]]; then
   fi
 fi
 
+# ---- 4. the shared module files this commit stages --------------------------------
+# Byte for byte against each sibling that is on this machine, and only over the staged
+# files. This is deliberately not "run the adoption check and make it binding": that would
+# fail a commit because of a file somebody else is halfway through editing, which is how a
+# hook stops being installed. What a commit is answerable for is what it changes.
+if (( ${#STAGED_SHARED[@]} )) && (( ${#present[@]} )); then
+  forked=()
+  for f in "${STAGED_SHARED[@]}"; do
+    for sib in "${present[@]}"; do
+      if [[ ! -f "$sib/$f" ]]; then forked+=("$f is missing in $(basename "$sib")")
+      elif ! cmp -s "$ROOT/$f" "$sib/$f"; then forked+=("$f differs from $(basename "$sib")")
+      fi
+    done
+  done
+  if (( ${#forked[@]} )); then
+    loud ""
+    loud "FAILED  this commit stages a shared module file that is not the same text everywhere:"
+    for x in "${forked[@]}"; do loud "          $x"; done
+    loud "        Copy it to every sibling and commit them together, or the three repositories"
+    loud "        carry three instruments that report differences never in the thing measured."
+    fails=$((fails + 1))
+  fi
+fi
+
 # ---- the verdict -----------------------------------------------------------------
 if (( fails )); then
   loud ""
@@ -200,10 +230,15 @@ if (( fails )); then
   loud ""
   loud "A red oracle means the tools in this checkout are not the tools the goldens recorded,"
   loud "so every number downstream of them is a measurement by an instrument nobody has"
-  loud "calibrated. Fix the tool. If the words changed on purpose and nothing else did,"
-  loud "re-record with 'harness/oracle.sh record' and write the reason into harness/README.md,"
-  loud "under \"The goldens, and the two reasons one can change\". Re-recording to get a green"
-  loud "destroys the only evidence that anything moved."
+  loud "calibrated."
+  loud ""
+  loud "Read the diff before reaching for 'harness/oracle.sh record'. There are three reasons"
+  loud "a golden moves and only two of them make recording the right answer, and they are"
+  loud "told apart in harness/README.md under \"The goldens, and the three reasons one can"
+  loud "change\". The common one is the innocent one: docs/plan grew, so the derived"
+  loud "checklist gained items, and the golden's diff is additions plus the one total line."
+  loud "If any existing item moved, that is the serious case wearing the clothes of the"
+  loud "innocent one, and recording over it destroys the only evidence that anything moved."
   if [[ "$MODE" == "--hook" ]]; then
     loud ""
     loud "To commit anyway: git commit --no-verify, and say in the message why."
@@ -211,5 +246,12 @@ if (( fails )); then
   exit 1
 fi
 say ""
-loud "harness OK: the oracle is green and this repository's configuration is complete."
+if [[ -n "$ORACLE_SKIPPED" ]]; then
+  # Saying "the oracle is green" over a run where the oracle judged nothing would be this
+  # file committing the error it exists to catch.
+  loud "harness OK: this repository's configuration is complete. The oracle judged nothing here,"
+  loud "which is a skip and not a pass: read the SKIP line above."
+else
+  loud "harness OK: the oracle is green and this repository's configuration is complete."
+fi
 exit 0
