@@ -41,6 +41,7 @@ thing a harness would hide that.
 | `config.sh` | everything this repository knows about itself | a difference that lives in the code instead of in the configuration is a fork nobody declared |
 | `probe.sh` | proves the thing answering is THIS application | a name is not evidence; only domain behaviour is, and domain behaviour is code rather than a value |
 | `modules.sh` | proves the shared files are one text and the configuration is complete | three hand-kept copies drift silently, and a drifted instrument reports a difference that was never in the thing measured |
+| `check.sh` | runs the oracle and the adoption check, and refuses when either is red | a check nobody runs measures nothing, and its silence is indistinguishable from a pass |
 
 No row of that table covers everything, and the gaps matter as much as the mechanisms.
 The spec cannot say whether the thing answering is the application it names, which is
@@ -62,6 +63,7 @@ all three.
 | 2, cleanroom | the fence: what is removed, how, and the probe that proves it | `fence.sh` |
 | 3, gate | ratifying "done" through the two-entry-point contract | `verify.sh` |
 | the check itself | that the three above have not forked | `modules.sh` |
+| the occasion | that all of the above actually run | `check.sh`, plus the pre-commit hook it installs |
 
 Two files in `harness/` are each repository's own, and both are declared rather than
 assumed:
@@ -85,14 +87,74 @@ Run it from any of the three, naming the others:
 ```
 
 It fails on a forked or missing shared file, on a per-repository file that is absent, on a
-configuration variable one repository has and another does not, on an empty value in
-anything but `APP_MARKER`, and on `PLAN_DIR` disagreeing with the path the Babashka tools
-resolve for themselves. It only reports the configuration values that differ, because that
-is what configuration is for.
+recorded golden that is missing where the oracle needs it, on a configuration variable one
+repository has and another does not, on an empty value in anything but `APP_MARKER`, and on
+`PLAN_DIR` disagreeing with the path the Babashka tools resolve for themselves. It only
+reports the configuration values that differ, because that is what configuration is for.
+
+Two things changed on 2026-09-08, both because a green was cheaper than it looked. The
+recorded goldens in `harness/oracle/` were in no list, so a repository could lose the one
+file without which the oracle cannot judge anything and the adoption check would still say
+"no fork"; they are declared now, with `scoreboard-01.golden` required exactly where the
+cycle it records exists. And run with no sibling named, the check used to print "identical
+in 1 repository" for every shared file, which is a pass earned by comparing a file with
+itself; those lines are `SKIP` now and the closing line no longer claims anything about a
+fork. `harness/check.sh` reads the sibling paths from `SIBLING_REPOS` in `config.sh`, so
+the comparison happens without anybody typing three paths, and a sibling that is not on
+this machine is a loud skip rather than a quiet pass.
 
 One difference it reports today is open rather than settled: saunavuoro fences its scoring
 tools (`score.clj`, `scoreboard.clj`) and löyly and kalibra do not. The siblings do not
 agree, the surface can express either, and nobody has decided which is right.
+
+## What makes the checks run
+
+Until 2026-09-08 nothing did. `oracle.sh` made its assertions and `spec.feature` described
+its scenarios, and the only way either executed was a person typing the command. There was
+no CI in any of the three repositories, no Makefile, and the gate and the fence named the
+adoption check in a comment and called neither it nor the oracle. A judge with no occasion
+is not weaker than no judge, it is worse: it reads as coverage, and its silence looks
+exactly like a pass.
+
+`harness/check.sh` is the one entry point, and three things call it.
+
+```bash
+./harness/check.sh --install-hook   # once per clone
+./harness/check.sh                  # the instrument, then the adoption report
+./harness/check.sh --local          # the instrument alone, reading no other repository
+./harness/check.sh --strict         # a fork across the siblings fails too
+```
+
+- **Every commit**, through the `pre-commit` hook that `--install-hook` writes. The
+  commit is the moment every change in these repositories passes through: they have no
+  remote that runs anything, so a CI workflow would be a file nothing executes.
+- **`verify.sh`, before it ratifies anything.** A gate is a claim about a measurement, and
+  it may not be made on an instrument nobody checked.
+- **`fence.sh`, before it builds a clean room.** The room is the input to a regeneration
+  these tools will grade, so a room built from a checkout whose tools have moved hands the
+  next cycle a judge nobody checked.
+
+The hook is not a committed file, which is why it is not the only caller. `.git/hooks`
+lives outside the tree, a fresh clone has none until `--install-hook` is run there, and
+`git commit --no-verify` skips it. The two calls inside `verify.sh` and `fence.sh` travel
+with the repository, so the strongest claims this harness makes, "this is ratified" and
+"this room is clean", cannot be made over a red instrument anywhere.
+
+**Two of the three verdicts stop a commit, and the third only reports.** The oracle is
+repository local and deterministic, and so is the adoption check run over this repository
+alone, so both are binding. The adoption check run across the siblings is a statement
+about somebody else's working tree: another agent editing saunavuoro right now would
+otherwise fail a commit in kalibra that has nothing to do with it. It becomes binding in
+the one case where it is the change being made, a commit that touches a shared module
+file, and `--strict` makes it binding on demand.
+
+**What a red oracle costs, stated plainly.** Growing `docs/plan` changes the checklist,
+which moves `harness/oracle/checklist.golden.json`, which turns the oracle red until the
+golden is re-recorded. That friction is deliberate and it is the point: the golden is the
+scoring denominator, and the denominator moving is exactly the event this repository
+wants a person to notice and write down. Re-record with `harness/oracle.sh record` and add
+the reason under "The goldens, and the two reasons one can change" below. Re-recording to
+get a green destroys the only evidence that anything moved.
 
 ## Walkthrough
 

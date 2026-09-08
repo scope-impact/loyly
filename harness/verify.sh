@@ -40,7 +40,26 @@ URL="http://127.0.0.1:$PORT"
   exit 1
 }
 
-# ---- [0] the port must be free before anything is graded ------------------------
+# ---- [0] the instrument, before anything is graded ------------------------------
+# A gate is a claim about a measurement, so it may not run on an instrument that has not
+# been checked today. harness/check.sh runs the oracle over the harness tools and the
+# adoption check over this repository's own configuration, and refuses if either is red.
+# Until 2026-09-08 this call did not exist: the oracle made fifty-six assertions that ran
+# only when a person typed the command, and this file mentioned the adoption check in a
+# comment and called nothing. A gate downstream of an unchecked instrument ratifies a
+# number rather than a build.
+#
+# --local, so the gate never reads another repository. Whether the three copies have forked
+# is a real question and it is not this run's question: the gate is judging THIS checkout,
+# and a sibling somebody is editing right now must not be able to fail it.
+echo "=== harness/check.sh --local (the instrument, before it is used to grade) ==="
+"$ROOT/harness/check.sh" --local || {
+  echo "FATAL: the harness itself did not pass. Nothing was booted and nothing was graded,"
+  echo "       because a gate run on an unchecked instrument produces a verdict, not evidence."
+  exit 1
+}
+
+# ---- [1] the port must be free before anything is graded ------------------------
 # An HTTP probe cannot tell this run's server apart from any other process that
 # happens to answer on the same port. An orphaned process from a dead run once
 # answered a health probe long after its working directory had been deleted from
@@ -54,11 +73,11 @@ if held="$(lsof -ti:$PORT 2>/dev/null)" && [[ -n "$held" ]]; then
   exit 1
 fi
 
-# ---- [1] the suite, before anything is booted -----------------------------------
+# ---- [2] the suite, before anything is booted -----------------------------------
 echo "=== $APP_DIR/test.sh (the whole suite; the gate trusts its exit code, not its prose) ==="
 "$APP/test.sh" || { echo "FATAL: suite red."; exit 1; }
 
-# ---- [2] boot what we are grading, prove the surface answers --------------------
+# ---- [3] boot what we are grading, prove the surface answers --------------------
 echo "=== $APP_DIR/start.sh $PORT, then probe the real surface ==="
 "$APP/start.sh" "$PORT" >/dev/null 2>&1 &
 APP_PID=$!
@@ -78,7 +97,7 @@ for _ in $(seq 1 20); do
 done
 [[ -n "$ok" ]] || { echo "FATAL: app never answered on $URL: a boot log is not a served page."; exit 1; }
 
-# ---- [3] the surface must be THIS app, not a page that returns 200 ---------------
+# ---- [4] the surface must be THIS app, not a page that returns 200 ---------------
 # Two checks, cheap then real. The cheap one is the name: a served page that does not
 # even carry APP_MARKER is not worth probing further. It proves nothing on its own, and
 # a repository that declares APP_MARKER empty is saying so plainly.

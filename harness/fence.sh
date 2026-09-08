@@ -19,6 +19,16 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$ROOT/harness/config.sh"
 [[ -e "$TARGET" ]] && { echo "FATAL: $TARGET exists; the clean room must be fresh."; exit 1; }
 
+# The instrument, before a room is built out of this repository. A clean room is the input
+# to a regeneration that will be graded by these tools, so building one from a checkout
+# whose tools are not the tools the goldens recorded hands the next cycle a judge nobody
+# checked. --local, because whether a sibling has forked is not a property of this room.
+"$ROOT/harness/check.sh" --local || {
+  echo "FATAL: the harness itself did not pass, so no clean room was built. A room is only"
+  echo "       worth building for a rebuild that something trustworthy will grade."
+  exit 1
+}
+
 # What the regeneration must not see: FENCED_PATHS in harness/config.sh, where each entry
 # is written down with the reason it is hidden. What is hidden is the one thing about a
 # fence that is a repository's own, so it is the one thing this file does not decide.

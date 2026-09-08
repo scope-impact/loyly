@@ -41,6 +41,18 @@
 # inside the repository is harness/cycles/<throwaway>/, which it removes, and (under
 # `record`) harness/oracle/.
 
+# WHO RUNS IT. Until 2026-09-08, a person typing the command, and nothing else: no CI, no
+# Makefile, and neither the gate nor the fence called it. It now runs from
+# harness/check.sh, which the pre-commit hook runs on every commit, and which
+# harness/verify.sh and harness/fence.sh call before they ratify a build or build a clean
+# room. Fifty-six assertions that only fire when somebody remembers them are not a check
+# on anything.
+#
+# CHECK 9 JUDGES harness/modules.sh, which nothing judged until 2026-09-08. The argument
+# for leaving it out was that what it compares is other repositories and the oracle has
+# only this one. The oracle has built fixture trees since it was written, and two of those
+# are two repositories.
+
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -672,6 +684,188 @@ run "$FX" "${GEN[@]}"
 norm "$FX" "$WORK/err"
 expect_rc "every slice filtered out: exit 1" 1 "$RC"
 expect_text "every slice filtered out: the empty-spec message" "$WORK/want" "$WORK/err"
+
+# =================================================================================
+# CHECK 9  modules.sh, the adoption check, judged against fixture repositories
+# =================================================================================
+# Until 2026-09-08 this section did not exist, and harness/modules.sh was the one tool in
+# harness/ that nothing judged. The reason given, in its own header and in the spec, was
+# that what it compares is other repositories and the oracle has only this one. That was
+# never true. The oracle has built temporary fixture trees since it was written, and two
+# of those are two repositories: the tool resolves its root from its own file location, so
+# a directory with a harness/ in it is as real to it as this checkout is.
+#
+# What is pinned here is the verdict lines and the exit codes, line by line and byte for
+# byte, not the whole output. The report's shape (the table, the column widths) is a
+# report for a person; the FAIL and ok lines are the tool saying what it found, and those
+# are the product.
+head1 "CHECK 9  the adoption check, against fixture repositories"
+
+# A fixture repository for the adoption check: the whole harness copied in, so the tool
+# finds the shared files, the per-repository files and the golden it now demands. Two
+# fixtures built this way are identical, which is the point: every failure below has to be
+# made on purpose, one difference at a time.
+new_mod_fixture() {
+  local d="$WORK/mod-$1"
+  rm -rf "$d"; mkdir -p "$d/harness/oracle" "$d/docs/plan"
+  cp "$ROOT"/harness/*.clj "$ROOT"/harness/*.sh "$ROOT/harness/spec.feature" "$d/harness/" 2>/dev/null
+  cp "$ROOT/harness/oracle/checklist.golden.json" "$d/harness/oracle/" 2>/dev/null \
+    || printf '{}\n' >"$d/harness/oracle/checklist.golden.json"
+  chmod +x "$d/harness"/*.sh
+  # A probe that differs in every fixture, because @harness-053 is that the probe's
+  # content is never compared.
+  printf '#!/usr/bin/env bash\necho "the fixture probe of %s"\n' "$1" >"$d/harness/probe.sh"
+  chmod +x "$d/harness/probe.sh"
+  ( cd "$d" && pwd -P )
+}
+
+mod_run() {  # mod_run DIR [ARG...] -> RC, stdout and stderr together in $WORK/out
+  local d="$1"; shift
+  ( cd "$d" && ./harness/modules.sh "$@" ) >"$WORK/out" 2>&1
+  RC=$?
+}
+
+has_line() {  # has_line LABEL EXACT-LINE
+  if grep -Fqx "$2" "$WORK/out"; then ok "$1"; else
+    bad "$1"
+    printf '        wanted this line, byte for byte:\n        %s\n' "$2"
+    sed 's/^/        /' "$WORK/out" | head -30
+  fi
+}
+
+has_line_matching() {  # has_line_matching LABEL EREGEX
+  if grep -Eq "$2" "$WORK/out"; then ok "$1"; else
+    bad "$1"
+    printf '        wanted a line matching: %s\n' "$2"
+    sed 's/^/        /' "$WORK/out" | head -30
+  fi
+}
+
+no_line_matching() {  # no_line_matching LABEL EREGEX
+  if grep -Eq "$2" "$WORK/out"; then
+    bad "$1"
+    printf '        this line should not be here:\n' 
+    grep -E "$2" "$WORK/out" | sed 's/^/        /'
+  else ok "$1"; fi
+}
+
+MA="$(new_mod_fixture a)"
+
+# 9.0  the shared list is the tool's own, and harness/check.sh is on it
+mod_run "$MA" --list-shared
+expect_rc "--list-shared: exit 0" 0 "$RC"
+has_line "the shared list names harness/check.sh, so the entry point cannot fork" "harness/check.sh"
+has_line "the shared list names harness/modules.sh, so the check checks itself" "harness/modules.sh"
+
+# 9.1  two identical repositories: green, and the closing line says so
+MB="$(new_mod_fixture b)"
+mod_run "$MA" --siblings "$MB"
+expect_rc "two identical repositories: exit 0" 0 "$RC"
+has_line "a shared file identical in both is reported as identical" "  ok    harness/verify.sh identical in 2 repositories"
+has_line "the closing line claims no fork" "no fork: the shared module files are one text, and every difference is declared."
+
+# 9.2  @harness-050  a shared module file that differs by one byte
+printf '\n# one byte more\n' >>"$MB/harness/verify.sh"
+mod_run "$MA" --siblings "$MB"
+expect_rc "@harness-050 a forked sibling: exit 1" 1 "$RC"
+has_line "@harness-050 the line reads FAIL and names the sibling" \
+  "  FAIL  harness/verify.sh has forked in: mod-b (diff it against this one and reconcile to a single text)"
+
+# 9.3  @harness-050  the same file missing in the sibling, which fails with a different word
+MB="$(new_mod_fixture b)"
+rm -f "$MB/harness/verify.sh"
+mod_run "$MA" --siblings "$MB"
+expect_rc "@harness-050 a file missing in a sibling: exit 1" 1 "$RC"
+has_line "@harness-050 a missing file says missing, not forked" "  FAIL  harness/verify.sh is missing in: mod-b"
+
+# 9.4  @harness-051  a configuration variable one repository declares alone
+MB="$(new_mod_fixture b)"
+grep -v '^APP_MARKER=' "$MB/harness/config.sh" >"$MB/harness/config.tmp" && mv "$MB/harness/config.tmp" "$MB/harness/config.sh"
+mod_run "$MA" --siblings "$MB"
+expect_rc "@harness-051 a variable declared alone: exit 1" 1 "$RC"
+has_line "@harness-051 the line reads FAIL and names the sibling that lacks it" \
+  "  FAIL  APP_MARKER is declared somewhere and absent in: mod-b (add it there, with its comment, today)"
+
+# 9.5  @harness-052  a declared variable left empty, and the one exception
+MB="$(new_mod_fixture b)"
+sed 's/^APP_DIR=.*/APP_DIR=/' "$MB/harness/config.sh" >"$MB/harness/config.tmp" && mv "$MB/harness/config.tmp" "$MB/harness/config.sh"
+mod_run "$MA" --siblings "$MB"
+expect_rc "@harness-052 an empty APP_DIR: exit 1" 1 "$RC"
+has_line "@harness-052 the line reads FAIL and names that repository" \
+  "  FAIL  mod-b: APP_DIR is declared with an empty value, and only APP_MARKER may be empty"
+
+MB="$(new_mod_fixture b)"
+sed 's/^APP_MARKER=.*/APP_MARKER=/' "$MB/harness/config.sh" >"$MB/harness/config.tmp" && mv "$MB/harness/config.tmp" "$MB/harness/config.sh"
+mod_run "$MA" --siblings "$MB"
+expect_rc "@harness-052 an empty APP_MARKER is the exception: exit 0" 0 "$RC"
+no_line_matching "@harness-052 nothing is said about APP_MARKER being empty" "APP_MARKER is declared with an empty value"
+
+# 9.6  @harness-053  the probe: present, never compared, and executable
+MC="$(new_mod_fixture c)"
+MB="$(new_mod_fixture b)"
+mod_run "$MA" --siblings "$MB" "$MC"
+expect_rc "@harness-053 three different probes: exit 0" 0 "$RC"
+has_line "@harness-053 the probe line reads ok" "  ok    harness/probe.sh present in all, content is each repository's own by design"
+no_line_matching "@harness-053 no comparison of the probe's content is reported" "probe.sh (has forked|differs)"
+chmod -x "$MB/harness/probe.sh"
+mod_run "$MA" --siblings "$MB"
+expect_rc "@harness-053 a probe that is not executable: exit 1" 1 "$RC"
+has_line "@harness-053 the gate cannot run it, and the check says which repository" \
+  "  FAIL  mod-b: harness/probe.sh is not executable, so the gate cannot run it"
+
+# 9.7  @harness-054  PLAN_DIR against what the tools resolve
+MB="$(new_mod_fixture b)"
+sed 's#^PLAN_DIR=.*#PLAN_DIR=docs/specs#' "$MB/harness/config.sh" >"$MB/harness/config.tmp" && mv "$MB/harness/config.tmp" "$MB/harness/config.sh"
+if ! command -v bb >/dev/null 2>&1; then
+  skip "@harness-054 PLAN_DIR: bb is not on PATH, so the tools cannot be asked"
+else
+  mod_run "$MA" --siblings "$MB"
+  expect_rc "@harness-054 PLAN_DIR disagreeing with the tools: exit 1" 1 "$RC"
+  has_line "@harness-054 the line reads FAIL and shows both values" \
+    "  FAIL  mod-b: PLAN_DIR is 'docs/specs' and the tools resolve 'docs/plan'. Change both or neither."
+fi
+
+# 9.8  @harness-055  values that differ are reported and not judged
+MB="$(new_mod_fixture b)"; MC="$(new_mod_fixture c)"
+sed 's#^APP_DIR=.*#APP_DIR=coldrun/grounded#' "$MB/harness/config.sh" >"$MB/harness/config.tmp" && mv "$MB/harness/config.tmp" "$MB/harness/config.sh"
+sed 's#^APP_DIR=.*#APP_DIR=app#' "$MC/harness/config.sh" >"$MC/harness/config.tmp" && mv "$MC/harness/config.tmp" "$MC/harness/config.sh"
+mkdir -p "$MB/coldrun/grounded" "$MC/app"
+mod_run "$MA" --siblings "$MB" "$MC"
+expect_rc "@harness-055 three different APP_DIR values: exit 0" 0 "$RC"
+has_line_matching "@harness-055 the table has one column per repository" '^  variable *mod-a *mod-b *mod-c *$'
+has_line_matching "@harness-055 the row whose values differ is marked" '^  APP_DIR .*<- differs$'
+no_line_matching "@harness-055 a row whose values are all equal is not marked" '^  PORT .*<- differs$'
+
+# 9.9  the recorded goldens are part of the model
+MB="$(new_mod_fixture b)"
+rm -f "$MB/harness/oracle/checklist.golden.json"
+mod_run "$MA" --siblings "$MB"
+expect_rc "a missing checklist golden: exit 1" 1 "$RC"
+has_line "a missing checklist golden names the repository and what it blinds" \
+  "  FAIL  harness/oracle/checklist.golden.json is missing in: mod-b (harness/oracle.sh cannot judge the checklist without it)"
+
+MB="$(new_mod_fixture b)"
+mkdir -p "$MB/harness/cycles/01"
+printf '{}\n' >"$MB/harness/cycles/01/scores.json"
+mod_run "$MA" --siblings "$MB"
+expect_rc "a scored cycle with no scoreboard golden: exit 1" 1 "$RC"
+has_line "a scored cycle with no scoreboard golden says what is unjudged" \
+  "  FAIL  mod-b: harness/cycles/01/scores.json is here and harness/oracle/scoreboard-01.golden is not, so nothing judges the scoreboard. Record it."
+printf 'x\n' >"$MB/harness/oracle/scoreboard-01.golden"
+mod_run "$MA" --siblings "$MB"
+expect_rc "the scoreboard golden recorded: exit 0" 0 "$RC"
+has_line "the golden and the cycle it records are reported together" \
+  "  ok    mod-b: harness/oracle/scoreboard-01.golden present, with harness/cycles/01/scores.json here to round-trip it"
+
+# 9.10  the vacuous green: no sibling named
+# Until 2026-09-08 this printed "identical in 1 repository" for every shared file, which is
+# a pass earned by comparing a file with itself. Nothing else in this harness reports a
+# comparison it did not make, and this one did.
+mod_run "$MA"
+expect_rc "no sibling named: exit 0, because the local checks did run" 0 "$RC"
+no_line_matching "no file is reported identical to itself" "identical in 1 repositor"
+has_line "the uncompared files are skips" "  SKIP  harness/verify.sh present here, and compared with nothing: name a sibling to compare it"
+has_line "the closing line does not claim no fork" "no sibling was named, so the shared module files were compared with nothing."
 
 # =================================================================================
 head1 "$PASSED ok, $FAILED failed, $SKIPPED skipped"

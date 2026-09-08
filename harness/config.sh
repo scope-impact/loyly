@@ -70,3 +70,15 @@ APP_PROBE=harness/probe.sh
 # saunavuoro does fence them. That difference is open and known: see harness/README.md,
 # "The three modules, and the check that they have not forked".
 FENCED_PATHS="impl harness/cycles"
+
+# SIBLING_REPOS: the other repositories that carry this harness, space separated, relative
+# to this repository root.
+# Read by harness/check.sh, which hands them to harness/modules.sh so the sameness check
+# runs without anybody typing three paths. It is a per-repository value because each
+# repository's siblings are the other two, and because a checkout somewhere else may have
+# none of them.
+# Wrong value: a path that is not on this machine is a loud SKIP and never a pass, so the
+# damage is a comparison silently not made rather than a wrong verdict. A path to a
+# directory that has a harness/ and is not one of ours would be compared and reported as a
+# fork, which is noisy and harmless.
+SIBLING_REPOS="../saunavuoro ../kalibra"
