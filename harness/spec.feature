@@ -48,8 +48,10 @@
 # a sibling tool as a command for the operator to run, and those two must name the
 # implementation's own files (@harness-023, @harness-040); everywhere else the words are
 # fixed. The fifth script, harness/modules.sh, is bash and is invoked directly as
-# "harness/modules.sh [--siblings PATH...]"; it is the one tool here the oracle does not
-# judge, because what it compares is other repositories and the oracle has only this one.
+# "harness/modules.sh [--siblings PATH...]". The oracle judges it too, in its CHECK 9,
+# over fixture repositories it builds for the purpose: this line said for a while that
+# the oracle could not, because what modules.sh compares is other repositories, and
+# that stopped being true the day CHECK 9 was written.
 #
 # HOW THIS SPEC IS JUDGED. harness/oracle.sh is the oracle for this file. It runs the
 # tools against golden bytes recorded from the implementation in service, and it
@@ -899,8 +901,8 @@ Feature: The harness: stamp, derive, score, report
   # -------------------------------------------------------------------------------
   # Added 2026-09-07, when the three copies of this harness stopped being hand-kept and
   # became one text plus a documented configuration. This tool is not part of the
-  # instrument: it measures nothing about an application, and the oracle does not judge it,
-  # because what it compares is other repositories and the oracle has only this one.
+  # instrument: it measures nothing about an application. The oracle judges it all the
+  # same, in CHECK 9, over fixture repositories it builds for the purpose.
   #
   # GUARD. Origin: reasoning, not an incident, and it is worth saying which. Nothing has
   # yet been measured wrong because a copy drifted; what happened instead is that keeping
@@ -982,3 +984,197 @@ Feature: The harness: stamp, derive, score, report
       # between the repositories is a value in a table rather than a fork in a file. The
       # table is printed on a green run too, because a difference nobody intended should
       # be read out loud rather than discovered.
+
+    @harness-059
+    Scenario: The shared list is the tool's own, and asking for it is how anything else learns it
+      When modules.sh runs with --list-shared
+      Then it prints one shared file path per line
+      And "harness/check.sh" is on the list
+      And "harness/modules.sh" is on the list
+      And the exit code is 0
+      # check.sh ASKS for the list rather than keeping one. Two lists of the same files in
+      # two scripts is exactly the fork this tool exists to refuse, and it would be a fork
+      # inside the checker itself. modules.sh naming its own file is the same argument one
+      # level up: the check is checked.
+
+    @harness-060
+    Scenario: A sibling missing its oracle golden is a failure
+      Given a sibling repository with no "harness/oracle/checklist.golden.json"
+      When modules.sh runs with that repository named after --siblings
+      Then the line for the golden reads FAIL and names the sibling
+      And the exit code is 1
+      # The goldens are each repository's own, recorded from its own tools, so their
+      # CONTENT is never compared, for @harness-053's reason. Their PRESENCE is checked,
+      # because an oracle with no golden to read does not stop: it reports one missing
+      # line and passes everything else, which reads like a small gap and is a blind
+      # instrument.
+
+    @harness-061
+    Scenario: A cycle with scores and no scoreboard golden is a failure
+      Given a repository holding "harness/cycles/01/scores.json"
+      And no "harness/oracle/scoreboard-01.golden" beside it
+      When modules.sh runs
+      Then the line reads FAIL and says that nothing judges the scoreboard for that cycle
+      And the exit code is 1
+      # Only this direction refuses. A golden with no cycle beside it is reported and
+      # allowed, because harness/cycles is what harness/fence.sh deletes: a clean room
+      # reaches that state legitimately, every time one is built.
+
+    @harness-062
+    Scenario: With no sibling named, every shared file is a skip and nothing claims to be identical
+      When modules.sh runs with no --siblings argument
+      Then every shared file's line reads SKIP and says it was compared with nothing
+      And no line says that a file is identical in 1 repository
+      And the closing line does not claim that there is no fork
+      And the exit code is 0
+      # Until 2026-09-08 this run reported each file "identical in 1 repository" and closed
+      # by claiming no fork. Both sentences were true and neither meant anything: it is a
+      # pass earned by comparing a file with itself. The vacuous case is the dangerous one,
+      # because it is the case that runs when somebody forgets the argument.
+
+  # -------------------------------------------------------------------------------
+  # verify.sh, the ratifying gate: the first budget for a quality
+  # -------------------------------------------------------------------------------
+  # Added 2026-09-08. Everything above this line specifies behaviour, and until today so
+  # did every other spec in every repository carrying this harness: not one scenario
+  # anywhere asserted a duration, a size, a count or a limit. A scenario that cannot fail
+  # is not a spec, it is an intention, and "the app comes up" is an intention.
+  #
+  # THE NUMBER WAS NOT INVENTED HERE, and that is why this is the first one. The gate
+  # already polls twenty times at half a second before it gives up, so ten seconds has
+  # been its boot budget since it was written. What was missing was that the budget was
+  # only ever a loop bound: nothing named it, nothing reported how much of it was used,
+  # and a boot creeping from one second to nine looked exactly like a boot that took one.
+  # So the rule states the ten seconds the code already enforces, and adds the half of a
+  # budget that was absent, which is the margin.
+  #
+  # WHAT IT COSTS TODAY, measured on the reference machine (Apple Silicon, native arm64,
+  # 2026-09-08). kalibra's warm serve answered in 0.12 to 0.27 seconds over six runs, so
+  # the margin is better than thirty to one. The cold path is what the budget is actually
+  # for: a web build from cold took 37.4 seconds on the same machine, which is why
+  # kalibra's impl/start.sh warms the build inside the untimed suite step and says so in
+  # its own header. loyly and saunavuoro carry no implementation today, so nothing was
+  # measured in either, and their ten seconds is inherited from the code rather than
+  # derived from a run.
+  #
+  # GUARD, and the near miss it is drawn from is written in kalibra's impl/start.sh. A
+  # build that stops being warmed does not fail the way a broken build fails. The suite
+  # is green, the application is correct, and the gate reports that the app never
+  # answered, which reads as a serving problem and is not one. The budget cannot prevent
+  # that, but naming it in the refusal points at the right half of the contract.
+  Rule: The gate bounds how long the application may take to answer, and reports the margin
+
+    @harness-056
+    Scenario: An application that answers inside the budget is ratified, and the margin is said out loud
+      Given an application that serves its first page one second after start.sh is launched
+      When the gate boots it
+      Then the gate proceeds to the identity probe
+      And it reports how much of the boot budget was used
+      # The margin is reported on a GREEN run, for the same reason the promotion rate and
+      # the configuration table are printed on green runs elsewhere in this harness: a
+      # number nobody reads until it fails is a number nobody can see approaching. The
+      # gate has no sub-second clock it can rely on across the shells it runs in, so the
+      # margin it reports is which poll answered out of the budget's polls, which is exact
+      # and needs nothing installed.
+
+    @harness-057
+    Scenario: An application that has not answered when the budget runs out is refused
+      Given an application that serves nothing for thirty seconds after start.sh is launched
+      When the gate boots it
+      Then the gate refuses, naming the budget in seconds
+      And the refusal says that a boot log is not a served page
+      And the exit code is 1
+      # Ten seconds, which is twenty polls at half a second. The refusal names the number
+      # so that the reader is told what was expected rather than only what happened, and
+      # it names the two ways out: move the slow part into the suite, which the gate does
+      # not time, or change the budget here and in the gate together. A budget changed in
+      # one of the two places is the failure that harness/modules.sh exists to catch.
+
+    @harness-058
+    Scenario: The clock covers everything start.sh does, a build included
+      Given an application whose start.sh builds for thirty seconds before it serves
+      When the gate boots it
+      Then the gate refuses on the boot budget
+      # This is the contract that decides where slow work belongs, and it is stated
+      # because it has already shaped an implementation. The clock starts when start.sh is
+      # launched and stops at the first answer, so a build inside start.sh is inside the
+      # budget and a build inside test.sh is not. kalibra's suite therefore ends by
+      # warming the web build, and its start.sh serves what the suite already built. That
+      # is not a workaround, it is the budget being obeyed, and until today the only place
+      # it was written down was a comment in one repository's implementation.
+
+  # -------------------------------------------------------------------------------
+  # check.sh, the entry point that gives the other judges an occasion
+  # -------------------------------------------------------------------------------
+  # Added 2026-09-08.
+  #
+  # GUARD. Incident: nothing ever ran the oracle. It made its assertions only when a person
+  # typed the command, there was no CI in any of the three repositories and no Makefile,
+  # and the gate and the fence both named the adoption check in a comment while calling
+  # neither it nor the oracle. A judge with no occasion reads as coverage, and it is the
+  # worst kind of false coverage, because its silence cannot be told from a pass. Nothing
+  # was ever measured wrong by it, and nothing could have been: it never spoke.
+  Rule: The checks run without a person, and a red one stops something
+
+    @harness-063
+    Scenario: A red oracle refuses the commit
+      Given a repository whose oracle is red
+      When the installed pre-commit hook runs
+      Then the commit is refused
+      And the message says that re-recording the goldens is the wrong response unless the
+        words themselves changed
+      And the exit code is 1
+      # The message names the escape too, "git commit --no-verify", in as many words. A
+      # gate with no stated escape is deleted by the first person it blocks at the wrong
+      # moment, and a deleted gate is weaker than an escapable one.
+
+    @harness-064
+    Scenario: A forked sibling fails only the commit that is the fork
+      Given a sibling repository whose "harness/verify.sh" differs from this one's
+      When a commit that stages no shared module file is made
+      Then the fork is reported and the commit is allowed
+      When a commit that stages a shared module file is made
+      Then the commit is refused
+      # A sibling's working tree is not a property of the change being committed: an agent
+      # editing one repository would otherwise fail commits in another that have nothing to
+      # do with it. The exception is the case where the fork IS the change. A commit that
+      # edits a shared module file and leaves the copies forked is precisely what the
+      # adoption check exists to catch, so the hook escalates to strict for those commits
+      # alone.
+
+    @harness-065
+    Scenario: The two committed callers also refuse over a red oracle
+      Given a repository whose oracle is red
+      When harness/verify.sh runs
+      Then nothing is booted and nothing is graded
+      And the exit code is 1
+      When harness/fence.sh runs
+      Then no clean room is created
+      # The hook is not a committed file, so a fresh clone has none until somebody installs
+      # it, and --no-verify skips the one that is installed. These two callers are
+      # committed files and travel with the repository, which is what makes "this is
+      # ratified" and "this room is clean" claims that cannot be made over a red
+      # instrument anywhere.
+
+    @harness-066
+    Scenario: A tool the oracle cannot find is a skip, and the run is not failed
+      Given a tree with no "harness/score.clj"
+      When check.sh runs
+      Then the oracle's exit code is 2
+      And the run reports a SKIP
+      And the run is not failed
+      # A fenced clean room produces this on purpose: saunavuoro fences harness/score.clj
+      # and harness/scoreboard.clj, so the gate running inside its clean room has fewer
+      # tools to judge than the repository it was cloned from. The skip is printed loudly,
+      # because a skip nobody sees is a pass.
+
+    @harness-067
+    Scenario: Installing the hook over somebody else's hook is refused
+      Given ".git/hooks/pre-commit" exists
+      And it does not mention "harness/check.sh"
+      When check.sh runs with --install-hook
+      Then it refuses and asks for a hand merge
+      And the exit code is 1
+      # An existing hook is somebody's work, in a directory git does not version, so there
+      # is nothing to recover it from once it is overwritten. Refusing costs a minute;
+      # guessing costs whatever the hook did.

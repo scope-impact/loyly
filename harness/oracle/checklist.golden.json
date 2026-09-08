@@ -47,9 +47,27 @@
    "name": "Giving up a slot leaves no derived view still claiming it",
    "rule": "One booking is the single source of truth for the list, the timer and the billing",
    "source": "docs/plan/01-booking-core/spec.feature:72"
+  },
+  {
+   "id": "01-009",
+   "name": "Two households request the same free slot with neither request answered",
+   "rule": "Two households requesting one free slot leave exactly one holder",
+   "source": "docs/plan/01-booking-core/spec.feature:108"
+  },
+  {
+   "id": "01-010",
+   "name": "The race is run one hundred times and never confirms twice",
+   "rule": "Two households requesting one free slot leave exactly one holder",
+   "source": "docs/plan/01-booking-core/spec.feature:125"
+  },
+  {
+   "id": "01-011",
+   "name": "The refusal for a closed day is judged usable",
+   "rule": "A refusal is judged by whether a resident can act on it without asking again",
+   "source": "docs/plan/01-booking-core/spec.feature:156"
   }
  ],
  "counts": {
-  "total": 8
+  "total": 11
  }
 }
