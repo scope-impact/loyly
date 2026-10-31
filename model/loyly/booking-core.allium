@@ -1,0 +1,162 @@
+-- allium: 3
+-- Löyly booking-core behavioral model.
+-- The executable acceptance source is docs/plan/01-booking-core/spec.feature.
+
+enum Weekday { monday | tuesday | wednesday | thursday | friday | saturday | sunday }
+
+enum SlotRequestStatus { pending | confirmed | refused }
+
+enum RefusalReason { closed_day | held | no_room | nothing_yet }
+
+entity Household {
+    apartment: String
+}
+
+entity Sauna {
+    name: String
+}
+
+entity DressingRoom {
+    name: String
+    sauna: Sauna
+    open_weekdays: Set<Weekday>
+    slot_starts: List<String>
+}
+
+entity StandingSlot {
+    household: Household
+    dressing_room: DressingRoom
+    weekday: Weekday
+    start_time: String
+}
+
+entity SlotRequest {
+    household: Household
+    dressing_room: DressingRoom
+    weekday: Weekday
+    start_time: String
+    status: SlotRequestStatus
+    refusal_reason: RefusalReason?
+}
+
+entity BillingSignal {
+    household: Household
+}
+
+entity HeaterPeriod {
+    dressing_room: DressingRoom
+    weekday: Weekday
+    start_time: String
+}
+
+rule ConfigureDays {
+    when: ConfigureDays(dressing_room, sauna, weekdays, slot_starts)
+    requires: exists dressing_room
+    requires: exists sauna
+    ensures: dressing_room.sauna = sauna
+    ensures: dressing_room.open_weekdays = weekdays
+    ensures: dressing_room.slot_starts = slot_starts
+}
+
+rule RequestStandingSlot {
+    when: RequestStandingSlot(household, dressing_room, weekday, start_time)
+    requires: exists household
+    requires: exists dressing_room
+    requires: weekday in dressing_room.open_weekdays
+    requires: not exists StandingSlots where dressing_room = dressing_room and weekday = weekday and start_time = start_time
+    ensures: SlotRequest.created(household: household, dressing_room: dressing_room,
+                                weekday: weekday, start_time: start_time, status: confirmed)
+    ensures: StandingSlot.created(household: household, dressing_room: dressing_room,
+                                 weekday: weekday, start_time: start_time)
+    ensures: BillingSignal.created(household: household)
+    ensures: HeaterPeriod.created(dressing_room: dressing_room, weekday: weekday,
+                                 start_time: start_time)
+}
+
+rule RefuseClosedDay {
+    when: RequestStandingSlot(household, dressing_room, weekday, start_time)
+    requires: exists household
+    requires: exists dressing_room
+    requires: weekday not in dressing_room.open_weekdays
+    ensures: SlotRequest.created(household: household, dressing_room: dressing_room,
+                                weekday: weekday, start_time: start_time,
+                                status: refused, refusal_reason: closed_day)
+}
+
+rule RefuseHeldSlot {
+    when: RequestStandingSlot(household, dressing_room, weekday, start_time)
+    requires: exists household
+    requires: exists dressing_room
+    requires: weekday in dressing_room.open_weekdays
+    requires: exists StandingSlots where dressing_room = dressing_room and weekday = weekday and start_time = start_time
+    ensures: SlotRequest.created(household: household, dressing_room: dressing_room,
+                                weekday: weekday, start_time: start_time,
+                                status: refused, refusal_reason: held)
+}
+
+rule ReleaseStandingSlot {
+    when: ReleaseStandingSlot(slot, household)
+    requires: slot.household = household
+    ensures: not exists slot
+    ensures: not exists HeaterPeriods where dressing_room = slot.dressing_room and weekday = slot.weekday and start_time = slot.start_time
+}
+
+rule RefusalIsActionable {
+    when: SlotRequest.created(request)
+    requires: request.status = refused
+    ensures: request.refusal_reason != null
+}
+
+invariant OneHolderPerSlot {
+    for a in StandingSlots:
+        for b in StandingSlots:
+            a != b implies not (a.dressing_room = b.dressing_room and
+                                a.weekday = b.weekday and
+                                a.start_time = b.start_time)
+}
+
+invariant DerivedViewsAgree {
+    for slot in StandingSlots:
+        exists HeaterPeriods where dressing_room = slot.dressing_room and
+            weekday = slot.weekday and start_time = slot.start_time
+        implies exists BillingSignals where standing_slot = slot
+}
+
+surface ManagerBooking {
+    facing manager: Household
+
+    exposes:
+        manager.apartment
+        DressingRoom.name
+        DressingRoom.open_weekdays
+        DressingRoom.slot_starts
+
+    provides:
+        ConfigureDays(dressing_room, sauna, weekdays, slot_starts)
+
+    @guarantee DaysAreActionable
+        -- Saved configuration names the dressing room, open weekdays and slot starts.
+}
+
+surface ResidentBooking {
+    facing household: Household
+
+    exposes:
+        DressingRoom
+        StandingSlot
+        HeaterPeriod
+        BillingSignal
+
+    provides:
+        RequestStandingSlot(household, dressing_room, weekday, start_time)
+        ReleaseStandingSlot(slot, household)
+
+    @guarantee OneHolderPerSlot
+        -- A standing slot is held by at most one household.
+
+    @guarantee DerivedViewsAgree
+        -- Posted availability, heating and billing derive from the booking record.
+
+    @guarantee RefusalIsActionable
+        -- A refusal gives the resident enough information to act without asking again.
+}
