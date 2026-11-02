@@ -3,7 +3,6 @@ __pycache__/
 server.log
 *.db
 allure-report/
-.pi/harness/allure-results/
 
 # preserved Loyly reference tree
 /.reference/

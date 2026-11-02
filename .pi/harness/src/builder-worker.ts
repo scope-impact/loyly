@@ -58,12 +58,14 @@ try {
   const model = getModel("openai-codex", process.env.PI_BUILDER_MODEL ?? "gpt-5.6-luna");
   if (!model) throw new Error("Codex builder model is unavailable");
   let toolCalls = 0;
+  const sessionManager = SessionManager.inMemory(room.workspaceRoot);
+  const builderSessionId = sessionManager.getSessionId();
   const { session } = await createAgentSession({
     cwd: room.workspaceRoot,
     model,
     modelRuntime,
     resourceLoader,
-    sessionManager: SessionManager.inMemory(room.workspaceRoot),
+    sessionManager,
     settingsManager: SettingsManager.inMemory({ compaction: { enabled: false } }),
     tools: ["bash"],
     customTools: [bash],
@@ -81,7 +83,10 @@ try {
   if (generated.length === 0) throw new Error("Codex builder produced no workspace output");
   await mkdir(request.outputRoot, { recursive: true });
   await cp(room.workspaceRoot, request.outputRoot, { recursive: true, force: true });
-  process.stdout.write(JSON.stringify({ ok: true, result: { outputRoot: request.outputRoot, toolCalls, generated } }) + "\n");
+  process.stdout.write(JSON.stringify({
+    ok: true,
+    result: { outputRoot: request.outputRoot, builderSessionId, toolCalls, generated },
+  }) + "\n");
 } catch (error) {
   process.stdout.write(JSON.stringify({ ok: false, error: error instanceof Error ? error.message : String(error) }) + "\n");
   process.exitCode = 1;

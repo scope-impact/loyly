@@ -18,6 +18,31 @@
            @invocation))
     (is (= {:cutId "cut-1"} result))))
 
+(deftest builder-adapter-preserves-the-fresh-pi-session-identity
+  (with-redefs [json-process/invoke!
+                (fn [_ _]
+                  {:exit-code 0
+                   :stdout ""
+                   :stderr ""
+                   :response {:ok true
+                              :result {:outputRoot "/output/cycle-1"
+                                       :builderSessionId "builder-session-1"}}})]
+    (is (= {:output-root "/output/cycle-1"
+            :builder-session-id "builder-session-1"
+            :builder "openai-codex/test"}
+           (adapters/run-builder!
+            {:project-root "/repo"
+             :cuts-root "/cuts"
+             :builder-id (constantly "openai-codex/test")
+             :builder-prompt (atom "build")
+             :project-adapter (constantly {:modelRoot "model"})}
+            {:request-id "cycle-1"
+             :cut "cut-1"
+             :scope ["impl"]
+             :execution-backend "gondolin"
+             :selection {:items [{:id "@item-01-007"}]}
+             :target-stack "typescript"})))))
+
 (deftest adapter-failures-retain-process-diagnostics
   (with-redefs [json-process/invoke!
                 (constantly {:exit-code 17

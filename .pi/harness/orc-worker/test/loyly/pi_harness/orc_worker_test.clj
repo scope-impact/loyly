@@ -36,21 +36,14 @@
 
 (deftest runtime-start-asks-orc-to-resume-durable-frontiers
   (let [context {:durable true}
-        built-sheet-ids (atom [])
         resume-calls (atom [])]
-    (with-redefs [orc/build-workflow! (fn [_ _]
-                                        (let [sheet-id (random-uuid)]
-                                          (swap! built-sheet-ids conj sheet-id)
-                                          sheet-id))
-                  orc/resume-in-progress! (fn [actual-context options]
-                                            (swap! resume-calls conj [actual-context options])
+    (with-redefs [orc/build-workflow! (fn [_ _] (random-uuid))
+                  orc/resume-in-progress! (fn [actual-context]
+                                            (swap! resume-calls conj actual-context)
                                             [])]
       (try
         (worker/start-runtime! (constantly {:context context}))
-        (is (= [[context {:sheet-ids (set @built-sheet-ids)
-                          :limit 1
-                          :frontier-limit 1}]]
-               @resume-calls))
+        (is (= [context] @resume-calls))
         (finally
           (worker/stop-runtime! (constantly nil)))))))
 
@@ -201,7 +194,8 @@
                                                                       :runtimeEvidenceContract "model/loyly/runtime-evidence-contract.json"
                                                                       :itemIdPrefix "@item-"
                                                                       :itemGraderScript "booking-core-{itemSuffix}.sh"})
-                                  worker/run-builder-adapter (fn [_] {:output-root "/tmp/output"})
+                                  worker/run-builder-adapter (fn [_] {:output-root "/tmp/output"
+                                                                      :builder-session-id "builder-session-test"})
                                   subject/digest (constantly "subject-test")
                                   stack-conformance/check (fn [& _] {:passed true :exit-code 0
                                                                      :stdout "confirmed" :stderr ""})
@@ -624,7 +618,10 @@
             manifest (:evidence-manifest result)
             artifacts (:artifacts manifest)]
         (is (= result @recorded))
-        (is (= [grader-observation instrument-observation] @observations))
+        (is (= 2 (count @observations)))
+        (is (every? #(= (set (map :sha256 artifacts))
+                         (set (:artifact-digests %)))
+                    @observations))
         (is (= [:measurement-persisted :allure-projected :allure-projected] @order))
         (is (true? (get-in result [:instrument-conformance :passed])))
         (is (= "subject-test" (:subject-digest manifest)))

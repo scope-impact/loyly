@@ -15,7 +15,7 @@
 
 (def observation-keys
   [:cycle-id :cut-digest :project-id :container-id :component-id :item-id :subject-digest
-   :producer :evidence-kind :result :reached? :evidence :oracle-digest])
+   :producer :evidence-kind :artifact-digests :result :reached? :evidence :oracle-digest])
 
 (def measurement-keys
   [:cycle-id :selection-id :cut :backend :total :passed :failed :complete? :items

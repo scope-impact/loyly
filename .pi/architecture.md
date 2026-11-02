@@ -555,7 +555,7 @@ Status meanings:
 | 01-004 | Implemented | Approval binds the selection identity and digest. |
 | 01-005 | Implemented | Approved selection retrieval is supported by the durable entrypoint. |
 | 01-006 | Partial | Request idempotency is held in worker memory and is lost on restart. |
-| 01-007 | Implemented | The builder uses a fresh in-memory Pi session and requires tool output. |
+| 01-007 | Implemented | The builder uses a fresh in-memory Pi session, returns its distinct session identity in the builder result, and requires tool output. |
 | 01-008 | Implemented | Compose structure, lifecycle, and supported-stack conformance checks are implemented. |
 | 01-009 | Implemented | Verification output is captured by the cycle workflow; failed verification can drive a maximum-three-attempt repair loop through read-only evidence pointers. |
 | 01-010 | Implemented | Binary item observations reduce into a cycle measurement. |
@@ -572,7 +572,7 @@ Status meanings:
 | 01-021 | Implemented | Missing or non-vector GEPA example collections are refused. |
 | 01-022 | Implemented | GEPA scoring is gated by full harness calibration, requires an approved selection, runs a fresh digest-identified candidate, validates the product oracle and Compose contract, and scores the complete independent per-item measurement. |
 | 01-023 | Partial | A winner is independently selected, but activation remains only in worker memory and metric evidence is not yet sealed into a harness evidence manifest. |
-| 01-024 | Implemented | ORC runs `cut → harness-calibration → builder → instrument → oracle → verify → repair-verification → graders → instrument-conformance → record-cycle → result`; calibration must pass before candidate construction, repair is limited to three verification attempts, and grading cannot start until the effective final verification passes. |
+| 01-024 | Implemented | ORC runs `cut → harness-calibration → builder → instrument → oracle → verify → repair-verification → graders → instrument-conformance → record-cycle → grade-gate`; calibration must pass before candidate construction, repair is limited to three verification attempts, and grading cannot start until the effective final verification passes. |
 | 01-025 | Implemented | Instrumentation rechecks the builder digest and binds a sibling evidence root without modifying the candidate. |
 | 01-026 | Implemented | The product oracle requires the accepted Löyly OCI pack, validates its project, slice, selected items, exact model-artifact and grader digests, and executes carried/uncarried fixture applications against each grader in a deny-egress Gondolin VM with read-only fixture and grader mounts; the cycle oracle digest combines that measured result with the calibrated instrument-oracle digest. |
 | 01-027 | Partial | Instrumentation binds and rechecks the subject before observation, but there is no post-observer digest recheck yet. |
@@ -581,7 +581,7 @@ Status meanings:
 | 01-030 | Not implemented | Non-success outcomes collapse, and failed stages do not persist a complete denominator measurement. |
 | 01-031 | Partial | Runtime conformance is persisted under a distinct independent producer, but the observation schema does not yet encode the full candidate/observer/grader authority model. |
 | 01-032 | Not implemented | Observation schemas do not yet represent incomplete, sampled, or dropped required signals as `inconclusive`. |
-| 01-033 | Implemented | A generic, domain-free evaluator loads the selected project's runtime-evidence contract from the pinned cut, validates declared record cardinality, values, correlations, and `fields-equal` invariants, and emits a separate observation for every contracted selected item. Löyly has live runtime-evidence contracts for `@item-01-007` and `@item-01-008`; all eleven selected items are independently black-box graded. |
+| 01-033 | Implemented | A generic, domain-free evaluator loads the selected project's runtime-evidence contract from the pinned cut, validates declared record cardinality, values, correlations, and `fields-equal` invariants, and emits a separate observation for every contracted selected item. Before persistence, every observation is enriched with all sealed input-artifact digests. Löyly has live runtime-evidence contracts for `@item-01-007` and `@item-01-008`; all eleven selected items are independently black-box graded. |
 | 01-034 | Not implemented | Allure projects persisted evidence today, but an OTel invariant-result projection carrying the same persisted evidence digest is not implemented. |
 | 01-035 | Not implemented | Approval binds only the selection digest; scope, target stack, execution profile, pinned inputs, diagram, and outer-cycle budget are not one approved preparation. |
 | 01-036 | Partial | The JSON control boundary exposes ORC `start-cycle` with caller-supplied durable identities and survives client disconnects, but no complete session-agnostic preparation contract or parent-cycle lineage exists. |

@@ -16,6 +16,14 @@ export type CycleOutcome = {
   error?: string;
 };
 
+export type WorkflowContract = {
+  workflowName: string;
+  rootType: string;
+  stages: string[];
+  builderResultFields: string[];
+  observationFields: string[];
+};
+
 type WorkerResponse = {
   id: number;
   ok: boolean;
@@ -65,6 +73,10 @@ export class OrcClient {
     return this.invoke("wait", { taskId }) as Promise<CycleOutcome>;
   }
 
+  workflowContract(): Promise<WorkflowContract> {
+    return this.invoke("workflow-contract", {}) as Promise<WorkflowContract>;
+  }
+
 
   private invoke(method: string, params: unknown): Promise<unknown> {
     return this.invokeRequest(method, params);
@@ -78,9 +90,11 @@ export class OrcClient {
 export function spawnOrcClient(options: {
   projectRoot: string;
   command?: string;
+  env?: NodeJS.ProcessEnv;
 }): { client: OrcClient; close: () => Promise<void> } {
   const child = spawn(options.command ?? ".pi/harness/orc-worker/run.sh", {
     cwd: options.projectRoot,
+    env: { ...process.env, ...options.env },
     stdio: ["pipe", "pipe", "inherit"],
   });
   const pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
@@ -121,8 +135,19 @@ export function spawnOrcClient(options: {
     client,
     async close() {
       if (child.exitCode !== null || child.signalCode !== null) return;
-      child.stdin.end();
-      await new Promise<void>((resolve) => child.once("exit", () => resolve()));
+      await new Promise<void>((resolve) => {
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeout);
+          resolve();
+        };
+        const timeout = setTimeout(() => child.kill("SIGTERM"), 2_000);
+        child.once("exit", finish);
+        child.stdin.end();
+        if (child.exitCode !== null || child.signalCode !== null) finish();
+      });
     },
   };
 }

@@ -6,11 +6,18 @@ currently exposed through `.pi/harness/extension.ts` and executed by ORC under
 product being regenerated.
 
 The target contract must not be read as a claim that every behavior is already
-implemented. [`.pi/architecture.md` Appendix A](../../.pi/architecture.md#appendix-a-implementation-conformance)
-is the implementation-status record, and `COVERAGE.md` summarizes the gaps.
+implemented. Every scenario is classified as either `@e2e` or `@skip`. Scenarios tagged
+`@e2e` are executable conformance checks; scenarios tagged `@skip` are registered with
+Vitest's native `test.skip` and do not claim executable conformance. A tag gate rejects
+unclassified or doubly classified scenarios.
 
-- `spec.feature` gives harness behavior stable acceptance-item identities.
-- `regeneration-cycle.allium` defines the core invariants; the connected control, prompt, execution, and runtime-evidence models are summarized in `COVERAGE.md`.
+- `regeneration-cycle.feature` defines the core regeneration-cycle acceptance behavior.
+- `operator-control-plane.feature`, `prompt-optimization.feature`,
+  `execution-pipeline.feature`, and `runtime-evidence.feature` own acceptance behavior for
+  their corresponding model components.
+- Every acceptance scenario retains a stable `@item-*` identity so Allure results can be
+  reconciled with the model without a parallel coverage catalogue.
+- `regeneration-cycle.allium` defines the core invariants.
 - `operator-control-plane.allium` defines session-agnostic preparation approval, durable ORC
   observation, builder-session inspection, and bounded outer-cycle continuation.
 - `runtime-evidence.allium` separates candidate telemetry, harness observations, independent invariant verdicts, and report projections.
@@ -20,7 +27,6 @@ is the implementation-status record, and `COVERAGE.md` summarizes the gaps.
 - `regeneration_event_model.clj` describes only the harness-owned Grain event topology.
 - `.pi/affordances.schema.json` defines the public Pi tool inputs; observable outcomes and
   refusals remain in the Allium and Gherkin contracts rather than a parallel YAML model.
-- [`.pi/architecture.md` Appendix A](../../.pi/architecture.md#appendix-a-implementation-conformance) records implementation conformance.
 - `GLOSSARY.md` fixes the regeneration vocabulary.
 - `docs/adr/0001-session-and-cycle-ownership.md` records why ORC owns the inner cycle while
   operator sessions own approval and outer continuation.
@@ -51,10 +57,18 @@ Vars and the root prompt compatibility Var retain the fully qualified names stor
 inside serialized ORC workflow nodes. Supporting components must not depend back
 on `core.worker` or the public interface.
 
-## Behavioral coverage
+## Executable conformance
 
-`COVERAGE.md` maps all 40 acceptance items across the operator control plane, prompt
-optimization, the complete execution and evidence pipeline, and inspectable builder sessions.
+The Vitest adapter declares one readable TypeScript test per component-owned scenario. `@e2e`
+scenarios have concrete execution and emit each modeled Given/When/Then step through
+`allure.step`; `@skip` scenarios use Vitest's native `test.skip` until their public-seam
+translation is implemented. A static Gherkin-to-TypeScript lint checks scenario counts, native
+skip classification, component labels, and literal modeled steps before Vitest starts. Missing
+translations and failed `@e2e` scenarios prevent a successful conformance run. Here `@skip`
+means “not yet translated into E2E,” not necessarily “underlying implementation absent.”
+Executable-test evidence under `.pi/harness/allure-results/e2e/` is generated and not checked in;
+the complete skipped inventory remains visible in Vitest's run summary.
+
 ORC stage progress remains ORC-owned; Grain stores durable preparation approval, observations,
 and measurements without duplicating ORC execution events.
 

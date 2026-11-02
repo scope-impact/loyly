@@ -105,3 +105,20 @@ From the repository root:
 The check runs clj-kondo with local hooks for Grain's `defcommand`,
 `defreadmodel`, and `defschemas` macros, followed by the complete Clojure worker
 test suite.
+
+The model-to-ORC RPC conformance E2E is TypeScript/Vitest and projects every
+executable modeled step through `allure.step`:
+
+```bash
+cd .pi/harness
+npm run test:e2e
+```
+
+It parses every component-owned scenario directly from `model/pi-harness/`—there is no
+duplicate E2E or coverage feature—and lints it against one explicit native Vitest test per
+scenario. Translated `@e2e` scenarios query the real `workflow-contract` JSON boundary and
+emit Given/When/Then `allure.step` records; untranslated scenarios use native `test.skip` and
+remain visible in Vitest's run summary.
+The current passing scenarios cover fenced cut identity, deterministic selection and approval
+refusals, known and unknown task waiting, prompt-input refusal, the ordered ORC pipeline, the
+separately identified builder session, and artifact digests on persisted observations.

@@ -15,6 +15,7 @@
    :subject-digest "subject-def"
    :producer "candidate-suite"
    :evidence-kind "tool"
+   :artifact-digests ["sha256:evidence-artifact"]
    :result "pass"
    :reached? true
    :evidence "candidate suite exercised all three derived views"

@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --experimental-strip-types --test"
+    "test": "node --experimental-strip-types --test test/*.test.mjs",
+    "pretest:e2e": "node --experimental-strip-types e2e/check-scenario-tags.ts && node --experimental-strip-types e2e/lint-explicit-scenarios.ts && node -e \"require('node:fs').rmSync('allure-results/e2e',{recursive:true,force:true})\"",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts"
   },
   "dependencies": {
     "@earendil-works/chord": "1.4.0",
@@ -11,5 +13,12 @@
     "@earendil-works/pi-ai": "1.4.0",
     "@earendil-works/pi-coding-agent": "1.4.0",
     "@earendil-works/pi-durable": "1.4.0"
+  },
+  "devDependencies": {
+    "@cucumber/gherkin": "^42.0.1",
+    "@cucumber/messages": "^34.2.1",
+    "@vitest/runner": "^4.1.12",
+    "allure-vitest": "^3.14.0",
+    "vitest": "^4.1.12"
   }
 }

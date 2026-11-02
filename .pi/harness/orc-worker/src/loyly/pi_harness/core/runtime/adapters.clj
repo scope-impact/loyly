@@ -57,6 +57,7 @@
         result (successful-result! "builder adapter"
                                    (json-process/invoke! script request))]
     {:output-root (:outputRoot result)
+     :builder-session-id (:builderSessionId result)
      :builder (builder-id)}))
 
 (defn run-oracle-fixture!

@@ -4,6 +4,7 @@
             [clojure.string :as str]
             [loyly.pi-harness.interface :as harness]
             [loyly.pi-harness.grain.interface :as model]
+            [loyly.pi-harness.workflows.regeneration :as regeneration]
             [loyly.pi-harness.core.selection.slice-selection :as slice-selection]))
 
 (defn- context [] (harness/runtime-context))
@@ -51,6 +52,7 @@
     "submit" (submit-approved! params)
     "start-cycle" (start-approved-cycle! params)
     "execution-status" (harness/execution-status! params)
+    "workflow-contract" (regeneration/contract)
     "wait" (harness/wait! params)
     (throw (ex-info "unknown method" {:method method}))))
 

@@ -29,6 +29,7 @@
    [:subject-digest :string]
    [:producer :string]
    [:evidence-kind [:enum "tool" "grader"]]
+   [:artifact-digests {:optional true} [:vector :string]]
    [:result [:enum "pass" "fail"]]
    [:reached? :boolean]
    [:evidence :string]

@@ -1,6 +1,7 @@
 (ns loyly.pi-harness.workflows.regeneration
   "Deterministic ORC spine for one regeneration and grading cycle."
   (:require [ai.obney.orc.orc-service.interface :as orc]
+            [clojure.string :as str]
             [loyly.pi-harness.grain.interface.schemas :as schemas]))
 
 (defn workflow []
@@ -33,6 +34,7 @@
                         [:scope [:vector :string]]
                         [:output-root :string]
                         [:builder :string]
+                        [:builder-session-id :string]
                         [:subject-digest :string]]
        :instrument-result [:map
                            [:stage :string]
@@ -77,6 +79,7 @@
                                                [:scope [:vector :string]]
                                                [:output-root :string]
                                                [:builder :string]
+                                               [:builder-session-id :string]
                                                [:subject-digest :string]]]
                                     [:instrument [:map
                                                   [:stage :string]
@@ -186,3 +189,19 @@
         :reads [:request-id :selection :scope :execution-backend :verify-result
                 :graders-result :instrument-conformance-result :repair-verification-result]
         :writes [:result-result]))))
+
+(defn- camel-case [value]
+  (str/replace (name value) #"-([a-z])" #(str/upper-case (second %))))
+
+(defn- schema-field-names [schema]
+  (mapv (comp camel-case first) (rest schema)))
+
+(defn contract
+  "Transport-safe description of the executable regeneration workflow."
+  []
+  (let [{:keys [workflow-name blackboard-schema root-node]} (workflow)]
+    {:workflowName workflow-name
+     :rootType (name (:node-type root-node))
+     :stages (mapv :name (:children root-node))
+     :builderResultFields (schema-field-names (:builder-result blackboard-schema))
+     :observationFields (schema-field-names schemas/observation-schema)}))

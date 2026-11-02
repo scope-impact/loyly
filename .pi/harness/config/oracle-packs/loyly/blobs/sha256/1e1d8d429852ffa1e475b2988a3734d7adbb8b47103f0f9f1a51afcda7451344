@@ -1,3 +1,0 @@
-#!/bin/sh
-SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
-exec python3 "$SCRIPT_DIR/booking-core-grader.py" "${1:?BASE_URL required}" all

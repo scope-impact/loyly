@@ -772,8 +772,10 @@
         measurement (assoc (get-in inputs [:graders-result :measurement])
                            :instrument-conformance instrument-conformance
                            :evidence-manifest manifest)
-        observations (into (vec (get-in inputs [:graders-result :observations]))
-                           (get-in inputs [:instrument-conformance-result :observations]))
+        artifact-digests (mapv :sha256 (:artifacts manifest))
+        observations (->> (into (vec (get-in inputs [:graders-result :observations]))
+                                (get-in inputs [:instrument-conformance-result :observations]))
+                          (mapv #(assoc % :artifact-digests artifact-digests)))
         context (:context @runtime)
         persisted-observations (mapv #(model/record-observation! context %) observations)
         persisted (model/record-measurement! context measurement)]
@@ -811,11 +813,7 @@
                    :cut {:context ctx :sheet-id (orc/build-workflow! ctx (cut-workflow))}
                    :prompt {:context ctx :sheet-id (orc/build-workflow! ctx (prompt/workflow))}
                    :cycle {:context ctx :sheet-id sheet-id})
-            (orc/resume-in-progress!
-             ctx
-             {:sheet-ids (into #{} (map (comp :sheet-id val)) @workflows)
-              :limit 1
-              :frontier-limit 1})
+            (orc/resume-in-progress! ctx)
             started)))))
 
 (defn ensure-runtime! []
