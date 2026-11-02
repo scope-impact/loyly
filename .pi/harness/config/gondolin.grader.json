@@ -1,0 +1,19 @@
+{
+  "arch": "aarch64",
+  "distro": "alpine",
+  "alpine": {
+    "version": "3.23.7",
+    "kernelPackage": "linux-virt",
+    "kernelImage": "vmlinuz-virt",
+    "krunfwVersion": "v5.2.1"
+  },
+  "oci": {
+    "image": "loyly-grader:oci",
+    "runtime": "docker",
+    "platform": "linux/arm64",
+    "pullPolicy": "never"
+  },
+  "rootfs": {
+    "label": "loyly-grader-root"
+  }
+}

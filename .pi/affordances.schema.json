@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://loyly.example/schema/affordances.schema.json",
+  "title": "Löyly affordance contract",
+  "description": "Framework-neutral UX, agent-tool, and test-step contract.",
+  "type": "object",
+  "required": ["slice", "version", "audience", "actions", "types", "screens", "ui", "conformance", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "slice": { "type": "string", "minLength": 1 },
+    "version": { "type": "integer", "minimum": 1 },
+    "audience": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "actions": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/action" }
+    },
+    "types": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/typeDefinition" }
+    },
+    "screens": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/screen" }
+    },
+    "ui": { "$ref": "#/$defs/ui" },
+    "conformance": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "steps": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "action": {
+      "type": "object",
+      "required": ["intent", "submit", "audience", "input", "call", "tool"],
+      "additionalProperties": false,
+      "properties": {
+        "intent": { "type": "string", "minLength": 1 },
+        "submit": { "type": "string", "minLength": 1 },
+        "audience": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "readOnly": { "type": "boolean" },
+        "input": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/input" }
+        },
+        "outcomes": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/message" }
+        },
+        "rejections": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/rejection" }
+        },
+        "call": { "$ref": "#/$defs/call" },
+        "tool": { "$ref": "#/$defs/tool" }
+      }
+    },
+    "input": {
+      "type": "object",
+      "required": ["component", "type", "label"],
+      "additionalProperties": true,
+      "properties": {
+        "component": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "minLength": 1 },
+        "required": { "type": "boolean" },
+        "label": { "type": "string", "minLength": 1 },
+        "example": {},
+        "of": { "type": "string" },
+        "separator": { "type": "string" }
+      }
+    },
+    "message": {
+      "type": "object",
+      "required": ["must"],
+      "additionalProperties": false,
+      "properties": { "must": { "type": "string", "minLength": 1 } }
+    },
+    "rejection": {
+      "type": "object",
+      "required": ["must"],
+      "additionalProperties": false,
+      "properties": {
+        "must": { "type": "string", "minLength": 1 },
+        "offers": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "links": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "with": {}
+      },
+      "oneOf": [
+        { "required": ["offers"] },
+        { "required": ["links"] },
+        { "not": { "anyOf": [{ "required": ["offers"] }, { "required": ["links"] }] } }
+      ]
+    },
+    "call": {
+      "type": "object",
+      "required": ["method", "path"],
+      "additionalProperties": false,
+      "properties": {
+        "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+        "path": { "type": "string", "pattern": "^/" },
+        "body": { "type": "object" },
+        "query": { "type": "object" }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": { "name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" } }
+    },
+    "screen": {
+      "type": "object",
+      "required": ["path", "offers"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "pattern": "^/" },
+        "offers": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "links": { "type": "object", "additionalProperties": { "type": "string" } },
+        "reachedFrom": { "type": "string" },
+        "must": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "heading": { "type": "string" },
+            "buttons": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+          }
+        },
+        "seen": { "type": "string" }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "required": ["action", "submit", "outcome", "refusal"],
+      "additionalProperties": false,
+      "properties": {
+        "action": { "type": "string" },
+        "submit": { "type": "string" },
+        "outcome": { "type": "string" },
+        "refusal": { "type": "string" },
+        "tokens": { "type": "string" },
+        "tokensOnly": { "type": "boolean" }
+      }
+    },
+    "typeDefinition": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": true
+    }
+  }
+}

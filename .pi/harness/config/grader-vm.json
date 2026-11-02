@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "role": "grader",
+  "image": "loyly/grader:local",
+  "memory": "2G",
+  "cpus": 2,
+  "environment": {},
+  "policy": {
+    "allowedHosts": []
+  }
+}

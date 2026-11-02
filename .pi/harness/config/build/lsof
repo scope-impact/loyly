@@ -1,0 +1,5 @@
+#!/bin/sh
+if [ "$PWD" = "/workspace" ] && [ "${1#-ti:}" != "$1" ]; then
+  exit 0
+fi
+exec /bin/busybox lsof "$@"

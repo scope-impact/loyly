@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+"""Evaluate project-owned runtime-evidence contracts without domain knowledge."""
+
+import argparse
+from collections import Counter
+import json
+from pathlib import Path
+import sys
+
+
+def verdict(item_id, result, evidence):
+    return {
+        "itemId": item_id.removeprefix("@item-"),
+        "verdict": result,
+        "evidence": evidence,
+    }
+
+
+def fail(item_id, evidence):
+    return verdict(item_id, "fail", evidence)
+
+
+def exact_count(expected):
+    if isinstance(expected, int):
+        return expected
+    if isinstance(expected, dict):
+        return expected.get("exactly")
+    return None
+
+
+def evaluate(contract, evidence_root):
+    item_id = contract.get("itemId", "unknown")
+    try:
+        relative_path = Path(contract["relativePath"])
+        if relative_path.is_absolute() or ".." in relative_path.parts:
+            return fail(item_id, "runtime evidence path must remain below the evidence root")
+        evidence_file = evidence_root / relative_path
+        with evidence_file.open(encoding="utf-8") as stream:
+            records = [json.loads(line) for line in stream if line.strip()]
+    except FileNotFoundError:
+        return fail(item_id, "runtime evidence was not emitted for the independent execution")
+    except Exception as error:
+        return fail(item_id, f"runtime evidence is unreadable: {error}")
+
+    discriminator = contract.get("discriminator", {})
+    discriminator_field = discriminator.get("field")
+    kinds = discriminator.get("values", [])
+    record_specs = contract.get("records", {})
+    if not discriminator_field or not kinds or set(kinds) != set(record_specs):
+        return fail(item_id, "runtime evidence contract has inconsistent record kinds")
+
+    forbidden = set(contract.get("forbidden", []))
+    for record in records:
+        present = sorted(forbidden.intersection(record))
+        if present:
+            return fail(item_id, f"candidate runtime evidence contains forbidden fields: {','.join(present)}")
+        if record.get(discriminator_field) not in kinds:
+            return fail(item_id, f"runtime evidence contains an undeclared record kind: {record.get(discriminator_field)}")
+
+    by_kind = {
+        kind: [record for record in records if record.get(discriminator_field) == kind]
+        for kind in kinds
+    }
+    for kind, spec in record_specs.items():
+        kind_records = by_kind[kind]
+        expected_count = exact_count(spec.get("count"))
+        if expected_count is None:
+            return fail(item_id, f"runtime evidence contract has no exact count for {kind}")
+        if len(kind_records) != expected_count:
+            return fail(item_id, f"expected {expected_count} {kind} record(s), found {len(kind_records)}")
+
+        required = spec.get("required", [])
+        equals = spec.get("equals", {})
+        for record in kind_records:
+            missing = [field for field in required if field not in record or record[field] is None]
+            if missing:
+                return fail(item_id, f"{kind} record is missing required fields: {','.join(missing)}")
+            mismatched = [field for field, value in equals.items() if record.get(field) != value]
+            if mismatched:
+                return fail(item_id, f"{kind} record has invalid fixed fields: {','.join(mismatched)}")
+
+        for field, expected_values in spec.get("fieldValues", {}).items():
+            actual_values = [record.get(field) for record in kind_records]
+            if Counter(actual_values) != Counter(expected_values):
+                return fail(item_id, f"{kind} records have invalid values for {field}")
+
+    correlation = contract.get("correlation")
+    if correlation:
+        anchor_kind = correlation.get("anchorKind")
+        anchor_records = by_kind.get(anchor_kind, [])
+        if len(anchor_records) != 1:
+            return fail(item_id, f"correlation requires exactly one {anchor_kind} anchor")
+        anchor = anchor_records[0]
+        for member_kind in correlation.get("memberKinds", []):
+            if member_kind not in by_kind:
+                return fail(item_id, f"correlation names undeclared member kind: {member_kind}")
+            for member in by_kind[member_kind]:
+                mismatched = [field for field in correlation.get("fields", [])
+                              if member.get(field) != anchor.get(field)]
+                if mismatched:
+                    return fail(item_id, f"{member_kind} record is uncorrelated: {','.join(mismatched)}")
+
+    for invariant in contract.get("invariants", []):
+        invariant_name = invariant.get("name", "unnamed")
+        if invariant.get("type") != "fields-equal":
+            return fail(item_id, f"runtime evidence contract declares unsupported invariant: {invariant_name}")
+        field = invariant.get("field")
+        invariant_kinds = invariant.get("recordKinds", [])
+        undeclared_kinds = [kind for kind in invariant_kinds if kind not in by_kind]
+        if undeclared_kinds:
+            return fail(item_id, f"invariant {invariant_name} names undeclared record kind: {undeclared_kinds[0]}")
+        invariant_records = [record
+                             for kind in invariant_kinds
+                             for record in by_kind[kind]]
+        values = [record.get(field) for record in invariant_records]
+        if not values or any(value != values[0] for value in values[1:]):
+            return fail(item_id, f"runtime evidence violates invariant {invariant_name}: {field} differs")
+
+    return verdict(item_id, "pass", contract.get(
+        "successEvidence", "runtime evidence satisfies the declared conformance contract"))
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--evidence-root", required=True, type=Path)
+    parser.add_argument("--item", action="append", default=[])
+    parser.add_argument("contract", type=Path)
+    args = parser.parse_args()
+
+    try:
+        document = json.loads(args.contract.read_text(encoding="utf-8"))
+        contracts = document.get("contracts", [document])
+    except Exception as error:
+        requested = args.item or ["unknown"]
+        results = [fail(item_id, f"runtime evidence contract is unreadable: {error}")
+                   for item_id in requested]
+        print(json.dumps(results, separators=(",", ":")))
+        return 1
+
+    by_item = {contract.get("itemId"): contract for contract in contracts}
+    selected = args.item or list(by_item)
+    results = []
+    for item_id in selected:
+        contract = by_item.get(item_id)
+        isolated_root = args.evidence_root / item_id
+        relative_path = Path(contract.get("relativePath", "")) if contract else Path()
+        item_root = (isolated_root
+                     if contract and (isolated_root / relative_path).is_file()
+                     else args.evidence_root)
+        results.append(evaluate(contract, item_root) if contract else
+                       fail(item_id, "no runtime evidence contract exists for the selected item"))
+    print(json.dumps(results, separators=(",", ":")))
+    return 0 if results and all(result["verdict"] == "pass" for result in results) else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,15 @@
+FROM alpine:3.23.7
+
+RUN apk add --no-cache \
+    bash \
+    ca-certificates \
+    curl \
+    gcompat \
+    git \
+    python3 \
+ && curl -fsSL https://github.com/babashka/babashka/releases/download/v1.12.214/babashka-1.12.214-linux-aarch64-static.tar.gz -o /tmp/babashka.tar.gz \
+ && echo 'b6bc6d28a41cb303b429cdbd565311a046719c842dcb25e8ad1ed2929f9145fe  /tmp/babashka.tar.gz' | sha256sum -c - \
+ && tar -xzf /tmp/babashka.tar.gz -C /usr/local/bin bb \
+ && chmod 755 /usr/local/bin/bb \
+ && rm /tmp/babashka.tar.gz \
+ && /usr/local/bin/bb --version

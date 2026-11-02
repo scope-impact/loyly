@@ -1,0 +1,6 @@
+[submodule "orc"]
+	path = orc
+	url = https://github.com/ObneyAI/orc.git
+[submodule "grain"]
+	path = grain
+	url = https://github.com/ObneyAI/grain.git

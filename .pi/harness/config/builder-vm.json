@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "role": "builder",
+  "image": "loyly/builder:local",
+  "memory": "1G",
+  "cpus": 2,
+  "environment": {},
+  "policy": {
+    "allowedHosts": []
+  }
+}

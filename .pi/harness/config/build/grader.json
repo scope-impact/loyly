@@ -1,0 +1,36 @@
+{
+  "arch": "aarch64",
+  "distro": "alpine",
+  "alpine": {
+    "version": "3.23.7",
+    "kernelPackage": "linux-virt",
+    "kernelImage": "vmlinuz-virt",
+    "rootfsPackages": [
+      "linux-virt",
+      "rng-tools",
+      "bash",
+      "ca-certificates",
+      "ca-certificates-bundle",
+      "curl",
+      "coreutils",
+      "e2fsprogs",
+      "e2fsprogs-extra",
+      "gcompat",
+      "python3",
+      "nodejs",
+      "npm",
+      "docker",
+      "docker-cli-compose",
+      "openssh"
+    ],
+    "initramfsPackages": [],
+    "krunfwVersion": "v5.2.1"
+  },
+  "rootfs": {"label": "loyly-grader"},
+  "postBuild": {
+    "copy": [
+      {"src": "lsof", "dest": "/usr/local/bin/lsof"}
+    ],
+    "commands": ["chmod +x /usr/local/bin/lsof"]
+  }
+}

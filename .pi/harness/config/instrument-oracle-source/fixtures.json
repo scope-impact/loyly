@@ -1,0 +1,16 @@
+{
+  "fixtures": [
+    {
+      "id": "full-harness-known-carried",
+      "instrumentId": "full-pi-harness",
+      "role": "carried",
+      "evidence": "the complete Clojure worker and Node adapter suites accept their known-good cases"
+    },
+    {
+      "id": "full-harness-known-uncarried",
+      "instrumentId": "full-pi-harness",
+      "role": "uncarried",
+      "evidence": "the complete Clojure worker and Node adapter suites reject their malformed, missing and contradictory cases"
+    }
+  ]
+}

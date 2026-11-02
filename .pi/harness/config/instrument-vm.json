@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "role": "instrument",
+  "image": "loyly/instrument:local",
+  "memory": "2G",
+  "cpus": 2,
+  "environment": {},
+  "policy": {
+    "allowedHosts": []
+  }
+}

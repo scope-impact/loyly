@@ -1,0 +1,16 @@
+{
+  "sliceId": "01-booking-core",
+  "items": [
+    {"id":"@item-01-001","name":"The weekly schedule shows each dressing room's own sauna days","rule":"Availability is per dressing room, per weekday"},
+    {"id":"@item-01-002","name":"A standing slot cannot be requested on a closed day","rule":"Availability is per dressing room, per weekday"},
+    {"id":"@item-01-003","name":"A requested slot on an open day is confirmed","rule":"A slot is confirmed against availability and held by one household"},
+    {"id":"@item-01-004","name":"A held slot cannot be confirmed for another household","rule":"A slot is confirmed against availability and held by one household"},
+    {"id":"@item-01-005","name":"A second standing slot is granted while there is room","rule":"A household may hold a second standing slot when there is room"},
+    {"id":"@item-01-006","name":"A second standing slot is refused when the schedule is full","rule":"A household may hold a second standing slot when there is room"},
+    {"id":"@item-01-007","name":"Confirming a booking updates all three derived views together","rule":"One booking is the single source of truth for the list, the timer and the billing"},
+    {"id":"@item-01-008","name":"Giving up a slot leaves no derived view still claiming it","rule":"One booking is the single source of truth for the list, the timer and the billing"},
+    {"id":"@item-01-009","name":"Two households request the same free slot with neither request answered","rule":"Two households requesting one free slot leave exactly one holder"},
+    {"id":"@item-01-010","name":"The race is run one hundred times and never confirms twice","rule":"Two households requesting one free slot leave exactly one holder"},
+    {"id":"@item-01-011","name":"The refusal for a closed day is judged usable","rule":"A refusal is judged by whether a resident can act on it without asking again"}
+  ]
+}

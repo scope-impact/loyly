@@ -1,0 +1,11 @@
+{:suite
+ {:argv ["bash" "impl/test.sh"]}
+ :server
+ {:argv ["bash" "impl/start.sh"]
+  :port 8901
+  :boot-budget-ms 10000
+  :poll-interval-ms 500}
+ :identity
+ {:marker "sauna"
+  :probe {:argv ["bash" "harness/probe.sh"]
+          :url-argument true}}}

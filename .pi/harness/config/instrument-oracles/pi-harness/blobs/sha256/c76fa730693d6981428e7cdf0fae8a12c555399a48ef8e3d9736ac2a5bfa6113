@@ -1,0 +1,41 @@
+{
+  "instruments": [
+    {
+      "id": "full-pi-harness",
+      "digest": "sha256:f8d708e43c9cfa9605b207971ca1afeb3e42729d3b92287eaaea643caca1e613",
+      "roots": [
+        ".pi/harness/orc-worker/src",
+        ".pi/harness/orc-worker/test",
+        ".pi/harness/src",
+        ".pi/harness/test"
+      ],
+      "files": [
+        ".pi/harness/package.json",
+        ".pi/harness/package-lock.json",
+        ".pi/harness/orc-worker/run.sh"
+      ],
+      "components": [
+        "accepted-contract-eligibility",
+        "allure-evidence-projection",
+        "allure-golden-normalizer",
+        "application-contract",
+        "black-box-grader",
+        "builder-room",
+        "candidate-subject-seal",
+        "compose-verifier",
+        "cut-preparer",
+        "cycle-measurement",
+        "durable-task-boundary",
+        "evidence-manifest",
+        "execution-room",
+        "grader-evidence-interpreter",
+        "instrument-oracle-loader",
+        "observation-persistence",
+        "prompt-optimizer",
+        "runtime-conformance-evaluator",
+        "selection-contract",
+        "workflow-orchestrator"
+      ]
+    }
+  ]
+}

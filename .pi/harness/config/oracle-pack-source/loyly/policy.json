@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "requiredLayerTypes": [
+    "application/vnd.loyly.oracle.policy.v1+json",
+    "application/vnd.loyly.oracle.project.v1+json",
+    "application/vnd.loyly.oracle.slice.v1+json",
+    "application/vnd.loyly.oracle.calibration.v1+json",
+    "application/vnd.loyly.oracle.fixture-server.v1+javascript"
+  ],
+  "minimumCalibrationFixtures": 2
+}
