@@ -1,0 +1,143 @@
+-- allium: 3
+-- Runtime measurement binding for the Löyly booking-core product model.
+-- Product truth remains in booking-core.allium and booking_core_event_model.clj.
+-- This file describes observable facts required to measure that truth without
+-- prescribing an implementation language or telemetry library.
+
+enum ObservationChannel {
+    playwright_har |
+    otel_event |
+    otel_span |
+    ebpf |
+    black_box_query
+}
+
+enum MeasurementVerdict { pass | fail | inconclusive }
+
+value EvidenceDigest { value: String }
+
+entity ObservableOperation {
+    identity: String
+    item_identity: String
+    subject_digest: EvidenceDigest
+}
+
+entity DomainEventObservation {
+    identity: String
+    operation: ObservableOperation
+    event_type: String
+    aggregate_identity: String
+    schema_version: String
+    channel: ObservationChannel
+    content_digest: EvidenceDigest
+    complete: Boolean
+}
+
+entity ProjectionSnapshot {
+    operation: ObservableOperation
+    projection_name: String
+    event_identity: String
+    aggregate_identity: String
+    checkpoint: String?
+    channel: ObservationChannel
+    content_digest: EvidenceDigest
+    complete: Boolean
+}
+
+entity DerivedViewsEvaluation {
+    operation: ObservableOperation
+    event: DomainEventObservation
+    weekly_schedule: ProjectionSnapshot
+    heater_schedule: ProjectionSnapshot
+    billing_signals: ProjectionSnapshot
+    producer: String
+    verdict: MeasurementVerdict
+    evidence_digest: EvidenceDigest
+}
+
+rule ObserveConfirmedStandingSlot {
+    when: ConfirmedStandingSlotObserved(operation, event)
+    requires: operation.item_identity = "@item-01-007"
+    requires: event.event_type = "loyly/standing-slot-confirmed"
+    requires: event.operation = operation
+    requires: event.identity != ""
+    requires: event.aggregate_identity != ""
+    requires: event.schema_version != ""
+    requires: event.channel = otel_event or event.channel = black_box_query
+    requires: event.content_digest.value != ""
+    requires: event.complete
+    ensures: CollectDerivedViewSnapshots(
+        operation: operation,
+        event_identity: event.identity,
+        aggregate_identity: event.aggregate_identity
+    )
+}
+
+rule EvaluateDerivedViewsAgreement {
+    when: DerivedViewSnapshotsCollected(operation, event, weekly, heater, billing, producer)
+    requires: event.operation = operation
+    requires: weekly.operation = operation
+    requires: heater.operation = operation
+    requires: billing.operation = operation
+    requires: weekly.projection_name = "weekly-schedule"
+    requires: heater.projection_name = "heater-schedule"
+    requires: billing.projection_name = "billing-signals"
+    requires: weekly.event_identity = event.identity
+    requires: heater.event_identity = event.identity
+    requires: billing.event_identity = event.identity
+    requires: weekly.aggregate_identity = event.aggregate_identity
+    requires: heater.aggregate_identity = event.aggregate_identity
+    requires: billing.aggregate_identity = event.aggregate_identity
+    requires: weekly.channel = black_box_query or weekly.channel = otel_span
+    requires: heater.channel = black_box_query or heater.channel = otel_span
+    requires: billing.channel = black_box_query or billing.channel = otel_span
+    requires: weekly.content_digest.value != ""
+    requires: heater.content_digest.value != ""
+    requires: billing.content_digest.value != ""
+    requires: event.complete and weekly.complete and heater.complete and billing.complete
+    ensures: DerivedViewsEvaluation.created(
+        operation: operation,
+        event: event,
+        weekly_schedule: weekly,
+        heater_schedule: heater,
+        billing_signals: billing,
+        producer: producer,
+        verdict: evaluate_derived_views(event, weekly, heater, billing),
+        evidence_digest: digest_measurement_inputs(
+            event.content_digest,
+            weekly.content_digest, weekly.checkpoint,
+            heater.content_digest, heater.checkpoint,
+            billing.content_digest, billing.checkpoint)
+    )
+}
+
+invariant EvaluationUsesOneSubject {
+    for evaluation in DerivedViewsEvaluations:
+        evaluation.event.operation.subject_digest = evaluation.operation.subject_digest and
+        evaluation.weekly_schedule.operation.subject_digest = evaluation.operation.subject_digest and
+        evaluation.heater_schedule.operation.subject_digest = evaluation.operation.subject_digest and
+        evaluation.billing_signals.operation.subject_digest = evaluation.operation.subject_digest
+}
+
+invariant PassingEvaluationUsesCompleteIndependentReads {
+    for evaluation in DerivedViewsEvaluations:
+        evaluation.verdict = pass implies
+            evaluation.event.complete and
+            evaluation.weekly_schedule.complete and
+            evaluation.heater_schedule.complete and
+            evaluation.billing_signals.complete
+}
+
+surface BookingCoreMeasurement {
+    provides:
+        ConfirmedStandingSlotObserved(operation, event)
+        DerivedViewSnapshotsCollected(operation, event, weekly, heater, billing, producer)
+
+    @guarantee CorrelatedRuntimeEvidence
+        -- The accepted event and all three projection snapshots share one operation,
+        -- event identity, aggregate identity, and candidate subject.
+
+    @guarantee IndependentDerivedViewsMeasurement
+        -- Runtime telemetry supplies correlated facts; an external producer evaluates
+        -- the product-owned DerivedViewsAgree invariant from complete snapshots.
+}

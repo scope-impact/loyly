@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "environment": "OTEL_FILE_EXPORT_DIR",
+  "contracts": [
+    {
+      "itemId": "@item-01-007",
+      "relativePath": "@item-01-007/runtime-signals.jsonl",
+      "encoding": "application/x-ndjson",
+      "discriminator": {
+        "field": "kind",
+        "values": ["domain-event", "projection-snapshot"]
+      },
+      "authority": "candidate-facts-only",
+      "records": {
+        "domain-event": {
+          "count": {"exactly": 1},
+          "required": [
+            "operationId", "eventId", "eventType", "aggregateId",
+            "schemaVersion", "contentDigest", "complete"
+          ],
+          "equals": {
+            "eventType": "loyly/standing-slot-confirmed",
+            "complete": true
+          }
+        },
+        "projection-snapshot": {
+          "count": {"exactly": 3},
+          "required": [
+            "operationId", "eventId", "aggregateId", "projectionName",
+            "contentDigest", "complete"
+          ],
+          "equals": {"complete": true},
+          "fieldValues": {
+            "projectionName": ["weekly-schedule", "heater-schedule", "billing-signals"]
+          }
+        }
+      },
+      "correlation": {
+        "anchorKind": "domain-event",
+        "memberKinds": ["projection-snapshot"],
+        "fields": ["operationId", "eventId", "aggregateId"]
+      },
+      "forbidden": ["verdict", "passed", "result"],
+      "successEvidence": "one domain event and three complete correlated projection snapshots were independently validated",
+      "blackBoxReads": [
+        {"projectionName": "weekly-schedule", "method": "GET", "path": "/api/schedule?sauna=F"},
+        {"projectionName": "heater-schedule", "method": "GET", "path": "/api/heater-schedule?sauna=F"},
+        {"projectionName": "billing-signals", "method": "GET", "path": "/api/billing-signals?household=12"}
+      ]
+    },
+    {
+      "itemId": "@item-01-008",
+      "relativePath": "@item-01-008/runtime-signals.jsonl",
+      "encoding": "application/x-ndjson",
+      "discriminator": {"field": "kind", "values": ["domain-event", "projection-snapshot"]},
+      "authority": "candidate-facts-only",
+      "records": {
+        "domain-event": {
+          "count": {"exactly": 1},
+          "required": ["operationId", "eventId", "eventType", "aggregateId", "schemaVersion", "contentDigest", "complete"],
+          "equals": {"eventType": "loyly/standing-slot-released", "complete": true}
+        },
+        "projection-snapshot": {
+          "count": {"exactly": 3},
+          "required": ["operationId", "eventId", "aggregateId", "projectionName", "contentDigest", "complete"],
+          "equals": {"complete": true},
+          "fieldValues": {"projectionName": ["weekly-schedule", "heater-schedule", "billing-signals"]}
+        }
+      },
+      "correlation": {
+        "anchorKind": "domain-event",
+        "memberKinds": ["projection-snapshot"],
+        "fields": ["operationId", "eventId", "aggregateId"]
+      },
+      "forbidden": ["verdict", "passed", "result"],
+      "successEvidence": "one release event and three complete correlated projection snapshots were independently validated"
+    }
+  ]
+}

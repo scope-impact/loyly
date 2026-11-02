@@ -24,6 +24,7 @@ entity DressingRoom {
 }
 
 entity StandingSlot {
+    identity: String
     household: Household
     dressing_room: DressingRoom
     weekday: Weekday
@@ -40,10 +41,12 @@ entity SlotRequest {
 }
 
 entity BillingSignal {
+    standing_slot_identity: String
     household: Household
 }
 
 entity HeaterPeriod {
+    standing_slot_identity: String
     dressing_room: DressingRoom
     weekday: Weekday
     start_time: String
@@ -64,12 +67,16 @@ rule RequestStandingSlot {
     requires: exists dressing_room
     requires: weekday in dressing_room.open_weekdays
     requires: not exists StandingSlots where dressing_room = dressing_room and weekday = weekday and start_time = start_time
+    let slot_identity = standing_slot_identity(household, dressing_room, weekday, start_time)
     ensures: SlotRequest.created(household: household, dressing_room: dressing_room,
                                 weekday: weekday, start_time: start_time, status: confirmed)
-    ensures: StandingSlot.created(household: household, dressing_room: dressing_room,
+    ensures: StandingSlot.created(identity: slot_identity,
+                                 household: household, dressing_room: dressing_room,
                                  weekday: weekday, start_time: start_time)
-    ensures: BillingSignal.created(household: household)
-    ensures: HeaterPeriod.created(dressing_room: dressing_room, weekday: weekday,
+    ensures: BillingSignal.created(standing_slot_identity: slot_identity,
+                                  household: household)
+    ensures: HeaterPeriod.created(standing_slot_identity: slot_identity,
+                                 dressing_room: dressing_room, weekday: weekday,
                                  start_time: start_time)
 }
 
@@ -117,9 +124,11 @@ invariant OneHolderPerSlot {
 
 invariant DerivedViewsAgree {
     for slot in StandingSlots:
-        exists HeaterPeriods where dressing_room = slot.dressing_room and
-            weekday = slot.weekday and start_time = slot.start_time
-        implies exists BillingSignals where standing_slot = slot
+        exists HeaterPeriods where standing_slot_identity = slot.identity and
+            dressing_room = slot.dressing_room and weekday = slot.weekday and
+            start_time = slot.start_time
+        and exists BillingSignals where standing_slot_identity = slot.identity and
+            household = slot.household
 }
 
 surface ManagerBooking {
