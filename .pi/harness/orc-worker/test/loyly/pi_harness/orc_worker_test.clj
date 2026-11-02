@@ -1,16 +1,17 @@
 (ns loyly.pi-harness.orc-worker-test
   (:require [clojure.data.json :as json]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is]]
             [ai.obney.orc.demos.pi-agent-loop.system :as system]
             [ai.obney.orc.orc-service.interface :as orc]
-            [loyly.pi-harness.application-contract :as application-contract]
-            [loyly.pi-harness.allure-golden :as allure-golden]
-            [loyly.pi-harness.cycle-measurement :as cycle-measurement]
-            [loyly.pi-harness.harness-calibration :as harness-calibration]
-            [loyly.pi-harness.observation :as observation]
-            [loyly.pi-harness.orc-worker :as worker]
-            [loyly.pi-harness.stack-conformance :as stack-conformance]
-            [loyly.pi-harness.subject :as subject]))
+            [loyly.pi-harness.core.build.application-contract :as application-contract]
+            [loyly.pi-harness.core.evidence.allure-golden :as allure-golden]
+            [loyly.pi-harness.core.grading.compose :as compose]
+            [loyly.pi-harness.grain.interface :as model]
+            [loyly.pi-harness.core.oracle.harness-calibration :as harness-calibration]
+            [loyly.pi-harness.core.worker :as worker]
+            [loyly.pi-harness.core.build.stack-conformance :as stack-conformance]
+            [loyly.pi-harness.core.build.subject :as subject]))
 
 (def approved-selection
   {:selectionId "selection-1"
@@ -23,9 +24,163 @@
    :slice "01-booking-core"
    :items [{:id "@item-01-007" :name "Booking" :rule "Booking" :source "spec.feature:1"}]})
 
+(deftest persisted-prompt-executor-name-remains-resolvable
+  (let [executor (requiring-resolve
+                  'loyly.pi-harness.prompt/expose-candidate-instruction)]
+    (is (= {:prompt "Build from the approved cut."}
+           (executor {:node {:instruction "Build from the approved cut."}})))))
+
 (def approved-oracle
   {:passed true :oracle-digest "digest-1"
    :grader-producer "loyly-black-box" :grader-id "booking-core-v1"})
+
+(deftest runtime-start-asks-orc-to-resume-durable-frontiers
+  (let [context {:durable true}
+        built-sheet-ids (atom [])
+        resume-calls (atom [])]
+    (with-redefs [orc/build-workflow! (fn [_ _]
+                                        (let [sheet-id (random-uuid)]
+                                          (swap! built-sheet-ids conj sheet-id)
+                                          sheet-id))
+                  orc/resume-in-progress! (fn [actual-context options]
+                                            (swap! resume-calls conj [actual-context options])
+                                            [])]
+      (try
+        (worker/start-runtime! (constantly {:context context}))
+        (is (= [[context {:sheet-ids (set @built-sheet-ids)
+                          :limit 1
+                          :frontier-limit 1}]]
+               @resume-calls))
+        (finally
+          (worker/stop-runtime! (constantly nil)))))))
+
+(deftest execution-status-comes-directly-from-the-orc-read-model
+  (let [tick-id #uuid "f36dc9b7-9b92-4e15-84f5-1b9c4b798416"
+        sheet-id #uuid "952b704e-c4e6-44aa-859c-b54594f1f06d"
+        correlation-id #uuid "46ec162b-2539-4964-aea0-9d06552e7e07"]
+    (with-redefs [worker/runtime-context (constantly {:durable true})
+                  orc/get-tick (fn [_ requested-tick-id]
+                                 (is (= tick-id requested-tick-id))
+                                 {:tick-id tick-id
+                                  :sheet-id sheet-id
+                                  :correlation-id correlation-id
+                                  :status :completed
+                                  :root-status :success})]
+      (is (= {:tickId (str tick-id)
+              :sheetId (str sheet-id)
+              :correlationId (str correlation-id)
+              :status "completed"
+              :rootStatus "success"}
+             (worker/execution-status! {:tickId (str tick-id)}))))))
+
+(deftest cycle-start-uses-caller-supplied-durable-identities
+  (let [_ (worker/start-runtime! system/start!)
+        tick-id #uuid "f36dc9b7-9b92-4e15-84f5-1b9c4b798416"
+        correlation-id #uuid "46ec162b-2539-4964-aea0-9d06552e7e07"
+        execution (promise)
+        request {:cycleId "cycle-1"
+                 :tickId (str tick-id)
+                 :correlationId (str correlation-id)
+                 :selectionContract approved-selection
+                 :scope ["impl"]
+                 :targetStack "typescript"
+                 :executionBackend "gondolin"}]
+    (try
+      (with-redefs [orc/get-tick (constantly nil)
+                    orc/execute (fn [_ sheet-id inputs & options]
+                                  (deliver execution
+                                           {:sheet-id sheet-id
+                                            :inputs inputs
+                                            :options (apply hash-map options)})
+                                  {:status :success :outputs {} :trace-id tick-id})]
+        (let [receipt (worker/start-cycle! request)
+              invoked (deref execution 1000 ::timeout)]
+          (is (= {:cycleId "cycle-1"
+                  :tickId (str tick-id)
+                  :correlationId (str correlation-id)
+                  :sheetId (str (:sheet-id invoked))
+                  :status "running"}
+                 receipt))
+          (is (= {:request-id "cycle-1"
+                  :selection approved-selection
+                  :scope ["impl"]
+                  :target-stack "typescript"
+                  :execution-backend "gondolin"}
+                 (:inputs invoked)))
+          (is (= tick-id (get-in invoked [:options :tick-id])))
+          (is (= correlation-id (get-in invoked [:options :correlation-id])))))
+      (finally
+        (worker/stop-runtime! system/stop!)))))
+
+(deftest repeated-cycle-start-returns-the-existing-orc-tick-status
+  (let [_ (worker/start-runtime! system/start!)
+        tick-id #uuid "f36dc9b7-9b92-4e15-84f5-1b9c4b798416"
+        correlation-id #uuid "46ec162b-2539-4964-aea0-9d06552e7e07"
+        sheet-id (:sheet-id (:cycle (worker/registered-workflows)))
+        request {:cycleId "cycle-1"
+                 :tickId (str tick-id)
+                 :correlationId (str correlation-id)
+                 :selectionContract approved-selection
+                 :scope ["impl"]
+                 :targetStack "typescript"
+                 :executionBackend "gondolin"}]
+    (try
+      (with-redefs [orc/get-tick (constantly {:id tick-id
+                                              :sheet-id sheet-id
+                                              :correlation-id correlation-id
+                                              :status :cancelled})
+                    orc/execute (fn [& _]
+                                  (throw (ex-info "existing ticks must not execute again" {})))]
+        (is (= "cancelled" (:status (worker/start-cycle! request)))))
+      (finally
+        (worker/stop-runtime! system/stop!)))))
+
+(deftest repeated-cycle-start-rejects-a-tick-from-another-workflow
+  (let [_ (worker/start-runtime! system/start!)
+        tick-id #uuid "f36dc9b7-9b92-4e15-84f5-1b9c4b798416"
+        correlation-id #uuid "46ec162b-2539-4964-aea0-9d06552e7e07"
+        request {:cycleId "cycle-1"
+                 :tickId (str tick-id)
+                 :correlationId (str correlation-id)
+                 :selectionContract approved-selection
+                 :scope ["impl"]
+                 :targetStack "typescript"
+                 :executionBackend "gondolin"}]
+    (try
+      (with-redefs [orc/get-tick (constantly {:id tick-id
+                                              :sheet-id (random-uuid)
+                                              :correlation-id correlation-id
+                                              :status :running})]
+        (is (thrown-with-msg?
+             clojure.lang.ExceptionInfo
+             #"different ORC workflow"
+             (worker/start-cycle! request))))
+      (finally
+        (worker/stop-runtime! system/stop!)))))
+
+(deftest repeated-cycle-start-rejects-a-tick-from-another-correlation
+  (let [_ (worker/start-runtime! system/start!)
+        tick-id #uuid "f36dc9b7-9b92-4e15-84f5-1b9c4b798416"
+        correlation-id #uuid "46ec162b-2539-4964-aea0-9d06552e7e07"
+        sheet-id (:sheet-id (:cycle (worker/registered-workflows)))
+        request {:cycleId "cycle-1"
+                 :tickId (str tick-id)
+                 :correlationId (str correlation-id)
+                 :selectionContract approved-selection
+                 :scope ["impl"]
+                 :targetStack "typescript"
+                 :executionBackend "gondolin"}]
+    (try
+      (with-redefs [orc/get-tick (constantly {:id tick-id
+                                              :sheet-id sheet-id
+                                              :correlation-id (random-uuid)
+                                              :status :running})]
+        (is (thrown-with-msg?
+             clojure.lang.ExceptionInfo
+             #"different ORC correlation"
+             (worker/start-cycle! request))))
+      (finally
+        (worker/stop-runtime! system/stop!)))))
 
 (deftest regeneration-workflow-retains-every-stage-result
   (let [runtime (system/start!)]
@@ -74,8 +229,8 @@
                                                                  :compose-up {:exitCode 0 :stdout "healthy" :stderr ""}
                                                                  :compose-logs {:exitCode 0 :stdout "ready" :stderr ""}
                                                                  :compose-down {:exitCode 0 :stdout "removed" :stderr ""}}))
-                                  observation/record! (fn [_ value] value)
-                                  cycle-measurement/record! (fn [_ measurement] measurement)]
+                                  model/record-observation! (fn [_ value] value)
+                                  model/record-measurement! (fn [_ measurement] measurement)]
                      (orc/execute context sheet-id
                                   {:request-id "request-1"
                                    :selection approved-selection
@@ -217,7 +372,7 @@
                   :compose-up {:exitCode 0 :stdout "started" :stderr ""}
                   :compose-logs {:exitCode 0 :stdout "app ready" :stderr ""}
                   :compose-down {:exitCode 0 :stdout "removed" :stderr ""}}
-        result (loyly.pi-harness.compose/interpret-verification evidence)]
+        result (compose/interpret-verification evidence)]
     (is (= false (:passed result)))
     (is (re-find #"app service must define a healthcheck" (:stderr result)))))
 
@@ -257,6 +412,11 @@
     (is (re-find #"percent-encode dynamic path-segment values" instruction))
     (is (re-find #"every scenario Then step" instruction))
     (is (re-find #"identity fields unchanged in every view" instruction))
+    (is (re-find #"traceability checklist" instruction))
+    (is (re-find #"one authoritative structured state" instruction))
+    (is (re-find #"rejected command must leave" instruction))
+    (is (re-find #"atomic with respect to concurrent commands" instruction))
+    (is (re-find #"same committed domain fact" instruction))
     (is (re-find #"isolated initial state" instruction))
     (is (re-find #"overlap before either response" instruction))
     (is (re-find #"constructing the follow-up request from that response alone" instruction))
@@ -328,7 +488,7 @@
         (is (not (.startsWith (first (:evidence-locations result))
                               (str (.getAbsolutePath root) "/"))))
         (let [results-root (java.io.File. (first (:evidence-locations result)))
-              result-file (first (filter #(clojure.string/ends-with? (.getName %) "-result.json")
+              result-file (first (filter #(str/ends-with? (.getName %) "-result.json")
                                          (file-seq results-root)))]
           (is (= calibration-golden
                  (allure-golden/normalize-result results-root result-file)))))
@@ -448,12 +608,12 @@
                           :evidence "correlated runtime facts" :graded? true}]
                  :observations [instrument-observation]}}]
     (try
-      (let [result (with-redefs [cycle-measurement/record!
+      (let [result (with-redefs [model/record-measurement!
                                  (fn [_ value]
                                    (swap! order conj :measurement-persisted)
                                    (reset! recorded value)
                                    value)
-                                 observation/record!
+                                 model/record-observation!
                                  (fn [_ value]
                                    (swap! observations conj value)
                                    value)

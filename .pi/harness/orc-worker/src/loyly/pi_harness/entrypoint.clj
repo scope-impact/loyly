@@ -2,11 +2,11 @@
   (:require [ai.obney.orc.demos.pi-agent-loop.system :as system]
             [clojure.data.json :as json]
             [clojure.string :as str]
-            [loyly.pi-harness.orc-worker :as worker]
-            [loyly.pi-harness.selection-registry :as selection-registry]
-            [loyly.pi-harness.slice-selection :as slice-selection]))
+            [loyly.pi-harness.interface :as harness]
+            [loyly.pi-harness.grain.interface :as model]
+            [loyly.pi-harness.core.selection.slice-selection :as slice-selection]))
 
-(defn- context [] (:context @worker/runtime))
+(defn- context [] (harness/runtime-context))
 
 (defn preview-selection! [{:keys [cut slice itemIds] :as request}]
   (when-not (and (string? cut) (string? slice))
@@ -22,39 +22,47 @@
                   {:project-id project-id :container-id project-id
                    :component-id (str/replace slice #"^\d+-" "")
                    :item-ids itemIds})]
-    (selection-registry/record! (context) contract)))
+    (model/record-selection! (context) contract)))
 
 (defn approve-selection! [{:keys [selectionId selectionDigest]}]
-  (selection-registry/approve! (context) selectionId selectionDigest))
+  (model/approve-selection! (context) selectionId selectionDigest))
 
-(defn submit-approved! [{:keys [selectionId] :as request}]
-  (let [selection (selection-registry/find-selection (context) selectionId)]
+(defn- with-approved-selection [{:keys [selectionId] :as request}]
+  (let [selection (model/find-selection (context) selectionId)]
     (when-not (= "approved" (:status selection))
       (throw (ex-info "regeneration requires an approved slice selection"
                       {:selectionId selectionId})))
-    (worker/submit! (-> request
-                        (dissoc :selectionId)
-                        (assoc :selectionContract selection)))))
+    (-> request
+        (dissoc :selectionId)
+        (assoc :selectionContract selection))))
+
+(defn submit-approved! [request]
+  (harness/submit! (with-approved-selection request)))
+
+(defn start-approved-cycle! [request]
+  (harness/start-cycle! (with-approved-selection request)))
+
 (defn- dispatch [method params]
   (case method
     "preview-selection" (preview-selection! params)
     "approve-selection" (approve-selection! params)
-    "prepare-cut" (worker/prepare-cut! params)
-    "optimize-prompt" (worker/optimize-builder-prompt! params)
+    "prepare-cut" (harness/prepare-cut! params)
+    "optimize-prompt" (harness/optimize-builder-prompt! params)
     "submit" (submit-approved! params)
-    "wait" (worker/wait! params)
+    "start-cycle" (start-approved-cycle! params)
+    "execution-status" (harness/execution-status! params)
+    "wait" (harness/wait! params)
     (throw (ex-info "unknown method" {:method method}))))
 
 (defn -main [& _]
-  (worker/ensure-runtime!)
+  (harness/start-runtime! system/start!)
   (try
     (doseq [line (line-seq (java.io.BufferedReader. *in*))]
       (when-not (str/blank? line)
         (let [{:keys [id method params]} (json/read-str line :key-fn keyword)]
           (try
-            (worker/respond! id true (dispatch method params))
+            (harness/respond! id true (dispatch method params))
             (catch Exception error
-              (worker/respond! id false (.getMessage error)))))))
+              (harness/respond! id false (.getMessage error)))))))
     (finally
-      (when @worker/runtime
-        (system/stop! @worker/runtime)))))
+      (harness/stop-runtime! system/stop!))))

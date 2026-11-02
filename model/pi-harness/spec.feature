@@ -1,6 +1,6 @@
-Feature: Specification-led regeneration through Pi and ORC
-  A Pi session prepares a fenced specification cut, reviews and approves a
-  deterministic slice selection, and submits an idempotent ORC regeneration
+Feature: Specification-led regeneration through an operator session and ORC
+  An operator session prepares a fenced specification cut, reviews and approves a
+  deterministic cycle preparation, and submits an idempotent ORC regeneration
   cycle. A fresh builder produces a candidate in a confined workspace. Independent
   verification and grading determine the result, and the approved denominator can
   never shrink because an item was missed.
@@ -62,7 +62,7 @@ Feature: Specification-led regeneration through Pi and ORC
     Scenario: The builder starts fresh and must produce workspace output
       Given an approved selection and a prepared cut
       When the builder stage runs
-      Then it uses a fresh in-memory Pi session without the root transcript
+      Then it uses a fresh separately identified builder session without the operator transcript
       And it receives the ORC-selected instruction and approved item identities
       And it executes at least one confined workspace tool
       And a cycle with no generated workspace output fails

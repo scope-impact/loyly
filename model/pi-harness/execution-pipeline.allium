@@ -47,6 +47,15 @@ entity CandidateSubject {
     tool_calls: Integer
 }
 
+entity PipelineBuilderSession {
+    cycle: PipelineCycle
+    identity: String
+    operation_identity: String
+    attempt: Integer
+    workspace_generation: String
+    assisted: Boolean
+}
+
 entity HarnessCalibration {
     cycle: PipelineCycle
     instrument_oracle_digest: String
@@ -138,11 +147,21 @@ rule CalibratePipelineHarness {
 }
 
 rule BuildPipelineCandidate {
-    when: FreshBuilderCompleted(cycle, subject_digest, generated_paths, tool_calls)
+    when: FreshBuilderCompleted(cycle, builder_session_identity, operation_identity,
+                                workspace_generation, assisted, subject_digest,
+                                generated_paths, tool_calls)
     requires: cycle.status = running
     requires: cycle.stage = builder
     requires: generated_paths.count > 0
     requires: tool_calls > 0
+    ensures: PipelineBuilderSession.created(
+        cycle: cycle,
+        identity: builder_session_identity,
+        operation_identity: operation_identity,
+        attempt: 1,
+        workspace_generation: workspace_generation,
+        assisted: assisted
+    )
     ensures: CandidateSubject.created(
         cycle: cycle,
         digest: subject_digest,
@@ -199,6 +218,25 @@ rule RecordInitialVerification {
     ensures: cycle.stage = repair_verification
 }
 
+rule RecordRepairBuilderSession {
+    when: VerificationRepairBuilderCompleted(cycle, attempt, builder_session_identity,
+                                             operation_identity, workspace_generation,
+                                             assisted)
+    requires: cycle.status = running
+    requires: cycle.stage = repair_verification
+    requires: attempt >= 2
+    requires: attempt <= 3
+    requires: not exists PipelineBuilderSession{operation_identity: operation_identity}
+    ensures: PipelineBuilderSession.created(
+        cycle: cycle,
+        identity: builder_session_identity,
+        operation_identity: operation_identity,
+        attempt: attempt,
+        workspace_generation: workspace_generation,
+        assisted: assisted
+    )
+}
+
 rule CompleteVerificationRepair {
     when: VerificationRepairCompleted(cycle, attempts, final_subject_digest)
     requires: cycle.status = running
@@ -213,6 +251,7 @@ rule CompleteVerificationRepair {
     requires: every_failed_attempt_seeds_next_candidate(attempts)
     requires: every_failed_attempt_evidence_is_read_only_to_next_builder(attempts)
     requires: grader_evidence_hidden_from_every_builder(attempts)
+    requires: every_repair_attempt_has_builder_session(attempts)
     requires: exists InstrumentationRecord{
         cycle: cycle,
         subject_digest: final_subject_digest
@@ -341,15 +380,33 @@ invariant EvidenceProjectionIsNotAuthority {
         observation.verdict = recorded_observation_verdict(observation)
 }
 
+invariant BuilderSessionIsSeparateFromOperatorSession {
+    for builder_session in PipelineBuilderSessions:
+        builder_session.identity != operator_session_identity(builder_session.cycle)
+}
+
+invariant BuilderWorkspaceMatchesCommittedSession {
+    for builder_session in PipelineBuilderSessions:
+        builder_session.workspace_generation =
+            committed_workspace_generation(builder_session.identity)
+}
+
 surface RegenerationExecutionPipeline {
     provides:
         ApprovedCycleStarted(cycle)
         PinnedCutValidated(cycle, cut_digest)
         FullHarnessCalibrated(cycle, instrument_oracle_digest, harness_source_digest, fixture_identities)
-        FreshBuilderCompleted(cycle, subject_digest, generated_paths, tool_calls)
-        CandidateInstrumented(cycle, subject_digest, evidence_locations)
+        FreshBuilderCompleted(cycle, builder_session_identity, operation_identity,
+                              workspace_generation, assisted, subject_digest,
+                              generated_paths, tool_calls)
+        CandidateInstrumented(cycle, subject_digest, evidence_locations,
+                              runtime_signal_identities, collection_complete)
         IndependentOraclePassed(cycle, oracle_digest)
-        ApplicationContractVerified(cycle, subject_digest)
+        ApplicationContractVerificationReturned(cycle, subject_digest, target_stack,
+                                                passed, evidence_root)
+        VerificationRepairBuilderCompleted(cycle, attempt, builder_session_identity,
+                                           operation_identity, workspace_generation, assisted)
+        VerificationRepairCompleted(cycle, attempts, final_subject_digest)
         IndependentItemVerdictsReturned(cycle, observations)
         IndependentInstrumentConformanceReturned(cycle, observations, passed)
         ReducePipelineMeasurement(cycle)

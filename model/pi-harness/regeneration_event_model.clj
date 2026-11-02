@@ -1,12 +1,12 @@
 (ns loyly.pi-harness.regeneration-event-model
-  "Harness-owned Grain Event Model for selection, observations, and measurement.
+  "Harness-owned Grain Event Model for selection, preparation, observations, and measurement.
 
    ORC :sheet events describe workflow execution. Löyly product events describe
    the regenerated application. Neither stream is duplicated here."
   (:require [ai.obney.grain.event-model.interface :refer [defeventmodel]]))
 
 (defeventmodel :loyly.pi-harness
-  {:description "Durable approval and measurement records for Pi-hosted regeneration cycles."
+  {:description "Durable preparation approval and measurement records for session-agnostic ORC regeneration cycles."
 
    :commands
    {:loyly/record-selection
@@ -24,6 +24,22 @@
      :produces #{:loyly/selection-approved}
      :grain/allium [{:spec "model/pi-harness/regeneration-cycle.allium"
                      :kind :rule :name "ApproveSelection"}]}
+
+    :loyly/record-cycle-preparation
+    {:description "Record the complete cycle preparation shown for review."
+     :schema [:map [:preparation :map]]
+     :reads #{:loyly/cycle-preparations}
+     :produces #{:loyly/cycle-preparation-recorded}
+     :grain/allium [{:spec "model/pi-harness/regeneration-cycle.allium"
+                     :kind :rule :name "PrepareCycle"}]}
+
+    :loyly/approve-cycle-preparation
+    {:description "Approve only the exact digest of a recorded cycle preparation."
+     :schema [:map [:preparation-id :string] [:preparation-digest :string]]
+     :reads #{:loyly/cycle-preparations}
+     :produces #{:loyly/cycle-preparation-approved}
+     :grain/allium [{:spec "model/pi-harness/regeneration-cycle.allium"
+                     :kind :rule :name "ApprovePreparation"}]}
 
     :loyly/record-observation
     {:description "Record one evidence-backed item observation."
@@ -58,6 +74,26 @@
     :loyly/selection-approved
     {:description "The exact digest of a recorded selection was approved."
      :schema [:map [:selectionId :string] [:selectionDigest :string]]}
+
+    :loyly/cycle-preparation-recorded
+    {:description "A complete, deterministic cycle preparation was recorded for review."
+     :schema [:map
+              [:preparation-id :string]
+              [:preparation-digest :string]
+              [:status [:enum "awaiting-approval" "approved"]]
+              [:selection-id :string]
+              [:selection-digest :string]
+              [:scope [:vector :string]]
+              [:target-stack :string]
+              [:execution-profile [:enum "host-development" "gondolin-isolated" "automatic"]]
+              [:cut-digest :string]
+              [:oracle-digest :string]
+              [:diagram-digest :string]
+              [:max-outer-cycles :int]]}
+
+    :loyly/cycle-preparation-approved
+    {:description "The exact digest of a complete cycle preparation was approved."
+     :schema [:map [:preparation-id :string] [:preparation-digest :string]]}
 
     :loyly/observation-recorded
     {:description "One identified producer recorded a purpose-scoped claim for one cycle item."
@@ -110,6 +146,12 @@
      :consumes #{:loyly/selection-recorded :loyly/selection-approved}
      :version 1}
 
+    :loyly/cycle-preparations
+    {:description "Complete reviewed cycle preparations with approval status."
+     :consumes #{:loyly/cycle-preparation-recorded
+                 :loyly/cycle-preparation-approved}
+     :version 1}
+
     :loyly/cycle-observations
     {:description "Evidence grouped by cycle, item, kind, and producer."
      :consumes #{:loyly/observation-recorded}
@@ -126,6 +168,11 @@
      :schema [:map [:selection-id :string]]
      :reads #{:loyly/selections}}
 
+    :loyly/cycle-preparation
+    {:description "Return one complete cycle preparation with its approval status."
+     :schema [:map [:preparation-id :string]]
+     :reads #{:loyly/cycle-preparations}}
+
     :loyly/cycle-observations
     {:description "Return all recorded observations for one cycle."
      :schema [:map [:cycle-id :string]]
@@ -138,16 +185,19 @@
 
    :screens
    {:loyly/pi-regeneration
-    {:description "Pi tool boundary for selection approval and measured regeneration."
+    {:description "Session control boundary for preparation approval and measured regeneration."
      :queries #{:loyly/selection
+                :loyly/cycle-preparation
                 :loyly/cycle-observations
                 :loyly/cycle-measurement}
      :commands #{:loyly/record-selection
                  :loyly/approve-selection
+                 :loyly/record-cycle-preparation
+                 :loyly/approve-cycle-preparation
                  :loyly/record-observation
                  :loyly/record-cycle-measurement}
      :grain/allium [{:spec "model/pi-harness/regeneration-cycle.allium"
-                     :kind :surface :name "PiRegenerationHarness"}]}}
+                     :kind :surface :name "RegenerationHarness"}]}}
 
    :flows
    {:loyly/selection-approval
@@ -164,6 +214,21 @@
               :to [:event :loyly/selection-approved]}
              {:from [:event :loyly/selection-approved]
               :to [:read-model :loyly/selections]}]}
+
+    :loyly/cycle-preparation-approval
+    {:description "A complete cycle preparation is recorded and approved by exact digest."
+     :steps [{:from [:screen :loyly/pi-regeneration]
+              :to [:command :loyly/record-cycle-preparation]}
+             {:from [:command :loyly/record-cycle-preparation]
+              :to [:event :loyly/cycle-preparation-recorded]}
+             {:from [:event :loyly/cycle-preparation-recorded]
+              :to [:read-model :loyly/cycle-preparations]}
+             {:from [:screen :loyly/pi-regeneration]
+              :to [:command :loyly/approve-cycle-preparation]}
+             {:from [:command :loyly/approve-cycle-preparation]
+              :to [:event :loyly/cycle-preparation-approved]}
+             {:from [:event :loyly/cycle-preparation-approved]
+              :to [:read-model :loyly/cycle-preparations]}]}
 
     :loyly/measurement-recording
     {:description "Independent observations are reduced and recorded as one strict measurement."

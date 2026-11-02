@@ -17,6 +17,20 @@ _Avoid_: Filter, task list, scope file
 A selection contract whose exact digest has been explicitly accepted.
 _Avoid_: Confirmed prompt, chosen tests
 
+**Cycle preparation**:
+The reviewed plan binding an approved selection, candidate scope, target stack, execution
+profile, pinned inputs, diagram, and outer-cycle budget before a regeneration cycle starts.
+_Avoid_: Submission payload, run configuration, prompt
+
+**Approved cycle preparation**:
+A cycle preparation whose exact digest has been explicitly accepted by an operator session.
+_Avoid_: Approved selection, confirmed backend
+
+**Operator session**:
+The Codex, Pi, or other interactive session through which an operator prepares, approves,
+observes, and evaluates regeneration cycles.
+_Avoid_: Builder, ORC worker, root agent
+
 **Regeneration cycle**:
 One idempotently identified attempt to build and independently measure an approved selection.
 _Avoid_: Run, session, job
@@ -24,6 +38,21 @@ _Avoid_: Run, session, job
 **Builder**:
 A fresh agent that can read the regeneration cut and write only within the declared candidate scope.
 _Avoid_: Root agent, implementer session
+
+**Builder session**:
+One separately identified builder conversation for an initial build or verification-repair
+attempt, isolated from the operator session and forbidden independent grader evidence.
+_Avoid_: Operator session, regeneration cycle
+
+**Builder-session observation**:
+Read-only inspection of a builder session's committed turns, tool calls, workspace generation,
+and progress without changing the candidate.
+_Avoid_: Steering, repair, transcript inheritance
+
+**Builder-session intervention**:
+An explicit, provenance-recorded operator action that pauses, steers, or forks builder work and
+therefore marks the resulting candidate as assisted.
+_Avoid_: Observation, invisible edit
 
 **Candidate**:
 The generated application output produced by the builder for one regeneration cycle.
@@ -59,6 +88,21 @@ _Avoid_: Score, log line
 **Cycle measurement**:
 The immutable reduction of the approved denominator and grader verdicts, including explicit failures for unreached items.
 _Avoid_: Test report, average score
+
+**Cycle progress view**:
+A reconstructable, non-authoritative view of the current ORC stage and associated builder
+session, derived from durable execution state and live notifications.
+_Avoid_: Workflow state, event store
+
+**Cycle continuation decision**:
+The operator session's bounded decision, after a terminal measurement, to stop, request
+correction, or prepare a distinct child regeneration cycle.
+_Avoid_: Verification repair, ORC retry
+
+**Execution profile**:
+The approved trust and capability level for cycle execution, such as host development or
+Gondolin isolation.
+_Avoid_: Shell command, VM configuration
 
 **Workflow task**:
 An asynchronously executed cut preparation or regeneration cycle identified by a receipt and observed until one terminal outcome.

@@ -1,6 +1,6 @@
-# Pi-hosted ORC regeneration harness architecture
+# Session-hosted ORC regeneration harness architecture
 
-Status: target architecture with explicit current-implementation annotations, 2026-11-01
+Status: target architecture with explicit current-implementation annotations, 2026-11-02
 
 Audience: engineers evolving or reviewing the Pi regeneration harness
 
@@ -8,14 +8,14 @@ Decision supported: where workflow, isolation, persistence, prompt, and evidence
 
 ## Scope
 
-The software system in scope is the **Pi-hosted ORC Regeneration Harness**. It turns a
+The software system in scope is the **Session-hosted ORC Regeneration Harness**. It turns a
 pinned and fenced repository cut into a generated candidate, independently verifies and
 grades that candidate, and records an evidence-backed measurement.
 
-Inside the boundary are the Pi tool adapter, the ORC worker, its narrow Node
-adapter processes, and harness-owned state. Outside are the operator, Pi host runtime,
-source repository, model providers, Gondolin runtime, Compose runtime, and generated
-candidate application.
+Inside the boundary are the session-agnostic control adapter, the ORC worker, its narrow
+Node adapter processes, and harness-owned state. Outside are the operator session host
+(Codex, Pi, or another client), source repository, model providers, Gondolin runtime,
+Compose runtime, and generated candidate application.
 
 This document uses C4 terminology. A container is a runnable process or data store, not
 necessarily a Docker container. The diagrams distinguish normative target behavior from
@@ -31,17 +31,17 @@ systems must it integrate with?
 ```mermaid
 flowchart LR
     operator["Harness operator<br/><<Person>><br/>Reviews selections and submits regeneration work"]
-    pi["Pi runtime<br/><<External Software System>><br/>Hosts the root session and extension tools"]
+    pi["Operator session host<br/><<External Software System>><br/>Codex, Pi, or another client hosting control tools"]
     source["Löyly Git repository<br/><<External Software System>><br/>Provides commits, product contracts, and source evidence"]
     models["Model providers<br/><<External Software System>><br/>Codex builder inference and ORC/GEPA LLM calls"]
     gondolin["Gondolin runtime<br/><<External Software System>><br/>Creates deny-egress capability-confined VMs"]
     compose["Docker/Compose runtime<br/><<External Software System>><br/>Runs inside the execution room on Gondolin; no host socket"]
     candidate["Generated candidate application<br/><<External Software System>><br/>Subject under independent verification and grading"]
 
-    harness["Pi-hosted ORC Regeneration Harness<br/><<Software System>><br/>Cuts, builds, instruments, verifies, grades, and measures one approved scope"]
+    harness["Session-hosted ORC Regeneration Harness<br/><<Software System>><br/>Cuts, builds, instruments, verifies, grades, and measures one approved preparation"]
 
     operator -->|"operates through a root session"| pi
-    pi -->|"invokes six regeneration tools"| harness
+    pi -->|"prepares, approves, starts, observes, and evaluates cycles"| harness
     harness -->|"reads a pinned commit and model artifacts"| source
     harness -->|"requests builder and prompt candidates"| models
     harness -->|"creates isolated execution rooms"| gondolin
@@ -68,7 +68,7 @@ flowchart TB
     docker["Room-local Docker/Compose<br/><<External Software System>>"]
     subject["Candidate application<br/><<External Software System>>"]
 
-    subgraph system["Pi-hosted ORC Regeneration Harness — Software System"]
+    subgraph system["Session-hosted ORC Regeneration Harness — Software System"]
         extension["Pi extension adapter<br/><<Container: TypeScript in Pi process>><br/>Registers tools and transports JSON requests"]
         worker["ORC worker<br/><<Container: Clojure process>><br/>Owns workflows and durable event facts; task receipts and prompt activation are currently in memory"]
         cutworker["Cut adapter<br/><<Container: Node process>><br/>Creates pinned fenced cuts"]
@@ -107,15 +107,68 @@ flowchart TB
 
 | Container | Owns | Must not own |
 |---|---|---|
-| Pi extension adapter | Six Pi tool schemas, worker lifecycle, JSON transport | Stage ordering, retries, scoring, prompts, workflow state |
+| Session control adapter | Preparation, approval, cycle control, progress, and session-reference schemas; worker lifecycle; JSON transport | Stage ordering, retries, scoring, prompts, workflow state |
 | ORC worker | Cut, prompt, and cycle workflows; selection approval; stage gates; evidence reduction. ORC/Grain facts are durable, but task receipts and prompt activation currently are not | VM implementation or Pi UI behavior |
 | Cut adapter | Physical fence, commit/tree pins, immutable cut manifest | Selecting the regeneration scope |
-| Builder adapter | Fresh in-memory Pi session and confined workspace tools | Grading, oracle, final measurement, production prompt selection |
+| Builder adapter | Fresh builder session and confined workspace tools; target session references and workspace generations | Grading, oracle, final measurement, production prompt selection |
 | Execution adapter | Verifier and grader command execution in an independent room | Changing the candidate or denominator |
 | SQLite event store | ORC execution events and harness Grain facts | Product-domain event ownership |
 | LMDB projection cache | Durable selection and measurement read models | Authoritative event history |
 | Cut store | Fenced, history-pruned repository cuts | Candidate writes or prior implementation answers |
 | Candidate/report store | ORC-persisted generated output and evidence projections | Authoritative verdict calculation |
+
+## Target operator and builder-session architecture
+
+Question answered: how can any main session approve and observe a cycle while ORC retains
+the complete inner workflow and builder attempts remain separately inspectable?
+
+```mermaid
+flowchart TB
+    operator["Operator session<br/>Codex, Pi, or another client"]
+    control["Session control adapter<br/>Prepare · approve · start · status · measurement"]
+    preparation[("Cycle preparation projection<br/>Selection + scope + stack + profile + diagram + budget")]
+    orc["ORC regeneration cycle<br/>Owns cut → build → verify/repair → grade"]
+    progress["Progress view<br/>Live notifications reconciled with ORC projection"]
+    registry[("Builder-session registry<br/>Cycle + stage + attempt → opaque session reference")]
+    builder["Fresh builder session<br/>No operator transcript or grader evidence"]
+    workspace[("Workspace generations<br/>Transcript-compatible candidate snapshots")]
+    host["Host development executor"]
+    gondolin["Gondolin isolated executor"]
+    measurement[("Grain cycle measurement")]
+
+    operator -->|"prepare and approve exact digest"| control
+    control --> preparation
+    control -->|"start approved preparation"| orc
+    orc -->|"stage events"| progress
+    progress -->|"reconnect-safe observation"| control
+    orc -->|"stable build operation identity"| registry
+    registry --> builder
+    builder --> workspace
+    builder -->|"selected execution profile"| host
+    builder -->|"selected execution profile"| gondolin
+    orc --> measurement
+    measurement -->|"terminal grade"| control
+    control -->|"stop, request correction, or prepare child cycle"| operator
+```
+
+The **cycle preparation** is the approval boundary. Its digest binds the approved selection,
+candidate scope, target stack, execution profile, pinned cut and oracle identities, rendered
+diagram, and outer-cycle budget. Changing any bound field creates a new preparation.
+
+The operator session is not part of ORC execution state. Disconnecting it does not stop a
+cycle. Live events improve responsiveness, but reconnecting clients query ORC's durable tick
+projection and Grain's measurement projection before rendering progress.
+
+Each initial build and verification repair has a distinct builder-session reference keyed by
+cycle, stage, attempt, and stable operation identity. Read-only observation does not affect
+candidate provenance. Pause, steer, or fork is an explicit intervention, is allowed only at a
+safe boundary, and marks resulting work as assisted. Completed sessions are never silently
+mutated; further work uses a fork or a new cycle.
+
+The target durable builder binds committed model turns and tool results to a matching workspace
+generation. A transcript must never resume against a different VM-visible filesystem. This is
+not current behavior: the current builder session is in memory, persists only completed output,
+and is disposed when its stage ends.
 
 ## ORC worker component view
 
@@ -123,45 +176,41 @@ Question answered: how are responsibilities divided inside the ORC worker?
 
 ```mermaid
 flowchart TB
-    rpc["RPC entrypoint<br/><<Component>><br/>Dispatches preview, approve, cut, optimize, submit, wait, and measurement calls; task lookup is currently process-local"]
-    registry["Runtime and workflow registry<br/><<Component>><br/>Starts ORC/Grain infrastructure and registers three workflows"]
-    cutflow["Cut workflow<br/><<Component>><br/>Schedules cut preparation and returns pins"]
-    promptflow["Prompt optimization workflow<br/><<Component>><br/>Uses GEPA with the independent per-item black-box metric"]
-    cycleflow["Regeneration cycle workflow<br/><<Component>><br/>Owns the ten ordered execution stages"]
-    selection["Selection registry<br/><<Component>><br/>Records and approves exact selection digests"]
-    calibrator["Harness calibrator<br/><<Component>><br/>Resolves the OCI instrument oracle, binds complete harness source, and evaluates calibration goldens"]
-    resolver["Model resolver and product-contract oracle<br/><<Component>><br/>Resolves every project-model artifact and selected item into an independent digest"]
-    evidence["Independent evidence interpreters<br/><<Component>><br/>Interpret verifier, grader, and application-contract results"]
-    measurement["Observation and measurement handlers<br/><<Component>><br/>Persist evidence and reduce the approved denominator"]
-    reports["Evidence projection writer<br/><<Component>><br/>Emits Allure-compatible report artifacts"]
-    bridge["Adapter process bridge<br/><<Component>><br/>Invokes Node cut, builder, execution, and oracle-fixture workers"]
+    rpc["Public interface + entrypoints<br/><<Component>><br/>Thin dispatch for selection, cycle control, optimization, and measurement"]
+    worker["core.worker<br/><<Component>><br/>Serialized ORC executors, workflow registry, and stage coordination"]
+    workflows["workflows.*<br/><<Component>><br/>Cut and regeneration behavior trees plus blackboard contracts"]
+    build["core.build.*<br/><<Component>><br/>Builder prompt, application contract, stack checks, and subject sealing"]
+    selection["core.selection.*<br/><<Component>><br/>Resolves deterministic cut-slice selections"]
+    oracle["core.oracle.*<br/><<Component>><br/>Resolves and calibrates instrument and product OCI oracles"]
+    grading["core.grading.*<br/><<Component>><br/>Interprets Compose verification and independent grader evidence"]
+    evidence["core.evidence.*<br/><<Component>><br/>Seals manifests and emits deterministic Allure projections"]
+    runtime["core.runtime.*<br/><<Component>><br/>Durable system composition and newline-delimited JSON process adapters"]
+    grainmodel["grain.interface + grain.core.*<br/><<Component>><br/>Selection, observation, and measurement commands and projections"]
     orc["ORC workflow engine<br/><<Component: shared ORC library>><br/>Builds and executes sheets"]
     grain["Grain command/event infrastructure<br/><<Component: shared Grain libraries>><br/>Validates commands, events, and projections"]
 
-    rpc -->|"ensures runtime"| registry
-    rpc -->|"previews and approves"| selection
-    rpc -->|"submits and waits"| cutflow
-    rpc -->|"submits and waits"| cycleflow
-    rpc -->|"optimizes"| promptflow
-    registry -->|"builds sheets through"| orc
-    cutflow -->|"executes through"| orc
-    promptflow -->|"executes and evaluates through"| orc
-    cycleflow -->|"executes through"| orc
-    cycleflow -->|"gates builder execution with"| calibrator
-    cutflow -->|"prepares cut via"| bridge
-    promptflow -->|"builds and grades candidates via"| bridge
-    cycleflow -->|"builds, verifies, and grades via"| bridge
-    selection -->|"processes validated commands through"| grain
-    cycleflow -->|"checks pinned contract with"| resolver
-    cycleflow -->|"interprets independent outputs with"| evidence
-    evidence -->|"records observations and strict result"| measurement
-    measurement -->|"processes validated commands through"| grain
-    measurement -->|"after persistence, projects sealed evidence"| reports
+    rpc -->|"calls only"| worker
+    rpc -->|"previews selections through"| selection
+    rpc -->|"records and queries through"| grainmodel
+    worker -->|"registers and executes"| workflows
+    worker --> build
+    worker --> oracle
+    worker --> grading
+    worker --> evidence
+    worker --> runtime
+    worker --> grainmodel
+    workflows -->|"execute through"| orc
+    build -->|"invokes confined builders through"| runtime
+    oracle -->|"runs fixture adapters through"| runtime
+    grading -->|"receives command evidence through"| runtime
+    grainmodel -->|"uses"| grain
 ```
 
-ORC's `:sheet/*` events describe execution. Grain events in this worker describe only
-selection approval, observations, and measurements. Product-domain events belong to the
-generated application and are not duplicated here.
+ORC's `:sheet/*` events describe execution. Grain events in this worker describe selection
+and cycle-preparation approval, observations, and measurements. Product-domain events belong
+to the generated application and are not duplicated here. Supporting `core` components do
+not depend on `core.worker` or the public interface; dependency direction points toward pure
+interpretation and runtime boundaries, never back toward orchestration.
 
 ## Dynamic view: target regeneration cycle
 
@@ -171,8 +220,8 @@ current implementation gap has been closed.
 
 ```mermaid
 sequenceDiagram
-    actor Operator as Harness operator
-    participant Pi as Pi extension adapter
+    actor Operator as Operator session
+    participant Pi as Session control adapter
     participant ORC as Durable ORC worker
     participant Grain as Grain event/projection store
     participant Cut as Cut adapter/store
@@ -193,15 +242,24 @@ sequenceDiagram
     Pi->>ORC: approve-selection
     ORC->>Grain: approve-selection command
     Grain-->>ORC: approved selection
-    Operator->>Pi: submit_regeneration_cycle(request, selection, scope, backend)
-    Pi->>ORC: submit approved cycle
+    Operator->>Pi: prepare_cycle(selection, scope, stack, profile, budget)
+    Pi->>ORC: record complete preparation
+    ORC->>Grain: record-cycle-preparation command
+    Grain-->>ORC: preparation diagram, identity, and digest
+    Operator->>Pi: approve_cycle_preparation(identity, digest)
+    Pi->>ORC: approve exact preparation
+    ORC->>Grain: approve-cycle-preparation command
+    Grain-->>ORC: approved preparation
+    Operator->>Pi: start_cycle(request, preparation, parent?)
+    Pi->>ORC: start approved cycle with stable tick identity
     ORC->>Cut: validate pinned fenced cut
     Cut-->>ORC: commit and tree pins
     ORC->>Calibration: resolve pinned OCI pack and calibrate complete harness
     Calibration-->>ORC: matching source digest and carried/uncarried golden verdicts
     Note over ORC,Builder: Builder cannot start unless harness calibration passes
-    ORC->>Builder: selected instruction, cut, scope, approved item IDs
-    Builder-->>ORC: candidate location, tool count, subject digest
+    ORC->>Builder: open separately identified builder session
+    ORC-->>Pi: progress includes opaque builder-session reference
+    Builder-->>ORC: workspace generation, candidate location, tool count, subject digest
     ORC->>Instrument: bind unchanged subject to evidence locations and runtime signals
     Instrument-->>ORC: instrumentation record with collection quality
     ORC->>Oracle: resolve complete pinned product contract
@@ -215,7 +273,9 @@ sequenceDiagram
     ORC->>Grain: record observations and strict cycle measurement
     Grain-->>ORC: durable complete denominator
     ORC-->>Pi: terminal result and trace summary
-    Pi-->>Operator: completed or failed outcome
+    Pi->>ORC: read durable measurement
+    Pi-->>Operator: completed or failed outcome with measurement
+    Operator->>Pi: stop, request correction, or prepare child cycle
 ```
 
 ## Dynamic view: target runtime evidence
@@ -384,7 +444,7 @@ flowchart TB
 ```
 
 Gondolin rooms use synthetic DNS, deny HTTP requests and WebSockets, and do not expose the
-root Pi transcript. The host backend preserves the logical paths but does not provide the
+operator transcript. The host backend preserves the logical paths but does not provide the
 same isolation; in particular, host builder execution inherits the host process environment.
 Independent grading currently requires Gondolin, so a host-backed cycle cannot claim a
 complete independently graded pass.
@@ -395,6 +455,7 @@ complete independently graded pass.
 |---|---|---|
 | ORC `:sheet/*` events | ORC | Workflow execution, task progress, stage outcomes |
 | `:loyly/selection-*` events | Harness Grain model | Exact reviewed and approved denominator |
+| `:loyly/cycle-preparation-*` events | Harness Grain model | Exact reviewed and approved scope, stack, execution profile, pinned inputs, diagram, and outer-cycle budget |
 | `:loyly/observation-recorded` | Harness Grain model | Evidence provenance for one cycle item and producer |
 | `:loyly/cycle-measurement-recorded` | Harness Grain model | Immutable reduction of the approved denominator plus sealed evidence manifest |
 | Sealed evidence manifest | Harness evidence store and Grain measurement | Content-addressed Compose, grader, Playwright, OTel, and other project artifacts |
@@ -411,8 +472,9 @@ groups, and stable `@item-*` identities remain the measurement keys.
    selection; TypeScript remains adapter code.
 2. A cut is pinned before a cycle, physically fenced, outside the source tree, and mounted
    read-only wherever it is consumed.
-3. A builder is a fresh in-memory Pi session with no root transcript, no skills, and writes
-   limited to the declared candidate scope.
+3. A builder is a fresh, separately identified session with no operator transcript or skills,
+   and writes limited to the declared candidate scope. The target binds its committed tool
+   results to the matching workspace generation; the current implementation is in memory.
 4. Instrumentation, oracle, verifier, behavioral graders, instrument-conformance graders,
    and final measurement remain outside builder control and bind evidence to the same cut,
    subject, and oracle digests.
@@ -422,17 +484,24 @@ groups, and stable `@item-*` identities remain the measurement keys.
    appends.
 7. Generated output is persisted only from an ORC stage; report projections cannot change a
    recorded verdict.
+8. Approval binds a complete cycle preparation, not only the selected denominator.
+9. Progress notifications and builder-session views are observational; only ORC execution
+   state advances the inner cycle.
+10. Builder-session intervention is explicit, provenance-recorded, and never exposes
+    same-cycle independent grader evidence to a repair builder.
 
 ## Evidence and traceability
 
 - Engineering boundaries: [`AGENTS.md`](AGENTS.md)
 - Pi tool boundary: [`harness/extension.ts`](harness/extension.ts)
-- ORC workflows: [`harness/orc-worker/src/loyly/pi_harness/orc_worker.clj`](harness/orc-worker/src/loyly/pi_harness/orc_worker.clj)
-- Durable stores: [`harness/orc-worker/src/loyly/pi_harness/durable_system.clj`](harness/orc-worker/src/loyly/pi_harness/durable_system.clj)
+- ORC public boundary: [`harness/orc-worker/src/loyly/pi_harness/interface.clj`](harness/orc-worker/src/loyly/pi_harness/interface.clj)
+- ORC workflows: [`harness/orc-worker/src/loyly/pi_harness/workflows/regeneration.clj`](harness/orc-worker/src/loyly/pi_harness/workflows/regeneration.clj)
+- Durable stores: [`harness/orc-worker/src/loyly/pi_harness/core/runtime/durable_system.clj`](harness/orc-worker/src/loyly/pi_harness/core/runtime/durable_system.clj)
 - Builder isolation: [`harness/src/builder-room.ts`](harness/src/builder-room.ts)
 - Grader isolation: [`harness/src/grader-room.ts`](harness/src/grader-room.ts)
 - Cut fence: [`harness/src/cut.ts`](harness/src/cut.ts)
 - Observable model: [`model/pi-harness/README.md`](../model/pi-harness/README.md)
+- Session and cycle ownership decision: [`ADR 0001`](../model/pi-harness/docs/adr/0001-session-and-cycle-ownership.md)
 
 ## Assumptions and open questions
 
@@ -450,6 +519,12 @@ groups, and stable `@item-*` identities remain the measurement keys.
 - Verification repair is deliberately bounded to three attempts and consumes only verifier
   evidence. Whether runtime instrument-conformance failures should enter a separate repair
   policy remains open; they do not do so today.
+- Durable builder-session inspection requires a retained builder session plus matching workspace
+  generation. The current in-memory builder cannot satisfy this target.
+- Read-only observation is the default. The exact authorization and UI protocol for pausing,
+  steering, or forking an active builder session remains to be implemented.
+- Outer-cycle continuation belongs to the operator session and must be bounded by the approved
+  preparation budget. ORC's same-cycle verification repair is not an outer-cycle decision.
 
 
 ## Appendix A: implementation conformance
@@ -467,8 +542,8 @@ Status meanings:
 | Status | Items | Count |
 |---|---|---:|
 | Implemented | 01-001–005, 01-007–013, 01-018–019, 01-021–022, 01-024–026, 01-028–029, 01-033 | 22 |
-| Partial | 01-006, 01-014–017, 01-023, 01-027, 01-031 | 8 |
-| Not implemented | 01-020, 01-030, 01-032, 01-034 | 4 |
+| Partial | 01-006, 01-014–017, 01-020, 01-023, 01-027, 01-031, 01-036–037 | 11 |
+| Not implemented | 01-030, 01-032, 01-034–035, 01-038–040 | 7 |
 
 ### Item-by-item status
 
@@ -493,7 +568,7 @@ Status meanings:
 | 01-017 | Partial | Candidate-scope validation occurs during builder-room creation after submission. |
 | 01-018 | Implemented | Repeated waits are stable only for the lifetime of the current worker. |
 | 01-019 | Implemented | Unknown numeric task identities are rejected. |
-| 01-020 | Not implemented | Task receipts and futures are process-local atoms and cannot be reconstructed after restart. |
+| 01-020 | Partial | `start-cycle` plus `execution-status` reconstructs overall state from ORC's durable tick projection and startup resumes abandoned ORC frontiers; legacy numeric `submit`/`wait` receipts and futures remain process-local. |
 | 01-021 | Implemented | Missing or non-vector GEPA example collections are refused. |
 | 01-022 | Implemented | GEPA scoring is gated by full harness calibration, requires an approved selection, runs a fresh digest-identified candidate, validates the product oracle and Compose contract, and scores the complete independent per-item measurement. |
 | 01-023 | Partial | A winner is independently selected, but activation remains only in worker memory and metric evidence is not yet sealed into a harness evidence manifest. |
@@ -508,6 +583,12 @@ Status meanings:
 | 01-032 | Not implemented | Observation schemas do not yet represent incomplete, sampled, or dropped required signals as `inconclusive`. |
 | 01-033 | Implemented | A generic, domain-free evaluator loads the selected project's runtime-evidence contract from the pinned cut, validates declared record cardinality, values, correlations, and `fields-equal` invariants, and emits a separate observation for every contracted selected item. Löyly has live runtime-evidence contracts for `@item-01-007` and `@item-01-008`; all eleven selected items are independently black-box graded. |
 | 01-034 | Not implemented | Allure projects persisted evidence today, but an OTel invariant-result projection carrying the same persisted evidence digest is not implemented. |
+| 01-035 | Not implemented | Approval binds only the selection digest; scope, target stack, execution profile, pinned inputs, diagram, and outer-cycle budget are not one approved preparation. |
+| 01-036 | Partial | The JSON control boundary exposes ORC `start-cycle` with caller-supplied durable identities and survives client disconnects, but no complete session-agnostic preparation contract or parent-cycle lineage exists. |
+| 01-037 | Partial | The RPC queries reconnect-safe overall status from ORC's durable tick projection and startup resumes abandoned ORC frontiers, but current stage and builder-session references are not exposed. |
+| 01-038 | Not implemented | Builder sessions are in memory, disposed after completion, and cannot be opened as retained read-only session views. |
+| 01-039 | Not implemented | There is no explicit pause, steer, or fork protocol and no assisted-candidate provenance marker. |
+| 01-040 | Not implemented | Pi transcripts and VM-visible workspace generations are not durably bound; only completed generated output is persisted. |
 
 ### Current supported boundary
 
@@ -541,8 +622,13 @@ Status meanings:
   exposes the failed verifier evidence root read-only. Grader evidence is never a repair input.
 - Generalized JSONL instrument conformance: **implemented through project-owned contracts; live Löyly coverage is `@item-01-007` and `@item-01-008`**.
 - Host isolation equivalent to Gondolin: **no**.
-- Durable task receipts: **no**.
+- Durable cycle receipt: **yes for `start-cycle` when the caller retains ORC tick and correlation identities; legacy `submit`/`wait` remains process-local**.
 - Durable optimized instruction: **no**.
+- Complete cycle-preparation approval: **no; selection-only approval today**.
+- Reconnect-safe progress view: **overall ORC tick status is implemented; current stage and builder-session projection are not**.
+- Durable builder-session inspection and intervention: **no; sessions are in memory and disposed**.
+- Transcript/workspace generation binding: **no; completed candidate output only**.
+- Parent-cycle lineage and bounded outer continuation: **no**.
 - Evidence projection after durable persistence: **yes for Allure; no for OTel invariant results**.
 - Regeneration-enforced runtime-signal contract: **generic JSONL evaluator; not OTLP**.
 - Harness-owned OBI/eBPF observer: **no**.
@@ -571,6 +657,8 @@ product OCI oracle          [#########-]  all eleven Löyly booking-core items
 black-box grading           [#########-]  complete per-item map/reduce
 runtime instrumentation     [#####-----]  live contracts for 01-007 and 01-008
 evidence / Allure           [########--]  sealed artifacts; no OTel verdict projection
-durable restart             [####------]  receipts and futures remain process-local
+durable restart             [######----]  ORC cycle ticks recover; legacy receipts remain process-local
+builder session inspection  [##--------]  fresh sessions exist but are disposed
+cycle preparation approval  [###-------]  selection digest only
 GEPA activation             [######----]  scoring works; activation/evidence not durable
 ```

@@ -1,35 +1,39 @@
 (ns loyly.pi-harness.test-runner
   (:require [clojure.test :as test]
-            [loyly.pi-harness.allure-evidence-test]
-            [loyly.pi-harness.compose-backend-test]
-            [loyly.pi-harness.cycle-measurement-test]
+            [loyly.pi-harness.core.runtime.adapters-test]
+            [loyly.pi-harness.core.evidence.allure-evidence-test]
+            [loyly.pi-harness.core.grading.compose-backend-test]
+            [loyly.pi-harness.grain.cycle-measurement-test]
             [loyly.pi-harness.entrypoint-test]
-            [loyly.pi-harness.harness-calibration-test]
-            [loyly.pi-harness.independent-grader-test]
-            [loyly.pi-harness.instrument-oracle-test]
-            [loyly.pi-harness.model-resolver-test]
-            [loyly.pi-harness.observation-test]
-            [loyly.pi-harness.oracle-test]
+            [loyly.pi-harness.core.oracle.harness-calibration-test]
+            [loyly.pi-harness.core.grading.independent-grader-test]
+            [loyly.pi-harness.core.oracle.instrument-oracle-test]
+            [loyly.pi-harness.core.runtime.json-process-test]
+            [loyly.pi-harness.core.oracle.model-resolver-test]
+            [loyly.pi-harness.grain.observation-test]
+            [loyly.pi-harness.core.oracle.oracle-test]
             [loyly.pi-harness.orc-worker-test]
-            [loyly.pi-harness.prompt-evaluation-test]
-            [loyly.pi-harness.selection-registry-test]
-            [loyly.pi-harness.slice-selection-test]))
+            [loyly.pi-harness.core.build.prompt-evaluation-test]
+            [loyly.pi-harness.grain.selection-test]
+            [loyly.pi-harness.core.selection.slice-selection-test]))
 
 (def test-namespaces
-  '[loyly.pi-harness.allure-evidence-test
-    loyly.pi-harness.compose-backend-test
-    loyly.pi-harness.cycle-measurement-test
+  '[loyly.pi-harness.core.runtime.adapters-test
+    loyly.pi-harness.core.evidence.allure-evidence-test
+    loyly.pi-harness.core.grading.compose-backend-test
+    loyly.pi-harness.grain.cycle-measurement-test
     loyly.pi-harness.entrypoint-test
-    loyly.pi-harness.harness-calibration-test
-    loyly.pi-harness.independent-grader-test
-    loyly.pi-harness.instrument-oracle-test
-    loyly.pi-harness.model-resolver-test
-    loyly.pi-harness.observation-test
-    loyly.pi-harness.oracle-test
+    loyly.pi-harness.core.oracle.harness-calibration-test
+    loyly.pi-harness.core.grading.independent-grader-test
+    loyly.pi-harness.core.oracle.instrument-oracle-test
+    loyly.pi-harness.core.runtime.json-process-test
+    loyly.pi-harness.core.oracle.model-resolver-test
+    loyly.pi-harness.grain.observation-test
+    loyly.pi-harness.core.oracle.oracle-test
     loyly.pi-harness.orc-worker-test
-    loyly.pi-harness.prompt-evaluation-test
-    loyly.pi-harness.selection-registry-test
-    loyly.pi-harness.slice-selection-test])
+    loyly.pi-harness.core.build.prompt-evaluation-test
+    loyly.pi-harness.grain.selection-test
+    loyly.pi-harness.core.selection.slice-selection-test])
 
 (defn -main [& _]
   (let [result (apply test/run-tests test-namespaces)

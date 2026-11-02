@@ -1,5 +1,5 @@
 Feature: Complete control, optimization, execution, and evidence behavior
-  The Pi-hosted ORC harness exposes an observable control plane, independently
+  The session-hosted ORC harness exposes an observable control plane, independently
   optimizes builder instructions, executes every declared stage in order, and
   preserves evidence and non-success outcomes without weakening the denominator.
 
@@ -46,6 +46,59 @@ Feature: Complete control, optimization, execution, and evidence behavior
       When a replacement worker waits for the task identity
       Then it reconstructs the task outcome from durable ORC state
       And it does not rerun the task to manufacture an answer
+
+  Rule: The reviewed preparation binds every cycle-defining choice
+
+    @item-01-035
+    Scenario: Approval binds the complete cycle preparation and diagram
+      Given an approved slice selection
+      When an operator session prepares a cycle with scope, target stack, execution profile, pinned inputs, and outer-cycle budget
+      Then the harness returns a deterministic preparation diagram and digest
+      And approval accepts only that exact preparation digest
+      And changing any bound field requires a new preparation
+
+  Rule: Any operator session can drive the outer lifecycle
+
+    @item-01-036
+    Scenario: The control plane does not depend on one interactive session implementation
+      Given a Codex, Pi, or other authorized operator session
+      When it supplies an approved preparation through the public control plane
+      Then ORC starts the same regeneration cycle contract
+      And disconnecting that session does not stop the internal ORC cycle
+
+    @item-01-037
+    Scenario: Live progress reconciles with durable ORC execution state
+      Given a cycle is running and ORC emits stage notifications
+      When the observing extension connects or reconnects
+      Then it displays the current stage and associated builder-session reference
+      And it queries ORC execution state to recover from missing notifications
+      And the progress view never becomes workflow authority
+
+  Rule: Builder sessions are observable without weakening independence
+
+    @item-01-038
+    Scenario: An operator observes a builder session read-only
+      Given ORC opened a separately identified builder session for one build attempt
+      When an operator session opens that builder-session reference
+      Then it can inspect committed model turns, tool calls, workspace generation, and progress
+      But observation cannot change the builder transcript or candidate
+      And the builder cannot read the operator transcript or independent grader evidence
+
+    @item-01-039
+    Scenario: Intervention is explicit and provenance-recorded
+      Given a builder session is active or completed
+      When an operator pauses, steers, or forks its work
+      Then the action occurs only at a safe boundary or in a distinct fork
+      And the resulting candidate is marked as assisted
+      And a completed builder session is never silently mutated
+
+    @item-01-040
+    Scenario: A builder transcript is restored with its matching workspace generation
+      Given a builder session committed model turns and VM tool results
+      When its host or execution room restarts
+      Then the session resumes from the workspace generation bound to those committed results
+      And an uncommitted VM mutation is discarded or replayed from the previous generation
+      And transcript state is never restored against a mismatched workspace
 
   Rule: Prompt optimization is independently measured
 

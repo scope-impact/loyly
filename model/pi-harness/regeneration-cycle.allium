@@ -1,12 +1,15 @@
 -- allium: 3
--- Observable behavior of the Pi-hosted ORC regeneration workflow.
+-- Observable behavior of the session-hosted ORC regeneration workflow.
 -- Product behavior belongs to model/<project>; ORC runtime behavior belongs to ORC.
 
-external entity HarnessOperator {}
+external entity OperatorSession {}
 
 enum ExecutionBackend { host | gondolin }
 enum SelectionStatus { awaiting_approval | approved }
+enum PreparationStatus { awaiting_approval | approved }
+enum ExecutionProfile { host_development | gondolin_isolated | automatic }
 enum CycleStatus { submitted | running | passed | failed }
+enum BuilderSessionStatus { opening | active | paused | completed | failed }
 enum Verdict { pass | fail | inconclusive }
 enum ProducerAuthority { candidate | harness_observer | independent_grader }
 enum EvidencePurpose { assertion | diagnostic | calibration }
@@ -44,11 +47,28 @@ entity SliceSelection {
         terminal: approved
     }
 }
-entity RegenerationCycle {
+entity CyclePreparation {
     identity: String
+    digest: Digest
+    status: PreparationStatus
     selection: SliceSelection
     scope: CandidateScope
-    backend: ExecutionBackend
+    target_stack: String
+    execution_profile: ExecutionProfile
+    cut_digest: Digest
+    oracle_digest: Digest
+    diagram_digest: Digest
+    max_outer_cycles: Integer
+
+    transitions status {
+        awaiting_approval -> approved
+        terminal: approved
+    }
+}
+entity RegenerationCycle {
+    identity: String
+    preparation: CyclePreparation
+    parent_cycle_identity: String?
     status: CycleStatus
     candidate_digest: Digest?
 
@@ -61,6 +81,17 @@ entity RegenerationCycle {
 
     observations: ItemObservation with cycle = this
     measurement: CycleMeasurement with cycle = this
+}
+
+entity BuilderSession {
+    identity: String
+    cycle: RegenerationCycle
+    operation_identity: String
+    stage: String
+    attempt: Integer
+    status: BuilderSessionStatus
+    workspace_generation: String?
+    assisted: Boolean
 }
 
 entity HarnessCalibration {
@@ -129,17 +160,46 @@ rule ApproveSelection {
     ensures: selection.status = approved
 }
 
-rule SubmitCycle {
-    when: SubmitRegenerationCycle(operator, request_identity, selection, scope, backend)
+rule PrepareCycle {
+    when: PrepareRegenerationCycle(operator, preparation_identity, selection, scope,
+                                   target_stack, execution_profile, cut_digest,
+                                   oracle_digest, diagram_digest, max_outer_cycles)
     requires: selection.status = approved
-    requires: selection.items.count > 0
     requires: scope_is_safe(scope)
+    requires: max_outer_cycles > 0
+    ensures: CyclePreparation.created(
+        identity: preparation_identity,
+        digest: deterministic_preparation_digest(
+            selection, scope, target_stack, execution_profile, cut_digest,
+            oracle_digest, diagram_digest, max_outer_cycles),
+        status: awaiting_approval,
+        selection: selection,
+        scope: scope,
+        target_stack: target_stack,
+        execution_profile: execution_profile,
+        cut_digest: cut_digest,
+        oracle_digest: oracle_digest,
+        diagram_digest: diagram_digest,
+        max_outer_cycles: max_outer_cycles
+    )
+}
+
+rule ApprovePreparation {
+    when: ApproveCyclePreparation(operator, preparation, digest)
+    requires: preparation.status = awaiting_approval
+    requires: digest = preparation.digest
+    ensures: preparation.status = approved
+}
+
+rule SubmitCycle {
+    when: SubmitRegenerationCycle(operator, request_identity, preparation, parent_cycle_identity)
+    requires: preparation.status = approved
+    requires: preparation.selection.items.count > 0
     requires: not exists RegenerationCycle{identity: request_identity}
     ensures: RegenerationCycle.created(
         identity: request_identity,
-        selection: selection,
-        scope: scope,
-        backend: backend,
+        preparation: preparation,
+        parent_cycle_identity: parent_cycle_identity,
         status: submitted,
         candidate_digest: null
     )
@@ -156,7 +216,7 @@ rule CalibrateHarnessAndBuildCandidate {
     when: PinnedContractValidated(cycle, product_contract_digest,
                                   instrument_oracle_digest, harness_source_digest)
     requires: cycle.status = running
-    requires: cycle.selection.cut.fenced
+    requires: cycle.preparation.selection.cut.fenced
     requires: pinned_instrument_oracle_resolved(instrument_oracle_digest)
     requires: complete_harness_component_coverage(instrument_oracle_digest)
     requires: harness_source_digest = discovered_complete_harness_source_digest(cycle)
@@ -169,15 +229,35 @@ rule CalibrateHarnessAndBuildCandidate {
         carried_fixture_passed: true,
         uncarried_fixture_passed: true
     )
-    ensures: BuilderStartedFresh(cycle: cycle, scope: cycle.scope)
+    ensures: BuilderStartedFresh(cycle: cycle, scope: cycle.preparation.scope)
+}
+
+rule OpenBuilderSession {
+    when: BuilderStartedFresh(cycle, stage, attempt, operation_identity)
+    requires: cycle.status = running
+    requires: unique_builder_operation_identity(cycle, stage, attempt, operation_identity)
+    ensures: BuilderSession.created(
+        identity: builder_session_identity(operation_identity),
+        cycle: cycle,
+        operation_identity: operation_identity,
+        stage: stage,
+        attempt: attempt,
+        status: active,
+        workspace_generation: null,
+        assisted: false
+    )
 }
 
 rule CandidateProduced {
-    when: BuilderProducedCandidate(cycle, candidate_digest, tool_calls, generated_paths)
+    when: BuilderProducedCandidate(cycle, builder_session, candidate_digest,
+                                   workspace_generation, tool_calls, generated_paths)
     requires: cycle.status = running
+    requires: builder_session.cycle = cycle
     requires: tool_calls > 0
     requires: generated_paths.count > 0
     ensures: cycle.candidate_digest = candidate_digest
+    ensures: builder_session.workspace_generation = workspace_generation
+    ensures: builder_session.status = completed
     ensures: VerifyCandidate(cycle: cycle)
 }
 
@@ -192,7 +272,7 @@ rule CandidateGraded {
     when: IndependentVerdictsReturned(cycle, observations)
     requires: cycle.status = running
     requires: observations.count > 0
-    requires: observations.all(o => o.item in cycle.selection.items)
+    requires: observations.all(o => o.item in cycle.preparation.selection.items)
     ensures:
         for observation in observations:
             ItemObservation.created(
@@ -214,14 +294,14 @@ rule RecordMeasurement {
     when: ReduceCycleMeasurement(cycle)
     let reached = cycle.observations where reached
     let passed_items = reached where verdict = pass
-    let total = cycle.selection.items.count
+    let total = cycle.preparation.selection.items.count
     ensures: CycleMeasurement.created(
         cycle: cycle,
         total: total,
         passed: passed_items.count,
         failed: total - passed_items.count,
         complete: reached.count = total,
-        item_results: measurement_results_for(cycle.selection.items, reached)
+        item_results: measurement_results_for(cycle.preparation.selection.items, reached)
     )
 }
 
@@ -252,9 +332,28 @@ invariant ApprovedSelectionDigestIsStable {
                 selection.items)
 }
 
+invariant ApprovedPreparationDigestIsStable {
+    for preparation in CyclePreparations:
+        preparation.status = approved implies
+            preparation.digest = deterministic_preparation_digest(
+                preparation.selection,
+                preparation.scope,
+                preparation.target_stack,
+                preparation.execution_profile,
+                preparation.cut_digest,
+                preparation.oracle_digest,
+                preparation.diagram_digest,
+                preparation.max_outer_cycles)
+}
+
 invariant MeasurementKeepsApprovedDenominator {
     for measurement in CycleMeasurements:
-        measurement.total = measurement.cycle.selection.items.count
+        measurement.total = measurement.cycle.preparation.selection.items.count
+}
+
+invariant BuilderSessionCannotSeeIndependentGrade {
+    for builder_session in BuilderSessions:
+        not builder_session_can_read_independent_grade(builder_session)
 }
 
 invariant PassingCycleHasCompleteEvidence {
@@ -263,17 +362,22 @@ invariant PassingCycleHasCompleteEvidence {
             cycle.measurement.complete and cycle.measurement.failed = 0
 }
 
-surface PiRegenerationHarness {
-    facing operator: HarnessOperator
+surface RegenerationHarness {
+    facing operator: OperatorSession
 
     provides:
         PrepareRegenerationCut(operator, source_commit, backend)
         PreviewSliceSelection(operator, cut, project_identity, slice_identity, requested_items)
         ApproveSliceSelection(operator, selection, digest)
-        SubmitRegenerationCycle(operator, request_identity, selection, scope, backend)
+        PrepareRegenerationCycle(operator, preparation_identity, selection, scope,
+                                 target_stack, execution_profile, cut_digest,
+                                 oracle_digest, diagram_digest, max_outer_cycles)
+        ApproveCyclePreparation(operator, preparation, digest)
+        SubmitRegenerationCycle(operator, request_identity, preparation, parent_cycle_identity)
+        ObserveBuilderSession(operator, builder_session)
 
     @guarantee BuilderIsolation
-        -- The builder reads a fenced cut, writes only the declared scope, and does not inherit the root Pi transcript.
+        -- The builder reads a fenced cut, writes only the declared scope, and does not inherit the operator transcript.
 
     @guarantee CalibratedBuilder
         -- No builder starts until the pinned OCI instrument oracle covers the complete harness,
