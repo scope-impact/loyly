@@ -1,0 +1,367 @@
+-- allium: 3
+-- Full ordered regeneration execution and evidence pipeline.
+
+enum PipelineStage { cut | harness_calibration | builder | instrument | oracle | verify | repair_verification | graders | instrument_conformance | record_cycle | result }
+enum PipelineStatus { submitted | running | passed | failed }
+enum PipelineVerdict { pass | fail | inconclusive }
+enum StageFailureKind { refused | skipped | timed_out | errored }
+enum PipelineProducerAuthority { candidate | harness_observer | independent_grader }
+enum PipelineEvidencePurpose { assertion | diagnostic | calibration }
+
+entity PipelineCycle {
+    identity: String
+    selection_identity: String
+    approved_items: List<String>
+    stage: PipelineStage
+    status: PipelineStatus
+    failure_stage: PipelineStage?
+    failure_kind: StageFailureKind?
+    failure_reason: String?
+
+    transitions stage {
+        cut -> harness_calibration
+        harness_calibration -> builder
+        builder -> instrument
+        instrument -> oracle
+        oracle -> verify
+        verify -> repair_verification
+        repair_verification -> graders
+        graders -> instrument_conformance
+        instrument_conformance -> record_cycle
+        record_cycle -> result
+        terminal: result
+    }
+
+    transitions status {
+        submitted -> running
+        running -> passed
+        running -> failed
+        terminal: passed, failed
+    }
+}
+
+entity CandidateSubject {
+    cycle: PipelineCycle
+    digest: String
+    generated_paths: List<String>
+    tool_calls: Integer
+}
+
+entity HarnessCalibration {
+    cycle: PipelineCycle
+    instrument_oracle_digest: String
+    harness_source_digest: String
+    passed: Boolean
+    fixture_identities: List<String>
+}
+
+entity InstrumentationRecord {
+    cycle: PipelineCycle
+    subject_digest: String
+    evidence_locations: List<String>
+    runtime_signal_identities: List<String>
+    collection_complete: Boolean
+}
+
+entity VerificationAttempt {
+    cycle: PipelineCycle
+    round: Integer
+    subject_digest: String
+    target_stack: String
+    passed: Boolean
+    evidence_root: String
+}
+
+entity PipelineObservation {
+    cycle: PipelineCycle
+    item_identity: String
+    producer: String
+    authority: PipelineProducerAuthority
+    evidence_purpose: PipelineEvidencePurpose
+    verdict: PipelineVerdict
+    reached: Boolean
+    evidence: String
+    cut_digest: String
+    subject_digest: String
+    oracle_digest: String
+}
+
+entity PipelineMeasurement {
+    cycle: PipelineCycle
+    total: Integer
+    passed: Integer
+    failed: Integer
+    complete: Boolean
+    item_results: List<PipelineObservation>
+}
+
+entity InstrumentConformanceEvaluation {
+    cycle: PipelineCycle
+    producer: String
+    passed: Boolean
+    item_results: List<PipelineObservation>
+}
+
+rule StartPipeline {
+    when: ApprovedCycleStarted(cycle)
+    requires: cycle.status = submitted
+    requires: cycle.approved_items.count > 0
+    ensures: cycle.status = running
+    ensures: cycle.stage = cut
+}
+
+rule ValidatePipelineCut {
+    when: PinnedCutValidated(cycle, cut_digest)
+    requires: cycle.status = running
+    requires: cycle.stage = cut
+    requires: complete_model_contract_resolved_once(cycle.selection_identity, cut_digest)
+    ensures: cycle.stage = harness_calibration
+}
+
+rule CalibratePipelineHarness {
+    when: FullHarnessCalibrated(cycle, instrument_oracle_digest,
+                                harness_source_digest, fixture_identities)
+    requires: cycle.status = running
+    requires: cycle.stage = harness_calibration
+    requires: pinned_instrument_oracle_resolved(cycle, instrument_oracle_digest)
+    requires: complete_instrument_component_coverage(cycle, instrument_oracle_digest)
+    requires: harness_source_digest = discovered_harness_source_digest(cycle)
+    requires: carried_and_uncarried_goldens_passed(cycle, fixture_identities)
+    ensures: HarnessCalibration.created(
+        cycle: cycle,
+        instrument_oracle_digest: instrument_oracle_digest,
+        harness_source_digest: harness_source_digest,
+        passed: true,
+        fixture_identities: fixture_identities
+    )
+    ensures: cycle.stage = builder
+}
+
+rule BuildPipelineCandidate {
+    when: FreshBuilderCompleted(cycle, subject_digest, generated_paths, tool_calls)
+    requires: cycle.status = running
+    requires: cycle.stage = builder
+    requires: generated_paths.count > 0
+    requires: tool_calls > 0
+    ensures: CandidateSubject.created(
+        cycle: cycle,
+        digest: subject_digest,
+        generated_paths: generated_paths,
+        tool_calls: tool_calls
+    )
+    ensures: cycle.stage = instrument
+}
+
+rule InstrumentPipelineCandidate {
+    when: CandidateInstrumented(cycle, subject_digest, evidence_locations,
+                                runtime_signal_identities, collection_complete)
+    requires: cycle.status = running
+    requires: cycle.stage = instrument
+    requires: exists CandidateSubject{cycle: cycle, digest: subject_digest}
+    requires: digest_after_instrumentation(cycle) = subject_digest
+    ensures: InstrumentationRecord.created(
+        cycle: cycle,
+        subject_digest: subject_digest,
+        evidence_locations: evidence_locations,
+        runtime_signal_identities: runtime_signal_identities,
+        collection_complete: collection_complete
+    )
+    ensures: cycle.stage = oracle
+}
+
+rule EvaluatePipelineOracle {
+    when: IndependentOraclePassed(cycle, oracle_digest)
+    requires: cycle.status = running
+    requires: cycle.stage = oracle
+    requires: oracle_digest = combined_oracle_digest(
+        instrument_oracle_digest(cycle),
+        resolved_contract_digest(cycle.selection_identity)
+    )
+    ensures: cycle.stage = verify
+}
+
+rule RecordInitialVerification {
+    when: ApplicationContractVerificationReturned(cycle, subject_digest, target_stack,
+                                                   passed, evidence_root)
+    requires: cycle.status = running
+    requires: cycle.stage = verify
+    requires: exists InstrumentationRecord{cycle: cycle, subject_digest: subject_digest}
+    requires: candidate_mounted_read_only(cycle)
+    requires: target_stack = independently_detected_supported_stack(cycle, subject_digest)
+    ensures: VerificationAttempt.created(
+        cycle: cycle,
+        round: 1,
+        subject_digest: subject_digest,
+        target_stack: target_stack,
+        passed: passed,
+        evidence_root: evidence_root
+    )
+    ensures: cycle.stage = repair_verification
+}
+
+rule CompleteVerificationRepair {
+    when: VerificationRepairCompleted(cycle, attempts, final_subject_digest)
+    requires: cycle.status = running
+    requires: cycle.stage = repair_verification
+    requires: attempts.count >= 1
+    requires: attempts.count <= 3
+    requires: attempts.last.passed
+    requires: attempts.last.subject_digest = final_subject_digest
+    requires: attempts.all(a => a.target_stack = independently_detected_supported_stack(
+        cycle, a.subject_digest
+    ))
+    requires: every_failed_attempt_seeds_next_candidate(attempts)
+    requires: every_failed_attempt_evidence_is_read_only_to_next_builder(attempts)
+    requires: grader_evidence_hidden_from_every_builder(attempts)
+    requires: exists InstrumentationRecord{
+        cycle: cycle,
+        subject_digest: final_subject_digest
+    }
+    ensures: cycle.stage = graders
+}
+
+rule GradePipelineCandidate {
+    when: IndependentItemVerdictsReturned(cycle, observations)
+    requires: cycle.status = running
+    requires: cycle.stage = graders
+    requires: observations.count > 0
+    requires: observations.all(o => o.item_identity in cycle.approved_items)
+    requires: observations.all(o => o.subject_digest = instrumented_subject_digest(cycle))
+    requires: observations.all(o => o.oracle_digest = combined_oracle_digest(
+        instrument_oracle_digest(cycle),
+        resolved_contract_digest(cycle.selection_identity)
+    ))
+    ensures:
+        for observation in observations:
+            PipelineObservation.created(
+                cycle: cycle,
+                item_identity: observation.item_identity,
+                producer: observation.producer,
+                authority: observation.authority,
+                evidence_purpose: observation.evidence_purpose,
+                verdict: observation.verdict,
+                reached: observation.reached,
+                evidence: observation.evidence,
+                cut_digest: observation.cut_digest,
+                subject_digest: observation.subject_digest,
+                oracle_digest: observation.oracle_digest
+            )
+    ensures: cycle.stage = instrument_conformance
+}
+
+rule EvaluatePipelineInstrumentConformance {
+    when: IndependentInstrumentConformanceReturned(cycle, observations, passed)
+    requires: cycle.status = running
+    requires: cycle.stage = instrument_conformance
+    requires: observations.count > 0
+    requires: observations.all(o => o.item_identity in cycle.approved_items)
+    requires: observations.all(o => o.subject_digest = instrumented_subject_digest(cycle))
+    ensures: InstrumentConformanceEvaluation.created(
+        cycle: cycle,
+        producer: "runtime-instrument-conformance",
+        passed: passed,
+        item_results: observations
+    )
+    ensures: cycle.stage = record_cycle
+}
+
+rule RecordPipelineMeasurement {
+    when: ReducePipelineMeasurement(cycle)
+    requires: cycle.status = running
+    requires: cycle.stage = record_cycle
+    let reached = PipelineObservations where cycle = cycle and reached
+    let passed_items = reached where verdict = pass
+    let total = cycle.approved_items.count
+    ensures: PipelineMeasurement.created(
+        cycle: cycle,
+        total: total,
+        passed: passed_items.count,
+        failed: total - passed_items.count,
+        complete: reached.count = total,
+        item_results: results_for_every_approved_item(cycle, reached)
+    )
+    ensures: cycle.stage = result
+}
+
+rule PassPipelineCycle {
+    when: DerivePipelineResult(cycle)
+    requires: cycle.status = running
+    requires: cycle.stage = result
+    requires: cycle_measurement(cycle).complete
+    requires: cycle_measurement(cycle).failed = 0
+    requires: instrument_conformance(cycle).passed
+    ensures: cycle.status = passed
+}
+
+rule FailPipelineStage {
+    when: PipelineStageDidNotSucceed(cycle, stage, failure_kind, reason)
+    requires: cycle.status = running
+    requires: cycle.stage = stage
+    ensures: cycle.status = failed
+    ensures: cycle.failure_stage = stage
+    ensures: cycle.failure_kind = failure_kind
+    ensures: cycle.failure_reason = reason
+    ensures: FailedDenominatorPreserved(cycle: cycle, item_identities: cycle.approved_items)
+}
+
+rule ProjectEvidenceReport {
+    when: EvidenceReportRequested(observation)
+    ensures: EvidenceProjectionCreated(
+        observation_identity: observation_identity(observation),
+        verdict: observation.verdict,
+        reached: observation.reached,
+        provenance: observation.producer
+    )
+}
+
+invariant PipelineOrderCannotSkip {
+    for cycle in PipelineCycles:
+        cycle.status = running implies stage_was_reached_in_declared_order(cycle)
+}
+
+invariant IndependentRoomsPreserveSubject {
+    for observation in PipelineObservations:
+        observation.subject_digest = instrumented_subject_digest(observation.cycle)
+}
+
+invariant PassingObservationHasIndependentAuthority {
+    for observation in PipelineObservations:
+        observation.verdict = pass implies
+            observation.authority = independent_grader and
+            observation.evidence_purpose = assertion
+}
+
+invariant PipelineDenominatorNeverShrinks {
+    for measurement in PipelineMeasurements:
+        measurement.total = measurement.cycle.approved_items.count
+}
+
+invariant EvidenceProjectionIsNotAuthority {
+    for observation in PipelineObservations:
+        observation.verdict = recorded_observation_verdict(observation)
+}
+
+surface RegenerationExecutionPipeline {
+    provides:
+        ApprovedCycleStarted(cycle)
+        PinnedCutValidated(cycle, cut_digest)
+        FullHarnessCalibrated(cycle, instrument_oracle_digest, harness_source_digest, fixture_identities)
+        FreshBuilderCompleted(cycle, subject_digest, generated_paths, tool_calls)
+        CandidateInstrumented(cycle, subject_digest, evidence_locations)
+        IndependentOraclePassed(cycle, oracle_digest)
+        ApplicationContractVerified(cycle, subject_digest)
+        IndependentItemVerdictsReturned(cycle, observations)
+        IndependentInstrumentConformanceReturned(cycle, observations, passed)
+        ReducePipelineMeasurement(cycle)
+        DerivePipelineResult(cycle)
+
+    @guarantee ExactStageOrder
+        -- ORC alone advances cut, harness calibration, builder, instrument, oracle, verify, graders,
+        -- instrument conformance, record cycle, and result.
+
+    @guarantee ReadOnlyIndependentObservation
+        -- Verification and grading observe the instrumented candidate without modifying it.
+
+    @guarantee ExplicitNonSuccess
+        -- Refusal, skip, timeout, and error identify their stage and preserve every approved denominator item.
+}

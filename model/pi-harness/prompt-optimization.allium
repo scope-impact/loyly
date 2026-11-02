@@ -1,0 +1,122 @@
+-- allium: 3
+-- ORC-owned builder instruction optimization through independent regeneration metrics.
+
+external entity HarnessOperator {}
+
+enum PromptOptimizationStatus { evaluating | optimized | failed }
+enum InstructionCandidateStatus { proposed | measured | rejected | selected }
+
+entity BuilderInstruction {
+    identity: String
+    text_digest: String
+    active: Boolean
+}
+
+entity PromptOptimization {
+    identity: String
+    status: PromptOptimizationStatus
+    training_examples: List<String>
+    validation_examples: List<String>
+    winning_instruction: BuilderInstruction?
+
+    transitions status {
+        evaluating -> optimized
+        evaluating -> failed
+        terminal: optimized, failed
+    }
+}
+
+entity InstructionCandidate {
+    identity: String
+    optimization: PromptOptimization
+    instruction: BuilderInstruction
+    status: InstructionCandidateStatus
+    independent_score: Integer?
+    metric_evidence: String?
+
+    transitions status {
+        proposed -> measured
+        proposed -> rejected
+        measured -> selected
+        measured -> rejected
+        terminal: rejected, selected
+    }
+}
+
+rule StartPromptOptimization {
+    when: OptimizeBuilderPrompt(operator, optimization_identity, training_examples, validation_examples)
+    requires: training_examples.count > 0
+    requires: validation_examples.count > 0
+    ensures: PromptOptimization.created(
+        identity: optimization_identity,
+        status: evaluating,
+        training_examples: training_examples,
+        validation_examples: validation_examples,
+        winning_instruction: null
+    )
+}
+
+rule ProposeInstructionCandidate {
+    when: OrcProposedInstruction(optimization, candidate_identity, instruction)
+    requires: optimization.status = evaluating
+    ensures: InstructionCandidate.created(
+        identity: candidate_identity,
+        optimization: optimization,
+        instruction: instruction,
+        status: proposed,
+        independent_score: null,
+        metric_evidence: null
+    )
+}
+
+rule MeasureInstructionCandidate {
+    when: IndependentRegenerationMetricReturned(candidate, score, evidence)
+    requires: candidate.status = proposed
+    requires: evidence_includes_fresh_builder_oracle_verifier_and_grader(evidence)
+    ensures: candidate.status = measured
+    ensures: candidate.independent_score = score
+    ensures: candidate.metric_evidence = evidence
+}
+
+rule SelectWinningInstruction {
+    when: OrcSelectedPromptWinner(optimization, winner)
+    requires: optimization.status = evaluating
+    requires: winner.optimization = optimization
+    requires: winner.status = measured
+    requires: winner.independent_score = highest_measured_score(optimization)
+    ensures: winner.status = selected
+    ensures: winner.instruction.active = true
+    ensures: optimization.winning_instruction = winner.instruction
+    ensures: optimization.status = optimized
+}
+
+rule FailPromptOptimization {
+    when: NoMeasuredInstructionWinner(optimization, reason)
+    requires: optimization.status = evaluating
+    ensures: optimization.status = failed
+    ensures: PromptOptimizationFailureRecorded(optimization: optimization, reason: reason)
+}
+
+invariant ActiveInstructionWasIndependentlySelected {
+    for instruction in BuilderInstructions:
+        instruction.active implies
+            exists InstructionCandidate{instruction: instruction, status: selected}
+}
+
+invariant BuilderCannotAuthorPromptMetric {
+    for candidate in InstructionCandidates:
+        candidate.status = measured implies independent_metric(candidate.metric_evidence)
+}
+
+surface BuilderPromptOptimization {
+    facing operator: HarnessOperator
+
+    provides:
+        OptimizeBuilderPrompt(operator, optimization_identity, training_examples, validation_examples)
+
+    @guarantee OrcOwnsProductionInstruction
+        -- ORC generates, evaluates, selects, and activates the instruction; adapters only transport it.
+
+    @guarantee IndependentOptimizationMetric
+        -- A builder cannot provide or alter the oracle, verifier, or grader evidence used to score its instruction.
+}

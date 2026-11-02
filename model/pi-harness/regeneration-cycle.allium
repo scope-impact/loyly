@@ -1,0 +1,292 @@
+-- allium: 3
+-- Observable behavior of the Pi-hosted ORC regeneration workflow.
+-- Product behavior belongs to model/<project>; ORC runtime behavior belongs to ORC.
+
+external entity HarnessOperator {}
+
+enum ExecutionBackend { host | gondolin }
+enum SelectionStatus { awaiting_approval | approved }
+enum CycleStatus { submitted | running | passed | failed }
+enum Verdict { pass | fail | inconclusive }
+enum ProducerAuthority { candidate | harness_observer | independent_grader }
+enum EvidencePurpose { assertion | diagnostic | calibration }
+
+value Digest { value: String }
+value SourceCommit { value: String }
+value CandidateScope { paths: List<String> }
+
+entity RegenerationCut {
+    identity: String
+    source_commit: SourceCommit
+    tree_digest: Digest
+    backend: ExecutionBackend
+    fenced: Boolean
+}
+entity SelectionItem {
+    identity: String
+    name: String
+    rule_name: String
+    source: String
+}
+entity SliceSelection {
+    identity: String
+    digest: Digest
+    status: SelectionStatus
+    cut: RegenerationCut
+    project_identity: String
+    container_identity: String
+    component_identity: String
+    slice_identity: String
+    items: List<SelectionItem>
+
+    transitions status {
+        awaiting_approval -> approved
+        terminal: approved
+    }
+}
+entity RegenerationCycle {
+    identity: String
+    selection: SliceSelection
+    scope: CandidateScope
+    backend: ExecutionBackend
+    status: CycleStatus
+    candidate_digest: Digest?
+
+    transitions status {
+        submitted -> running
+        running -> passed
+        running -> failed
+        terminal: passed, failed
+    }
+
+    observations: ItemObservation with cycle = this
+    measurement: CycleMeasurement with cycle = this
+}
+
+entity HarnessCalibration {
+    cycle: RegenerationCycle
+    instrument_oracle_digest: Digest
+    harness_source_digest: Digest
+    carried_fixture_passed: Boolean
+    uncarried_fixture_passed: Boolean
+}
+
+entity ItemObservation {
+    cycle: RegenerationCycle
+    item: SelectionItem
+    producer: String
+    authority: ProducerAuthority
+    evidence_purpose: EvidencePurpose
+    verdict: Verdict
+    reached: Boolean
+    evidence: String
+    subject_digest: Digest
+    oracle_digest: Digest
+}
+
+entity CycleMeasurement {
+    cycle: RegenerationCycle
+    total: Integer
+    passed: Integer
+    failed: Integer
+    complete: Boolean
+    item_results: List<ItemObservation>
+}
+
+rule PrepareCut {
+    when: PrepareRegenerationCut(operator, source_commit, backend)
+    ensures: RegenerationCut.created(
+        identity: prepared_cut_identity(source_commit, backend),
+        source_commit: source_commit,
+        tree_digest: fenced_tree_digest(source_commit),
+        backend: backend,
+        fenced: true
+    )
+}
+
+rule PreviewSelection {
+    when: PreviewSliceSelection(operator, cut, project_identity, slice_identity, requested_items)
+    requires: cut.fenced
+    let resolved_items = resolve_items(cut, project_identity, slice_identity, requested_items)
+    requires: resolved_items.count > 0
+    ensures: SliceSelection.created(
+        identity: deterministic_selection_identity(cut, project_identity, slice_identity, resolved_items),
+        digest: deterministic_selection_digest(cut, project_identity, slice_identity, resolved_items),
+        status: awaiting_approval,
+        cut: cut,
+        project_identity: project_identity,
+        container_identity: project_identity,
+        component_identity: component_for(slice_identity),
+        slice_identity: slice_identity,
+        items: resolved_items
+    )
+}
+
+rule ApproveSelection {
+    when: ApproveSliceSelection(operator, selection, digest)
+    requires: selection.status = awaiting_approval
+    requires: digest = selection.digest
+    ensures: selection.status = approved
+}
+
+rule SubmitCycle {
+    when: SubmitRegenerationCycle(operator, request_identity, selection, scope, backend)
+    requires: selection.status = approved
+    requires: selection.items.count > 0
+    requires: scope_is_safe(scope)
+    requires: not exists RegenerationCycle{identity: request_identity}
+    ensures: RegenerationCycle.created(
+        identity: request_identity,
+        selection: selection,
+        scope: scope,
+        backend: backend,
+        status: submitted,
+        candidate_digest: null
+    )
+}
+
+rule StartCycle {
+    when: StartRegenerationCycle(cycle)
+    requires: cycle.status = submitted
+    ensures: cycle.status = running
+    ensures: ValidatePinnedContract(cycle: cycle)
+}
+
+rule CalibrateHarnessAndBuildCandidate {
+    when: PinnedContractValidated(cycle, product_contract_digest,
+                                  instrument_oracle_digest, harness_source_digest)
+    requires: cycle.status = running
+    requires: cycle.selection.cut.fenced
+    requires: pinned_instrument_oracle_resolved(instrument_oracle_digest)
+    requires: complete_harness_component_coverage(instrument_oracle_digest)
+    requires: harness_source_digest = discovered_complete_harness_source_digest(cycle)
+    requires: normalized_carried_golden_passed(instrument_oracle_digest)
+    requires: normalized_uncarried_golden_passed(instrument_oracle_digest)
+    ensures: HarnessCalibration.created(
+        cycle: cycle,
+        instrument_oracle_digest: instrument_oracle_digest,
+        harness_source_digest: harness_source_digest,
+        carried_fixture_passed: true,
+        uncarried_fixture_passed: true
+    )
+    ensures: BuilderStartedFresh(cycle: cycle, scope: cycle.scope)
+}
+
+rule CandidateProduced {
+    when: BuilderProducedCandidate(cycle, candidate_digest, tool_calls, generated_paths)
+    requires: cycle.status = running
+    requires: tool_calls > 0
+    requires: generated_paths.count > 0
+    ensures: cycle.candidate_digest = candidate_digest
+    ensures: VerifyCandidate(cycle: cycle)
+}
+
+rule CandidateVerified {
+    when: CandidateApplicationVerified(cycle)
+    requires: cycle.status = running
+    requires: cycle.candidate_digest != null
+    ensures: GradeCandidateIndependently(cycle: cycle)
+}
+
+rule CandidateGraded {
+    when: IndependentVerdictsReturned(cycle, observations)
+    requires: cycle.status = running
+    requires: observations.count > 0
+    requires: observations.all(o => o.item in cycle.selection.items)
+    ensures:
+        for observation in observations:
+            ItemObservation.created(
+                cycle: cycle,
+                item: observation.item,
+                producer: observation.producer,
+                authority: independent_grader,
+                evidence_purpose: assertion,
+                verdict: observation.verdict,
+                reached: true,
+                evidence: observation.evidence,
+                subject_digest: observation.subject_digest,
+                oracle_digest: combined_oracle_digest(cycle)
+            )
+    ensures: ReduceCycleMeasurement(cycle: cycle)
+}
+
+rule RecordMeasurement {
+    when: ReduceCycleMeasurement(cycle)
+    let reached = cycle.observations where reached
+    let passed_items = reached where verdict = pass
+    let total = cycle.selection.items.count
+    ensures: CycleMeasurement.created(
+        cycle: cycle,
+        total: total,
+        passed: passed_items.count,
+        failed: total - passed_items.count,
+        complete: reached.count = total,
+        item_results: measurement_results_for(cycle.selection.items, reached)
+    )
+}
+
+rule PassCycle {
+    when: IndependentGatesCompleted(cycle, oracle_passed, verifier_passed, instrument_conformance_passed)
+    requires: cycle.status = running
+    requires: oracle_passed
+    requires: verifier_passed
+    requires: instrument_conformance_passed
+    requires: cycle.measurement.complete
+    requires: cycle.measurement.failed = 0
+    ensures: cycle.status = passed
+}
+
+rule FailCycle {
+    when: IndependentGateFailed(cycle, reason)
+    requires: cycle.status = running
+    ensures: cycle.status = failed
+}
+
+invariant ApprovedSelectionDigestIsStable {
+    for selection in SliceSelections:
+        selection.status = approved implies
+            selection.digest = deterministic_selection_digest(
+                selection.cut,
+                selection.project_identity,
+                selection.slice_identity,
+                selection.items)
+}
+
+invariant MeasurementKeepsApprovedDenominator {
+    for measurement in CycleMeasurements:
+        measurement.total = measurement.cycle.selection.items.count
+}
+
+invariant PassingCycleHasCompleteEvidence {
+    for cycle in RegenerationCycles:
+        cycle.status = passed implies
+            cycle.measurement.complete and cycle.measurement.failed = 0
+}
+
+surface PiRegenerationHarness {
+    facing operator: HarnessOperator
+
+    provides:
+        PrepareRegenerationCut(operator, source_commit, backend)
+        PreviewSliceSelection(operator, cut, project_identity, slice_identity, requested_items)
+        ApproveSliceSelection(operator, selection, digest)
+        SubmitRegenerationCycle(operator, request_identity, selection, scope, backend)
+
+    @guarantee BuilderIsolation
+        -- The builder reads a fenced cut, writes only the declared scope, and does not inherit the root Pi transcript.
+
+    @guarantee CalibratedBuilder
+        -- No builder starts until the pinned OCI instrument oracle covers the complete harness,
+        -- matches its source digest, and passes carried and uncarried normalized Allure goldens.
+
+    @guarantee IndependentMeasurement
+        -- The builder cannot author the oracle, verifier, grader, or final measurement used to pass its cycle.
+
+    @guarantee InconclusiveDoesNotPass
+        -- Missing or incomplete required runtime evidence remains in the denominator
+        -- and cannot be interpreted as a passing item.
+
+    @guarantee HonestDenominator
+        -- Missing or unreached items fail and remain in the approved denominator.
+}
+-- End of observable regeneration-cycle contract.

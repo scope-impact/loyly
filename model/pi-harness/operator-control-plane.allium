@@ -1,0 +1,178 @@
+-- allium: 3
+-- Observable Pi control-plane behavior. ORC owns task execution events.
+
+external entity HarnessOperator {}
+
+enum HarnessTaskKind { cut_preparation | regeneration_cycle }
+enum HarnessTaskStatus { submitted | running | completed | failed }
+enum ControlSelectionStatus { awaiting_approval | approved }
+
+value RequestDigest { value: String }
+value SelectionDigest { value: String }
+
+entity ControlSelection {
+    identity: String
+    digest: SelectionDigest
+    status: ControlSelectionStatus
+    cut_identity: String
+    item_identities: List<String>
+
+    transitions status {
+        awaiting_approval -> approved
+        terminal: approved
+    }
+}
+
+entity HarnessTask {
+    identity: String
+    kind: HarnessTaskKind
+    request_identity: String
+    request_digest: RequestDigest
+    status: HarnessTaskStatus
+    trace_identity: String?
+    outcome: String?
+
+    transitions status {
+        submitted -> running
+        running -> completed
+        running -> failed
+        terminal: completed, failed
+    }
+}
+
+entity DurableMeasurementReceipt {
+    cycle_identity: String
+    selection_identity: String
+    total: Integer
+    passed: Integer
+    failed: Integer
+    complete: Boolean
+}
+
+rule PrepareCutTask {
+    when: PrepareRegenerationCut(operator, request_identity, request_digest, source_commit, backend)
+    requires: full_source_commit(source_commit)
+    requires: supported_backend(backend)
+    requires: not exists HarnessTask{request_identity: request_identity}
+    ensures: HarnessTask.created(
+        identity: next_task_identity(),
+        kind: cut_preparation,
+        request_identity: request_identity,
+        request_digest: request_digest,
+        status: submitted,
+        trace_identity: null,
+        outcome: null
+    )
+}
+
+rule PreviewControlSelection {
+    when: PreviewSliceSelection(operator, cut_identity, slice_identity, requested_items)
+    let resolved_items = resolve_items_once(cut_identity, slice_identity, requested_items)
+    requires: resolved_items.count > 0
+    ensures: ControlSelection.created(
+        identity: deterministic_selection_identity(cut_identity, slice_identity, resolved_items),
+        digest: deterministic_selection_digest(cut_identity, slice_identity, resolved_items),
+        status: awaiting_approval,
+        cut_identity: cut_identity,
+        item_identities: resolved_items
+    )
+}
+
+rule ApproveControlSelection {
+    when: ApproveSliceSelection(operator, selection, supplied_digest)
+    requires: selection.status = awaiting_approval
+    requires: supplied_digest = selection.digest
+    ensures: selection.status = approved
+}
+
+rule SubmitCycleTask {
+    when: SubmitRegenerationCycle(operator, request_identity, request_digest, selection, scope, backend)
+    requires: selection.status = approved
+    requires: selection.item_identities.count > 0
+    requires: safe_candidate_scope(scope)
+    requires: supported_backend(backend)
+    requires: not exists HarnessTask{request_identity: request_identity}
+    ensures: HarnessTask.created(
+        identity: next_task_identity(),
+        kind: regeneration_cycle,
+        request_identity: request_identity,
+        request_digest: request_digest,
+        status: submitted,
+        trace_identity: null,
+        outcome: null
+    )
+}
+
+rule RepeatIdenticalSubmission {
+    when: RepeatRegenerationSubmission(operator, task, supplied_digest)
+    requires: task.kind = regeneration_cycle
+    requires: supplied_digest = task.request_digest
+    ensures: ExistingTaskReceiptReturned(task: task)
+}
+
+rule RefuseConflictingSubmission {
+    when: RepeatRegenerationSubmission(operator, task, different_digest)
+    requires: different_digest != task.request_digest
+    ensures: SubmissionRefused(reason: "request identity conflict")
+}
+
+rule StartHarnessTask {
+    when: OrcTaskStarted(task, trace_identity)
+    requires: task.status = submitted
+    ensures: task.status = running
+    ensures: task.trace_identity = trace_identity
+}
+
+rule CompleteHarnessTask {
+    when: OrcTaskCompleted(task, outcome)
+    requires: task.status = running
+    ensures: task.status = completed
+    ensures: task.outcome = outcome
+}
+
+rule FailHarnessTask {
+    when: OrcTaskFailed(task, stage, reason)
+    requires: task.status = running
+    ensures: task.status = failed
+    ensures: task.outcome = terminal_failure(stage, reason)
+}
+
+rule WaitForHarnessTask {
+    when: WaitRegenerationTask(operator, task)
+    requires: task.status = completed or task.status = failed
+    ensures: TerminalTaskOutcomeReturned(task: task)
+}
+
+rule ReadDurableMeasurement {
+    when: ReadCycleMeasurement(operator, cycle_identity)
+    requires: exists DurableMeasurementReceipt{cycle_identity: cycle_identity}
+    ensures: DurableMeasurementReturned(cycle_identity: cycle_identity)
+}
+
+invariant OneRequestNamesOneTask {
+    for task in HarnessTasks:
+        count(HarnessTasks where request_identity = task.request_identity) = 1
+}
+
+invariant TerminalOutcomeIsStable {
+    for task in HarnessTasks:
+        task.status = completed or task.status = failed implies task.outcome != null
+}
+
+surface PiRegenerationControlPlane {
+    facing operator: HarnessOperator
+
+    provides:
+        PrepareRegenerationCut(operator, request_identity, request_digest, source_commit, backend)
+        PreviewSliceSelection(operator, cut_identity, slice_identity, requested_items)
+        ApproveSliceSelection(operator, selection, supplied_digest)
+        SubmitRegenerationCycle(operator, request_identity, request_digest, selection, scope, backend)
+        WaitRegenerationTask(operator, task)
+        ReadCycleMeasurement(operator, cycle_identity)
+
+    @guarantee DurableTaskObservation
+        -- A replacement worker reconstructs a known task outcome from ORC state and never reruns it to answer a wait.
+
+    @guarantee RefusalBeforeExecution
+        -- Invalid identities, selections, scopes, and backends are refused before builder work begins.
+}

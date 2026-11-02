@@ -1,0 +1,175 @@
+-- allium: 3
+-- Generic runtime-signal and independent-invariant evidence contract.
+-- Project models define what must be true; this model defines who may observe,
+-- evaluate, persist, and project claims about one regenerated candidate.
+
+enum EvidenceVerdict { pass | fail | inconclusive }
+
+enum ProducerAuthority {
+    candidate |
+    harness_observer |
+    independent_grader
+}
+
+enum EvidencePurpose { assertion | diagnostic | calibration }
+
+enum RuntimeSignalKind {
+    browser_exchange |
+    trace_span |
+    domain_event |
+    projection_snapshot |
+    invariant_result |
+    runtime_diagnostic
+}
+
+value RuntimeDigest { value: String }
+
+entity RuntimeSignal {
+    identity: String
+    cycle_identity: String
+    item_identity: String?
+    operation_identity: String?
+    trace_identity: String?
+    event_identity: String?
+    kind: RuntimeSignalKind
+    producer: String
+    authority: ProducerAuthority
+    purpose: EvidencePurpose
+    subject_digest: RuntimeDigest
+    content_digest: RuntimeDigest
+    complete: Boolean
+    sampled: Boolean
+    dropped_count: Integer
+}
+
+entity IndependentInvariantEvaluation {
+    identity: String
+    cycle_identity: String
+    item_identity: String
+    invariant_identity: String
+    producer: String
+    authority: ProducerAuthority
+    input_signals: List<RuntimeSignal>
+    subject_digest: RuntimeDigest
+    verdict: EvidenceVerdict
+    evidence_digest: RuntimeDigest
+}
+
+rule RecordRuntimeSignal {
+    when: RuntimeSignalCaptured(signal)
+    requires: signal.identity != ""
+    requires: signal.cycle_identity != ""
+    requires: signal.producer != ""
+    requires: signal.dropped_count >= 0
+    ensures: RuntimeSignal.created(
+        identity: signal.identity,
+        cycle_identity: signal.cycle_identity,
+        item_identity: signal.item_identity,
+        operation_identity: signal.operation_identity,
+        trace_identity: signal.trace_identity,
+        event_identity: signal.event_identity,
+        kind: signal.kind,
+        producer: signal.producer,
+        authority: signal.authority,
+        purpose: signal.purpose,
+        subject_digest: signal.subject_digest,
+        content_digest: signal.content_digest,
+        complete: signal.complete,
+        sampled: signal.sampled,
+        dropped_count: signal.dropped_count
+    )
+}
+
+rule EvaluateCompleteInvariant {
+    when: IndependentInvariantChecked(cycle_identity, item_identity, invariant_identity,
+                                      producer, subject_digest, signals, verdict, evidence_digest)
+    requires: signals.count > 0
+    requires: signals.all(signal => signal.cycle_identity = cycle_identity)
+    requires: signals.all(signal => signal.subject_digest = subject_digest)
+    requires: signals.all(signal => signal.complete)
+    requires: signals.all(signal => signal.dropped_count = 0)
+    requires: verdict = pass or verdict = fail
+    ensures: IndependentInvariantEvaluation.created(
+        identity: invariant_evaluation_identity(cycle_identity, item_identity, invariant_identity),
+        cycle_identity: cycle_identity,
+        item_identity: item_identity,
+        invariant_identity: invariant_identity,
+        producer: producer,
+        authority: independent_grader,
+        input_signals: signals,
+        subject_digest: subject_digest,
+        verdict: verdict,
+        evidence_digest: evidence_digest
+    )
+}
+
+rule MarkIncompleteInvariantInconclusive {
+    when: IndependentInvariantInputsIncomplete(cycle_identity, item_identity, invariant_identity,
+                                               producer, subject_digest, signals, evidence_digest)
+    requires: signals.count = 0 or
+        exists signals where not complete or dropped_count > 0
+    ensures: IndependentInvariantEvaluation.created(
+        identity: invariant_evaluation_identity(cycle_identity, item_identity, invariant_identity),
+        cycle_identity: cycle_identity,
+        item_identity: item_identity,
+        invariant_identity: invariant_identity,
+        producer: producer,
+        authority: independent_grader,
+        input_signals: signals,
+        subject_digest: subject_digest,
+        verdict: inconclusive,
+        evidence_digest: evidence_digest
+    )
+}
+
+rule ProjectRuntimeEvidence {
+    when: RuntimeEvidenceReportRequested(evaluation)
+    ensures: EvidenceProjectionCreated(
+        evaluation_identity: evaluation.identity,
+        verdict: evaluation.verdict,
+        evidence_digest: evaluation.evidence_digest
+    )
+}
+
+invariant CandidateCannotAuthorIndependentVerdict {
+    for evaluation in IndependentInvariantEvaluations:
+        evaluation.authority = independent_grader
+}
+
+invariant PassingEvaluationRequiresCompleteCollection {
+    for evaluation in IndependentInvariantEvaluations:
+        evaluation.verdict = pass implies
+            evaluation.input_signals.count > 0 and
+            evaluation.input_signals.all(signal => signal.complete and signal.dropped_count = 0)
+}
+
+invariant DiagnosticSignalCannotDetermineVerdict {
+    for signal in RuntimeSignals:
+        signal.purpose = diagnostic implies
+            not exists IndependentInvariantEvaluations where evidence_digest = signal.content_digest
+}
+
+invariant EvidenceProjectionIsNotAuthority {
+    for evaluation in IndependentInvariantEvaluations:
+        projected_verdict(evaluation.identity) = evaluation.verdict
+}
+
+surface RuntimeEvidenceMeasurement {
+    provides:
+        RuntimeSignalCaptured(signal)
+        IndependentInvariantChecked(cycle_identity, item_identity, invariant_identity,
+                                    producer, subject_digest, signals, verdict, evidence_digest)
+        IndependentInvariantInputsIncomplete(cycle_identity, item_identity, invariant_identity,
+                                             producer, subject_digest, signals, evidence_digest)
+        RuntimeEvidenceReportRequested(evaluation)
+
+    @guarantee IndependentVerdictAuthority
+        -- Candidate telemetry may supply correlated facts but cannot author the
+        -- independent invariant verdict used by the cycle measurement.
+
+    @guarantee IncompleteMeansInconclusive
+        -- Missing, sampled, or dropped required signals cannot silently pass or fail.
+
+    @guarantee DurableBeforeProjection
+        -- Reports reproduce a persisted evidence digest and never become verdict authority.
+}
