@@ -68,7 +68,9 @@ let eventLog = [];
 let stageElapsed = 0;
 let lastFrame = performance.now();
 let activeVariant = "A";
-let selectedStage = null;
+let selectedNode = null;
+let focusedNode = null;
+let cameraFlight = null;
 let state = project(eventLog);
 
 function nowStamp() {
@@ -200,6 +202,7 @@ function renderState() {
     activeEvent: eventLog.at(-1) ?? null,
   }, null, 2);
   updateSceneFromState();
+  refreshStationInspector();
 }
 
 refs.start.addEventListener("click", startCycle);
@@ -399,6 +402,10 @@ function addC4Node(node) {
 function buildDiagram(diagramId) {
   activeDiagram = diagrams[diagramId] ?? diagrams.containers;
   refs.stationCard.hidden = true;
+  refs.stationCard.classList.remove("focused");
+  document.body.classList.remove("station-focus");
+  selectedNode = null; focusedNode = null; cameraFlight = null;
+  controls.enabled = true;
   while (worldGroup.children.length) {
     const child = worldGroup.children.pop(); child.traverse((object) => { object.geometry?.dispose(); if (Array.isArray(object.material)) object.material.forEach((material) => material.dispose()); else object.material?.dispose(); });
   }
@@ -421,38 +428,118 @@ diagramSelect.addEventListener("change", () => { buildDiagram(diagramSelect.valu
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
-canvas.addEventListener("click", (event) => {
+function pickWorldObject(event) {
   const rect = canvas.getBoundingClientRect(); pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1; pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
   const hit = raycaster.intersectObjects([...nodeMeshes, ...edgeMeshes, productVehicle], true)[0];
-  if (!hit) return;
+  if (!hit) return null;
   let target = hit.object;
   while (target.parent && !target.userData.node && !target.userData.edge && !target.userData.product) target = target.parent;
+  return target;
+}
+
+canvas.addEventListener("click", (event) => {
+  const target = pickWorldObject(event);
+  if (!target) return;
   if (target.userData.node) showArchitectureElement(target.userData.node);
   if (target.userData.edge) showRelationship(target.userData.edge);
   if (target.userData.product) showProductVehicle();
 });
 
+canvas.addEventListener("dblclick", (event) => {
+  const target = pickWorldObject(event);
+  if (target?.userData.node) { showArchitectureElement(target.userData.node); focusOnStation(target.userData.node); }
+});
+
 function showArchitectureElement(node) {
-  selectedStage = node.id;
+  selectedNode = node;
   $("#station-code").textContent = node.id; $("#station-name").textContent = node.name;
   $("#station-description").textContent = node.description || "This element is named in the repository C4 source without an additional description.";
   $("#station-owner").textContent = node.type; $("#station-authority").textContent = activeDiagram.label; refs.stationCard.hidden = false;
+  $("#station-live").hidden = false; $("#focus-station").hidden = false;
+  $("#overview-station").hidden = focusedNode?.id !== node.id;
+  refreshStationInspector();
 }
 
 function showRelationship(edge) {
+  selectedNode = null;
   $("#station-code").textContent = `${edge.from} → ${edge.to}`; $("#station-name").textContent = edge.label;
   $("#station-description").textContent = "Relationship loaded from the selected Mermaid C4 view in .pi/architecture.md.";
   $("#station-owner").textContent = "C4 relationship"; $("#station-authority").textContent = activeDiagram.label; refs.stationCard.hidden = false;
+  $("#station-live").hidden = true; $("#focus-station").hidden = true; $("#overview-station").hidden = !focusedNode;
 }
 
 function showProductVehicle() {
+  selectedNode = null;
   const stack = TARGET_STACKS[state.targetStack] ?? TARGET_STACKS.rust;
   $("#station-code").textContent = "Löyly product"; $("#station-name").textContent = stack.model;
   $("#station-description").textContent = `The generated Löyly application, manufactured as the ${stack.label} target-stack model from the same pinned product specification.`;
   $("#station-owner").textContent = "Candidate application"; $("#station-authority").textContent = "Vehicle moving through the harness"; refs.stationCard.hidden = false;
+  $("#station-live").hidden = true; $("#focus-station").hidden = true; $("#overview-station").hidden = !focusedNode;
 }
-$("#close-station").addEventListener("click", () => { refs.stationCard.hidden = true; selectedStage = null; });
+
+function refreshStationInspector() {
+  if (!selectedNode || refs.stationCard.hidden) return;
+  const stack = TARGET_STACKS[state.targetStack] ?? TARGET_STACKS.rust;
+  const stageIndexes = (STAGE_TARGETS[activeDiagram.id] ?? []).reduce((matches, ids, index) => ids.includes(selectedNode.id) ? [...matches, index] : matches, []);
+  const isActive = Boolean(state.cycleId) && activeTargetIds().includes(selectedNode.id) && state.status !== "passed";
+  const hasFailed = isActive && state.status === "decision";
+  const nextIndex = stageIndexes.find((index) => index > state.activeStage);
+  const lastIndex = [...stageIndexes].reverse().find((index) => index < state.activeStage);
+  const liveLight = $("#station-live-light"); liveLight.className = hasFailed ? "failed" : isActive ? "active" : "";
+  if (hasFailed) {
+    $("#station-live-status").textContent = `Fault found on ${stack.model}`;
+    $("#station-live-detail").textContent = `${STAGES[state.activeStage].name} stopped here. The line is waiting for an operator repair decision.`;
+  } else if (isActive) {
+    $("#station-live-status").textContent = `Processing ${stack.model}`;
+    $("#station-live-detail").textContent = `${STAGES[state.activeStage].name} · attempt ${state.attempt}. Grain event ${eventLog.at(-1)?.type ?? "pending"} is the latest observed fact.`;
+  } else if (!state.cycleId) {
+    $("#station-live-status").textContent = "Standing by";
+    $("#station-live-detail").textContent = stageIndexes.length ? `This station participates in ${stageIndexes.map((index) => STAGES[index].name).join(", ")}. Start a product order to see live work.` : "This supporting station is available to the harness but is not assigned a modeled pipeline stage.";
+  } else if (nextIndex !== undefined) {
+    $("#station-live-status").textContent = `Queued for ${STAGES[nextIndex].name}`;
+    $("#station-live-detail").textContent = `${stack.model} is currently at ${STAGES[state.activeStage]?.name ?? "the loading bay"}.`;
+  } else if (lastIndex !== undefined || state.status === "passed") {
+    $("#station-live-status").textContent = "Station work complete";
+    $("#station-live-detail").textContent = `${stack.model} has cleared this station for the current cycle.`;
+  } else {
+    $("#station-live-status").textContent = "Supporting the line";
+    $("#station-live-detail").textContent = "This C4 element has no direct vehicle operation in the current stage mapping.";
+  }
+  const connections = activeDiagram.edges.filter((edge) => edge.from === selectedNode.id || edge.to === selectedNode.id);
+  $("#station-connections").innerHTML = connections.slice(0, 5).map((edge) => {
+    const inbound = edge.to === selectedNode.id; const otherId = inbound ? edge.from : edge.to;
+    const other = activeDiagram.nodes.find((node) => node.id === otherId);
+    return `<li><span>${inbound ? "Incoming" : "Outgoing"}</span> · ${edge.label} · ${other?.name ?? otherId}</li>`;
+  }).join("") || "<li>No relationships in this view.</li>";
+}
+
+function focusOnStation(node) {
+  const station = nodeMeshes.find((mesh) => mesh.userData.node.id === node.id);
+  if (!station) return;
+  focusedNode = node; selectedNode = node;
+  const target = station.position.clone().add(new THREE.Vector3(0, 1.6, 0));
+  const approach = new THREE.Vector3(5.3, 4.6, 6.2);
+  cameraFlight = { position: target.clone().add(approach), target };
+  controls.enabled = false;
+  refs.stationCard.classList.add("focused");
+  document.body.classList.add("station-focus");
+  $("#focus-station").hidden = true;
+  $("#overview-station").hidden = false;
+}
+
+function returnToOverview() {
+  focusedNode = null; cameraFlight = null; controls.enabled = true;
+  refs.stationCard.classList.remove("focused");
+  document.body.classList.remove("station-focus");
+  $("#focus-station").hidden = !selectedNode;
+  $("#overview-station").hidden = true;
+  setCamera(VARIANTS[activeVariant].camera);
+}
+
+$("#focus-station").addEventListener("click", () => { if (selectedNode) focusOnStation(selectedNode); });
+$("#overview-station").addEventListener("click", returnToOverview);
+$("#close-station").addEventListener("click", () => { if (focusedNode) returnToOverview(); refs.stationCard.hidden = true; selectedNode = null; });
 
 function activeTargetIds() {
   if (!state.cycleId) return [];
@@ -483,7 +570,7 @@ function setCamera(mode) {
   else { camera.position.set(25, 23, 28); controls.target.set(0, 1, 0); }
   controls.update();
 }
-$("#camera-reset").addEventListener("click", () => setCamera(VARIANTS[activeVariant].camera));
+$("#camera-reset").addEventListener("click", () => { if (focusedNode) returnToOverview(); else setCamera(VARIANTS[activeVariant].camera); });
 
 function resize() {
   const rect = canvas.getBoundingClientRect(); if (!rect.width || !rect.height) return;
@@ -500,6 +587,13 @@ function frame(now) {
     productVehicle.position.lerp(new THREE.Vector3(destination.x, .08 + Math.sin(now * .003) * .025, destination.z), .045 * Math.max(1, state.speed));
   }
   agents.forEach((agent, index) => { if (agent.userData.target) agent.position.lerp(agent.userData.target, .018 + index * .003); agent.rotation.y = Math.sin(now * .001 + index) * .16; });
+  if (cameraFlight) {
+    camera.position.lerp(cameraFlight.position, .09);
+    controls.target.lerp(cameraFlight.target, .09);
+    if (camera.position.distanceTo(cameraFlight.position) < .06 && controls.target.distanceTo(cameraFlight.target) < .04) {
+      camera.position.copy(cameraFlight.position); controls.target.copy(cameraFlight.target); cameraFlight = null; controls.enabled = true;
+    }
+  }
   controls.update(); renderer.render(scene, camera); requestAnimationFrame(frame);
 }
 

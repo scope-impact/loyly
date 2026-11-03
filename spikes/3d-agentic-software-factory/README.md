@@ -51,6 +51,11 @@ Worker Component views. Selecting a building or relationship shows the exact par
 description, and diagram. The full-state tab includes the active source line, parsed elements,
 relations, and stage-highlighted element IDs.
 
+Select a station and choose **Zoom into station**, or double-click it, to enter a close inspection
+view. Its live feed shows whether the station is processing the current Löyly model, waiting on an
+operator repair decision, queued for a later stage, or complete. The feed also lists the station's
+actual incoming and outgoing C4 relationships. **Return to overview** flies back to the full line.
+
 ## What this spike is testing
 
 1. Whether Pi stages become understandable when represented as a physical material flow.

@@ -33,7 +33,7 @@
             <p id="view-kicker">Harness assembly line</p>
             <h1 id="view-title">Build Löyly in any supported stack</h1>
           </div>
-          <div class="world-hint">Drag to orbit · Scroll to zoom · Select a C4 element to inspect</div>
+          <div class="world-hint">Drag to orbit · Scroll to zoom · Select to inspect · Double-click to enter a station</div>
           <button class="camera-reset" id="camera-reset" type="button">Reset camera</button>
         </section>
 
@@ -91,6 +91,16 @@
         <h2 id="station-name">Architecture element</h2>
         <p id="station-description"></p>
         <dl><div><dt>Element type</dt><dd id="station-owner"></dd></div><div><dt>World role</dt><dd id="station-authority"></dd></div></dl>
+        <section class="station-live" id="station-live">
+          <div><span id="station-live-light"></span><small>Live station feed</small></div>
+          <strong id="station-live-status">Standing by</strong>
+          <p id="station-live-detail">No vehicle is currently assigned to this station.</p>
+          <ul id="station-connections"></ul>
+        </section>
+        <div class="station-actions">
+          <button id="focus-station" type="button">Zoom into station</button>
+          <button id="overview-station" type="button" hidden>Return to overview</button>
+        </div>
       </div>
 
       <nav class="prototype-switcher" aria-label="Prototype view switcher">

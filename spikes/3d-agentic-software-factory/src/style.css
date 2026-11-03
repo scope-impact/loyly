@@ -120,6 +120,15 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 .station-card > button { position: absolute; right: 12px; top: 7px; background: none; border: 0; font-size: 25px; cursor: pointer; color: #152030; }
 .station-card > span { color: #8e3e24; font: 600 13px "Barlow Condensed"; }.station-card h2 { font: 600 31px "Barlow Condensed"; margin: 4px 0 10px; }.station-card p { font-size: 13px; line-height: 1.5; color: #49525c; }
 .station-card dl { margin: 18px 0 0; display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #b9b6ad; }.station-card dl div { padding-top: 10px; }.station-card dt { font-size: 10px; color: #6f7478; }.station-card dd { margin: 2px 0 0; font: 600 16px "Barlow Condensed"; }
+.station-card.focused { left: auto; right: 18px; top: 88px; transform: none; width: min(350px, calc(100vw - 36px)); max-height: calc(100vh - 106px); overflow-y: auto; }
+.station-card.focused .station-actions { grid-template-columns: 1fr; }
+.station-focus .world-title { opacity: 0; }
+.station-focus .architecture-toolbar { opacity: .42; }
+.station-live { margin-top: 17px; padding: 12px; color: var(--paper); background: #142234; }
+.station-live > div { display: flex; align-items: center; gap: 7px; }.station-live > div span { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }.station-live > div span.active { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }.station-live > div span.failed { background: var(--fault); box-shadow: 0 0 10px var(--fault); }
+.station-live > div small { color: #9baab6; font-size: 9px; }.station-live > strong { display: block; margin-top: 6px; font: 600 19px "Barlow Condensed"; }.station-live > p { margin: 3px 0 8px; color: #b9c4cb; font-size: 10px; }
+.station-live ul { list-style: none; margin: 0; padding: 7px 0 0; border-top: 1px solid rgba(255,255,255,.13); }.station-live li { margin: 4px 0; color: #d7dcdf; font-size: 9px; }.station-live li span { color: var(--amber); }
+.station-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 12px; }.station-actions button { min-height: 38px; padding: 7px; border: 0; cursor: pointer; background: #c76b3c; color: white; }.station-actions button:last-child { background: #263850; }
 
 .prototype-switcher { position: fixed; z-index: 20; bottom: 13px; left: 50%; transform: translateX(-50%); display: grid; grid-template-columns: 36px minmax(150px, auto) 36px; align-items: center; background: #f1f0e8; color: #101c2c; border: 1px solid #fff; box-shadow: 0 6px 28px rgba(0,0,0,.45); }
 .prototype-switcher button { height: 39px; border: 0; background: #d9d8d0; color: #101c2c; cursor: pointer; font-size: 18px; }
