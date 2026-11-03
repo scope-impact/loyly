@@ -13,7 +13,7 @@ Feature: Initial generation from an implementation-free source cut
       When the operator explicitly submits Generate for the approved slice
       Then ORC persists a generation route for that request
       And ORC starts the pi-harness-initial-generation workflow
-      And its ordered stages are cut, builder, and record-candidate
+      And its ordered stages are cut, builder, instrument, verify, repair verification, and record-candidate
       And the builder receives no parent candidate, grader, or host credentials
       And writes remain confined to the approved workspace scope
 
@@ -22,11 +22,21 @@ Feature: Initial generation from an implementation-free source cut
     @item-01-044 @skip
     Scenario: A successful initial generation records candidate provenance without a verdict
       Given initial generation is running for an approved selection
-      When the builder produces workspace output
+      When the builder produces workspace output and independent verification passes
       Then the candidate is bound to the source cut, selection, builder session, and subject digest
       And its operation is generation
       And its disposition is ungraded
-      And no verifier, oracle, grader, or instrument-conformance stage runs
+      And its verified status and verification attempt count are recorded
+      And no product oracle, grader, or instrument-conformance stage runs
+
+    @item-01-048 @skip
+    Scenario: Initial generation keeps repairing until verification passes
+      Given initial generation has produced a candidate that fails independent verification
+      When verification returns its evidence to ORC
+      Then ORC starts a fresh Gondolin builder session from that candidate
+      And the repair builder receives only verifier evidence
+      And ORC verifies the repaired candidate again
+      And no candidate is recorded while verification still fails
 
     @item-01-045 @skip
     Scenario: Initial generation fails when the builder produces no candidate

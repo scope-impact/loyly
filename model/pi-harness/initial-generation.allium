@@ -123,13 +123,15 @@ rule StartInitialGeneration {
 }
 
 rule RecordInitialGenerationCandidate {
-    when: FreshFirstBuilderCompleted(generation, session, subject_digest,
-                                     output_root, generated_paths)
+    when: InitialGenerationVerificationPassed(generation, session, subject_digest,
+                                              output_root, generated_paths, attempts)
     requires: generation.status = running
     requires: session != ""
     requires: subject_digest != ""
     requires: output_root != ""
     requires: generated_paths.count > 0
+    requires: attempts.count > 0
+    requires: attempts.last.verification_passed = true
     requires: all_paths_within_scope(generated_paths, generation.workspace_scope)
     ensures: GeneratedCandidate.created(
         generation: generation,
@@ -150,6 +152,20 @@ rule RecordInitialGenerationCandidate {
         disposition: ungraded
     )
     ensures: generation.status = candidate_produced
+}
+
+rule RepairFailedInitialGenerationVerification {
+    when: InitialGenerationVerificationFailed(generation, candidate, evidence, attempts)
+    requires: generation.status = running
+    requires: evidence != null
+    requires: attempts.count < 3
+    ensures: FreshBuilderSessionRequested(
+        generation: generation,
+        initial_workspace: candidate.output_root,
+        verifier_evidence: evidence,
+        attempt: attempts.count + 1
+    )
+    ensures: no_product_oracle_or_grader_evidence_is_shared(generation)
 }
 
 rule RecordMeasuredRegenerationCandidate {
@@ -226,7 +242,9 @@ invariant FailedInitialGenerationHasNoCandidate {
 surface InitialGenerationWorkflow {
     provides:
         ApprovedInitialGenerationRequested(generation)
-        FreshFirstBuilderCompleted(generation, session, subject_digest, output_root, generated_paths)
+        InitialGenerationVerificationPassed(generation, session, subject_digest, output_root,
+                                            generated_paths, attempts)
+        InitialGenerationVerificationFailed(generation, candidate, evidence, attempts)
         FirstBuilderFailed(generation, reason)
         MeasuredRegenerationResultRequested(generation)
         ApprovedSliceSubmitted(request)

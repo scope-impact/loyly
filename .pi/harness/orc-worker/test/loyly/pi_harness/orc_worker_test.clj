@@ -316,6 +316,15 @@
                                  (fn [_] {:output-root "/tmp/generated-candidate"
                                           :builder-session-id "generation-session"})
                                  subject/digest (constantly "generation-subject")
+                                 worker/run-grader-adapter
+                                 (fn [_] {:compose-config {:exitCode 0 :stdout "{\"services\":{\"app\":{\"healthcheck\":{}},\"test\":{}}}" :stderr ""}
+                                          :compose-services {:exitCode 0 :stdout "app\ntest\n" :stderr ""}
+                                          :compose-test {:exitCode 0 :stdout "tests passed" :stderr ""}
+                                          :compose-up {:exitCode 0 :stdout "healthy" :stderr ""}
+                                          :compose-logs {:exitCode 0 :stdout "ready" :stderr ""}
+                                          :compose-down {:exitCode 0 :stdout "removed" :stderr ""}})
+                                 stack-conformance/check
+                                 (fn [& _] {:passed true :exit-code 0 :stdout "stack ok" :stderr ""})
                                  model/record-generated-candidate! (fn [_ candidate] candidate)]
                      (orc/execute context sheet-id
                                   {:request-id "generation-1"
@@ -326,17 +335,42 @@
             outputs (:outputs result)
             candidate (:generation-result outputs)]
         (is (= :success (:status result)) (pr-str result))
-        (is (= ["cut" "builder" "generation"]
+        (is (= ["cut" "builder" "instrument" "verify"
+                "repair-verification" "generation"]
                (mapv #(get-in outputs [% :stage])
-                     [:cut-result :builder-result :generation-result])))
+                     [:cut-result :builder-result :instrument-result :verify-result
+                      :repair-verification-result :generation-result])))
         (is (= "generation" (:operation candidate)))
         (is (= "ungraded" (:candidate-disposition candidate)))
+        (is (true? (:verified? candidate)))
+        (is (= 1 (:verification-rounds candidate)))
         (is (= "generation-subject" (:subject-digest candidate)))
         (is (not (contains? outputs :oracle-result)))
         (is (not (contains? outputs :graders-result)))
         (is (not (contains? outputs :instrument-conformance-result))))
       (finally
         (system/stop! runtime)))))
+
+(deftest initial-generation-does-not-record-an-unverified-candidate
+  (let [recorded? (atom false)]
+    (with-redefs [model/record-generated-candidate!
+                  (fn [& _] (reset! recorded? true))]
+      (is (thrown-with-msg?
+           clojure.lang.ExceptionInfo
+           #"generation verification did not pass"
+           (worker/generation-stage
+            {:inputs {:request-id "generation-unverified"
+                      :selection approved-selection
+                      :scope ["impl"]
+                      :execution-backend "gondolin"
+                      :builder-result {:output-root "/tmp/unverified"
+                                       :subject-digest "unverified-subject"}
+                      :repair-verification-result
+                      {:passed false :rounds 3
+                       :builder {:output-root "/tmp/unverified"
+                                 :subject-digest "unverified-subject"}
+                       :verify {:passed false}}}})))
+      (is (false? @recorded?)))))
 
 (deftest regeneration-workflow-retains-every-stage-result
   (let [runtime (system/start!)]

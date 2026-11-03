@@ -30,7 +30,7 @@ unclassified or doubly classified scenarios.
   convention without a per-project profile JSON; shared harness config remains under
   `.pi/harness/config/`.
 - `initial-generation.feature` and `initial-generation.allium` define explicitly requested,
-  builder-only Generation from an implementation-free source cut. Existing candidate history
+  independently verified Generation from an implementation-free source cut. Existing candidate history
   does not change its mode; it has no parent candidate and records only an ungraded candidate.
 - `regeneration-cycle.feature` defines the separate, oracle-backed measured regeneration workflow.
 - `operator-control-plane.feature`, `prompt-optimization.feature`,
@@ -134,8 +134,8 @@ The contract exposes gaps found while deriving it from the current implementatio
 6. Independent black-box behavior remains project-specific. Löyly has calibrated programs
    for all eleven booking-core items inside its accepted product OCI oracle; the project
    tree no longer supplies runtime grader files. Fresh-session grader authoring is not yet
-   an ORC workflow stage. Initial generation is implemented as a builder-only ORC workflow;
-   its candidate remains ungraded until a separate measured regeneration runs.
+   an ORC workflow stage. Initial generation runs the bounded verifier-repair inner loop;
+   its verified candidate remains ungraded until a separate measured regeneration runs.
 7. GEPA candidate scoring is gated by full harness calibration and uses the product oracle,
    Compose verifier, and independent per-item black-box measurement. The selected instruction
    and its metric evidence are not yet durable harness records.

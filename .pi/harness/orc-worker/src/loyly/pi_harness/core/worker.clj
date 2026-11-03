@@ -946,11 +946,17 @@
 
 (defn generation-stage [{:keys [inputs] :as context}]
   (record-stage-progress! context "record-candidate")
-  (let [builder (:builder-result inputs)
+  (let [builder (effective-builder-result inputs)
+        verification (effective-verify-result inputs)
         selection (:selection inputs)
+        _ (when-not (:passed verification)
+            (throw (ex-info "generation verification did not pass; candidate was not recorded"
+                            {:verification verification})))
         candidate (merge (stage-result "generation" context)
                          {:operation "generation"
                           :candidate-disposition "ungraded"
+                          :verified? true
+                          :verification-rounds (get-in inputs [:repair-verification-result :rounds])
                           :output-root (:output-root builder)
                           :builder (:builder builder)
                           :builder-session-id (:builder-session-id builder)

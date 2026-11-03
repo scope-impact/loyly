@@ -104,11 +104,15 @@ regeneration: it mounts
 the cut read-only, confines writes to the declared workspace, denies ambient host access,
 and runs verification and grading independently of the builder.
 
-ORC keeps the workflows separate. Initial generation is builder-only and ungraded:
+ORC keeps the workflows separate. Initial generation is independently verified but ungraded:
 
 ```text
-cut → builder → record-candidate (ungraded)
+cut → builder → instrument → verify → repair-verification → record-candidate (ungraded)
 ```
+
+Failed verification starts a fresh Gondolin builder session from the preceding candidate and
+read-only verifier evidence. A candidate is recorded only after this bounded inner loop passes;
+product-oracle resolution and black-box grading remain exclusive to measured regeneration.
 
 Measured regeneration requires pinned oracles and executes:
 
