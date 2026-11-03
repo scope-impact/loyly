@@ -19,6 +19,13 @@ const STAGES = [
   { id: "record_cycle", glyph: "✓", name: "Register product", code: "ST–10 · record cycle", owner: "Grain", authority: "Durable observation", color: 0x52d6d2, description: "Grain appends the build and inspection facts to durable product history without advancing ORC." },
 ];
 
+const PHASES = [
+  { name: "Prepare product", short: "Product", range: [0, 1], glyph: "▱", description: "Pin the product model and calibrate the factory." },
+  { name: "Assemble system", short: "Assembly", range: [2, 4], glyph: "⚙", description: "Build Löyly components and connect their runtime signals." },
+  { name: "Inspect quality", short: "Inspection", range: [5, 8], glyph: "⌕", description: "Boot, repair when needed, and independently inspect the product." },
+  { name: "Record result", short: "Result", range: [9, 9], glyph: "✓", description: "Write the verified result to durable product history." },
+];
+
 const TARGET_STACKS = {
   rust: { label: "Rust", model: "Löyly / Rust", detail: "native service containers", color: 0xc76b3c },
   java: { label: "Java", model: "Löyly / Java", detail: "JVM service containers", color: 0x4d9fa4 },
@@ -245,17 +252,17 @@ function renderState() {
   refs.status.textContent = state.status === "ready" ? "Ready for a cut" : replay.active && !replay.playing && replay.cursor < E2E_RECORDING.timeline.length ? "Replay paused" : state.status === "decision" && replay.active ? "Recorded fault · repair follows" : state.status === "decision" ? "Operator decision needed" : state.status === "passed" ? "Cycle independently passed" : state.status === "failed" && replay.active ? "Recorded result · 9 passed / 2 failed" : state.status === "failed" ? "Cycle stopped" : state.paused ? "Cycle paused" : `${stage?.name ?? "Factory"} in progress`;
   refs.statusLight.className = `status-light ${state.status === "decision" ? "failed" : state.status}`;
   refs.score.textContent = state.score;
-  const journeyIndex = !state.cycleId ? 0 : state.activeStage <= 4 ? 1 : state.activeStage <= 8 ? 2 : 3;
+  const journeyIndex = !state.cycleId ? 0 : PHASES.findIndex((phase) => state.activeStage >= phase.range[0] && state.activeStage <= phase.range[1]);
   document.querySelectorAll(".operator-journey li").forEach((item, index) => {
     item.classList.toggle("active", index === journeyIndex);
     item.classList.toggle("complete", index < journeyIndex);
     if (index === journeyIndex) item.setAttribute("aria-current", "step"); else item.removeAttribute("aria-current");
   });
-  refs.cycleKicker.textContent = !state.cycleId ? "Start here" : state.status === "passed" || state.status === "failed" ? "Recorded result" : "Now on the line";
-  refs.cycleName.textContent = !state.cycleId ? "Choose a product" : state.status === "passed" ? "Build recorded" : state.status === "failed" ? "Inspection found faults" : stage?.name ?? "Replay in progress";
+  refs.cycleKicker.textContent = !state.cycleId ? "Step 1 of 4" : state.status === "passed" || state.status === "failed" ? "Step 4 of 4 · Result" : `Step ${journeyIndex + 1} of 4 · ${PHASES[journeyIndex]?.short ?? "Build"}`;
+  refs.cycleName.textContent = !state.cycleId ? "Build Löyly" : state.status === "passed" ? "Build recorded" : state.status === "failed" ? "Inspection found faults" : stage?.name ?? "Replay in progress";
   refs.cycleId.textContent = state.cycleId ? `…${state.cycleId.slice(-6)}` : "—";
   refs.cycleId.title = state.cycleId ?? "No cycle loaded";
-  refs.start.querySelector("span").textContent = replay.active ? "Restart replay" : "Replay recorded build";
+  refs.start.querySelector("span").textContent = replay.active ? "Restart guided build" : "Start guided build";
   refs.pause.disabled = replay.active ? replay.cursor >= E2E_RECORDING.timeline.length : !state.cycleId || ["passed", "failed", "decision"].includes(state.status);
   refs.step.disabled = replay.active ? replay.cursor >= E2E_RECORDING.timeline.length : !state.cycleId || ["passed", "failed", "decision"].includes(state.status);
   refs.pause.textContent = replay.active ? (replay.playing ? "Pause" : "Resume") : (state.paused ? "Resume" : "Pause");
@@ -273,17 +280,22 @@ function renderState() {
   }).join("");
   refs.decision.hidden = !state.awaitingDecision || replay.active;
   const terminalStages = new Set([...state.completed, ...state.failed]).size;
-  refs.progress.textContent = `${terminalStages} / ${STAGES.length} stages`;
+  const phaseTerminal = state.status === "passed" || state.status === "failed" ? 4 : Math.max(0, journeyIndex);
+  refs.progress.textContent = !state.cycleId ? "Waiting to start" : `Phase ${Math.min(journeyIndex + 1, 4)} of 4 · ${terminalStages} internal steps`;
 
   if (stage && state.cycleId) {
-    refs.stageFocus.innerHTML = `<span class="stage-number">${String(state.activeStage + 1).padStart(2, "0")}</span><div><small>${stage.code} · attempt ${state.attempt}</small><strong>${stage.name}</strong><p>${stage.description}</p></div>`;
+    refs.stageFocus.innerHTML = `<span class="stage-number">${state.activeStage + 1}</span><div><small>Internal step ${state.activeStage + 1} of 10 · attempt ${state.attempt}</small><strong>${stage.name}</strong><p>${stage.description}</p></div>`;
   } else {
-    refs.stageFocus.innerHTML = `<span class="stage-number">00</span><div><small>Waiting stage</small><strong>${state.status === "failed" ? "Cycle aborted" : "Choose start cycle"}</strong><p>The yard stays inert until an operator approves a run.</p></div>`;
+    refs.stageFocus.innerHTML = `<span class="stage-number">1</span><div><small>Your next action</small><strong>${state.status === "failed" ? "Cycle aborted" : "Choose a language and start"}</strong><p>The guided replay will highlight each working station for you.</p></div>`;
   }
 
-  refs.stageRail.innerHTML = STAGES.map((item, index) => {
-    const className = state.failed.includes(index) ? "failed" : state.completed.includes(index) ? "complete" : state.activeStage === index && state.cycleId ? "active" : "";
-    return `<li class="${className}" title="${item.description}"><span class="stage-icon" aria-hidden="true">${item.glyph}</span><span class="stage-label">${item.name}</span></li>`;
+  refs.stageRail.innerHTML = PHASES.map((item, index) => {
+    const phaseSteps = Array.from({ length: item.range[1] - item.range[0] + 1 }, (_, offset) => item.range[0] + offset);
+    const failed = phaseSteps.some((step) => state.failed.includes(step));
+    const complete = phaseSteps.every((step) => state.completed.includes(step)) || phaseTerminal > index;
+    const active = Boolean(state.cycleId) && journeyIndex === index && !complete;
+    const className = failed ? "failed" : complete ? "complete" : active ? "active" : "";
+    return `<li class="${className}" title="${item.description}"><span class="stage-icon" aria-hidden="true">${complete ? "✓" : item.glyph}</span><span class="stage-label"><strong>${item.name}</strong><small>${item.description}</small></span></li>`;
   }).join("");
 
   refs.events.innerHTML = eventLog.length ? [...eventLog].reverse().map((event, index) => `<div class="event-row ${index === 0 ? "new" : ""}"><time>${event.at}</time><strong>${event.type}<br><small>${event.label ?? event.stage ?? event.cycleId ?? event.measurement ?? "projection updated"}</small></strong></div>`).join("") : `<div class="event-row"><time>—</time><strong>No recorded signal yet<br><small>Replay the sealed E2E result to energize the line.</small></strong></div>`;
@@ -385,7 +397,7 @@ const diagrams = Object.fromEntries(DIAGRAM_SPECS.map((spec) => {
   const parsed = parseMermaid(extractMermaid(spec));
   return [parsed.id, parsed];
 }));
-let activeDiagram = diagrams.containers;
+let activeDiagram = diagrams.context;
 
 const diagramSelect = $("#diagram-select");
 diagramSelect.innerHTML = Object.values(diagrams).map((diagram) => `<option value="${diagram.id}">${diagram.label}</option>`).join("");
@@ -1259,7 +1271,7 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-buildDiagram("containers");
+buildDiagram("context");
 document.body.classList.toggle("show-prototypes", showPrototypes);
 setVariant(new URLSearchParams(location.search).get("variant") ?? "A", false);
 setWorldMode(new URLSearchParams(location.search).get("view") ?? "map", false);

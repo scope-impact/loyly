@@ -25,9 +25,9 @@
           <canvas id="factory-canvas" tabindex="0" aria-label="Interactive 3D factory floor" aria-describedby="world-hint"></canvas>
           <section class="control-room" id="control-room" aria-labelledby="map-title">
             <div class="map-heading">
-              <p>Repository architecture</p>
-              <h1 id="map-title">Container view</h1>
-              <span id="map-status">Live E2E overlay · select a station</span>
+              <p>Factory map</p>
+              <h1 id="map-title">System overview</h1>
+              <span id="map-status">The amber station is the current step</span>
             </div>
             <svg id="c4-map" class="c4-map" viewBox="0 0 1200 660" role="img" aria-labelledby="map-title map-description">
               <desc id="map-description">A live two-dimensional C4 architecture map loaded from the repository.</desc>
@@ -42,14 +42,14 @@
             <p class="map-hint">Select a C4 element · swipe map →</p>
           </section>
           <div class="architecture-toolbar">
-            <label for="diagram-select">C4 world</label>
+            <label for="diagram-select">Map level</label>
             <select id="diagram-select"></select>
             <span id="diagram-count">0 elements · 0 relations</span>
             <span id="diagram-source">Source: .pi/architecture.md</span>
           </div>
           <div class="view-mode-switch" role="group" aria-label="Factory view">
-            <button type="button" data-world-mode="map" aria-pressed="true">2D map</button>
-            <button type="button" data-world-mode="floor" aria-pressed="false">3D floor</button>
+            <button type="button" data-world-mode="map" aria-pressed="true">Map</button>
+            <button type="button" data-world-mode="floor" aria-pressed="false">3D</button>
           </div>
           <div class="world-title">
             <p id="view-kicker">Harness assembly line</p>
@@ -64,24 +64,24 @@
 
         <aside class="mission-panel" aria-label="Cycle controls">
           <ol class="operator-journey" aria-label="How to read the factory">
-            <li data-journey="order" aria-current="step"><span>1</span><strong>Choose</strong><small>Product</small></li>
-            <li data-journey="build"><span>2</span><strong>Build</strong><small>Components</small></li>
-            <li data-journey="inspect"><span>3</span><strong>Inspect</strong><small>Evidence</small></li>
-            <li data-journey="record"><span>4</span><strong>Record</strong><small>Result</small></li>
+            <li data-journey="order" aria-current="step"><span>1</span><strong>Product</strong><small>Choose</small></li>
+            <li data-journey="build"><span>2</span><strong>Assembly</strong><small>Build</small></li>
+            <li data-journey="inspect"><span>3</span><strong>Inspection</strong><small>Verify</small></li>
+            <li data-journey="record"><span>4</span><strong>Result</strong><small>Finish</small></li>
           </ol>
           <div class="panel-heading">
-            <div><p id="cycle-kicker">Start here</p><h2 id="cycle-name">Choose a product</h2></div>
+            <div><p id="cycle-kicker">Step 1 of 4</p><h2 id="cycle-name">Build Löyly</h2></div>
             <span class="cycle-id" id="cycle-id">—</span>
           </div>
-          <p class="mission-copy" id="mission-copy">Choose a stack, then replay one recorded build. The map will show which station is working and why.</p>
+          <p class="mission-copy" id="mission-copy">Choose an implementation language, then watch a recorded build move through assembly and independent inspection.</p>
           <div class="product-order">
-            <label for="stack-select"><span>Implementation stack</span><small>Bound to every product container</small></label>
+            <label for="stack-select"><span>Choose implementation</span><small>One product, different model</small></label>
             <select id="stack-select"></select>
             <div class="product-badge"><span id="model-swatch"></span><strong id="model-name">Löyly / Rust</strong><small id="model-detail">Rust · native service containers</small></div>
             <ol class="component-strip" id="component-strip" aria-label="Löyly product components"></ol>
           </div>
           <div class="primary-actions">
-            <button class="start-button" id="start-cycle" type="button"><span>Replay recorded build</span><kbd>Space</kbd></button>
+            <button class="start-button" id="start-cycle" type="button"><span>Start guided build</span><kbd>Space</kbd></button>
             <button class="quiet-button" id="pause-cycle" type="button" disabled>Pause</button>
             <button class="quiet-button" id="step-cycle" type="button" disabled>Step</button>
           </div>
@@ -106,15 +106,15 @@
         </aside>
 
         <section class="pipeline-panel" aria-label="Regeneration pipeline">
-          <div class="section-heading"><h2>Assembly line</h2><span id="pipeline-progress">0 / 10 stages</span></div>
+          <div class="section-heading"><h2>Build journey</h2><span id="pipeline-progress">Waiting to start</span></div>
           <ol class="stage-rail" id="stage-rail"></ol>
         </section>
 
         <section class="evidence-panel" aria-label="Evidence and event log">
           <div class="evidence-tabs" role="tablist">
-            <button id="events-tab" role="tab" aria-selected="true" aria-controls="events-view" tabindex="0" data-tab="events">Grain events</button>
-            <button id="evidence-tab" role="tab" aria-selected="false" aria-controls="evidence-view" tabindex="-1" data-tab="evidence">Evidence</button>
-            <button id="state-tab" role="tab" aria-selected="false" aria-controls="state-view" tabindex="-1" data-tab="state">Full state</button>
+            <button id="events-tab" role="tab" aria-selected="true" aria-controls="events-view" tabindex="0" data-tab="events">What happened</button>
+            <button id="evidence-tab" role="tab" aria-selected="false" aria-controls="evidence-view" tabindex="-1" data-tab="evidence">Proof</button>
+            <button id="state-tab" role="tab" aria-selected="false" aria-controls="state-view" tabindex="-1" data-tab="state">Technical</button>
           </div>
           <div class="event-log" id="events-view" role="tabpanel" aria-labelledby="events-tab"></div>
           <div class="evidence-list" id="evidence-view" role="tabpanel" aria-labelledby="evidence-tab" hidden></div>
