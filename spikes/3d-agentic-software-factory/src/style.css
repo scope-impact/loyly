@@ -83,9 +83,9 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 .product-badge strong { font: 600 17px "Barlow Condensed"; }.product-badge small { color: var(--muted); font-size: 9px; }
 .component-strip { list-style: none; margin: 10px 0 0; padding: 9px 0 0; border-top: 1px solid rgba(210,224,230,.11); display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px 8px; }
 .component-strip li { min-width: 0; display: flex; align-items: center; gap: 5px; color: #718291; font-size: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.component-strip li span { flex: 0 0 auto; width: 6px; height: 6px; border: 1px solid currentColor; }
-.component-strip li.assembled { color: #b8d9d8; }.component-strip li.assembled span { background: var(--cyan); border-color: var(--cyan); }
-.component-strip li.active { color: var(--amber); }.component-strip li.active span { background: var(--amber); box-shadow: 0 0 7px var(--amber); }
+.component-strip li span { flex: 0 0 auto; width: 13px; color: currentColor; font: 600 12px/1 "IBM Plex Sans"; text-align: center; }
+.component-strip li.assembled { color: #b8d9d8; }.component-strip li.assembled span { color: var(--cyan); }
+.component-strip li.active { color: var(--amber); }.component-strip li.active span { color: var(--amber); text-shadow: 0 0 7px var(--amber); }
 .primary-actions { display: grid; grid-template-columns: 1fr auto auto; gap: 7px; }
 .primary-actions button, .decision button { min-height: 39px; border: 0; border-radius: 2px; padding: 0 13px; cursor: pointer; }
 .primary-actions button:disabled { cursor: not-allowed; opacity: .38; }

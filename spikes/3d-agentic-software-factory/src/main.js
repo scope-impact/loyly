@@ -26,12 +26,12 @@ const TARGET_STACKS = {
 };
 
 const PRODUCT_COMPONENTS = [
-  { id: "api", name: "Booking API", type: "Container", stage: 2, x: -1.05, z: -.6, color: 0x74a5c2 },
-  { id: "booking", name: "Booking core", type: "Component", stage: 2, x: 0, z: -.6, color: 0xc76b3c },
-  { id: "events", name: "Event store", type: "Data store", stage: 3, x: 1.05, z: -.6, color: 0xf2b84b },
-  { id: "weekly", name: "Weekly schedule", type: "Projection", stage: 3, x: -1.05, z: .68, color: 0x52d6d2 },
-  { id: "heater", name: "Heater schedule", type: "Projection", stage: 4, x: 0, z: .68, color: 0x8d76b5 },
-  { id: "billing", name: "Billing signals", type: "Projection", stage: 4, x: 1.05, z: .68, color: 0x75c18b },
+  { id: "api", glyph: "⇥", name: "Booking API", type: "Container", stage: 2, x: -1.05, z: -.6, color: 0x74a5c2 },
+  { id: "booking", glyph: "⚙", name: "Booking core", type: "Component", stage: 2, x: 0, z: -.6, color: 0xc76b3c },
+  { id: "events", glyph: "▤", name: "Event store", type: "Data store", stage: 3, x: 1.05, z: -.6, color: 0xf2b84b },
+  { id: "weekly", glyph: "▦", name: "Weekly schedule", type: "Projection", stage: 3, x: -1.05, z: .68, color: 0x52d6d2 },
+  { id: "heater", glyph: "♨", name: "Heater schedule", type: "Projection", stage: 4, x: 0, z: .68, color: 0x8d76b5 },
+  { id: "billing", glyph: "€", name: "Billing signals", type: "Projection", stage: 4, x: 1.05, z: .68, color: 0x75c18b },
 ];
 
 const VARIANTS = {
@@ -258,7 +258,7 @@ function renderState() {
   refs.componentStrip.innerHTML = PRODUCT_COMPONENTS.map((component) => {
     const assembled = Boolean(state.cycleId) && (state.activeStage >= component.stage || state.completed.includes(component.stage));
     const active = Boolean(state.cycleId) && state.activeStage === component.stage;
-    return `<li class="${assembled ? "assembled" : ""} ${active ? "active" : ""}" title="${component.name} · ${component.type}"><span></span>${component.name.replace(" schedule", "").replace(" signals", "")}</li>`;
+    return `<li class="${assembled ? "assembled" : ""} ${active ? "active" : ""}" title="${component.name} · ${component.type}"><span>${component.glyph}</span>${component.name.replace(" schedule", "").replace(" signals", "")}</li>`;
   }).join("");
   refs.decision.hidden = !state.awaitingDecision || replay.active;
   const terminalStages = new Set([...state.completed, ...state.failed]).size;
@@ -396,6 +396,48 @@ productAssembly.userData.product = true;
 productAssembly.scale.setScalar(1.9); scene.add(productAssembly);
 let productModules = [];
 
+function buildComponentIcon(component, material, stackColor) {
+  const icon = new THREE.Group();
+  const accent = new THREE.MeshStandardMaterial({ color: stackColor, emissive: stackColor, emissiveIntensity: .8, roughness: .32, metalness: .55 });
+  const pale = new THREE.MeshStandardMaterial({ color: 0xe7efe8, emissive: component.color, emissiveIntensity: .18, roughness: .42, metalness: .3 });
+  const add = (geometry, iconMaterial = material, position = [0, 0, 0], rotation = [0, 0, 0]) => {
+    const mesh = new THREE.Mesh(geometry, iconMaterial); mesh.position.set(...position); mesh.rotation.set(...rotation); mesh.castShadow = true; icon.add(mesh); return mesh;
+  };
+  if (component.id === "api") {
+    add(new THREE.BoxGeometry(.14, .55, .16), material, [-.28, .3, 0]);
+    add(new THREE.BoxGeometry(.14, .55, .16), material, [.28, .3, 0]);
+    add(new THREE.BoxGeometry(.7, .14, .16), material, [0, .61, 0]);
+    add(new THREE.CylinderGeometry(.035, .035, .36, 10), accent, [-.04, .33, .11], [0, 0, -Math.PI / 2]);
+    add(new THREE.ConeGeometry(.1, .2, 4), accent, [.2, .33, .11], [0, 0, -Math.PI / 2]);
+  } else if (component.id === "booking") {
+    add(new THREE.TorusGeometry(.27, .075, 10, 24), material, [0, .38, 0]);
+    for (let index = 0; index < 8; index += 1) {
+      const angle = index * Math.PI / 4;
+      add(new THREE.BoxGeometry(.12, .16, .15), material, [Math.cos(angle) * .34, .38 + Math.sin(angle) * .34, 0], [0, 0, angle]);
+    }
+    add(new THREE.OctahedronGeometry(.13), accent, [0, .38, .02]);
+  } else if (component.id === "events") {
+    [0, 1, 2].forEach((level) => add(new THREE.CylinderGeometry(.34, .34, .16, 22), level === 2 ? accent : material, [0, .14 + level * .2, 0]));
+    add(new THREE.TorusGeometry(.27, .025, 6, 22), pale, [0, .55, 0], [Math.PI / 2, 0, 0]);
+  } else if (component.id === "weekly") {
+    add(new THREE.BoxGeometry(.7, .56, .12), material, [0, .34, 0]);
+    add(new THREE.BoxGeometry(.7, .12, .15), accent, [0, .61, 0]);
+    [-.22, 0, .22].forEach((x) => add(new THREE.BoxGeometry(.025, .34, .025), pale, [x, .31, .075]));
+    [.22, .38].forEach((y) => add(new THREE.BoxGeometry(.58, .025, .025), pale, [0, y, .075]));
+  } else if (component.id === "heater") {
+    add(new THREE.BoxGeometry(.72, .6, .12), new THREE.MeshStandardMaterial({ color: component.color, wireframe: true, transparent: true, opacity: .6 }), [0, .35, 0]);
+    const points = Array.from({ length: 13 }, (_, index) => new THREE.Vector3(-.31 + index * .052, .34 + Math.sin(index * Math.PI / 2) * .14, .08));
+    const coil = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 32, .035, 8, false), accent); coil.castShadow = true; icon.add(coil);
+    add(new THREE.CylinderGeometry(.06, .06, .48, 10), material, [-.4, .35, 0]);
+    add(new THREE.CylinderGeometry(.06, .06, .48, 10), material, [.4, .35, 0]);
+  } else {
+    add(new THREE.BoxGeometry(.48, .62, .08), pale, [-.09, .37, 0]);
+    [.22, .36, .5].forEach((y, index) => add(new THREE.BoxGeometry(index === 2 ? .22 : .32, .025, .025), material, [-.1, y, .055]));
+    [0, 1, 2].forEach((level) => add(new THREE.CylinderGeometry(.15, .15, .07, 18), level === 2 ? accent : material, [.27, .1 + level * .075, .08]));
+  }
+  return icon;
+}
+
 function buildProductAssembly(stackId) {
   const stack = TARGET_STACKS[stackId] ?? TARGET_STACKS.rust;
   while (productAssembly.children.length) {
@@ -412,12 +454,9 @@ function buildProductAssembly(stackId) {
     module.userData.component = component; module.userData.targetY = .78; module.userData.revealed = false;
     module.position.set(component.x, 4.2 + index * .18, component.z); module.scale.setScalar(.001);
     const bodyMaterial = new THREE.MeshStandardMaterial({ color: component.color, roughness: .42, metalness: .48, emissive: component.color, emissiveIntensity: .2 });
-    const body = component.type === "Data store"
-      ? new THREE.Mesh(new THREE.CylinderGeometry(.43, .43, .62, 18), bodyMaterial)
-      : new THREE.Mesh(new THREE.BoxGeometry(.88, .62, .82), bodyMaterial);
-    body.position.y = .31; body.castShadow = true; module.add(body);
-    const stackBand = new THREE.Mesh(new THREE.BoxGeometry(.72, .08, .7), new THREE.MeshStandardMaterial({ color: stack.color, emissive: stack.color, emissiveIntensity: 1.2 }));
-    stackBand.position.y = .66; module.add(stackBand);
+    const icon = buildComponentIcon(component, bodyMaterial, stack.color); module.add(icon); module.userData.icon = icon;
+    const stackBand = new THREE.Mesh(new THREE.BoxGeometry(.78, .06, .7), new THREE.MeshStandardMaterial({ color: stack.color, emissive: stack.color, emissiveIntensity: 1.2 }));
+    stackBand.position.y = .03; module.add(stackBand);
     const label = makeTextSprite([component.name, component.type], `#${new THREE.Color(component.color).getHexString()}`, .23); label.position.set(0, 1.08, 0); module.add(label);
     productAssembly.add(module); productModules.push(module);
   });
@@ -632,7 +671,7 @@ function showProductAssembly() {
   $("#station-live").hidden = false; $("#station-live-light").className = assembled ? "active" : "";
   $("#station-live-status").textContent = `${assembled} / ${PRODUCT_COMPONENTS.length} components assembled`;
   $("#station-live-detail").textContent = assembled ? `${stack.label} containers share one Löyly product boundary and behavioral contract.` : "Replay the recorded cycle to emit product containers onto the carrier.";
-  $("#station-connections").innerHTML = PRODUCT_COMPONENTS.map((component) => `<li><span>${component.type}</span> ${component.name} · ${state.activeStage >= component.stage || state.completed.includes(component.stage) ? "assembled" : `waiting for ${STAGES[component.stage].name}`}</li>`).join("");
+  $("#station-connections").innerHTML = PRODUCT_COMPONENTS.map((component) => `<li><span>${component.glyph} ${component.type}</span> ${component.name} · ${state.activeStage >= component.stage || state.completed.includes(component.stage) ? "assembled" : `waiting for ${STAGES[component.stage].name}`}</li>`).join("");
   $("#focus-station").hidden = true; $("#overview-station").hidden = !focusedNode;
 }
 
