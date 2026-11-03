@@ -86,6 +86,7 @@ const refs = {
   repair: $("#repair-cycle"), abort: $("#abort-cycle"), variantLabel: $("#variant-label"),
   viewKicker: $("#view-kicker"), viewTitle: $("#view-title"), stationCard: $("#station-card"), stack: $("#stack-select"),
   replaySeek: $("#replay-seek"), replayClock: $("#replay-clock"), replaySource: $("#replay-source"),
+  componentStrip: $("#component-strip"), focusProduct: $("#focus-product"), missionCopy: $("#mission-copy"), missionPanel: $(".mission-panel"),
 };
 
 refs.stack.innerHTML = Object.entries(TARGET_STACKS).map(([id, stack]) => `<option value="${id}">${stack.label} · ${stack.model}</option>`).join("");
@@ -97,6 +98,7 @@ let activeVariant = "A";
 let selectedNode = null;
 let focusedNode = null;
 let cameraFlight = null;
+let followProduct = false;
 let productWaypoints = [];
 let lastProductStage = -1;
 let state = project(eventLog);
@@ -174,6 +176,7 @@ function resetReplay() {
   refs.replaySeek.value = 0;
   emitReplayUntil(0);
   renderState();
+  requestAnimationFrame(() => { refs.missionPanel.scrollTop = 0; });
 }
 
 function replayEvent(record) {
@@ -234,22 +237,30 @@ function shortDigest(seed, salt) {
 
 function renderState() {
   const stage = STAGES[state.activeStage];
-  refs.status.textContent = state.status === "ready" ? "Ready for a cut" : state.status === "decision" ? "Operator decision needed" : state.status === "passed" ? "Cycle independently passed" : state.status === "failed" && replay.active ? "Recorded result · 9 passed / 2 failed" : state.status === "failed" ? "Cycle stopped" : state.paused ? "Cycle paused" : `${stage?.name ?? "Factory"} in progress`;
+  refs.status.textContent = state.status === "ready" ? "Ready for a cut" : replay.active && !replay.playing && replay.cursor < E2E_RECORDING.timeline.length ? "Replay paused" : state.status === "decision" && replay.active ? "Recorded fault · repair follows" : state.status === "decision" ? "Operator decision needed" : state.status === "passed" ? "Cycle independently passed" : state.status === "failed" && replay.active ? "Recorded result · 9 passed / 2 failed" : state.status === "failed" ? "Cycle stopped" : state.paused ? "Cycle paused" : `${stage?.name ?? "Factory"} in progress`;
   refs.statusLight.className = `status-light ${state.status === "decision" ? "failed" : state.status}`;
   refs.score.textContent = state.score;
   refs.cycleName.textContent = state.cycleId ? "Booking core regeneration" : "No cycle loaded";
-  refs.cycleId.textContent = state.cycleId ?? "—";
-  refs.start.querySelector("span").textContent = replay.active ? (replay.playing ? "Replay from start" : "Replay recording") : "Replay E2E result";
-  refs.pause.disabled = !state.cycleId || ["passed", "failed", "decision"].includes(state.status);
-  refs.step.disabled = !state.cycleId || ["passed", "failed", "decision"].includes(state.status);
+  refs.cycleId.textContent = state.cycleId ? `…${state.cycleId.slice(-6)}` : "—";
+  refs.cycleId.title = state.cycleId ?? "No cycle loaded";
+  refs.start.querySelector("span").textContent = replay.active ? "Restart" : "Replay run";
+  refs.pause.disabled = replay.active ? replay.cursor >= E2E_RECORDING.timeline.length : !state.cycleId || ["passed", "failed", "decision"].includes(state.status);
+  refs.step.disabled = replay.active ? replay.cursor >= E2E_RECORDING.timeline.length : !state.cycleId || ["passed", "failed", "decision"].includes(state.status);
   refs.pause.textContent = replay.active ? (replay.playing ? "Pause" : "Resume") : (state.paused ? "Resume" : "Pause");
   refs.stack.disabled = Boolean(state.cycleId) && !["passed", "failed"].includes(state.status);
+  refs.focusProduct.disabled = !state.cycleId;
+  refs.missionCopy.hidden = Boolean(state.cycleId);
   const stack = TARGET_STACKS[state.targetStack] ?? TARGET_STACKS.rust;
   refs.cycleName.textContent = state.cycleId ? stack.model : "No cycle loaded";
   $("#model-name").textContent = stack.model;
   $("#model-detail").textContent = `${stack.label} · ${stack.detail}`;
   $("#model-swatch").style.background = `#${stack.color.toString(16).padStart(6, "0")}`;
-  refs.decision.hidden = !state.awaitingDecision;
+  refs.componentStrip.innerHTML = PRODUCT_COMPONENTS.map((component) => {
+    const assembled = Boolean(state.cycleId) && (state.activeStage >= component.stage || state.completed.includes(component.stage));
+    const active = Boolean(state.cycleId) && state.activeStage === component.stage;
+    return `<li class="${assembled ? "assembled" : ""} ${active ? "active" : ""}" title="${component.name} · ${component.type}"><span></span>${component.name.replace(" schedule", "").replace(" signals", "")}</li>`;
+  }).join("");
+  refs.decision.hidden = !state.awaitingDecision || replay.active;
   const terminalStages = new Set([...state.completed, ...state.failed]).size;
   refs.progress.textContent = `${terminalStages} / ${STAGES.length} stages`;
 
@@ -278,6 +289,7 @@ function renderState() {
       highlightedElementIds: activeTargetIds(),
     } : null,
     replay: replay.active ? { source: E2E_RECORDING.source, historical: true, elapsedMs: replay.elapsed, summary: E2E_RECORDING.summary, binding: E2E_RECORDING.binding } : null,
+    view: { variant: activeVariant, diagram: activeDiagram?.id, followProduct, focusedStation: focusedNode?.id ?? null },
     eventCount: eventLog.length,
     activeEvent: eventLog.at(-1) ?? null,
   }, null, 2);
@@ -302,7 +314,7 @@ refs.stack.addEventListener("change", () => { buildProductAssembly(refs.stack.va
 refs.repair.addEventListener("click", () => { append("RepairAuthorized", { failedStage: "verify", attempt: 2 }); append("StageEntered", { stageIndex: 6, stage: STAGES[6].id }); });
 refs.abort.addEventListener("click", () => append("CycleAborted", { reason: "operator_refused_repair" }));
 refs.replaySeek.max = E2E_RECORDING.timeline.at(-1).offset;
-refs.replaySource.textContent = E2E_RECORDING.cycleId;
+refs.replaySource.textContent = `2 attempts · ${E2E_RECORDING.timeline.length} recorded events`;
 refs.replaySource.title = E2E_RECORDING.source;
 refs.replaySeek.addEventListener("input", () => { replay.active = true; replay.playing = false; seekReplay(Number(refs.replaySeek.value)); });
 
@@ -715,11 +727,19 @@ function updateSceneFromState() {
 }
 
 function setCamera(mode) {
+  followProduct = false; refs.focusProduct.classList.remove("active"); refs.focusProduct.textContent = "Follow product"; controls.enabled = true;
   if (mode === "top") { camera.position.set(0, 46, .01); controls.target.set(-3, 0, 0); }
   else if (mode === "perspective") { camera.position.set(27, 16, 24); controls.target.set(-3, 1, 0); }
   else { camera.position.set(23, 22, 26); controls.target.set(-3, 1, 0); }
   controls.update();
 }
+refs.focusProduct.addEventListener("click", () => {
+  followProduct = !followProduct; cameraFlight = null; focusedNode = null;
+  refs.focusProduct.classList.toggle("active", followProduct);
+  refs.focusProduct.textContent = followProduct ? "Stop following" : "Follow product";
+  controls.enabled = !followProduct;
+  renderState();
+});
 $("#camera-reset").addEventListener("click", () => { if (focusedNode) returnToOverview(); else setCamera(VARIANTS[activeVariant].camera); });
 
 function resize() {
@@ -756,7 +776,11 @@ function frame(now) {
     });
   }
   agents.forEach((agent, index) => { if (agent.userData.target) agent.position.lerp(agent.userData.target, .018 + index * .003); agent.rotation.y = Math.sin(now * .001 + index) * .16; });
-  if (cameraFlight) {
+  if (followProduct) {
+    const target = productAssembly.position.clone().add(new THREE.Vector3(0, 1.3, 0));
+    const desired = target.clone().add(new THREE.Vector3(11.5, 8.5, 12.5));
+    camera.position.lerp(desired, .055); controls.target.lerp(target, .085);
+  } else if (cameraFlight) {
     camera.position.lerp(cameraFlight.position, .09);
     controls.target.lerp(cameraFlight.target, .09);
     if (camera.position.distanceTo(cameraFlight.position) < .06 && controls.target.distanceTo(cameraFlight.target) < .04) {
@@ -784,6 +808,10 @@ $("#previous-variant").addEventListener("click", () => cycleVariant(-1));
 $("#next-variant").addEventListener("click", () => cycleVariant(1));
 document.addEventListener("keydown", (event) => {
   const editing = event.target.matches("input, textarea, [contenteditable]");
+  if (!editing && event.key === "Escape") {
+    if (!refs.stationCard.hidden) { if (focusedNode) returnToOverview(); refs.stationCard.hidden = true; selectedNode = null; }
+    else if (followProduct) setCamera(VARIANTS[activeVariant].camera);
+  }
   if (!editing && event.key === "ArrowLeft") cycleVariant(-1);
   if (!editing && event.key === "ArrowRight") cycleVariant(1);
   if (!editing && event.code === "Space") {

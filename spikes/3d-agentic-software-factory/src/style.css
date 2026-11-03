@@ -49,26 +49,30 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 .score-block { justify-self: end; display: flex; align-items: baseline; gap: 4px; }
 .score-block small { margin-right: 8px; }.score-block strong { font: 600 27px "Barlow Condensed"; }.score-block span { color: var(--muted); }
 
-.game-shell { height: calc(100vh - 72px); display: grid; grid-template: minmax(0, 1fr) 210px / minmax(540px, 1fr) 330px; background: var(--steel); }
+.game-shell { height: calc(100vh - 72px); display: grid; grid-template: minmax(0, 1fr) 175px / minmax(540px, 1fr) 330px; background: var(--steel); }
 .world { grid-area: 1 / 1; min-height: 0; position: relative; overflow: hidden; background: #0b1623; }
 #factory-canvas { display: block; width: 100%; height: 100%; cursor: grab; }
 #factory-canvas:active { cursor: grabbing; }
-.world-title { position: absolute; top: 112px; left: 28px; max-width: 420px; pointer-events: none; text-shadow: 0 2px 15px #08111c; }
+.world-title { position: absolute; top: 112px; left: 28px; max-width: 420px; padding: 10px 34px 13px 0; pointer-events: none; text-shadow: 0 2px 15px #08111c; background: linear-gradient(90deg, rgba(8,17,28,.88), rgba(8,17,28,0)); }
 .world-title p, .panel-heading p, .stage-focus small { margin: 0 0 3px; color: var(--amber); font: 500 14px "Barlow Condensed"; }
 .world-title h1 { margin: 0; font: 600 clamp(28px, 3vw, 44px)/.96 "Barlow Condensed"; max-width: 360px; }
 .world-hint { position: absolute; left: 28px; bottom: 20px; color: #b9c3c9; font-size: 11px; pointer-events: none; }
-.camera-reset { position: absolute; right: 18px; top: 18px; border: 1px solid var(--line); border-radius: 2px; background: rgba(8,17,28,.78); padding: 8px 11px; cursor: pointer; }
+.camera-actions { position: absolute; right: 18px; top: 18px; display: flex; gap: 5px; }
+.camera-actions button { border: 1px solid var(--line); border-radius: 2px; background: rgba(8,17,28,.84); padding: 8px 11px; cursor: pointer; }
+.camera-actions button:first-child { border-color: rgba(82,214,210,.45); color: var(--cyan); }
+.camera-actions button.active { color: #08111c; background: var(--cyan); }
+.camera-actions button:disabled { opacity: .38; cursor: not-allowed; }
 .architecture-toolbar { position: absolute; top: 18px; left: 28px; z-index: 2; display: grid; grid-template-columns: auto minmax(150px, 230px); gap: 3px 9px; align-items: center; padding: 9px 11px; background: rgba(8,17,28,.88); border-left: 3px solid var(--cyan); box-shadow: 0 8px 30px rgba(0,0,0,.22); }
 .architecture-toolbar label { color: var(--amber); font: 500 12px "Barlow Condensed"; }
 .architecture-toolbar select { min-width: 0; color: var(--paper); background: var(--steel-2); border: 1px solid var(--line); border-radius: 1px; padding: 5px 25px 5px 7px; font: 500 13px "IBM Plex Sans"; }
 .architecture-toolbar span { grid-column: 2; color: var(--muted); font-size: 9px; }
 #diagram-source { color: #a7d9da; }
 
-.mission-panel { grid-area: 1 / 2; padding: 24px; min-height: 0; overflow-y: auto; background: var(--panel); border-left: 1px solid var(--line); }
+.mission-panel { grid-area: 1 / 2; padding: 20px 22px 28px; min-height: 0; overflow-y: auto; overflow-anchor: none; background: var(--panel); border-left: 1px solid var(--line); scrollbar-color: var(--steel-3) transparent; }
 .panel-heading { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
 .panel-heading h2 { margin: 0; font: 600 28px/1 "Barlow Condensed"; }
 .cycle-id { color: var(--cyan); font: 500 13px "Barlow Condensed"; }
-.mission-copy { margin: 18px 0; color: #bac4cc; font-size: 13px; line-height: 1.55; }
+.mission-copy { margin: 13px 0; color: #bac4cc; font-size: 12px; line-height: 1.45; }
 .product-order { margin: 0 0 15px; padding: 11px; background: #0b1725; border-left: 3px solid var(--amber); }
 .product-order > label { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font: 500 14px "Barlow Condensed"; }
 .product-order > label small { color: var(--muted); font: 9px "IBM Plex Sans"; }
@@ -77,22 +81,27 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 .product-badge { display: grid; grid-template-columns: 12px 1fr; align-items: center; gap: 1px 8px; }
 .product-badge > span { grid-row: 1 / 3; width: 10px; height: 31px; background: var(--copper); }
 .product-badge strong { font: 600 17px "Barlow Condensed"; }.product-badge small { color: var(--muted); font-size: 9px; }
+.component-strip { list-style: none; margin: 10px 0 0; padding: 9px 0 0; border-top: 1px solid rgba(210,224,230,.11); display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px 8px; }
+.component-strip li { min-width: 0; display: flex; align-items: center; gap: 5px; color: #718291; font-size: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.component-strip li span { flex: 0 0 auto; width: 6px; height: 6px; border: 1px solid currentColor; }
+.component-strip li.assembled { color: #b8d9d8; }.component-strip li.assembled span { background: var(--cyan); border-color: var(--cyan); }
+.component-strip li.active { color: var(--amber); }.component-strip li.active span { background: var(--amber); box-shadow: 0 0 7px var(--amber); }
 .primary-actions { display: grid; grid-template-columns: 1fr auto auto; gap: 7px; }
 .primary-actions button, .decision button { min-height: 39px; border: 0; border-radius: 2px; padding: 0 13px; cursor: pointer; }
 .primary-actions button:disabled { cursor: not-allowed; opacity: .38; }
-.start-button { background: var(--copper); display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
+.start-button { min-width: 0; background: var(--copper); display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 600; white-space: nowrap; }
 .start-button kbd { border: 1px solid rgba(255,255,255,.35); padding: 1px 5px; font: 11px inherit; }
 .quiet-button { background: var(--steel-3); }
-.speed-control { margin: 18px 0; display: grid; gap: 7px; }
-.replay-deck { margin: 12px 0 16px; padding: 10px 11px; display: grid; grid-template-columns: 1fr auto; gap: 8px 10px; background: rgba(82,214,210,.07); border: 1px solid rgba(82,214,210,.22); }
+.speed-control { margin: 12px 0 15px; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 10px; }
+.replay-deck { margin: 10px 0 0; padding: 9px 10px; display: grid; grid-template-columns: 1fr auto; gap: 7px 9px; background: rgba(82,214,210,.055); border-left: 2px solid rgba(82,214,210,.55); }
 .replay-deck > div { grid-column: 1 / 3; display: grid; grid-template-columns: 9px 1fr; align-items: center; gap: 0 7px; }
 .recorded-dot { grid-row: 1 / 3; width: 7px; height: 7px; border-radius: 50%; background: var(--fault); box-shadow: 0 0 9px var(--fault); }
 .replay-deck strong { font: 600 12px "Barlow Condensed"; }.replay-deck small { color: var(--muted); font-size: 8px; overflow: hidden; text-overflow: ellipsis; }
 .replay-deck input { width: 100%; accent-color: var(--cyan); }.replay-deck output { min-width: 70px; color: var(--cyan); font: 500 10px "IBM Plex Sans"; text-align: right; }
-.speed-control label { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; }
+.speed-control label { display: flex; gap: 6px; justify-content: space-between; color: var(--muted); font-size: 10px; white-space: nowrap; }
 .speed-control label strong { color: var(--paper); }
 .speed-control input { accent-color: var(--copper); width: 100%; }
-.stage-focus { display: grid; grid-template-columns: 48px 1fr; gap: 13px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 16px 0; }
+.stage-focus { display: grid; grid-template-columns: 42px 1fr; gap: 11px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 13px 0; }
 .stage-number { font: 600 38px/.9 "Barlow Condensed"; color: var(--steel-3); }
 .stage-focus strong { display: block; font: 600 19px "Barlow Condensed"; }
 .stage-focus p { color: var(--muted); font-size: 11px; line-height: 1.45; margin: 5px 0 0; }
@@ -100,10 +109,10 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 .decision strong { font: 600 18px "Barlow Condensed"; }.decision p { font-size: 11px; color: #d6b8b8; line-height: 1.45; }
 .decision div { display: flex; gap: 6px; }.decision button:first-child { background: var(--fault); }.decision button:last-child { background: var(--steel-3); }
 
-.pipeline-panel { grid-area: 2 / 1; min-width: 0; padding: 16px 24px 20px; border-top: 1px solid var(--line); background: #0d1928; }
+.pipeline-panel { grid-area: 2 / 1; min-width: 0; padding: 14px 24px 16px; border-top: 1px solid var(--line); background: #0d1928; }
 .section-heading { display: flex; align-items: baseline; justify-content: space-between; }
 .section-heading h2 { margin: 0; font: 600 18px "Barlow Condensed"; }.section-heading span { color: var(--muted); font-size: 10px; }
-.stage-rail { list-style: none; padding: 0; margin: 22px 0 0; display: grid; grid-template-columns: repeat(10, minmax(58px, 1fr)); }
+.stage-rail { list-style: none; padding: 0; margin: 18px 0 0; display: grid; grid-template-columns: repeat(10, minmax(58px, 1fr)); }
 .stage-rail li { position: relative; min-width: 0; color: #718291; font: 500 11px/1.1 "Barlow Condensed"; padding-top: 22px; text-align: center; }
 .stage-rail li::before { content: ""; position: absolute; width: 11px; height: 11px; border-radius: 50%; border: 2px solid currentColor; top: 0; left: calc(50% - 6px); background: #0d1928; z-index: 1; }
 .stage-rail li::after { content: ""; position: absolute; height: 2px; background: #26384a; top: 6px; left: 0; width: 100%; }
@@ -184,6 +193,7 @@ body[data-variant="C"] .architecture-toolbar { top: auto; bottom: 18px; }
   body[data-variant="B"] .event-log, body[data-variant="B"] .evidence-list, body[data-variant="B"] .state-view { columns: auto; }
   .world-title h1 { font-size: 38px; max-width: 330px; }.world-title { top: 22px; left: 18px; }.world-hint { display: none; }
   .architecture-toolbar { top: auto; left: 18px; bottom: 18px; max-width: calc(100% - 36px); }
+  .camera-actions { top: 14px; right: 14px; }
   body[data-variant="C"] .decision { position: static; width: auto; }
 }
 
