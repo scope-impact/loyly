@@ -8,7 +8,7 @@ Three variants of the same agentic factory are switchable with `?variant=` on th
 - `B` — **Factory simulation.** An overhead, orbitable operations world makes the whole material flow and ten stations visible at once.
 - `C` — **Guided tour.** The camera follows the active product and explains one station at a time.
 
-Use `?prototype=1` to expose the floating variant switcher in a production build. In development it is always visible. Left and right arrow keys also change variants when a form control is not focused.
+Use `?prototype=1` to expose the floating variant switcher in a production build. In development it is always visible. `Alt` + left/right arrow changes variants without taking the arrow keys away from player movement.
 
 This is deliberately throwaway code on `spike/3d-agentic-software-factory`. It does not call the live Pi harness and it does not write Grain facts.
 

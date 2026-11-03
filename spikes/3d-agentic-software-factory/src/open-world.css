@@ -1,8 +1,8 @@
-@import "@fontsource/barlow-condensed/500.css";
-@import "@fontsource/barlow-condensed/600.css";
-@import "@fontsource/ibm-plex-sans/400.css";
-@import "@fontsource/ibm-plex-sans/500.css";
-@import "@fontsource/ibm-plex-sans/600.css";
+@font-face { font-family: "Barlow Condensed"; font-style: normal; font-display: swap; font-weight: 500; src: url("@fontsource/barlow-condensed/files/barlow-condensed-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-style: normal; font-display: swap; font-weight: 600; src: url("@fontsource/barlow-condensed/files/barlow-condensed-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-style: normal; font-display: swap; font-weight: 400; src: url("@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-style: normal; font-display: swap; font-weight: 500; src: url("@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-style: normal; font-display: swap; font-weight: 600; src: url("@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-600-normal.woff2") format("woff2"); }
 
 :root {
   font-family: "IBM Plex Sans", sans-serif;
@@ -53,19 +53,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--amber); out
 .replay-line > div i { position: absolute; top: 50%; width: 11px; height: 11px; transform: translate(-50%,-50%); border-radius: 50%; background: var(--amber); box-shadow: 0 0 10px var(--amber); }
 .replay-line output { min-width: 42px; color: var(--amber); font-size: 10px; }
 
-.station-label { pointer-events: auto; }
-.station-label button { width: 180px; padding: 7px 9px; border: 1px solid #698094; border-left: 4px solid #698094; color: var(--paper); text-align: left; background: rgba(5,13,21,.94); box-shadow: 0 5px 18px rgba(0,0,0,.48); cursor: pointer; }
-.station-label small, .station-label strong, .station-label span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.station-label small { color: var(--amber); font-size: 8px; }.station-label strong { margin-top: 2px; font: 600 15px "Barlow Condensed"; }.station-label span { margin-top: 2px; color: #9eb0ba; font-size: 8px; }
-.station-label.active button { border-color: var(--amber); border-left-color: var(--amber); box-shadow: 0 0 24px rgba(242,184,75,.35); }
-.station-label.selected button { outline: 2px solid var(--cyan); }
-.variant-A .station-label button { width: 150px; }
-.variant-B .station-label button { width: 145px; padding: 5px 7px; }
-.variant-B .station-label strong { font-size: 12px; }
 .variant-B .component-tag, .variant-A .component-tag, .variant-C .component-tag { display: none; }
-.component-tag span, .product-tag { display: block; padding: 3px 5px; color: #f6f2e8; background: rgba(5,13,21,.88); border: 1px solid rgba(255,255,255,.22); white-space: nowrap; font-size: 7px; }
-.product-tag { display: flex; flex-direction: column; align-items: center; border-color: var(--copper); }
-.product-tag strong { font: 600 17px "Barlow Condensed"; }.product-tag span { color: #c2cbd0; font-size: 8px; }
+.component-tag span { display: block; padding: 3px 5px; color: #f6f2e8; background: rgba(5,13,21,.88); border: 1px solid rgba(255,255,255,.22); white-space: nowrap; font-size: 7px; }
 
 .explorer-objective { position: absolute; z-index: 8; top: 22px; left: 22px; width: 278px; padding: 15px 17px; background: rgba(7,17,27,.9); border-left: 4px solid var(--amber); backdrop-filter: blur(8px); }
 .explorer-objective small { color: var(--amber); font: 500 11px "Barlow Condensed"; }.explorer-objective strong { display: block; margin-top: 3px; font: 600 23px/1 "Barlow Condensed"; }.explorer-objective p { margin: 8px 0 0; color: #b7c2c9; font-size: 11px; line-height: 1.45; }
@@ -114,15 +103,16 @@ kbd { padding: 2px 5px; color: var(--paper); border: 1px solid #607687; backgrou
   .replay-line, .variant-B .replay-line, .variant-C .replay-line { top: auto; left: 12px; right: 12px; bottom: 12px; width: auto; transform: none; }
   .explorer-objective { top: 12px; left: 12px; width: min(270px, calc(100% - 24px)); padding: 11px 13px; }.explorer-objective strong { font-size: 20px; }.explorer-objective p { margin-top: 5px; font-size: 10px; }
   .controls-help { display: none; }
-  .variant-A .station-label, .variant-C .station-label { display: none; }
   .interact-prompt { display: none; }
-  .station-label button { width: 138px; padding: 5px 7px; }.station-label strong { font-size: 12px; }.station-label span { display: none; }
   .component-tag { display: none; }
   .touch-controls { position: absolute; z-index: 12; inset: 0; display: block; pointer-events: none; }
   .touch-controls > * { pointer-events: auto; }
+  .touch-joystick { position: absolute; inset: 0; pointer-events: none !important; }
+  .touch-joystick > * { pointer-events: auto; }
   #ecctrl-joystick { position: fixed !important; left: -36px !important; top: auto !important; bottom: 72px !important; transform: scale(.82); }
-  #ecctrl-virtual-button { position: fixed !important; right: 18px !important; left: auto !important; top: auto !important; bottom: 132px !important; }
-  .touch-controls > button { position: absolute; right: 12px; bottom: 202px; min-width: 78px; min-height: 44px; color: var(--ink); background: var(--amber); border: 0; }
+  .touch-controls > button { position: fixed; right: 18px; min-width: 68px; min-height: 52px; color: var(--ink); border: 0; font-weight: 600; box-shadow: 0 8px 28px rgba(0,0,0,.34); }
+  .touch-jump { bottom: 132px; border-radius: 50%; background: rgba(240,238,229,.9); }
+  .touch-inspect { bottom: 202px; background: var(--amber); }
   .simulation-deck { top: 10px; left: 10px; bottom: 68px; width: min(245px, calc(100% - 20px)); padding: 12px; }.simulation-deck h1 { font-size: 25px; }.simulation-deck header p { margin-bottom: 8px; }.simulation-deck li button { min-height: 43px; }
   .tour-card { right: 12px; top: 12px; transform: none; width: min(330px, calc(100% - 24px)); padding: 20px; }.tour-card h1 { font-size: 29px; }.tour-card > p { font-size: 11px; }.tour-card dl { margin: 12px 0; }
   .station-inspector { top: auto; right: 0; left: 0; bottom: 0; width: 100%; max-height: 78svh; padding: 22px 20px calc(20px + env(safe-area-inset-bottom)); border-top-width: 5px; }

@@ -6,7 +6,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html, KeyboardControls, OrbitControls } from "@react-three/drei";
 import { CuboidCollider, Physics, RigidBody } from "@react-three/rapier";
 import { Ecctrl } from "ecctrl";
-import { Joystick, VirtualButton } from "ecctrl/input";
+import { Joystick, useButtonStore } from "ecctrl/input";
 import * as THREE from "three";
 import architectureSource from "../../../.pi/architecture.md?raw";
 import { E2E_RECORDING } from "./e2e-replay.js";
@@ -134,7 +134,7 @@ function MachineIcon({ kind, active }) {
   </>;
 }
 
-function Station({ station, active, complete, selected, onSelect, showAllLabels }) {
+function Station({ station, active, complete, onSelect }) {
   const [x, z] = station.position;
   const color = active ? "#f2b84b" : complete ? "#50d0cc" : "#6f8494";
   return <RigidBody type="fixed" colliders={false} position={[x, 0, z]}>
@@ -144,9 +144,6 @@ function Station({ station, active, complete, selected, onSelect, showAllLabels 
       <mesh position={[0, 1.3, 0]} castShadow><boxGeometry args={[3.55, 2.25, 2.75]} /><meshStandardMaterial color="#132433" metalness={.45} roughness={.52} /></mesh>
       <mesh position={[0, 2.48, 0]}><boxGeometry args={[3.9, .12, 3.05]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={active ? 2.6 : .35} /></mesh>
       <group position={[0, .3, 1.55]}><MachineIcon kind={station.icon} active={active} /></group>
-      {(showAllLabels || active || selected) && <Html position={[0, 3.05, 0]} center distanceFactor={19} occlude={false} className={`station-label ${active ? "active" : ""} ${selected ? "selected" : ""}`}>
-        <button type="button" onClick={() => onSelect(station)}><small>{station.role}</small><strong>{station.name}</strong><span>{station.c4.name}</span></button>
-      </Html>}
       {active && <mesh position={[0, 7, 0]}><cylinderGeometry args={[.05, .42, 8, 12]} /><meshBasicMaterial color="#f2b84b" transparent opacity={.32} depthWrite={false} /></mesh>}
       {active && <pointLight position={[0, 3, 0]} color="#f2b84b" intensity={42} distance={9} decay={2} />}
     </group>
@@ -184,7 +181,6 @@ function ProductCarrier({ stage }) {
         <Html position={[0, .64, 0]} center distanceFactor={13} className="component-tag"><span>{component.name}</span></Html>
       </group>;
     })}
-    <Html position={[0, 2.05, 0]} center distanceFactor={15} className="product-tag"><strong>Löyly</strong><span>Node model · C4 product</span></Html>
   </group>;
 }
 
@@ -275,7 +271,7 @@ function World({ variant, replay, selected, setSelected, setNearest }) {
       <Physics gravity={[0, -18, 0]} timeStep="vary">
         <FactoryShell />
         <Conveyor />
-        {stationData.map((station) => <Station key={`${station.id}-${station.index}`} station={station} active={station.index === replay.stage} complete={station.index < replay.stage} selected={selected?.index === station.index} onSelect={setSelected} showAllLabels={variant === "B"} />)}
+        {stationData.map((station) => <Station key={`${station.id}-${station.index}`} station={station} active={station.index === replay.stage} complete={station.index < replay.stage} onSelect={setSelected} />)}
         <ProductCarrier stage={replay.stage} />
         <FactoryAgents stage={replay.stage} />
         {explorer && <KeyboardControls map={keyboardMap}>
@@ -311,10 +307,10 @@ function Inspector({ station, replay, onClose }) {
   if (!station) return null;
   const connections = stationConnections(station);
   const state = station.index === replay.stage ? "Working now" : station.index < replay.stage ? "Completed" : "Waiting";
-  return <aside className="station-inspector">
+  return <aside className="station-inspector" role="dialog" aria-modal="true" aria-labelledby={`station-title-${station.id}`}>
     <button className="close-inspector" type="button" onClick={onClose} aria-label="Close station">×</button>
     <small>{station.role} · station {station.index + 1}</small>
-    <h2>{station.name}</h2>
+    <h2 id={`station-title-${station.id}`}>{station.name}</h2>
     <p>{station.hint}</p>
     <div className="inspector-state"><i className={state === "Working now" ? "live" : ""} /><span><small>Simulation</small><strong>{state}</strong></span></div>
     <dl><div><dt>Actual C4 element</dt><dd>{station.c4.name}</dd></div><div><dt>Element type</dt><dd>{station.c4.type}</dd></div></dl>
@@ -324,11 +320,21 @@ function Inspector({ station, replay, onClose }) {
 }
 
 function ExplorerOverlay({ replay, nearest, setSelected }) {
+  const setJump = (active) => useButtonStore.getState().setButtonActive("jump", active);
+  const pulseJump = (event) => {
+    if (event.detail !== 0) return;
+    setJump(true);
+    window.requestAnimationFrame(() => setJump(false));
+  };
   return <>
-    <section className="explorer-objective"><small>Current objective</small><strong>Walk to the amber station</strong><p>{STAGES[replay.stage].hint}</p></section>
+    <section className="explorer-objective"><small>Current objective · follow the amber beacon</small><strong>{STAGES[replay.stage].name}</strong><p>{STAGES[replay.stage].hint}</p></section>
     <div className="controls-help"><span><kbd>WASD</kbd> Move</span><span><kbd>Shift</kbd> Run</span><span><kbd>Space</kbd> Jump</span></div>
     {nearest && <button className="interact-prompt" type="button" onPointerDown={() => setSelected(nearest)} onClick={() => setSelected(nearest)}><kbd>E</kbd><span>Inspect <strong>{nearest.name}</strong></span></button>}
-    <div className="touch-controls"><Joystick /><VirtualButton id="jump" label="Jump" />{nearest && <button type="button" onClick={() => setSelected(nearest)}>Inspect</button>}</div>
+    <div className="touch-controls">
+      <div className="touch-joystick" role="application" aria-label="Movement joystick"><Joystick /></div>
+      <button className="touch-jump" type="button" aria-label="Jump" onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); setJump(true); }} onPointerUp={() => setJump(false)} onPointerCancel={() => setJump(false)} onLostPointerCapture={() => setJump(false)} onBlur={() => setJump(false)} onClick={pulseJump}>Jump</button>
+      {nearest && <button className="touch-inspect" type="button" onClick={() => setSelected(nearest)}>Inspect</button>}
+    </div>
   </>;
 }
 
@@ -359,7 +365,7 @@ function PrototypeSwitcher({ variant, setVariant }) {
   const move = (direction) => setVariant(keys[(keys.indexOf(variant) + direction + keys.length) % keys.length]);
   return <nav className="prototype-switcher" aria-label="Prototype variants">
     <button type="button" onClick={() => move(-1)} aria-label="Previous variant">←</button>
-    <span><small>Prototype {variant}</small><strong>{VARIANTS[variant].name}</strong></span>
+    <span><small>Alt + ← / → · Prototype {variant}</small><strong>{VARIANTS[variant].name}</strong></span>
     <button type="button" onClick={() => move(1)} aria-label="Next variant">→</button>
   </nav>;
 }
@@ -381,14 +387,24 @@ function App() {
   };
   useEffect(() => {
     const handle = (event) => {
+      if (event.key === "Escape" && selected) {
+        setSelected(null);
+        return;
+      }
       if (event.key.toLowerCase() === "e" && nearest && variant === "A") setSelected(nearest);
       if (!showSwitcher || event.target.matches("input, textarea, select, [contenteditable]")) return;
-      if (event.key === "ArrowLeft") setVariant(Object.keys(VARIANTS)[(Object.keys(VARIANTS).indexOf(variant) + 2) % 3]);
-      if (event.key === "ArrowRight") setVariant(Object.keys(VARIANTS)[(Object.keys(VARIANTS).indexOf(variant) + 1) % 3]);
+      if (event.altKey && event.key === "ArrowLeft") {
+        event.preventDefault();
+        setVariant(Object.keys(VARIANTS)[(Object.keys(VARIANTS).indexOf(variant) + 2) % 3]);
+      }
+      if (event.altKey && event.key === "ArrowRight") {
+        event.preventDefault();
+        setVariant(Object.keys(VARIANTS)[(Object.keys(VARIANTS).indexOf(variant) + 1) % 3]);
+      }
     };
     window.addEventListener("keydown", handle);
     return () => window.removeEventListener("keydown", handle);
-  }, [nearest, variant, showSwitcher]);
+  }, [nearest, selected, variant, showSwitcher]);
   return <main className={`game variant-${variant}`}>
     <Header replay={replay} />
     <section className="world-shell" aria-label={`${VARIANTS[variant].name} factory world`}>
@@ -399,7 +415,7 @@ function App() {
       {variant === "C" && <TourOverlay replay={replay} setSelected={setSelected} />}
     </section>
     <Inspector station={selected} replay={replay} onClose={() => setSelected(null)} />
-    {showSwitcher && <PrototypeSwitcher variant={variant} setVariant={setVariant} />}
+    {showSwitcher && !selected && <PrototypeSwitcher variant={variant} setVariant={setVariant} />}
   </main>;
 }
 
