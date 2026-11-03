@@ -22,7 +22,7 @@
 
       <main class="game-shell">
         <section class="world" aria-label="Interactive 3D factory floor">
-          <canvas id="factory-canvas"></canvas>
+          <canvas id="factory-canvas" tabindex="0" aria-label="Interactive 3D factory floor" aria-describedby="world-hint"></canvas>
           <div class="architecture-toolbar">
             <label for="diagram-select">C4 world</label>
             <select id="diagram-select"></select>
@@ -33,7 +33,7 @@
             <p id="view-kicker">Harness assembly line</p>
             <h1 id="view-title">Assemble Löyly from C4 components</h1>
           </div>
-          <div class="world-hint">Drag to orbit · Scroll to zoom · Select to inspect · Double-click to enter a station</div>
+          <div class="world-hint" id="world-hint">Drag to orbit · Scroll to zoom · Select to inspect · Double-click to enter a station</div>
           <div class="camera-actions">
             <button id="focus-product" type="button">Follow product</button>
             <button id="camera-reset" type="button">Overview</button>
@@ -84,13 +84,13 @@
 
         <section class="evidence-panel" aria-label="Evidence and event log">
           <div class="evidence-tabs" role="tablist">
-            <button role="tab" aria-selected="true" data-tab="events">Grain events</button>
-            <button role="tab" aria-selected="false" data-tab="evidence">Evidence</button>
-            <button role="tab" aria-selected="false" data-tab="state">Full state</button>
+            <button id="events-tab" role="tab" aria-selected="true" aria-controls="events-view" tabindex="0" data-tab="events">Grain events</button>
+            <button id="evidence-tab" role="tab" aria-selected="false" aria-controls="evidence-view" tabindex="-1" data-tab="evidence">Evidence</button>
+            <button id="state-tab" role="tab" aria-selected="false" aria-controls="state-view" tabindex="-1" data-tab="state">Full state</button>
           </div>
-          <div class="event-log" id="events-view" role="tabpanel"></div>
-          <div class="evidence-list" id="evidence-view" role="tabpanel" hidden></div>
-          <pre class="state-view" id="state-view" role="tabpanel" hidden></pre>
+          <div class="event-log" id="events-view" role="tabpanel" aria-labelledby="events-tab"></div>
+          <div class="evidence-list" id="evidence-view" role="tabpanel" aria-labelledby="evidence-tab" hidden></div>
+          <pre class="state-view" id="state-view" role="tabpanel" aria-labelledby="state-tab" hidden></pre>
         </section>
       </main>
 

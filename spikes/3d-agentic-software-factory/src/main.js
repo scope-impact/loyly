@@ -237,6 +237,7 @@ function shortDigest(seed, salt) {
 
 function renderState() {
   const stage = STAGES[state.activeStage];
+  document.body.classList.toggle("cycle-active", Boolean(state.cycleId));
   refs.status.textContent = state.status === "ready" ? "Ready for a cut" : replay.active && !replay.playing && replay.cursor < E2E_RECORDING.timeline.length ? "Replay paused" : state.status === "decision" && replay.active ? "Recorded fault · repair follows" : state.status === "decision" ? "Operator decision needed" : state.status === "passed" ? "Cycle independently passed" : state.status === "failed" && replay.active ? "Recorded result · 9 passed / 2 failed" : state.status === "failed" ? "Cycle stopped" : state.paused ? "Cycle paused" : `${stage?.name ?? "Factory"} in progress`;
   refs.statusLight.className = `status-light ${state.status === "decision" ? "failed" : state.status}`;
   refs.score.textContent = state.score;
@@ -272,7 +273,7 @@ function renderState() {
 
   refs.stageRail.innerHTML = STAGES.map((item, index) => {
     const className = state.failed.includes(index) ? "failed" : state.completed.includes(index) ? "complete" : state.activeStage === index && state.cycleId ? "active" : "";
-    return `<li class="${className}" data-icon="${item.glyph}" title="${item.description}">${item.name}</li>`;
+    return `<li class="${className}" title="${item.description}"><span class="stage-icon" aria-hidden="true">${item.glyph}</span><span class="stage-label">${item.name}</span></li>`;
   }).join("");
 
   refs.events.innerHTML = eventLog.length ? [...eventLog].reverse().map((event, index) => `<div class="event-row ${index === 0 ? "new" : ""}"><time>${event.at}</time><strong>${event.type}<br><small>${event.label ?? event.stage ?? event.cycleId ?? event.measurement ?? "projection updated"}</small></strong></div>`).join("") : `<div class="event-row"><time>—</time><strong>No recorded signal yet<br><small>Replay the sealed E2E result to energize the line.</small></strong></div>`;
@@ -318,10 +319,21 @@ refs.replaySource.textContent = `2 attempts · ${E2E_RECORDING.timeline.length} 
 refs.replaySource.title = E2E_RECORDING.source;
 refs.replaySeek.addEventListener("input", () => { replay.active = true; replay.playing = false; seekReplay(Number(refs.replaySeek.value)); });
 
-document.querySelectorAll(".evidence-tabs button").forEach((button) => button.addEventListener("click", () => {
-  document.querySelectorAll(".evidence-tabs button").forEach((item) => item.setAttribute("aria-selected", String(item === button)));
+const evidenceTabs = [...document.querySelectorAll(".evidence-tabs button")];
+function selectEvidenceTab(button, moveFocus = false) {
+  evidenceTabs.forEach((item) => { const selected = item === button; item.setAttribute("aria-selected", String(selected)); item.tabIndex = selected ? 0 : -1; });
   ["events", "evidence", "state"].forEach((name) => { $(`#${name}-view`).hidden = name !== button.dataset.tab; });
-}));
+  if (moveFocus) button.focus();
+}
+evidenceTabs.forEach((button, index) => {
+  button.addEventListener("click", () => selectEvidenceTab(button));
+  button.addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const targetIndex = event.key === "Home" ? 0 : event.key === "End" ? evidenceTabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + evidenceTabs.length) % evidenceTabs.length;
+    selectEvidenceTab(evidenceTabs[targetIndex], true);
+  });
+});
 
 // Live C4 world ---------------------------------------------------------------
 function extractMermaid(spec) {
@@ -743,6 +755,7 @@ function showArchitectureElement(node) {
   $("#station-code").textContent = node.id; $("#station-name").textContent = node.name;
   $("#station-description").textContent = node.description || "This element is named in the repository C4 source without an additional description.";
   $("#station-owner").textContent = node.type; $("#station-authority").textContent = activeDiagram.label; refs.stationCard.hidden = false;
+  requestAnimationFrame(() => $("#close-station").focus({ preventScroll: true }));
   $("#station-live").hidden = false; $("#focus-station").hidden = false;
   $("#overview-station").hidden = focusedNode?.id !== node.id;
   refreshStationInspector();
@@ -753,6 +766,7 @@ function showRelationship(edge) {
   $("#station-code").textContent = `${edge.from} → ${edge.to}`; $("#station-name").textContent = edge.label;
   $("#station-description").textContent = "Relationship loaded from the selected Mermaid C4 view in .pi/architecture.md.";
   $("#station-owner").textContent = "C4 relationship"; $("#station-authority").textContent = activeDiagram.label; refs.stationCard.hidden = false;
+  requestAnimationFrame(() => $("#close-station").focus({ preventScroll: true }));
   $("#station-live").hidden = true; $("#focus-station").hidden = true; $("#overview-station").hidden = !focusedNode;
 }
 
@@ -762,6 +776,7 @@ function showProductAssembly() {
   $("#station-code").textContent = "Löyly product"; $("#station-name").textContent = stack.model;
   $("#station-description").textContent = `The generated Löyly system boundary contains ${PRODUCT_COMPONENTS.length} C4-shaped product modules implemented in ${stack.label}. Components emerge as the recorded build advances.`;
   $("#station-owner").textContent = "Candidate system"; $("#station-authority").textContent = "Product assembly moving through the harness"; refs.stationCard.hidden = false;
+  requestAnimationFrame(() => $("#close-station").focus({ preventScroll: true }));
   const assembled = PRODUCT_COMPONENTS.filter((component) => Boolean(state.cycleId) && (state.activeStage >= component.stage || state.completed.includes(component.stage))).length;
   $("#station-live").hidden = false; $("#station-live-light").className = assembled ? "active" : "";
   $("#station-live-status").textContent = `${assembled} / ${PRODUCT_COMPONENTS.length} components assembled`;
@@ -831,7 +846,11 @@ function returnToOverview() {
 
 $("#focus-station").addEventListener("click", () => { if (selectedNode) focusOnStation(selectedNode); });
 $("#overview-station").addEventListener("click", returnToOverview);
-$("#close-station").addEventListener("click", () => { if (focusedNode) returnToOverview(); refs.stationCard.hidden = true; selectedNode = null; });
+function closeStationCard() {
+  if (focusedNode) returnToOverview();
+  refs.stationCard.hidden = true; selectedNode = null; canvas.focus({ preventScroll: true });
+}
+$("#close-station").addEventListener("click", closeStationCard);
 
 function activeTargetIds() {
   if (!state.cycleId) return [];
@@ -912,9 +931,10 @@ function animateStationFixtures(now) {
 
 function setCamera(mode) {
   followProduct = false; refs.focusProduct.classList.remove("active"); refs.focusProduct.textContent = "Follow product"; controls.enabled = true;
-  if (mode === "top") { camera.position.set(0, 46, .01); controls.target.set(-3, 0, 0); }
-  else if (mode === "perspective") { camera.position.set(27, 16, 24); controls.target.set(-3, 1, 0); }
-  else { camera.position.set(23, 22, 26); controls.target.set(-3, 1, 0); }
+  const compact = canvas.clientWidth <= 560;
+  if (mode === "top") { camera.position.set(0, compact ? 54 : 46, .01); controls.target.set(-3, 0, 0); }
+  else if (mode === "perspective") { camera.position.set(compact ? 35 : 27, compact ? 22 : 16, compact ? 31 : 24); controls.target.set(-3, 1, 0); }
+  else { camera.position.set(compact ? 31 : 23, compact ? 28 : 22, compact ? 35 : 26); controls.target.set(-3, 1, 0); }
   controls.update();
 }
 refs.focusProduct.addEventListener("click", () => {
@@ -925,6 +945,10 @@ refs.focusProduct.addEventListener("click", () => {
   renderState();
 });
 $("#camera-reset").addEventListener("click", () => { if (focusedNode) returnToOverview(); else setCamera(VARIANTS[activeVariant].camera); });
+canvas.addEventListener("keydown", (event) => {
+  if (event.key.toLowerCase() === "f" && !refs.focusProduct.disabled) { event.preventDefault(); refs.focusProduct.click(); }
+  if (event.key.toLowerCase() === "o") { event.preventDefault(); $("#camera-reset").click(); }
+});
 
 function resize() {
   const rect = canvas.getBoundingClientRect(); if (!rect.width || !rect.height) return;
@@ -992,9 +1016,9 @@ function cycleVariant(direction) {
 $("#previous-variant").addEventListener("click", () => cycleVariant(-1));
 $("#next-variant").addEventListener("click", () => cycleVariant(1));
 document.addEventListener("keydown", (event) => {
-  const editing = event.target.matches("input, textarea, [contenteditable]");
+  const editing = event.target.matches("input, textarea, select, button, a, [contenteditable]");
   if (!editing && event.key === "Escape") {
-    if (!refs.stationCard.hidden) { if (focusedNode) returnToOverview(); refs.stationCard.hidden = true; selectedNode = null; }
+    if (!refs.stationCard.hidden) closeStationCard();
     else if (followProduct) setCamera(VARIANTS[activeVariant].camera);
   }
   if (!editing && event.key === "ArrowLeft") cycleVariant(-1);
