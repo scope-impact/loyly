@@ -59,7 +59,7 @@ button, select, input[type="range"] { min-height: 44px; }
 .c4-world-label strong, .c4-world-label small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .c4-world-label strong { font: 600 12px/1.12 "Barlow Condensed", sans-serif; letter-spacing: .01em; }
 .c4-world-label small { margin-top: 2px; color: var(--label-accent); font: 600 7px/1.1 "IBM Plex Sans", sans-serif; }
-.world-title { position: absolute; z-index: 3; top: 112px; left: 28px; max-width: 420px; padding: 10px 34px 13px 0; pointer-events: none; text-shadow: 0 2px 15px #08111c; background: linear-gradient(90deg, rgba(8,17,28,.88), rgba(8,17,28,0)); }
+.world-title { position: absolute; z-index: 3; top: 112px; left: 28px; max-width: 420px; padding: 10px 58px 13px 0; pointer-events: none; text-shadow: 0 2px 15px #08111c; background: linear-gradient(90deg, #08111c 0%, rgba(8,17,28,.98) 76%, rgba(8,17,28,0) 100%); }
 .world-title p, .panel-heading p, .stage-focus small { margin: 0 0 3px; color: var(--amber); font: 500 14px "Barlow Condensed"; }
 .world-title h1 { margin: 0; font: 600 clamp(28px, 3vw, 44px)/.96 "Barlow Condensed"; max-width: 360px; }
 .world-hint { position: absolute; z-index: 3; left: 28px; bottom: 20px; color: #b9c3c9; font-size: 11px; pointer-events: none; }
