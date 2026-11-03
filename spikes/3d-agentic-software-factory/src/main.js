@@ -5,22 +5,29 @@ import "./style.css";
 
 // Three variants of the same playable factory, switchable via ?variant=.
 const STAGES = [
-  { id: "cut", name: "Pin cut", code: "ST–01", owner: "Gondolin", authority: "Isolation boundary", color: 0x74a5c2, description: "Seal the approved specification and expose it read-only to the factory." },
-  { id: "harness_calibration", name: "Calibrate", code: "ST–02", owner: "Pi harness", authority: "Pinned instrument oracle", color: 0xf2b84b, description: "Resolve instrument and product oracles before candidate work is allowed to begin." },
-  { id: "builder", name: "Build", code: "ST–03", owner: "Pi / Codex", authority: "Fresh builder intelligence", color: 0xc76b3c, description: "A fresh agent session changes only the declared workspace scope." },
-  { id: "instrument", name: "Instrument", code: "ST–04", owner: "Harness observer", authority: "Diagnostic producer", color: 0x52d6d2, description: "Attach runtime observation without changing the candidate subject digest." },
-  { id: "oracle", name: "Resolve oracle", code: "ST–05", owner: "ORC", authority: "Workflow gate", color: 0x8d76b5, description: "Bind the candidate to approved, digest-pinned evaluation inputs." },
-  { id: "verify", name: "Verify", code: "ST–06", owner: "Verifier adapter", authority: "Application contract", color: 0xd9d2a7, description: "Boot and probe the candidate against its independently detected stack contract." },
-  { id: "repair_verification", name: "Repair", code: "ST–07", owner: "Fresh Pi builder", authority: "Bounded attempt", color: 0xd95555, description: "Use read-only verification evidence for one bounded repair attempt." },
-  { id: "graders", name: "Grade", code: "ST–08", owner: "Independent grader", authority: "Verdict authority", color: 0x75c18b, description: "Measure black-box behavior without accepting verdicts authored by the candidate." },
-  { id: "instrument_conformance", name: "Check signals", code: "ST–09", owner: "Independent grader", authority: "Evidence completeness", color: 0x4d9fa4, description: "Incomplete or sampled required signals become inconclusive; they cannot silently pass." },
-  { id: "record_cycle", name: "Record", code: "ST–10", owner: "Grain", authority: "Durable observation", color: 0x52d6d2, description: "Append cycle facts and derive reconnectable read models without advancing ORC." },
+  { id: "cut", name: "Pin blueprint", code: "ST–01 · cut", owner: "Gondolin", authority: "Isolation boundary", color: 0x74a5c2, description: "Seal the approved Löyly specification—the vehicle blueprint—and expose it read-only to the line." },
+  { id: "harness_calibration", name: "Calibrate tooling", code: "ST–02 · harness calibration", owner: "Pi harness", authority: "Pinned instrument oracle", color: 0xf2b84b, description: "Prove the assembly line and inspection tools before candidate construction can begin." },
+  { id: "builder", name: "Build vehicle", code: "ST–03 · builder", owner: "Pi / Codex", authority: "Fresh builder intelligence", color: 0xc76b3c, description: "A fresh builder manufactures the selected language model from the same Löyly blueprint." },
+  { id: "instrument", name: "Fit sensors", code: "ST–04 · instrument", owner: "Harness observer", authority: "Diagnostic producer", color: 0x52d6d2, description: "Fit runtime sensors without changing the candidate vehicle's subject digest." },
+  { id: "oracle", name: "Lock standard", code: "ST–05 · oracle", owner: "ORC", authority: "Workflow gate", color: 0x8d76b5, description: "Bind the vehicle to approved, digest-pinned inspection standards." },
+  { id: "verify", name: "Road test", code: "ST–06 · verify", owner: "Verifier adapter", authority: "Application contract", color: 0xd9d2a7, description: "Boot and probe the vehicle against its independently detected target-stack contract." },
+  { id: "repair_verification", name: "Repair bay", code: "ST–07 · repair", owner: "Fresh Pi builder", authority: "Bounded attempt", color: 0xd95555, description: "A fresh builder uses read-only failure evidence for one bounded repair attempt." },
+  { id: "graders", name: "Independent inspection", code: "ST–08 · graders", owner: "Independent grader", authority: "Verdict authority", color: 0x75c18b, description: "Inspect Löyly behavior without accepting a quality verdict authored by its builder." },
+  { id: "instrument_conformance", name: "Check telemetry", code: "ST–09 · instrument conformance", owner: "Independent grader", authority: "Evidence completeness", color: 0x4d9fa4, description: "Incomplete or sampled required telemetry becomes inconclusive; it cannot silently pass." },
+  { id: "record_cycle", name: "Register vehicle", code: "ST–10 · record cycle", owner: "Grain", authority: "Durable observation", color: 0x52d6d2, description: "Grain appends the build and inspection facts to durable vehicle history without advancing ORC." },
 ];
 
+const TARGET_STACKS = {
+  rust: { label: "Rust", model: "Löyly Rally", detail: "compact performance build", color: 0xc76b3c, shape: "coupe" },
+  java: { label: "Java", model: "Löyly Touring", detail: "long-running estate model", color: 0x4d9fa4, shape: "wagon" },
+  rails: { label: "Ruby on Rails", model: "Löyly Coach", detail: "productive workshop van", color: 0xd95555, shape: "van" },
+  node: { label: "Node family", model: "Löyly Modular", detail: "adaptable urban hatchback", color: 0x75c18b, shape: "hatch" },
+};
+
 const VARIANTS = {
-  A: { label: "A · Factory floor", kicker: "Floor operator", title: "Build software you can prove", camera: "isometric" },
-  B: { label: "B · Evidence observatory", kicker: "Evidence observatory", title: "Every claim leaves a trace", camera: "perspective" },
-  C: { label: "C · Command deck", kicker: "Agent command deck", title: "Intervene at the boundary", camera: "top" },
+  A: { label: "A · Assembly line", kicker: "Harness assembly line", title: "Build Löyly in any supported stack", camera: "isometric" },
+  B: { label: "B · Inspection hall", kicker: "Independent inspection hall", title: "Every vehicle leaves a trace", camera: "perspective" },
+  C: { label: "C · Line control", kicker: "Assembly line control", title: "Intervene at the boundary", camera: "top" },
 };
 
 const DIAGRAM_SPECS = [
@@ -52,8 +59,10 @@ const refs = {
   stageFocus: $("#stage-focus"), stageRail: $("#stage-rail"), progress: $("#pipeline-progress"),
   events: $("#events-view"), evidence: $("#evidence-view"), state: $("#state-view"), decision: $("#decision"),
   repair: $("#repair-cycle"), abort: $("#abort-cycle"), variantLabel: $("#variant-label"),
-  viewKicker: $("#view-kicker"), viewTitle: $("#view-title"), stationCard: $("#station-card"),
+  viewKicker: $("#view-kicker"), viewTitle: $("#view-title"), stationCard: $("#station-card"), stack: $("#stack-select"),
 };
+
+refs.stack.innerHTML = Object.entries(TARGET_STACKS).map(([id, stack]) => `<option value="${id}">${stack.label} · ${stack.model}</option>`).join("");
 
 let eventLog = [];
 let stageElapsed = 0;
@@ -75,12 +84,12 @@ function append(type, payload = {}) {
 function project(events) {
   const next = {
     cycleId: null, status: "ready", activeStage: -1, completed: [], failed: [],
-    paused: false, awaitingDecision: false, attempt: 0, score: 0, evidence: [], speed: 1,
+    paused: false, awaitingDecision: false, attempt: 0, score: 0, evidence: [], speed: 1, targetStack: refs.stack?.value ?? "rust",
   };
   for (const event of events) {
     switch (event.type) {
       case "CycleStarted":
-        Object.assign(next, { cycleId: event.cycleId, status: "running", activeStage: 0, attempt: 1, completed: [], failed: [], score: 0, evidence: [], awaitingDecision: false, paused: false });
+        Object.assign(next, { cycleId: event.cycleId, targetStack: event.targetStack, status: "running", activeStage: 0, attempt: 1, completed: [], failed: [], score: 0, evidence: [], awaitingDecision: false, paused: false });
         break;
       case "StageEntered": next.activeStage = event.stageIndex; break;
       case "StageCompleted":
@@ -109,7 +118,7 @@ function startCycle() {
   const cycleId = `RY-${String(Math.floor(1000 + Math.random() * 8999))}`;
   eventLog = [];
   stageElapsed = 0;
-  append("CycleStarted", { cycleId });
+  append("CycleStarted", { cycleId, targetStack: refs.stack.value, product: "Löyly" });
   append("StageEntered", { stageIndex: 0, stage: STAGES[0].id });
 }
 
@@ -153,6 +162,12 @@ function renderState() {
   refs.pause.disabled = !state.cycleId || ["passed", "failed", "decision"].includes(state.status);
   refs.step.disabled = !state.cycleId || ["passed", "failed", "decision"].includes(state.status);
   refs.pause.textContent = state.paused ? "Resume" : "Pause";
+  refs.stack.disabled = Boolean(state.cycleId) && !["passed", "failed"].includes(state.status);
+  const stack = TARGET_STACKS[state.targetStack] ?? TARGET_STACKS.rust;
+  refs.cycleName.textContent = state.cycleId ? stack.model : "No cycle loaded";
+  $("#model-name").textContent = stack.model;
+  $("#model-detail").textContent = `${stack.label} · ${stack.detail}`;
+  $("#model-swatch").style.background = `#${stack.color.toString(16).padStart(6, "0")}`;
   refs.decision.hidden = !state.awaitingDecision;
   const terminalStages = new Set([...state.completed, ...state.failed]).size;
   refs.progress.textContent = `${terminalStages} / ${STAGES.length} stages`;
@@ -172,6 +187,7 @@ function renderState() {
   refs.evidence.innerHTML = state.evidence.length ? [...state.evidence].reverse().map((item) => `<div class="evidence-item"><span>${item.verdict.includes("pass") ? "✓" : "×"}</span>${item.name}<small>${item.digest} · ${item.authority}</small></div>`).join("") : `<div class="evidence-item">No evidence captured.<small>Candidate claims cannot determine an independent verdict.</small></div>`;
   refs.state.textContent = JSON.stringify({
     projection: state,
+    productOrder: { product: "Löyly", vehicleModel: stack.model, targetStack: stack.label, contract: "model/loyly" },
     architecture: activeDiagram ? {
       source: ".pi/architecture.md",
       diagram: activeDiagram.label,
@@ -190,6 +206,7 @@ refs.start.addEventListener("click", startCycle);
 refs.pause.addEventListener("click", () => append(state.paused ? "CycleResumed" : "CyclePaused"));
 refs.step.addEventListener("click", completeActiveStage);
 refs.speed.addEventListener("input", () => { refs.speedLabel.textContent = `${refs.speed.value}×`; append("SpeedChanged", { speed: Number(refs.speed.value) }); });
+refs.stack.addEventListener("change", () => { buildVehicle(refs.stack.value); state = project(eventLog); renderState(); });
 refs.repair.addEventListener("click", () => { append("RepairAuthorized", { failedStage: "verify", attempt: 2 }); append("StageEntered", { stageIndex: 6, stage: STAGES[6].id }); });
 refs.abort.addEventListener("click", () => append("CycleAborted", { reason: "operator_refused_repair" }));
 
@@ -266,8 +283,40 @@ let nodeMeshes = [];
 let edgeMeshes = [];
 let nodePositions = new Map();
 
-const workpiece = new THREE.Mesh(new THREE.IcosahedronGeometry(.48, 1), new THREE.MeshStandardMaterial({ color: 0xf2b84b, emissive: 0xc76b3c, emissiveIntensity: 1.4, metalness: .75, roughness: .22 }));
-workpiece.castShadow = true; workpiece.visible = false; scene.add(workpiece);
+const productVehicle = new THREE.Group();
+productVehicle.userData.product = true;
+productVehicle.scale.setScalar(1.1); scene.add(productVehicle);
+
+function buildVehicle(stackId) {
+  const stack = TARGET_STACKS[stackId] ?? TARGET_STACKS.rust;
+  while (productVehicle.children.length) {
+    const child = productVehicle.children.pop(); child.traverse((object) => { object.geometry?.dispose(); object.material?.dispose?.(); });
+  }
+  const paint = new THREE.MeshStandardMaterial({ color: stack.color, roughness: .32, metalness: .62 });
+  const glass = new THREE.MeshStandardMaterial({ color: 0x9ac1c9, roughness: .15, metalness: .25, transparent: true, opacity: .78 });
+  const tire = new THREE.MeshStandardMaterial({ color: 0x0b0e12, roughness: .88 });
+  const specs = {
+    coupe: { length: 2.75, bodyH: .42, cabin: [1.25, .43, 1.04], cabinX: -.12 },
+    wagon: { length: 3.15, bodyH: .5, cabin: [2.05, .67, 1.08], cabinX: -.2 },
+    van: { length: 3.0, bodyH: .62, cabin: [2.2, 1.14, 1.12], cabinX: -.15 },
+    hatch: { length: 2.55, bodyH: .5, cabin: [1.55, .73, 1.08], cabinX: -.18 },
+  }[stack.shape];
+  const chassis = new THREE.Mesh(new THREE.BoxGeometry(specs.length, specs.bodyH, 1.35), paint); chassis.position.y = .58; chassis.castShadow = true; productVehicle.add(chassis);
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(...specs.cabin), glass); cabin.position.set(specs.cabinX, .58 + specs.bodyH / 2 + specs.cabin[1] / 2, 0); cabin.castShadow = true; productVehicle.add(cabin);
+  const bumper = new THREE.Mesh(new THREE.BoxGeometry(.18, .2, 1.18), new THREE.MeshStandardMaterial({ color: 0xd9d2a7, metalness: .85, roughness: .2 })); bumper.position.set(specs.length / 2 + .07, .5, 0); productVehicle.add(bumper);
+  [-1, 1].forEach((xSide) => [-1, 1].forEach((zSide) => {
+    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(.32, .32, .2, 18), tire); wheel.rotation.x = Math.PI / 2; wheel.position.set(xSide * specs.length * .32, .34, zSide * .72); wheel.castShadow = true; productVehicle.add(wheel);
+  }));
+  if (stack.shape === "coupe") { chassis.rotation.z = -.025; }
+  if (stack.shape === "van") {
+    const sideDoor = new THREE.Mesh(new THREE.BoxGeometry(.04, .72, .76), new THREE.MeshStandardMaterial({ color: 0xf1f0e8, roughness: .5 })); sideDoor.position.set(.15, 1.2, -.69); productVehicle.add(sideDoor);
+  }
+  if (stack.shape === "hatch") {
+    [-.52, 0, .52].forEach((x) => { const module = new THREE.Mesh(new THREE.BoxGeometry(.38, .18, .82), paint); module.position.set(x, 1.53, 0); productVehicle.add(module); });
+  }
+  const productLabel = makeTextSprite([stack.model, `${stack.label} target stack`], `#${stack.color.toString(16).padStart(6, "0")}`, .66); productLabel.position.set(0, 2.35, 0); productVehicle.add(productLabel);
+}
+buildVehicle("rust");
 const agents = [0x52d6d2, 0xc76b3c, 0xf1f0e8].map((color) => {
   const agent = new THREE.Group();
   const torso = new THREE.Mesh(new THREE.BoxGeometry(.48, .53, .36), new THREE.MeshStandardMaterial({ color, roughness: .4, metalness: .5 })); torso.position.y = .43; torso.castShadow = true; agent.add(torso);
@@ -362,6 +411,7 @@ function buildDiagram(diagramId) {
   }
   activeDiagram.edges.forEach(addRelationship);
   activeDiagram.nodes.forEach(addC4Node);
+  if (!state.cycleId) productVehicle.position.set(9, .08, 7.3);
   $("#diagram-count").textContent = `${activeDiagram.nodes.length} elements · ${activeDiagram.edges.length} relations`;
   $("#diagram-source").textContent = `Source: .pi/architecture.md:${activeDiagram.sourceLine}`;
   updateSceneFromState();
@@ -374,12 +424,13 @@ const pointer = new THREE.Vector2();
 canvas.addEventListener("click", (event) => {
   const rect = canvas.getBoundingClientRect(); pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1; pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
-  const hit = raycaster.intersectObjects([...nodeMeshes, ...edgeMeshes], true)[0];
+  const hit = raycaster.intersectObjects([...nodeMeshes, ...edgeMeshes, productVehicle], true)[0];
   if (!hit) return;
   let target = hit.object;
-  while (target.parent && !target.userData.node && !target.userData.edge) target = target.parent;
+  while (target.parent && !target.userData.node && !target.userData.edge && !target.userData.product) target = target.parent;
   if (target.userData.node) showArchitectureElement(target.userData.node);
   if (target.userData.edge) showRelationship(target.userData.edge);
+  if (target.userData.product) showProductVehicle();
 });
 
 function showArchitectureElement(node) {
@@ -394,14 +445,24 @@ function showRelationship(edge) {
   $("#station-description").textContent = "Relationship loaded from the selected Mermaid C4 view in .pi/architecture.md.";
   $("#station-owner").textContent = "C4 relationship"; $("#station-authority").textContent = activeDiagram.label; refs.stationCard.hidden = false;
 }
+
+function showProductVehicle() {
+  const stack = TARGET_STACKS[state.targetStack] ?? TARGET_STACKS.rust;
+  $("#station-code").textContent = "Löyly product"; $("#station-name").textContent = stack.model;
+  $("#station-description").textContent = `The generated Löyly application, manufactured as the ${stack.label} target-stack model from the same pinned product specification.`;
+  $("#station-owner").textContent = "Candidate application"; $("#station-authority").textContent = "Vehicle moving through the harness"; refs.stationCard.hidden = false;
+}
 $("#close-station").addEventListener("click", () => { refs.stationCard.hidden = true; selectedStage = null; });
 
-function activeTargetIds() { return STAGE_TARGETS[activeDiagram.id]?.[Math.max(0, state.activeStage)] ?? []; }
+function activeTargetIds() {
+  if (!state.cycleId) return [];
+  return STAGE_TARGETS[activeDiagram.id]?.[Math.max(0, state.activeStage)] ?? [];
+}
 
 function updateSceneFromState() {
   if (!activeDiagram) return;
   const targets = new Set(activeTargetIds());
-  workpiece.visible = Boolean(state.cycleId) && state.status !== "failed";
+  productVehicle.visible = true;
   nodeMeshes.forEach((group) => {
     const active = targets.has(group.userData.node.id);
     group.scale.setScalar(active ? 1.1 : 1);
@@ -433,10 +494,10 @@ new ResizeObserver(resize).observe(canvas);
 function frame(now) {
   const delta = Math.min((now - lastFrame) / 1000, .1); lastFrame = now;
   if (state.status === "running" && !state.paused) { stageElapsed += delta * state.speed; const duration = state.activeStage === 2 ? 4.3 : 2.8; if (stageElapsed >= duration) completeActiveStage(); }
-  workpiece.rotation.x += delta * 1.4; workpiece.rotation.y += delta * 2;
-  if (workpiece.visible) {
+  if (productVehicle.visible) {
     const targetId = activeTargetIds()[0]; const target = nodePositions.get(targetId) ?? new THREE.Vector3();
-    workpiece.position.lerp(new THREE.Vector3(target.x, 4 + Math.sin(now * .003) * .2, target.z), .045 * Math.max(1, state.speed));
+    const destination = state.cycleId ? target : new THREE.Vector3(9, 0, 7.3);
+    productVehicle.position.lerp(new THREE.Vector3(destination.x, .08 + Math.sin(now * .003) * .025, destination.z), .045 * Math.max(1, state.speed));
   }
   agents.forEach((agent, index) => { if (agent.userData.target) agent.position.lerp(agent.userData.target, .018 + index * .003); agent.rotation.y = Math.sin(now * .001 + index) * .16; });
   controls.update(); renderer.render(scene, camera); requestAnimationFrame(frame);

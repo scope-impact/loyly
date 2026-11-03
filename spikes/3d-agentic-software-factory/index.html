@@ -17,7 +17,7 @@
           <span class="status-light" id="status-light"></span>
           <span><small>Factory status</small><strong id="factory-status">Ready for a cut</strong></span>
         </div>
-        <div class="score-block"><small>Evidence score</small><strong id="score">0</strong><span>/ 100</span></div>
+        <div class="score-block"><small>Quality evidence</small><strong id="score">0</strong><span>/ 100</span></div>
       </header>
 
       <main class="game-shell">
@@ -30,8 +30,8 @@
             <span id="diagram-source">Source: .pi/architecture.md</span>
           </div>
           <div class="world-title">
-            <p id="view-kicker">Floor operator</p>
-            <h1 id="view-title">Build software you can prove</h1>
+            <p id="view-kicker">Harness assembly line</p>
+            <h1 id="view-title">Build Löyly in any supported stack</h1>
           </div>
           <div class="world-hint">Drag to orbit · Scroll to zoom · Select a C4 element to inspect</div>
           <button class="camera-reset" id="camera-reset" type="button">Reset camera</button>
@@ -39,10 +39,15 @@
 
         <aside class="mission-panel" aria-label="Cycle controls">
           <div class="panel-heading">
-            <div><p>Active order</p><h2 id="cycle-name">No cycle loaded</h2></div>
+            <div><p>Product order</p><h2 id="cycle-name">No cycle loaded</h2></div>
             <span class="cycle-id" id="cycle-id">—</span>
           </div>
-          <p class="mission-copy" id="mission-copy">Pin a model cut, release a builder agent, and carry independently graded evidence back to the control room.</p>
+          <p class="mission-copy" id="mission-copy">The harness is the assembly line. Löyly is the vehicle. Choose a target stack—the model to manufacture—then prove it against the same product specification.</p>
+          <div class="product-order">
+            <label for="stack-select"><span>Vehicle model</span><small>Target stack bound to this cycle</small></label>
+            <select id="stack-select"></select>
+            <div class="product-badge"><span id="model-swatch"></span><strong id="model-name">Rust Rally</strong><small id="model-detail">Rust · compact performance build</small></div>
+          </div>
           <div class="primary-actions">
             <button class="start-button" id="start-cycle" type="button"><span>Start cycle</span><kbd>Space</kbd></button>
             <button class="quiet-button" id="pause-cycle" type="button" disabled>Pause</button>
@@ -64,7 +69,7 @@
         </aside>
 
         <section class="pipeline-panel" aria-label="Regeneration pipeline">
-          <div class="section-heading"><h2>Material flow</h2><span id="pipeline-progress">0 / 10 stages</span></div>
+          <div class="section-heading"><h2>Assembly line</h2><span id="pipeline-progress">0 / 10 stages</span></div>
           <ol class="stage-rail" id="stage-rail"></ol>
         </section>
 
@@ -85,7 +90,7 @@
         <span id="station-code">C4 element</span>
         <h2 id="station-name">Architecture element</h2>
         <p id="station-description"></p>
-        <dl><div><dt>C4 type</dt><dd id="station-owner"></dd></div><div><dt>Diagram</dt><dd id="station-authority"></dd></div></dl>
+        <dl><div><dt>Element type</dt><dd id="station-owner"></dd></div><div><dt>World role</dt><dd id="station-authority"></dd></div></dl>
       </div>
 
       <nav class="prototype-switcher" aria-label="Prototype view switcher">

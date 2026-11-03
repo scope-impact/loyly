@@ -14,6 +14,20 @@ blocks at runtime. Nodes become buildings or data-store cylinders, C4 relationsh
 labeled routes, and the selected regeneration stage highlights the responsible architecture
 elements.
 
+## World analogy
+
+- **The Pi/ORC/Grain harness is the assembly line.** Its real C4 elements are the machinery,
+  inspection stations, stores, and routes.
+- **Löyly is the vehicle.** The moving 3D vehicle is the generated candidate application, not the
+  harness itself.
+- **A target language is a vehicle model.** Rust Rally, Java Touring, Rails Coach, and Node
+  Modular have distinct 3D silhouettes but are manufactured from the same pinned Löyly product
+  specification and judged against the same behavioral contract.
+- **Grain is the vehicle history.** It records durable build, observation, and measurement facts;
+  it does not move the assembly line forward.
+- **Independent graders are vehicle inspection.** Builder claims and fitted telemetry cannot
+  author the final quality verdict.
+
 ## Run
 
 ```bash
