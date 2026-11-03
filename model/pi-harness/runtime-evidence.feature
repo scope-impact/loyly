@@ -14,11 +14,13 @@ Feature: Authoritative and complete runtime evidence
 
     @item-01-032 @skip
     Scenario: Missing or dropped required signals are inconclusive
-      Given a product measurement binding requires an event and projection snapshots
-      And one required signal is missing, sampled, or reported as dropped
-      When the independent grader evaluates the invariant
-      Then the invariant verdict is inconclusive
-      And the approved item cannot pass
+      Given the pinned product-oracle OCI declares the exact runtime signals required by an approved item
+      And one required signal is missing, incomplete, sampled, or reported as dropped
+      When the independent grader compares the captured signals with that requirement
+      Then it persists an inconclusive invariant evaluation
+      And the approved item cannot pass the grade gate
+      And collection status identifies the affected signal kind and reason
+      And diagnostic profiles remain available but cannot author a verdict
 
     @item-01-033 @skip
     Scenario: A passing invariant uses one correlated candidate subject
@@ -51,9 +53,27 @@ Feature: Authoritative and complete runtime evidence
       And adding a project or item does not require evaluator or ORC source changes
       And a selected item with no contract receives a failing observation
 
-    @item-01-034 @skip
+    @item-01-034 @e2e
     Scenario: OTel and Allure project the persisted invariant evaluation
       Given an independent invariant evaluation and its evidence digest were persisted
       When an OTel result span and Allure report are emitted
       Then both identify the persisted evaluation and evidence digest
+      And both name the same candidate subject and oracle digests
       And neither projection can change the recorded verdict
+
+    @item-01-041 @skip
+    Scenario: An operator Pi session profiles a Gondolin VM directly
+      Given an isolated Pi observer session has YOLO tool access inside Gondolin
+      When the observer profiles the VM while exercising the selected scenario
+      Then its profile artifacts are recorded as operator-invoked evidence
+      And the profile cannot become an authoritative grade without deterministic validation
+
+    @item-01-042 @e2e
+    Scenario: Each grading cycle isolates evidence from its pinned OTel capture policy
+      Given the pinned product-oracle OCI supplies a declarative OTel capture policy
+      When an independent Gondolin grader room opens for one regeneration cycle
+      Then the candidate and OTel capture policy are mounted read-only
+      And the candidate subject digest remains unchanged after observation
+      And a fresh cycle evidence volume is the only writable grading mount
+      And the grader image supplies OBI and the OTel eBPF profiler with tracefs and BPF FS mounted
+      And native OTLP traces, metrics, and profiles are cycle-scoped diagnostic evidence

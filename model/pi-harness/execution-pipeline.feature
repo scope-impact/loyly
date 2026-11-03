@@ -40,23 +40,16 @@ Feature: Ordered regeneration execution and evidence
       And the candidate content digest remains unchanged
 
     @item-01-026 @skip
-    Scenario: The oracle binds the calibrated instrument and complete pinned model contract
-      Given a selection identifies a project and approved items in a pinned cut
-      When the oracle stage runs
-      Then it resolves every model artifact and artifact digest for that project
-      And every selected item resolves exactly once
-      And missing, duplicate, or unstamped scenarios fail the oracle
-      And its digest combines the instrument-oracle digest with the resolved product-contract digest
+    Scenario: The product-oracle OCI is bound to the approved Git revision
+      Given an approved selection names a full Git commit and fenced tree identity
+      When harness calibration resolves its product-oracle OCI before the builder starts
+      Then the artifact records the same source commit and tree identity
+      And it contains every selected item exactly once
+      And it names the accepted instrument-oracle descriptor digest
+      And its Git-commit tag is only a lookup alias for the immutable OCI descriptor digest
+      And any commit, tree, item, or instrument mismatch prevents the builder from starting
 
   Rule: Independent rooms and evidence preserve provenance
-
-    @item-01-027 @skip
-    Scenario: Independent observers cannot modify the candidate
-      Given instrumentation recorded the candidate subject digest
-      When the verifier and graders inspect the candidate in their execution rooms
-      Then the candidate is mounted read-only
-      And judge material and host credentials are unavailable to the builder
-      And every resulting observation names the same subject and oracle digests
 
     @item-01-028 @skip
     Scenario: Evidence identity cannot be reused for different content

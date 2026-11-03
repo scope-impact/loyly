@@ -41,6 +41,14 @@
      :grain/allium [{:spec "model/pi-harness/regeneration-cycle.allium"
                      :kind :rule :name "ApprovePreparation"}]}
 
+    :loyly/record-cycle-progress
+    {:description "Record the latest observational stage for one durable ORC tick."
+     :schema [:map [:progress :map]]
+     :reads #{:loyly/cycle-progress}
+     :produces #{:loyly/cycle-progress-recorded}
+     :grain/allium [{:spec "model/pi-harness/operator-control-plane.allium"
+                     :kind :rule :name "ObserveOrcExecutionState"}]}
+
     :loyly/record-observation
     {:description "Record one evidence-backed item observation."
      :schema [:map [:observation :map]]
@@ -95,6 +103,16 @@
     {:description "The exact digest of a complete cycle preparation was approved."
      :schema [:map [:preparation-id :string] [:preparation-digest :string]]}
 
+    :loyly/cycle-progress-recorded
+    {:description "An observational stage snapshot was recorded; ORC tick state remains authoritative."
+     :schema [:map
+              [:cycle-id :string]
+              [:tick-id :string]
+              [:stage :string]
+              [:attempt :int]
+              [:builder-session-ref {:optional true} :string]
+              [:status [:enum "running" "completed" "failed"]]]}
+
     :loyly/observation-recorded
     {:description "One identified producer recorded a purpose-scoped claim for one cycle item."
      :schema [:map
@@ -109,13 +127,16 @@
               [:producer-authority [:enum "candidate" "harness-observer" "independent-grader"]]
               [:evidence-purpose [:enum "assertion" "diagnostic" "calibration"]]
               [:claim-type :string]
+              [:evaluation-id :string]
+              [:evidence-digest :string]
               [:result [:enum "pass" "fail" "inconclusive"]]
               [:reached? :boolean]
               [:evidence :string]
               [:collection [:map
                             [:complete? :boolean]
                             [:sampled? :boolean]
-                            [:dropped :int]]]
+                            [:dropped :int]
+                            [:reason {:optional true} :string]]]
               [:correlation [:map
                              [:operation-id {:optional true} :string]
                              [:trace-id {:optional true} :string]
@@ -152,6 +173,11 @@
                  :loyly/cycle-preparation-approved}
      :version 1}
 
+    :loyly/cycle-progress
+    {:description "Latest observational stage and builder-session reference keyed by ORC tick identity."
+     :consumes #{:loyly/cycle-progress-recorded}
+     :version 1}
+
     :loyly/cycle-observations
     {:description "Evidence grouped by cycle, item, kind, and producer."
      :consumes #{:loyly/observation-recorded}
@@ -173,6 +199,11 @@
      :schema [:map [:preparation-id :string]]
      :reads #{:loyly/cycle-preparations}}
 
+    :loyly/cycle-progress
+    {:description "Return the latest observational stage for one ORC tick."
+     :schema [:map [:tick-id :string]]
+     :reads #{:loyly/cycle-progress}}
+
     :loyly/cycle-observations
     {:description "Return all recorded observations for one cycle."
      :schema [:map [:cycle-id :string]]
@@ -188,12 +219,14 @@
     {:description "Session control boundary for preparation approval and measured regeneration."
      :queries #{:loyly/selection
                 :loyly/cycle-preparation
+                :loyly/cycle-progress
                 :loyly/cycle-observations
                 :loyly/cycle-measurement}
      :commands #{:loyly/record-selection
                  :loyly/approve-selection
                  :loyly/record-cycle-preparation
                  :loyly/approve-cycle-preparation
+                 :loyly/record-cycle-progress
                  :loyly/record-observation
                  :loyly/record-cycle-measurement}
      :grain/allium [{:spec "model/pi-harness/regeneration-cycle.allium"
@@ -229,6 +262,15 @@
               :to [:event :loyly/cycle-preparation-approved]}
              {:from [:event :loyly/cycle-preparation-approved]
               :to [:read-model :loyly/cycle-preparations]}]}
+
+    :loyly/progress-reconciliation
+    {:description "ORC executors publish an observational stage projection for reconnecting clients."
+     :steps [{:from [:screen :loyly/pi-regeneration]
+              :to [:command :loyly/record-cycle-progress]}
+             {:from [:command :loyly/record-cycle-progress]
+              :to [:event :loyly/cycle-progress-recorded]}
+             {:from [:event :loyly/cycle-progress-recorded]
+              :to [:read-model :loyly/cycle-progress]}]}
 
     :loyly/measurement-recording
     {:description "Independent observations are reduced and recorded as one strict measurement."

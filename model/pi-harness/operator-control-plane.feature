@@ -75,7 +75,7 @@ Feature: Session-independent regeneration control
 
   Rule: Builder sessions are observable without weakening independence
 
-    @item-01-038 @skip
+    @item-01-038 @e2e
     Scenario: An operator observes a builder session read-only
       Given ORC opened a separately identified builder session for one build attempt
       When an operator session opens that builder-session reference

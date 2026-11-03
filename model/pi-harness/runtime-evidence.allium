@@ -19,7 +19,9 @@ enum RuntimeSignalKind {
     domain_event |
     projection_snapshot |
     invariant_result |
-    runtime_diagnostic
+    runtime_diagnostic |
+    profile_sample |
+    collection_status
 }
 
 value RuntimeDigest { value: String }
@@ -40,6 +42,7 @@ entity RuntimeSignal {
     complete: Boolean
     sampled: Boolean
     dropped_count: Integer
+    collection_reason: String?
 }
 
 entity IndependentInvariantEvaluation {
@@ -53,6 +56,20 @@ entity IndependentInvariantEvaluation {
     subject_digest: RuntimeDigest
     verdict: EvidenceVerdict
     evidence_digest: RuntimeDigest
+}
+
+entity OtelCapturePolicy {
+    oracle_digest: RuntimeDigest
+    policy_digest: RuntimeDigest
+    mount_path: String
+    read_only: Boolean
+}
+
+entity CycleEvidenceVolume {
+    identity: String
+    cycle_identity: String
+    mount_path: String
+    writable: Boolean
 }
 
 rule RecordRuntimeSignal {
@@ -76,7 +93,8 @@ rule RecordRuntimeSignal {
         content_digest: signal.content_digest,
         complete: signal.complete,
         sampled: signal.sampled,
-        dropped_count: signal.dropped_count
+        dropped_count: signal.dropped_count,
+        collection_reason: signal.collection_reason
     )
 }
 
@@ -87,6 +105,7 @@ rule EvaluateCompleteInvariant {
     requires: signals.all(signal => signal.cycle_identity = cycle_identity)
     requires: signals.all(signal => signal.subject_digest = subject_digest)
     requires: signals.all(signal => signal.complete)
+    requires: signals.all(signal => not signal.sampled)
     requires: signals.all(signal => signal.dropped_count = 0)
     requires: verdict = pass or verdict = fail
     ensures: IndependentInvariantEvaluation.created(
@@ -107,7 +126,8 @@ rule MarkIncompleteInvariantInconclusive {
     when: IndependentInvariantInputsIncomplete(cycle_identity, item_identity, invariant_identity,
                                                producer, subject_digest, signals, evidence_digest)
     requires: signals.count = 0 or
-        exists signals where not complete or dropped_count > 0
+        exists signals where not complete or sampled or dropped_count > 0
+    requires: incomplete_collection_reason(signals) != ""
     ensures: IndependentInvariantEvaluation.created(
         identity: invariant_evaluation_identity(cycle_identity, item_identity, invariant_identity),
         cycle_identity: cycle_identity,
@@ -131,6 +151,20 @@ rule ProjectRuntimeEvidence {
     )
 }
 
+rule OpenIndependentGradingRoom {
+    when: IndependentGradingRequested(cycle_identity, capture_policy, evidence_volume)
+    requires: capture_policy.read_only
+    requires: capture_policy.mount_path = "/observability"
+    requires: evidence_volume.cycle_identity = cycle_identity
+    requires: evidence_volume.mount_path = "/evidence"
+    requires: evidence_volume.writable
+    ensures: IndependentGradingRoomOpened(
+        cycle_identity: cycle_identity,
+        capture_policy: capture_policy,
+        evidence_volume: evidence_volume
+    )
+}
+
 invariant CandidateCannotAuthorIndependentVerdict {
     for evaluation in IndependentInvariantEvaluations:
         evaluation.authority = independent_grader
@@ -140,7 +174,8 @@ invariant PassingEvaluationRequiresCompleteCollection {
     for evaluation in IndependentInvariantEvaluations:
         evaluation.verdict = pass implies
             evaluation.input_signals.count > 0 and
-            evaluation.input_signals.all(signal => signal.complete and signal.dropped_count = 0)
+            evaluation.input_signals.all(signal =>
+                signal.complete and not signal.sampled and signal.dropped_count = 0)
 }
 
 invariant DiagnosticSignalCannotDetermineVerdict {
@@ -154,6 +189,16 @@ invariant EvidenceProjectionIsNotAuthority {
         projected_verdict(evaluation.identity) = evaluation.verdict
 }
 
+invariant GradingEvidenceIsCycleIsolated {
+    for volume in CycleEvidenceVolumes:
+        volume.identity = cycle_evidence_volume_identity(volume.cycle_identity)
+}
+
+invariant OtelCapturePolicyIsPinnedReadOnlyInput {
+    for capture_policy in OtelCapturePolicies:
+        capture_policy.read_only and capture_policy.mount_path = "/observability"
+}
+
 surface RuntimeEvidenceMeasurement {
     provides:
         RuntimeSignalCaptured(signal)
@@ -162,14 +207,20 @@ surface RuntimeEvidenceMeasurement {
         IndependentInvariantInputsIncomplete(cycle_identity, item_identity, invariant_identity,
                                              producer, subject_digest, signals, evidence_digest)
         RuntimeEvidenceReportRequested(evaluation)
+        IndependentGradingRequested(cycle_identity, probe_package, evidence_volume)
 
     @guarantee IndependentVerdictAuthority
         -- Candidate telemetry may supply correlated facts but cannot author the
         -- independent invariant verdict used by the cycle measurement.
 
     @guarantee IncompleteMeansInconclusive
-        -- Missing, sampled, or dropped required signals cannot silently pass or fail.
+        -- Missing, incomplete, sampled, or dropped required signals record their affected
+        -- kind and reason and cannot silently pass or fail.
 
     @guarantee DurableBeforeProjection
         -- Reports reproduce a persisted evidence digest and never become verdict authority.
+
+    @guarantee IsolatedCycleEvidence
+        -- Independent grading writes only to one cycle-owned evidence volume; the
+        -- candidate and OCI-supplied declarative capture policy remain read-only.
 }

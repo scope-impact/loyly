@@ -69,8 +69,9 @@ component, matches the checked-in harness source, and passes its calibration fix
 _Avoid_: Candidate verification, generated test suite
 
 **Oracle**:
-The independent trust binding composed from the calibrated instrument-oracle digest and the
-resolved pinned product-contract digest.
+The immutable OCI descriptor digest for the executable product contract built from an exact Git
+commit and tree, bound to the calibrated instrument-oracle digest. A Git-commit OCI tag is a
+lookup alias only; the regeneration cycle pins the descriptor digest.
 _Avoid_: Grader, verifier
 
 **Verifier**:
@@ -160,6 +161,16 @@ _Avoid_: Candidate assertion, telemetry status
 **Collection completeness**:
 The recorded boundary describing whether required signals were sampled, dropped, missing, or completely observed.
 _Avoid_: Test coverage, confidence score
+
+**Runtime probe package**:
+The digest-bound probe plan, evidence schema, and language-agnostic probe programs supplied by
+the pinned product-oracle OCI artifact and mounted read-only for independent grading.
+_Avoid_: Profiler installation, candidate telemetry
+
+**Cycle evidence volume**:
+A fresh writable directory mounted only for one regeneration cycle's independent grading,
+while the candidate and runtime probe package remain read-only.
+_Avoid_: Shared report directory, OCI layer
 
 **Application contract**:
 The runnable boundary a candidate must expose so an independent verifier can start, probe, and test it.

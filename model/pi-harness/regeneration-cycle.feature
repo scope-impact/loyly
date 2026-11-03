@@ -21,7 +21,7 @@ Feature: Specification-led regeneration through an operator session and ORC
       When a builder session is opened in Gondolin
       Then the cut is mounted read-only
       And writes outside the declared candidate scope are denied
-      And network access and host session resources are unavailable
+      And network access, judge material, host credentials, and host session resources are unavailable
 
   Rule: Selection is deterministic and approval binds the reviewed identity
 
