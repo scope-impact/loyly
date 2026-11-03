@@ -96,6 +96,30 @@ kbd { padding: 2px 5px; color: var(--paper); border: 1px solid #607687; backgrou
 .station-inspector section { margin-top: 15px; padding: 12px; color: white; background: #172a3a; }.station-inspector section > strong { font: 600 16px "Barlow Condensed"; }.station-inspector section p { margin: 7px 0 0; color: #b9c5cb; font-size: 9px; line-height: 1.4; }
 .station-inspector footer { margin-top: 15px; color: #798085; font-size: 8px; }
 
+.station-cutaway { position: fixed; z-index: 35; inset: 68px 0 0; display: grid; grid-template-columns: minmax(0, 1fr) 360px; color: var(--paper); background: #07111b; }
+.cutaway-world { position: relative; min-width: 0; overflow: hidden; border-top: 3px solid var(--amber); }
+.cutaway-world::before { content: "STATION CUTAWAY · LIVE INTERNAL VIEW"; position: absolute; z-index: 2; top: 18px; left: 20px; padding: 7px 10px; color: var(--amber); background: rgba(7,17,27,.82); border-left: 3px solid var(--amber); font: 600 10px "IBM Plex Sans"; letter-spacing: .08em; pointer-events: none; }
+.cutaway-world canvas { width: 100% !important; height: 100% !important; touch-action: none; }
+.cutaway-evidence { position: relative; min-width: 0; padding: 30px 25px 24px; overflow: auto; color: #14212c; background: #ece9df; border-top: 7px solid var(--cyan); box-shadow: -18px 0 60px rgba(0,0,0,.38); }
+.cutaway-evidence > small { color: #9c3e23; font: 600 12px "Barlow Condensed"; }
+.cutaway-evidence h2 { margin: 5px 35px 10px 0; font: 600 34px/.95 "Barlow Condensed"; }
+.cutaway-evidence > p { color: #4e5961; font-size: 12px; line-height: 1.55; }
+.cutaway-evidence dl { margin: 0; }
+.cutaway-evidence dl div { padding: 10px 0; border-top: 1px solid #c1beb5; }
+.cutaway-evidence dt { color: #747c80; font-size: 9px; }
+.cutaway-evidence dd { margin: 2px 0 0; font: 600 17px "Barlow Condensed"; }
+.cutaway-evidence > section { margin-top: 16px; padding: 13px; color: white; background: #172a3a; }
+.cutaway-evidence > section > strong { font: 600 16px "Barlow Condensed"; }
+.cutaway-evidence > section p { margin: 7px 0 0; color: #b9c5cb; font-size: 9px; line-height: 1.45; }
+.cutaway-evidence > footer { display: flex; justify-content: space-between; gap: 10px; margin-top: 18px; color: #707a80; font-size: 8px; }
+.cutaway-label span, .cutaway-relationship span, .cutaway-core-label span { display: block; color: #f6f2e8; background: rgba(5,13,21,.9); border: 1px solid rgba(255,255,255,.22); white-space: nowrap; }
+.cutaway-label span { padding: 5px 8px; font: 600 8px "IBM Plex Sans"; letter-spacing: .08em; }
+.cutaway-core-label span { min-width: 155px; padding: 7px 10px; text-align: center; border-color: rgba(80,208,204,.55); }
+.cutaway-core-label small, .cutaway-core-label strong { display: block; }
+.cutaway-core-label small { color: var(--cyan); font-size: 6px; letter-spacing: .09em; }
+.cutaway-core-label strong { margin-top: 2px; font: 600 13px "Barlow Condensed"; }
+.cutaway-relationship span { max-width: 190px; padding: 5px 7px; overflow: hidden; color: #b9c8cf; border-left: 2px solid var(--cyan); text-overflow: ellipsis; font-size: 6px; }
+
 .prototype-switcher { position: fixed; z-index: 40; left: 50%; bottom: 14px; transform: translateX(-50%); display: grid; grid-template-columns: 44px minmax(170px, auto) 44px; align-items: center; color: #101c27; background: #f1eee5; border: 1px solid white; box-shadow: 0 8px 35px rgba(0,0,0,.6); }
 .prototype-switcher button { width: 44px; height: 44px; border: 0; color: #101c27; background: #d8d6ce; cursor: pointer; font-size: 18px; }.prototype-switcher span { display: flex; flex-direction: column; text-align: center; padding: 3px 16px; }.prototype-switcher small { color: #747c80; font-size: 8px; }.prototype-switcher strong { font: 600 14px "Barlow Condensed"; }
 
@@ -120,6 +144,16 @@ kbd { padding: 2px 5px; color: var(--paper); border: 1px solid #607687; backgrou
   .simulation-deck { top: 10px; left: 10px; bottom: 68px; width: min(245px, calc(100% - 20px)); padding: 12px; }.simulation-deck h1 { font-size: 25px; }.simulation-deck header p { margin-bottom: 8px; }.simulation-deck li button { min-height: 43px; }
   .tour-card { right: 12px; top: 12px; transform: none; width: min(330px, calc(100% - 24px)); padding: 20px; }.tour-card h1 { font-size: 29px; }.tour-card > p { font-size: 11px; }.tour-card dl { margin: 12px 0; }
   .station-inspector { top: auto; right: 0; left: 0; bottom: 0; width: 100%; max-height: 78svh; padding: 22px 20px calc(20px + env(safe-area-inset-bottom)); border-top-width: 5px; }
+  .station-cutaway { inset: 58px 0 0; grid-template-columns: 1fr; grid-template-rows: minmax(245px, 58%) minmax(0, 42%); }
+  .cutaway-world::before { top: 10px; left: 10px; font-size: 8px; }
+  .cutaway-evidence { padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); border-top-width: 4px; box-shadow: 0 -16px 45px rgba(0,0,0,.45); }
+  .cutaway-evidence h2 { margin-block: 3px 6px; font-size: 27px; }
+  .cutaway-evidence > p { display: none; }
+  .cutaway-evidence .inspector-state { float: right; width: 150px; margin: 2px 0 8px 12px; padding: 8px; }
+  .cutaway-evidence dl div { padding: 7px 0; }
+  .cutaway-evidence > section { clear: both; margin-top: 10px; padding: 10px; }
+  .cutaway-evidence > section p:nth-of-type(n+3) { display: none; }
+  .cutaway-evidence > footer { margin-top: 10px; }
   .prototype-switcher { bottom: 69px; grid-template-columns: 38px minmax(135px, auto) 38px; }.prototype-switcher button { width: 38px; height: 38px; }.prototype-switcher span { padding-inline: 8px; }
 }
 
@@ -127,6 +161,10 @@ kbd { padding: 2px 5px; color: var(--paper); border: 1px solid #607687; backgrou
   .explorer-objective { width: 230px; }.explorer-objective p { display: none; }
   .simulation-deck { width: 225px; }.simulation-deck header p { display: none; }
   .tour-card { width: 300px; }.tour-card dl { display: none; }
+  .station-cutaway { grid-template-columns: minmax(0, 1fr) 300px; grid-template-rows: 1fr; }
+  .cutaway-evidence { padding: 14px 16px; }
+  .cutaway-evidence > section { display: none; }
+  .cutaway-evidence h2 { font-size: 25px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -222,7 +222,7 @@ function OperatorModel() {
   </group>;
 }
 
-function OperatorInput({ operatorRef, replay }) {
+function OperatorInput({ operatorRef, replay, disabled }) {
   const [, getKeyboard] = useKeyboardControls();
   const { camera } = useThree();
   const direction = useMemo(() => new THREE.Vector3(), []);
@@ -236,6 +236,10 @@ function OperatorInput({ operatorRef, replay }) {
     const manualOverride = state.clock.elapsedTime - lastManualAt.current < 2.5;
     const operator = operatorRef.current;
     if (!operator) return;
+    if (disabled) {
+      operator.setMovement({ forward: false, backward: false, leftward: false, rightward: false, run: false, jump: false, joystick: { x: 0, y: 0 } });
+      return;
+    }
     if (!manualOverride && replay.playing) {
       const [targetX, targetZ] = OPERATOR_ROUTE[replay.stage];
       direction.set(targetX - operator.currPos.x, 0, targetZ - operator.currPos.z);
@@ -314,7 +318,7 @@ function GuidedCamera({ stage }) {
   return null;
 }
 
-function World({ variant, replay, inspectStation, setNearest, onAutoInspect }) {
+function World({ variant, replay, inspectStation, setNearest, onAutoInspect, inspectionOpen }) {
   const operatorRef = useRef();
   const explorer = variant === "A";
   return <Canvas tabIndex={0} shadows dpr={[1, 1.6]} camera={{ position: explorer ? [-15, 7, 0] : [30, 34, 34], fov: explorer ? 48 : 42 }} gl={{ antialias: true }}>
@@ -334,7 +338,7 @@ function World({ variant, replay, inspectStation, setNearest, onAutoInspect }) {
           <Ecctrl ref={operatorRef} position={[OPERATOR_ROUTE[0][0], 2, OPERATOR_ROUTE[0][1]]} useCustomForward enableToggleRun={false} maxWalkVel={5} maxRunVel={8} jumpVel={5} floatHeight={.65} capsuleHalfHeight={.6} capsuleRadius={.38}>
             <OperatorModel />
           </Ecctrl>
-          <OperatorInput operatorRef={operatorRef} replay={replay} />
+          <OperatorInput operatorRef={operatorRef} replay={replay} disabled={inspectionOpen} />
           <FollowOperator operatorRef={operatorRef} onNearest={setNearest} replay={replay} onAutoInspect={onAutoInspect} />
         </KeyboardControls>}
       </Physics>
@@ -360,10 +364,89 @@ function Timeline({ replay }) {
   </div>;
 }
 
+function FlowPacket({ index, running }) {
+  const ref = useRef();
+  useFrame(({ clock }) => {
+    if (!ref.current) return;
+    const progress = running ? (clock.elapsedTime * .23 + index / 4) % 1 : index / 4;
+    ref.current.position.set(-4.2 + progress * 8.4, .55 + Math.sin(progress * Math.PI) * 1.05, 0);
+    ref.current.scale.setScalar(.72 + Math.sin(progress * Math.PI) * .38);
+  });
+  return <mesh ref={ref}>
+    <octahedronGeometry args={[.17, 0]} />
+    <meshStandardMaterial color="#f2b84b" emissive="#f2b84b" emissiveIntensity={4} toneMapped={false} />
+  </mesh>;
+}
+
+function ActivityPulse({ running }) {
+  const ref = useRef();
+  useFrame(({ clock }) => {
+    if (!ref.current) return;
+    const pulse = running ? 1 + Math.sin(clock.elapsedTime * 4.5) * .08 : 1;
+    ref.current.scale.setScalar(pulse);
+    ref.current.rotation.y += .006;
+  });
+  return <group ref={ref}>
+    <mesh castShadow><dodecahedronGeometry args={[1.22, 0]} /><meshStandardMaterial color="#18364a" metalness={.72} roughness={.26} /></mesh>
+    <mesh><dodecahedronGeometry args={[1.27, 0]} /><meshBasicMaterial color={running ? "#50d0cc" : "#607687"} wireframe transparent opacity={.82} /></mesh>
+  </group>;
+}
+
+function InteriorRack({ position, label, accent }) {
+  return <group position={position}>
+    <mesh castShadow><boxGeometry args={[1.55, 2.4, 1.35]} /><meshStandardMaterial color="#102536" metalness={.62} roughness={.32} /></mesh>
+    {[-.65, 0, .65].map((y) => <mesh key={y} position={[0, y, .7]}><boxGeometry args={[1.16, .12, .05]} /><meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={1.7} /></mesh>)}
+    <Html position={[0, 1.55, 0]} center distanceFactor={8} className="cutaway-label"><span>{label}</span></Html>
+  </group>;
+}
+
+function StationInterior({ station, replay }) {
+  const running = station.index === replay.stage;
+  const connections = stationConnections(station);
+  return <Canvas dpr={[1, 1.5]} camera={{ position: [7.5, 5.4, 8.8], fov: 43 }} gl={{ antialias: true }}>
+    <color attach="background" args={["#07131e"]} />
+    <fog attach="fog" args={["#07131e", 14, 27]} />
+    <ambientLight intensity={.7} />
+    <hemisphereLight args={["#8fc8d2", "#101923", 2.6]} />
+    <directionalLight position={[5, 9, 5]} intensity={4} castShadow />
+    <pointLight position={[0, 3, 2]} color={running ? "#50d0cc" : "#718795"} intensity={running ? 38 : 14} distance={12} />
+    <group position={[0, -.25, 0]}>
+      <mesh position={[0, -.12, 0]} receiveShadow><boxGeometry args={[12, .22, 7]} /><meshStandardMaterial color="#0d2130" metalness={.45} roughness={.72} /></mesh>
+      <gridHelper args={[12, 24, "#315367", "#172f3f"]} position={[0, .01, 0]} />
+      <InteriorRack position={[-4.15, 1.25, 0]} label="INPUT EVIDENCE" accent="#d47542" />
+      <InteriorRack position={[4.15, 1.25, 0]} label="OUTPUT ARTIFACTS" accent="#f2b84b" />
+      <group position={[0, 1.35, 0]}>
+        <ActivityPulse running={running} />
+        <group position={[0, -.55, 1.2]} scale={.72}><MachineIcon kind={station.icon} active={running} /></group>
+        <Html position={[0, 2, 0]} center distanceFactor={8} className="cutaway-core-label">
+          <span><small>ACTUAL C4 CONTAINER</small><strong>{station.c4.name}</strong></span>
+        </Html>
+      </group>
+      <mesh position={[0, .26, 0]}><boxGeometry args={[8.2, .12, .52]} /><meshStandardMaterial color="#294759" metalness={.8} /></mesh>
+      {[0, 1, 2, 3].map((index) => <FlowPacket key={index} index={index} running={running} />)}
+      {connections.slice(0, 3).map((connection, index) => <Html key={connection} position={[-2.4 + index * 2.4, .5, -2.25]} center distanceFactor={9} className="cutaway-relationship"><span>{connection}</span></Html>)}
+    </group>
+    <OrbitControls makeDefault target={[0, 1, 0]} minDistance={7} maxDistance={18} maxPolarAngle={Math.PI * .49} enablePan={false} autoRotate={running} autoRotateSpeed={.45} />
+  </Canvas>;
+}
+
 function Inspector({ station, replay, onClose, automatic }) {
   if (!station) return null;
   const connections = stationConnections(station);
   const state = station.index === replay.stage ? "Working now" : station.index < replay.stage ? "Completed" : "Waiting";
+  if (!automatic) return <section className="station-cutaway" role="dialog" aria-modal="true" aria-labelledby={`station-title-${station.id}`}>
+    <div className="cutaway-world" aria-label={`Three-dimensional cutaway of ${station.name}`}><StationInterior station={station} replay={replay} /></div>
+    <aside className="cutaway-evidence">
+      <button className="close-inspector" type="button" onClick={onClose} aria-label="Exit station cutaway">×</button>
+      <small>Inside station {station.index + 1} · {station.role}</small>
+      <h2 id={`station-title-${station.id}`}>{station.name}</h2>
+      <p>{station.hint}</p>
+      <div className="inspector-state"><i className={state === "Working now" ? "live" : ""} /><span><small>Live replay state</small><strong>{state}</strong></span></div>
+      <dl><div><dt>Machinery represents</dt><dd>{station.c4.name}</dd></div><div><dt>C4 element type</dt><dd>{station.c4.type}</dd></div></dl>
+      {connections.length > 0 && <section><strong>Signals passing through</strong>{connections.map((item) => <p key={item}>{item}</p>)}</section>}
+      <footer><span>Drag to orbit · Scroll to zoom</span><span><kbd>Esc</kbd> Exit inspection</span></footer>
+    </aside>
+  </section>;
   return <aside className={`station-inspector ${automatic ? "auto-inspection" : ""}`} role="dialog" aria-modal={automatic ? undefined : "true"} aria-labelledby={`station-title-${station.id}`}>
     <button className="close-inspector" type="button" onClick={onClose} aria-label="Close station">×</button>
     <small>{automatic ? "Cycle inspection" : station.role} · station {station.index + 1}</small>
@@ -488,7 +571,7 @@ function App() {
   return <main className={`experience variant-${variant}`}>
     <Header replay={replay} />
     <section className="world-shell" aria-label={`${VARIANTS[variant].name} factory world`}>
-      <World variant={variant} replay={replay} inspectStation={inspectStation} setNearest={setNearest} onAutoInspect={inspectAutomatically} />
+      <World variant={variant} replay={replay} inspectStation={inspectStation} setNearest={setNearest} onAutoInspect={inspectAutomatically} inspectionOpen={Boolean(selected && !automaticInspection)} />
       <Timeline replay={replay} />
       {variant === "A" && <ExplorerOverlay replay={replay} nearest={nearest} setSelected={inspectStation} />}
       {variant === "B" && <SimulationOverlay replay={replay} setSelected={inspectStation} />}
