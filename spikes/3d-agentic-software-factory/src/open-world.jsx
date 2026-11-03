@@ -268,9 +268,10 @@ function OperatorInput({ operatorRef, replay }) {
   return null;
 }
 
-function FollowOperator({ operatorRef, onNearest }) {
+function FollowOperator({ operatorRef, onNearest, replay, onAutoInspect }) {
   const { camera } = useThree();
   const lastNearest = useRef(null);
+  const lastInspectedStage = useRef(-1);
   const desired = useMemo(() => new THREE.Vector3(), []);
   const look = useMemo(() => new THREE.Vector3(), []);
   useFrame((_, delta) => {
@@ -291,6 +292,10 @@ function FollowOperator({ operatorRef, onNearest }) {
       lastNearest.current = nearest;
       onNearest(nearest);
     }
+    if (replay.playing && nearest?.index === replay.stage && distance < 4.6 && lastInspectedStage.current !== replay.stage) {
+      lastInspectedStage.current = replay.stage;
+      onAutoInspect(nearest);
+    }
   });
   return null;
 }
@@ -309,7 +314,7 @@ function GuidedCamera({ stage }) {
   return null;
 }
 
-function World({ variant, replay, selected, setSelected, setNearest }) {
+function World({ variant, replay, inspectStation, setNearest, onAutoInspect }) {
   const operatorRef = useRef();
   const explorer = variant === "A";
   return <Canvas tabIndex={0} shadows dpr={[1, 1.6]} camera={{ position: explorer ? [-15, 7, 0] : [30, 34, 34], fov: explorer ? 48 : 42 }} gl={{ antialias: true }}>
@@ -322,7 +327,7 @@ function World({ variant, replay, selected, setSelected, setNearest }) {
       <Physics gravity={[0, -18, 0]} timeStep="vary">
         <FactoryShell />
         <Conveyor />
-        {stationData.map((station) => <Station key={`${station.id}-${station.index}`} station={station} active={station.index === replay.stage} complete={station.index < replay.stage} onSelect={setSelected} />)}
+        {stationData.map((station) => <Station key={`${station.id}-${station.index}`} station={station} active={station.index === replay.stage} complete={station.index < replay.stage} onSelect={inspectStation} />)}
         <ProductCarrier stage={replay.stage} />
         <FactoryAgents stage={replay.stage} />
         {explorer && <KeyboardControls map={keyboardMap}>
@@ -330,7 +335,7 @@ function World({ variant, replay, selected, setSelected, setNearest }) {
             <OperatorModel />
           </Ecctrl>
           <OperatorInput operatorRef={operatorRef} replay={replay} />
-          <FollowOperator operatorRef={operatorRef} onNearest={setNearest} />
+          <FollowOperator operatorRef={operatorRef} onNearest={setNearest} replay={replay} onAutoInspect={onAutoInspect} />
         </KeyboardControls>}
       </Physics>
     </Suspense>
@@ -355,19 +360,19 @@ function Timeline({ replay }) {
   </div>;
 }
 
-function Inspector({ station, replay, onClose }) {
+function Inspector({ station, replay, onClose, automatic }) {
   if (!station) return null;
   const connections = stationConnections(station);
   const state = station.index === replay.stage ? "Working now" : station.index < replay.stage ? "Completed" : "Waiting";
-  return <aside className="station-inspector" role="dialog" aria-modal="true" aria-labelledby={`station-title-${station.id}`}>
+  return <aside className={`station-inspector ${automatic ? "auto-inspection" : ""}`} role="dialog" aria-modal={automatic ? undefined : "true"} aria-labelledby={`station-title-${station.id}`}>
     <button className="close-inspector" type="button" onClick={onClose} aria-label="Close station">×</button>
-    <small>{station.role} · station {station.index + 1}</small>
+    <small>{automatic ? "Cycle inspection" : station.role} · station {station.index + 1}</small>
     <h2 id={`station-title-${station.id}`}>{station.name}</h2>
     <p>{station.hint}</p>
     <div className="inspector-state"><i className={state === "Working now" ? "live" : ""} /><span><small>Simulation</small><strong>{state}</strong></span></div>
     <dl><div><dt>Actual C4 element</dt><dd>{station.c4.name}</dd></div><div><dt>Element type</dt><dd>{station.c4.type}</dd></div></dl>
     {connections.length > 0 && <section><strong>Repository relationships</strong>{connections.map((item) => <p key={item}>{item}</p>)}</section>}
-    <footer>Source: .pi/architecture.md · Container view</footer>
+    <footer>{automatic ? "Following cycle · closes automatically · " : ""}Source: .pi/architecture.md · Container view</footer>
   </aside>;
 }
 
@@ -427,6 +432,7 @@ function App() {
   const [variant, setVariantState] = useState(VARIANTS[params.get("variant")] ? params.get("variant") : "A");
   const [selected, setSelected] = useState(null);
   const [nearest, setNearest] = useState(null);
+  const [automaticInspection, setAutomaticInspection] = useState(false);
   const replay = useReplay();
   const showSwitcher = import.meta.env.DEV || params.get("prototype") === "1";
   const setVariant = (next) => {
@@ -436,14 +442,36 @@ function App() {
     history.replaceState({}, "", url);
     setVariantState(next);
     setSelected(null);
+    setAutomaticInspection(false);
   };
+  const inspectStation = (station) => {
+    setAutomaticInspection(false);
+    setSelected(station);
+  };
+  const inspectAutomatically = (station) => {
+    if (selected && !automaticInspection) return;
+    setAutomaticInspection(true);
+    setSelected(station);
+  };
+  const closeInspector = () => {
+    setAutomaticInspection(false);
+    setSelected(null);
+  };
+  useEffect(() => {
+    if (!automaticInspection || !selected) return undefined;
+    const timer = window.setTimeout(() => {
+      setAutomaticInspection(false);
+      setSelected(null);
+    }, 3200);
+    return () => window.clearTimeout(timer);
+  }, [automaticInspection, selected]);
   useEffect(() => {
     const handle = (event) => {
       if (event.key === "Escape" && selected) {
-        setSelected(null);
+        closeInspector();
         return;
       }
-      if (event.key.toLowerCase() === "e" && nearest && variant === "A") setSelected(nearest);
+      if (event.key.toLowerCase() === "e" && nearest && variant === "A") inspectStation(nearest);
       if (!showSwitcher || event.target.matches("input, textarea, select, [contenteditable]")) return;
       if (event.altKey && event.key === "ArrowLeft") {
         event.preventDefault();
@@ -460,13 +488,13 @@ function App() {
   return <main className={`experience variant-${variant}`}>
     <Header replay={replay} />
     <section className="world-shell" aria-label={`${VARIANTS[variant].name} factory world`}>
-      <World variant={variant} replay={replay} selected={selected} setSelected={setSelected} setNearest={setNearest} />
+      <World variant={variant} replay={replay} inspectStation={inspectStation} setNearest={setNearest} onAutoInspect={inspectAutomatically} />
       <Timeline replay={replay} />
-      {variant === "A" && <ExplorerOverlay replay={replay} nearest={nearest} setSelected={setSelected} />}
-      {variant === "B" && <SimulationOverlay replay={replay} setSelected={setSelected} />}
-      {variant === "C" && <TourOverlay replay={replay} setSelected={setSelected} />}
+      {variant === "A" && <ExplorerOverlay replay={replay} nearest={nearest} setSelected={inspectStation} />}
+      {variant === "B" && <SimulationOverlay replay={replay} setSelected={inspectStation} />}
+      {variant === "C" && <TourOverlay replay={replay} setSelected={inspectStation} />}
     </section>
-    <Inspector station={selected} replay={replay} onClose={() => setSelected(null)} />
+    <Inspector station={selected} replay={replay} onClose={closeInspector} automatic={automaticInspection} />
     {showSwitcher && !selected && <PrototypeSwitcher variant={variant} setVariant={setVariant} />}
   </main>;
 }

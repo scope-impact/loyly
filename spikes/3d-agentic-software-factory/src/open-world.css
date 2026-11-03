@@ -88,6 +88,7 @@ kbd { padding: 2px 5px; color: var(--paper); border: 1px solid #607687; backgrou
 .variant-C .replay-line { left: 22px; transform: none; width: min(500px, calc(100% - 440px)); }
 
 .station-inspector { position: fixed; z-index: 30; right: 18px; top: 86px; width: min(365px, calc(100vw - 36px)); max-height: calc(100vh - 104px); padding: 25px; overflow: auto; color: #14212c; background: #ece9df; border-top: 7px solid var(--cyan); box-shadow: 0 24px 80px rgba(0,0,0,.72); }
+.station-inspector.auto-inspection { border-top-color: var(--amber); }
 .close-inspector { position: absolute; top: 5px; right: 7px; width: 44px; height: 44px; color: #14212c; border: 0; background: none; cursor: pointer; font-size: 26px; }
 .station-inspector > small { color: #9c3e23; font: 600 12px "Barlow Condensed"; }.station-inspector h2 { margin: 4px 30px 9px 0; font: 600 31px/.95 "Barlow Condensed"; }.station-inspector > p { color: #4e5961; font-size: 12px; line-height: 1.5; }
 .inspector-state { display: flex; align-items: center; gap: 10px; margin: 17px 0; padding: 12px; color: white; background: #142637; }.inspector-state span { display: flex; flex-direction: column; }.inspector-state small { color: #9db0bb; font-size: 8px; }.inspector-state strong { font: 600 17px "Barlow Condensed"; }
