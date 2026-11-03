@@ -139,8 +139,7 @@
                         " up --detach --build --wait --wait-timeout 10 app"
                         "; container=$(docker compose " baseline-compose-files " ps -q app)"
                         "; ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' \"$container\")"
-                        "; test -n \"$ip\"; echo http://$ip:8080 >/tmp/pi-harness-baseline-base-url"
-                        "; curl -fsS \"http://$ip:8080/health\" >/dev/null")}
+                        "; test -n \"$ip\"; echo http://$ip:8080 >/tmp/pi-harness-baseline-base-url")}
          {:name "baseline-observe-start"
           :command (str "OTEL_FILE_EXPORT_DIR=" runtime-root
                         " nohup /usr/local/bin/otelcol-contrib --config=/etc/loyly/otel/collector.yaml"

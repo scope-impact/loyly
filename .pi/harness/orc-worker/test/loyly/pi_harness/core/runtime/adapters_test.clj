@@ -91,6 +91,9 @@
             "baseline-observe-start" "baseline-grade" "baseline-observe-stop"
             "baseline-logs" "baseline-down"]
            names))
+    (let [up-command (:command (first (filter #(= "baseline-up" (:name %)) commands)))]
+      (is (re-find #"--wait" up-command))
+      (is (not (re-find #"/health" up-command))))
     (is (re-find #"/grader/grade.mjs"
                  (:command (first (filter #(= "baseline-grade" (:name %)) commands)))))
     (is (re-find #"/evidence/otel/independent/baseline"
