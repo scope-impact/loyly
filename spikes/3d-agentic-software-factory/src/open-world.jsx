@@ -59,7 +59,7 @@ const OPERATOR_ROUTE = [
 
 const PHOENIX_PHASES = [
   { name: "Intent", range: [0, 0], truth: "Sources and specification survive" },
-  { name: "Fence", range: [0, 1], truth: "Prior implementation is physically removed" },
+  { name: "Fence", range: [1, 1], truth: "Prior implementation is physically removed" },
   { name: "Generate", range: [2, 4], truth: "Fresh candidates read the same contract" },
   { name: "Ratify", range: [5, 7], truth: "Independent gates—not builders—decide" },
   { name: "Measure", range: [8, 8], truth: "The delta measures specification quality" },
