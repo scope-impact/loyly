@@ -27,6 +27,22 @@
                        {:selectionId "selection-1" :selectionDigest "digest-1"}))))
       (is (= ["selection-1" "digest-1"] @call)))))
 
+(deftest exact-oracle-proposal-approval-is-forwarded-to-grain
+  (let [call (atom nil)]
+    (with-redefs [harness/runtime-context (constantly {})
+                  model/approve-oracle-proposal!
+                  (fn [_ proposal-id proposal-digest approved-by]
+                    (reset! call [proposal-id proposal-digest approved-by])
+                    {:proposal-id proposal-id :proposal-digest proposal-digest
+                     :approved-by approved-by :status "approved"})]
+      (is (= "approved"
+             (:status
+              (entrypoint/approve-oracle-proposal!
+               {:proposalId "proposal-1"
+                :proposalDigest "sha256:proposal-1"
+                :approvedBy "operator-1"}))))
+      (is (= ["proposal-1" "sha256:proposal-1" "operator-1"] @call)))))
+
 (deftest approved-slice-submission-forwards-approval-without-an-operation-choice
   (let [request {:requestId "request-1"
                  :selectionId "selection-1"

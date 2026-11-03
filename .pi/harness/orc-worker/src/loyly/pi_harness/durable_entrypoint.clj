@@ -32,6 +32,13 @@
 (defn approve-selection! [{:keys [selectionId selectionDigest]}]
   (model/approve-selection! (context) selectionId selectionDigest))
 
+(defn oracle-proposal [{:keys [proposalId]}]
+  (model/query-oracle-proposal (context) proposalId))
+
+(defn approve-oracle-proposal! [{:keys [proposalId proposalDigest approvedBy]}]
+  (model/approve-oracle-proposal!
+   (context) proposalId proposalDigest approvedBy))
+
 (defn- with-approved-selection [{:keys [selectionId] :as request}]
   (let [selection (model/find-selection (context) selectionId)]
     (when-not (= "approved" (:status selection))
@@ -48,6 +55,8 @@
   (case method
     "preview-selection" (preview-selection! params)
     "approve-selection" (approve-selection! params)
+    "oracle-proposal" (oracle-proposal params)
+    "approve-oracle-proposal" (approve-oracle-proposal! params)
     "prepare-cut" (harness/prepare-cut! params)
     "optimize-prompt" (harness/optimize-builder-prompt! params)
     "start-external-prompt-optimization" (harness/start-external-prompt-optimization! params)

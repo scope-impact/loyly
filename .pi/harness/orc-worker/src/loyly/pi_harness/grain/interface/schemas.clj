@@ -35,7 +35,8 @@
    [:cut :string]
    [:output-root :string]
    [:subject-digest :string]
-   [:disposition [:enum "ungraded" "measured"]]])
+   [:disposition [:enum "baseline-measured" "oracle-measured"]]
+   [:oracle-descriptor-digest :string]])
 
 (def oracle-proposal-schema
   [:map
@@ -44,7 +45,10 @@
    [:generation-id :string]
    [:selection-id :string]
    [:selection-digest :string]
+   [:scenario-digests [:vector :string]]
    [:subject-digest :string]
+   [:judge-id :string]
+   [:denominator :int]
    [:normalized-evidence-digest :string]
    [:status [:enum "proposed" "approved" "published"]]])
 

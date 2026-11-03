@@ -183,7 +183,10 @@
               [:generation-id :string]
               [:selection-id :string]
               [:selection-digest :string]
+              [:scenario-digests [:vector :string]]
               [:subject-digest :string]
+              [:judge-id :string]
+              [:denominator :int]
               [:normalized-evidence-digest :string]
               [:status [:enum "proposed" "approved" "published"]]]}
 

@@ -10,7 +10,10 @@
    :generation-id "generation-1"
    :selection-id "selection-1"
    :selection-digest "sha256:selection-1"
+   :scenario-digests ["sha256:scenario-1"]
    :subject-digest "sha256:candidate-1"
+   :judge-id "sha256:judge-1"
+   :denominator 1
    :normalized-evidence-digest "sha256:evidence-1"
    :status "proposed"})
 

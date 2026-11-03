@@ -52,8 +52,8 @@
 
 (def oracle-proposal-keys
   [:proposal-id :proposal-digest :generation-id :selection-id :selection-digest
-   :subject-digest :normalized-evidence-digest :status :approved-by :descriptor-digest
-   :published-at])
+   :scenario-digests :subject-digest :judge-id :denominator
+   :normalized-evidence-digest :status :approved-by :descriptor-digest :published-at])
 
 (def operation-route-keys
   [:request-id :request-digest :project-id :container-id :component-id :selection-id

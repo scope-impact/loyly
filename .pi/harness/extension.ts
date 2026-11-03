@@ -154,6 +154,40 @@ export default function register(pi: {
   });
 
   pi.registerTool({
+    name: "get_oracle_proposal",
+    description: "Read the exact first-grade evidence proposal and its approval/publication status.",
+    parameters: {
+      type: "object",
+      properties: { proposalId: { type: "string" } },
+      required: ["proposalId"],
+      additionalProperties: false,
+    },
+    execute: async (_id: string, args: { proposalId: string }) => {
+      const result = await getWorker().client.oracleProposal(args.proposalId);
+      return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
+    },
+  });
+
+  pi.registerTool({
+    name: "approve_oracle_proposal",
+    description: "Manually approve the exact digest of a reviewed first-grade evidence proposal. Approval does not publish or pin an oracle.",
+    parameters: {
+      type: "object",
+      properties: {
+        proposalId: { type: "string" },
+        proposalDigest: { type: "string" },
+        approvedBy: { type: "string", minLength: 1 },
+      },
+      required: ["proposalId", "proposalDigest", "approvedBy"],
+      additionalProperties: false,
+    },
+    execute: async (_id: string, args: { proposalId: string; proposalDigest: string; approvedBy: string }) => {
+      const result = await getWorker().client.approveOracleProposal(args.proposalId, args.proposalDigest, args.approvedBy);
+      return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
+    },
+  });
+
+  pi.registerTool({
     name: "submit_approved_slice",
     description: "Submit one approved slice. ORC persists the operation route: initial generation when no candidate lineage exists for the selected project, container, and component, or measured regeneration from the latest persisted candidate when one exists. The operator does not choose.",
     parameters: {

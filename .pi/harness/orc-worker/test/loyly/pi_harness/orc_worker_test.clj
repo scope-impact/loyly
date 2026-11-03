@@ -11,7 +11,8 @@
             [loyly.pi-harness.core.oracle.harness-calibration :as harness-calibration]
             [loyly.pi-harness.core.worker :as worker]
             [loyly.pi-harness.core.build.stack-conformance :as stack-conformance]
-            [loyly.pi-harness.core.build.subject :as subject]))
+            [loyly.pi-harness.core.build.subject :as subject]
+            [loyly.pi-harness.workflows.generation :as generation-workflow]))
 
 (def approved-selection
   {:selectionId "selection-1"
@@ -307,12 +308,23 @@
          :parentCandidateRoot "/state/candidate-before"
          :parentCandidateDigest "sha256:before"}))))
 
-(deftest generation-workflow-produces-an-ungraded-candidate-without-grading-stages
+(deftest generation-workflow-baseline-grades-before-proposing-an-oracle
   (let [runtime (system/start!)]
     (try
       (let [context (:context runtime)
             sheet-id (orc/build-workflow! context (worker/generation-workflow))
-            result (with-redefs [worker/run-builder-adapter
+            result (with-redefs [worker/harness-calibration-stage
+                                 (fn [{:keys [inputs]}]
+                                   {:stage "harness-calibration"
+                                    :request-id (:request-id inputs)
+                                    :cut (get-in inputs [:selection :cut])
+                                    :scope (:scope inputs)
+                                    :execution-backend (:execution-backend inputs)
+                                    :passed true
+                                    :instrument-oracle-digest "instrument-digest"
+                                    :calibration-results "{}"
+                                    :evidence "{}"})
+                                 worker/run-builder-adapter
                                  (fn [_] {:output-root "/tmp/generated-candidate"
                                           :builder-session-id "generation-session"})
                                  subject/digest (constantly "generation-subject")
@@ -325,52 +337,121 @@
                                           :compose-down {:exitCode 0 :stdout "removed" :stderr ""}})
                                  stack-conformance/check
                                  (fn [& _] {:passed true :exit-code 0 :stdout "stack ok" :stderr ""})
-                                 model/record-generated-candidate! (fn [_ candidate] candidate)]
+                                 worker/baseline-grade-stage
+                                 (fn [{:keys [inputs]}]
+                                   {:stage "baseline-grade"
+                                    :request-id (:request-id inputs)
+                                    :cut (get-in inputs [:selection :cut])
+                                    :scope (:scope inputs)
+                                    :execution-backend (:execution-backend inputs)
+                                    :passed true
+                                    :judge-id "sha256:judge"
+                                    :grader-root "/judge"
+                                    :grader-producer "independent-baseline-judge"
+                                    :measurement {:cycle-id (:request-id inputs)
+                                                  :selection-id "selection-1"
+                                                  :cut "cut-1" :backend "gondolin"
+                                                  :selected 1 :total 1 :passed 1 :failed 0
+                                                  :complete? true
+                                                  :items [{:item-id "@item-01-007"
+                                                           :verdict "pass"
+                                                           :evidence "observed"
+                                                           :graded? true}]}
+                                    :normalized-evidence-digest "sha256:evidence"
+                                    :evidence "{}"})
+                                 worker/instrument-conformance-stage
+                                 (fn [{:keys [inputs]}]
+                                   {:stage "instrument-conformance"
+                                    :request-id (:request-id inputs)
+                                    :cut (get-in inputs [:selection :cut])
+                                    :scope (:scope inputs)
+                                    :execution-backend (:execution-backend inputs)
+                                    :passed true :total 1 :passed-count 1
+                                    :items [{:item-id "@item-01-007" :verdict "pass"
+                                             :evidence "observed" :graded? true}]
+                                    :observations [] :evidence "{}"})
+                                 worker/propose-oracle-stage
+                                 (fn [_]
+                                   {:proposal-id "proposal-1"
+                                    :proposal-digest "sha256:proposal"
+                                    :generation-id "generation-1"
+                                    :selection-id "selection-1"
+                                    :selection-digest "digest-1"
+                                    :scenario-digests ["sha256:booking-scenario"]
+                                    :subject-digest "generation-subject"
+                                    :judge-id "sha256:judge"
+                                    :denominator 1
+                                    :normalized-evidence-digest "sha256:evidence"
+                                    :status "proposed"})]
                      (orc/execute context sheet-id
                                   {:request-id "generation-1"
                                    :selection approved-selection
                                    :scope ["impl"]
                                    :target-stack "typescript"
                                    :execution-backend "gondolin"}))
-            outputs (:outputs result)
-            candidate (:generation-result outputs)]
+            outputs (:outputs result)]
         (is (= :success (:status result)) (pr-str result))
-        (is (= ["cut" "builder" "instrument" "verify"
-                "repair-verification" "generation"]
-               (mapv #(get-in outputs [% :stage])
-                     [:cut-result :builder-result :instrument-result :verify-result
-                      :repair-verification-result :generation-result])))
-        (is (= "generation" (:operation candidate)))
-        (is (= "ungraded" (:candidate-disposition candidate)))
-        (is (true? (:verified? candidate)))
-        (is (= 1 (:verification-rounds candidate)))
-        (is (= "generation-subject" (:subject-digest candidate)))
-        (is (not (contains? outputs :oracle-result)))
-        (is (not (contains? outputs :graders-result)))
-        (is (not (contains? outputs :instrument-conformance-result))))
+        (is (= ["cut" "harness-calibration" "builder" "instrument" "verify"
+                "repair-verification" "baseline-grade" "instrument-conformance"
+                "propose-oracle"]
+               (:stages (generation-workflow/contract))))
+        (is (= "proposed" (get-in outputs [:oracle-proposal-result :status])))
+        (is (not (contains? outputs :generation-result)))
+        (is (= "sha256:evidence"
+               (get-in outputs [:oracle-proposal-result
+                                :normalized-evidence-digest]))))
       (finally
         (system/stop! runtime)))))
 
-(deftest initial-generation-does-not-record-an-unverified-candidate
-  (let [recorded? (atom false)]
-    (with-redefs [model/record-generated-candidate!
-                  (fn [& _] (reset! recorded? true))]
-      (is (thrown-with-msg?
-           clojure.lang.ExceptionInfo
-           #"generation verification did not pass"
-           (worker/generation-stage
-            {:inputs {:request-id "generation-unverified"
-                      :selection approved-selection
-                      :scope ["impl"]
-                      :execution-backend "gondolin"
-                      :builder-result {:output-root "/tmp/unverified"
-                                       :subject-digest "unverified-subject"}
-                      :repair-verification-result
-                      {:passed false :rounds 3
-                       :builder {:output-root "/tmp/unverified"
-                                 :subject-digest "unverified-subject"}
-                       :verify {:passed false}}}})))
-      (is (false? @recorded?)))))
+(deftest incomplete-first-grade-cannot-propose-an-oracle
+  (is (thrown-with-msg?
+       clojure.lang.ExceptionInfo
+       #"first black-box grade did not completely pass"
+       (worker/propose-oracle-stage
+        {:inputs {:request-id "generation-failed"
+                  :selection approved-selection
+                  :scope ["impl"]
+                  :execution-backend "gondolin"
+                  :builder-result {:output-root "/tmp/failed"
+                                   :subject-digest "failed-subject"}
+                  :baseline-grade-result
+                  {:passed false
+                   :measurement {:total 1 :passed 0 :failed 1}}
+                  :instrument-conformance-result {:passed true}}}))))
+
+(deftest baseline-grade-normalizes-the-complete-selected-denominator
+  (with-redefs [worker/baseline-grader-root (constantly "/judge")
+                subject/digest (constantly "judge-digest")
+                worker/run-grader-adapter
+                (fn [request]
+                  (is (= "baseline" (:mode request)))
+                  {:baseline-runtime {:exitCode 0}
+                   :baseline-evidence {:exitCode 0}
+                   :baseline-up {:exitCode 0}
+                   :baseline-observe-start {:exitCode 0}
+                   :baseline-grade
+                   {:exitCode 0
+                    :stdout "[{\"itemId\":\"01-007\",\"verdict\":\"pass\",\"evidence\":\"public response observed\"}]"}
+                   :baseline-observe-stop {:exitCode 0}
+                   :baseline-down {:exitCode 0}})]
+    (let [result (worker/baseline-grade-stage
+                  {:inputs {:request-id "generation-graded"
+                            :selection approved-selection
+                            :scope ["impl"]
+                            :target-stack "typescript"
+                            :execution-backend "gondolin"
+                            :repair-verification-result
+                            {:verify {:passed true}
+                             :builder {:output-root "/candidate"
+                                       :subject-digest "candidate-digest"}
+                             :instrument {:evidence-root "/evidence"
+                                          :subject-digest "candidate-digest"}}}})]
+      (is (true? (:passed result)))
+      (is (= "sha256:judge-digest" (:judge-id result)))
+      (is (= {:total 1 :passed 1 :failed 0 :complete? true}
+             (select-keys (:measurement result)
+                          [:total :passed :failed :complete?])))
+      (is (string? (:normalized-evidence-digest result))))))
 
 (deftest regeneration-workflow-retains-every-stage-result
   (let [runtime (system/start!)]

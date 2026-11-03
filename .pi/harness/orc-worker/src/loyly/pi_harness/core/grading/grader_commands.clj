@@ -119,6 +119,56 @@
        {:name "independent-logs" :command (str "docker compose " independent-compose-files " logs --no-color")}
        {:name "independent-down" :command (str "docker compose " independent-compose-files " down --volumes --remove-orphans")}]))
 
+    "baseline"
+    (do
+      (when-not (= "gondolin" backend)
+        (throw (ex-info "baseline grading currently requires Gondolin" {:backend backend})))
+      (let [runtime-root "/evidence/otel/independent/baseline"
+            baseline-overlay "/tmp/pi-harness-baseline-evidence-compose.json"
+            baseline-compose-files (str compose-files " -f " baseline-overlay)
+            baseline-compose-json
+            (json/write-str
+             {:services {:app {:environment {"OTEL_FILE_EXPORT_DIR" runtime-root}}}}
+             :escape-slash false)]
+        [{:name "baseline-runtime" :command (runtime-command backend runtime-image-archive)}
+         {:name "baseline-evidence" :command evidence-compose}
+         {:name "baseline-up"
+          :command (str "echo " (pr-str baseline-compose-json) " > " baseline-overlay
+                        "; mkdir -p " runtime-root
+                        "; docker compose " baseline-compose-files
+                        " up --detach --build --wait --wait-timeout 10 app"
+                        "; container=$(docker compose " baseline-compose-files " ps -q app)"
+                        "; ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' \"$container\")"
+                        "; test -n \"$ip\"; echo http://$ip:8080 >/tmp/pi-harness-baseline-base-url"
+                        "; curl -fsS \"http://$ip:8080/health\" >/dev/null")}
+         {:name "baseline-observe-start"
+          :command (str "OTEL_FILE_EXPORT_DIR=" runtime-root
+                        " nohup /usr/local/bin/otelcol-contrib --config=/etc/loyly/otel/collector.yaml"
+                        " >" runtime-root "/collector.log 2>&1 & echo $! >/tmp/pi-harness-otel-collector.pid"
+                        "; OTEL_EBPF_OPEN_PORT=8080"
+                        " OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318"
+                        " OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf"
+                        " OTEL_METRIC_EXPORT_INTERVAL=5000"
+                        " nohup /usr/local/bin/obi"
+                        " >" runtime-root "/obi.log 2>&1 & echo $! >/tmp/pi-harness-obi.pid"
+                        "; sleep 2"
+                        "; kill -0 \"$(cat /tmp/pi-harness-otel-collector.pid)\""
+                        "; kill -0 \"$(cat /tmp/pi-harness-obi.pid)\"")}
+         {:name "baseline-grade"
+          :command (str "OTEL_FILE_EXPORT_DIR=" runtime-root
+                        " node /grader/grade.mjs \"$(cat /tmp/pi-harness-baseline-base-url)\"")}
+         {:name "baseline-observe-stop"
+          :command (str "kill -INT \"$(cat /tmp/pi-harness-obi.pid)\" 2>/dev/null || true"
+                        "; sleep 2"
+                        "; kill -INT \"$(cat /tmp/pi-harness-otel-collector.pid)\" 2>/dev/null || true"
+                        "; sleep 2"
+                        "; find " runtime-root " -maxdepth 1 -type f -print -exec wc -c {} \\;")}
+         {:name "baseline-logs"
+          :command (str "docker compose " baseline-compose-files " logs --no-color")}
+         {:name "baseline-down"
+          :command (str "docker compose " baseline-compose-files
+                        " down --volumes --remove-orphans")}]))
+
     "instrument"
     (do
       (when-not (= "gondolin" backend)

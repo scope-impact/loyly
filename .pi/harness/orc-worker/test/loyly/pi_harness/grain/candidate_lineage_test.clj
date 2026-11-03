@@ -12,12 +12,16 @@
                     :component-id "booking-core" :operation "generation"
                     :selection-id "selection-1" :cut "cut-1"
                     :output-root "/state/candidates/1"
-                    :subject-digest "sha256:candidate-1" :disposition "ungraded"}
+                    :subject-digest "sha256:candidate-1"
+                    :disposition "baseline-measured"
+                    :oracle-descriptor-digest "sha256:oracle-1"}
         regeneration (assoc generation :candidate-id "candidate-2"
                             :operation "regeneration" :parent-candidate-id "candidate-1"
                             :selection-id "selection-2"
                             :cut "cut-2" :output-root "/state/candidates/2"
-                            :subject-digest "sha256:candidate-2" :disposition "measured")
+                            :subject-digest "sha256:candidate-2"
+                            :disposition "oracle-measured"
+                            :oracle-descriptor-digest "sha256:oracle-1")
         route {:request-id "request-2" :request-digest "sha256:request-2"
                :project-id "loyly" :container-id "loyly"
                :component-id "booking-core" :selection-id "selection-2"

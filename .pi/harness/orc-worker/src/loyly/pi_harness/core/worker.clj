@@ -1,5 +1,6 @@
 (ns loyly.pi-harness.core.worker
   (:require [clojure.data.json :as json]
+            [clojure.java.io :as io]
             [ai.obney.orc.orc-service.interface :as orc]
             [ai.obney.orc.gepa.interface :as gepa]
             [ai.obney.orc.gepa.interface.schemas]
@@ -89,6 +90,10 @@
 (defn effective-verify-result [inputs]
   (or (get-in inputs [:repair-verification-result :verify])
       (:verify-result inputs)))
+
+(defn effective-grading-context [inputs]
+  (or (:oracle-result inputs)
+      (:baseline-grade-result inputs)))
 
 (defn run-cut-adapter [source-commit execution-backend]
   (adapters/run-cut! (project-root) source-commit execution-backend))
@@ -606,7 +611,10 @@
      :collection {:complete? true :sampled? false :dropped 0}
      :correlation {:operation-id cycle-id}
      :artifacts []
-     :oracle-digest (get-in inputs [:oracle-result :oracle-digest])}))
+     :oracle-digest (or (get-in inputs [:oracle-result :oracle-digest])
+                        (get-in inputs [:baseline-grade-result
+                                        :normalized-evidence-digest])
+                        "unpromoted")}))
 
 
 (defn emit-cycle-observation! [{:keys [inputs evidence-manifest]} value]
@@ -813,12 +821,117 @@
                                        :verify verification
                                        :independent independent})})))
 
+(defn baseline-grader-root []
+  (let [configured (or (System/getenv "PI_HARNESS_BASELINE_GRADER_ROOT")
+                       (System/getenv "LOYLEY_BASELINE_GRADER_ROOT"))
+        root (when configured (.getCanonicalFile (io/file configured)))]
+    (when-not (and root (.isDirectory root)
+                   (.isFile (io/file root "grade.mjs"))
+                   (.isFile (io/file root "runtime-conformance.py")))
+      (throw (ex-info "initial generation requires an independent baseline judge package"
+                      {:configured configured})))
+    (.getPath root)))
+
+(defn baseline-grade-stage [{:keys [inputs] :as context}]
+  (record-stage-progress! context "baseline-grade")
+  (let [verification (effective-verify-result inputs)
+        _ (when-not (:passed verification)
+            (throw (ex-info "verification did not pass; baseline grading was not run"
+                            {:verification verification})))
+        builder (effective-builder-result inputs)
+        instrument (effective-instrument-result inputs)
+        selected-items (get-in inputs [:selection :items])
+        expected-ids (mapv #(str/replace (:id %) #"^@item-" "") selected-items)
+        grader-root (baseline-grader-root)
+        evidence (run-grader-adapter
+                  {:cycle-id (:request-id inputs)
+                   :cut (get-in inputs [:selection :cut])
+                   :output-root (:output-root builder)
+                   :evidence-root (:evidence-root instrument)
+                   :evidence-namespace "baseline-grade"
+                   :execution-backend (:execution-backend inputs)
+                   :grader-root grader-root
+                   :target-stack (:target-stack inputs)
+                   :mode "baseline"})
+        grade-command (:baseline-grade evidence)
+        interpreted (independent-grader/interpret-verdicts expected-ids (:stdout grade-command))
+        required-commands [:baseline-runtime :baseline-evidence :baseline-up
+                           :baseline-observe-start :baseline-grade
+                           :baseline-observe-stop :baseline-down]
+        command-failures (->> required-commands
+                              (remove #(zero? (or (get-in evidence [% :exitCode]) 1)))
+                              vec)
+        measurement (model/reduce-result
+                     {:cycle-id (:request-id inputs)
+                      :selection-id (get-in inputs [:selection :selectionId])
+                      :cut (get-in inputs [:selection :cut])
+                      :backend (:execution-backend inputs)
+                      :selected-items selected-items
+                      :verdicts (:verdicts interpreted)})
+        normalized (mapv (fn [item verdict]
+                           (sorted-map :item-id (:id item)
+                                       :scenario-digest (:scenario-digest item)
+                                       :verdict (:verdict verdict)
+                                       :evidence (:evidence verdict)))
+                         selected-items (:items measurement))
+        normalized-evidence-digest (sha256 (json/write-str normalized))
+        passed (and (:passed interpreted)
+                    (empty? command-failures)
+                    (:complete? measurement)
+                    (zero? (:failed measurement)))]
+    (merge (stage-result "baseline-grade" context)
+           {:passed (boolean passed)
+            :judge-id (str "sha256:" (subject/digest grader-root))
+            :grader-root grader-root
+            :grader-producer "independent-baseline-judge"
+            :measurement measurement
+            :normalized-evidence-digest normalized-evidence-digest
+            :evidence (json/write-str {:commands evidence
+                                       :command-failures (mapv name command-failures)
+                                       :normalized normalized})})))
+
+(defn propose-oracle-stage [{:keys [inputs] :as context}]
+  (record-stage-progress! context "propose-oracle")
+  (let [grade (:baseline-grade-result inputs)
+        conformance (:instrument-conformance-result inputs)
+        selection (:selection inputs)
+        builder (effective-builder-result inputs)
+        denominator (count (:items selection))]
+    (when-not (and (:passed grade)
+                   (:passed conformance)
+                   (= denominator (get-in grade [:measurement :total]))
+                   (= denominator (get-in grade [:measurement :passed]))
+                   (zero? (get-in grade [:measurement :failed])))
+      (throw (ex-info "first black-box grade did not completely pass"
+                      {:grade grade :instrument-conformance conformance
+                       :denominator denominator})))
+    (let [payload (sorted-map
+                   :generation-id (:request-id inputs)
+                   :selection-id (:selectionId selection)
+                   :selection-digest (:selectionDigest selection)
+                   :scenario-digests (mapv :scenario-digest (:items selection))
+                   :subject-digest (:subject-digest builder)
+                   :judge-id (:judge-id grade)
+                   :denominator denominator
+                   :normalized-evidence-digest (:normalized-evidence-digest grade))
+          proposal-digest (str "sha256:" (sha256 (json/write-str payload)))
+          proposal (assoc payload
+                          :proposal-id (str "oracle-proposal-" (subs proposal-digest 7 31))
+                          :proposal-digest proposal-digest
+                          :status "proposed")
+          persisted (model/record-oracle-proposal! (:context @runtime) proposal)]
+      (when-not (= proposal persisted)
+        (throw (ex-info "persisted oracle proposal does not match first-grade evidence" {})))
+      (record-stage-progress! context "propose-oracle" 1 nil "completed")
+      persisted)))
+
 (defn instrument-conformance-stage [{:keys [inputs] :as context}]
   (record-stage-progress! context "instrument-conformance")
   (let [builder (effective-builder-result inputs)
         instrument (effective-instrument-result inputs)
         selected-items (get-in inputs [:selection :items])
         adapter (project-adapter (:selection inputs))
+        grading-context (effective-grading-context inputs)
         contract-file (str (cuts-root) "/" (get-in inputs [:selection :cut])
                            "/" (:runtimeEvidenceContract adapter))
         contract-items (try
@@ -838,8 +951,8 @@
                                         :evidence-root (:evidence-root instrument)
                                         :execution-backend "gondolin"
                                         :project-id (get-in inputs [:selection :projectId])
-                                        :grader-root (get-in inputs [:oracle-result :grader-root])
-                                        :observability-root (get-in inputs [:oracle-result :observability-root])
+                                        :grader-root (:grader-root grading-context)
+                                        :observability-root (:observability-root grading-context)
                                         :item-ids (mapv :id instrumented-items)
                                         :mode "instrument"}))
         command (get evidence :instrument-conformance)
@@ -907,7 +1020,9 @@
                                 :cut (:cut selection)
                                 :output-root (:output-root builder)
                                 :subject-digest (:subject-digest instrument)
-                                :disposition "measured"}
+                                :disposition "oracle-measured"
+                                :oracle-descriptor-digest
+                                (get-in inputs [:oracle-result :accepted-contract-digest])}
                          (:parent-candidate-id inputs)
                          (assoc :parent-candidate-id (:parent-candidate-id inputs)))
         candidate (model/record-generated-candidate! context candidate-data)]
@@ -941,43 +1056,6 @@
 (defn generation-workflow [] (generation-workflow/workflow))
 
 (defn workflow [] (regeneration-workflow/workflow))
-
-(defn generation-stage [{:keys [inputs] :as context}]
-  (record-stage-progress! context "record-candidate")
-  (let [builder (effective-builder-result inputs)
-        verification (effective-verify-result inputs)
-        selection (:selection inputs)
-        _ (when-not (:passed verification)
-            (throw (ex-info "generation verification did not pass; candidate was not recorded"
-                            {:verification verification})))
-        candidate (merge (stage-result "generation" context)
-                         {:operation "generation"
-                          :candidate-disposition "ungraded"
-                          :verified? true
-                          :verification-rounds (get-in inputs [:repair-verification-result :rounds])
-                          :output-root (:output-root builder)
-                          :builder (:builder builder)
-                          :builder-session-id (:builder-session-id builder)
-                          :subject-digest (:subject-digest builder)})]
-    (when-not (and (string? (:output-root candidate))
-                   (not (str/blank? (:output-root candidate)))
-                   (string? (:subject-digest candidate))
-                   (not (str/blank? (:subject-digest candidate))))
-      (throw (ex-info "generation cannot record an empty candidate" {:builder builder})))
-    (model/record-generated-candidate!
-     (:context @runtime)
-     {:candidate-id (:request-id inputs)
-      :project-id (:projectId selection)
-      :container-id (:containerId selection)
-      :component-id (:componentId selection)
-      :operation "generation"
-      :selection-id (:selectionId selection)
-      :cut (:cut selection)
-      :output-root (:output-root candidate)
-      :subject-digest (:subject-digest candidate)
-      :disposition "ungraded"})
-    (record-stage-progress! context "record-candidate" 1 nil "completed")
-    candidate))
 
 (defn start-runtime! [start!]
   (locking runtime

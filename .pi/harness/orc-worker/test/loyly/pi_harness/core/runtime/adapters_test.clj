@@ -1,5 +1,6 @@
 (ns loyly.pi-harness.core.runtime.adapters-test
   (:require [clojure.test :refer [deftest is testing]]
+            [loyly.pi-harness.core.grading.grader-commands :as grader-commands]
             [loyly.pi-harness.core.runtime.adapters :as adapters]
             [loyly.pi-harness.core.runtime.json-process :as json-process]))
 
@@ -81,3 +82,17 @@
       (is (= "cycle-42" (get-in @invocation [:request :cycleId])))
       (is (= "/oracle/runtime-observability" (get-in @invocation [:request :observabilityAssetsRoot])))
       (is (= "/evidence" (get-in @invocation [:request :evidenceRoot]))))))
+
+(deftest baseline-grading-captures-runtime-evidence-around-the-public-seam
+  (let [commands (grader-commands/commands
+                  "baseline" "gondolin" {:runtime-image-archive "node.tar"})
+        names (mapv :name commands)]
+    (is (= ["baseline-runtime" "baseline-evidence" "baseline-up"
+            "baseline-observe-start" "baseline-grade" "baseline-observe-stop"
+            "baseline-logs" "baseline-down"]
+           names))
+    (is (re-find #"/grader/grade.mjs"
+                 (:command (first (filter #(= "baseline-grade" (:name %)) commands)))))
+    (is (re-find #"/evidence/otel/independent/baseline"
+                 (:command (first (filter #(= "baseline-observe-start" (:name %))
+                                          commands)))))))

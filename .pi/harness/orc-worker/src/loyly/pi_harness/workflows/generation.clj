@@ -1,5 +1,5 @@
 (ns loyly.pi-harness.workflows.generation
-  "ORC workflow for first-time, explicitly ungraded candidate generation."
+  "ORC workflow for independently graded first generation and oracle proposal."
   (:require [ai.obney.orc.orc-service.interface :as orc]
             [loyly.pi-harness.grain.interface.schemas :as schemas]))
 
@@ -17,6 +17,16 @@
                     [:request-id :string]
                     [:cut :string]
                     [:scope [:vector :string]]]
+       :harness-calibration-result [:map
+                                    [:stage :string]
+                                    [:request-id :string]
+                                    [:cut :string]
+                                    [:scope [:vector :string]]
+                                    [:execution-backend :string]
+                                    [:passed :boolean]
+                                    [:instrument-oracle-digest :string]
+                                    [:calibration-results :string]
+                                    [:evidence :string]]
        :builder-result [:map
                         [:stage :string]
                         [:request-id :string]
@@ -79,25 +89,41 @@
                                                  [:subject-digest :string]
                                                  [:evidence-root :string]
                                                  [:passed :boolean]]]]]
-       :generation-result [:map
-                           [:stage :string]
-                           [:operation :string]
-                           [:request-id :string]
-                           [:cut :string]
-                           [:scope [:vector :string]]
-                           [:execution-backend :string]
-                           [:candidate-disposition :string]
-                           [:verified? :boolean]
-                           [:verification-rounds :int]
-                           [:output-root :string]
-                           [:builder :string]
-                           [:builder-session-id :string]
-                           [:subject-digest :string]]})
+       :baseline-grade-result [:map
+                               [:stage :string]
+                               [:request-id :string]
+                               [:cut :string]
+                               [:scope [:vector :string]]
+                               [:execution-backend :string]
+                               [:passed :boolean]
+                               [:judge-id :string]
+                               [:grader-root :string]
+                               [:grader-producer :string]
+                               [:measurement schemas/measurement-schema]
+                               [:normalized-evidence-digest :string]
+                               [:evidence :string]]
+       :instrument-conformance-result [:map
+                                       [:stage :string]
+                                       [:request-id :string]
+                                       [:cut :string]
+                                       [:scope [:vector :string]]
+                                       [:execution-backend :string]
+                                       [:passed :boolean]
+                                       [:total :int]
+                                       [:passed-count :int]
+                                       [:items [:vector schemas/item-result-schema]]
+                                       [:observations [:vector schemas/observation-schema]]
+                                       [:evidence :string]]
+       :oracle-proposal-result schemas/oracle-proposal-schema})
     (orc/sequence "generation"
       (orc/code "cut"
         :fn "loyly.pi-harness.core.worker/cut-stage"
         :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend]
         :writes [:cut-result])
+      (orc/code "harness-calibration"
+        :fn "loyly.pi-harness.core.worker/harness-calibration-stage"
+        :reads [:request-id :orc-tick-id :selection :scope :execution-backend :cut-result]
+        :writes [:harness-calibration-result])
       (orc/code "builder"
         :fn "loyly.pi-harness.core.worker/builder-stage"
         :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend]
@@ -116,11 +142,22 @@
         :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend
                 :builder-result :instrument-result :verify-result]
         :writes [:repair-verification-result])
-      (orc/code "record-candidate"
-        :fn "loyly.pi-harness.core.worker/generation-stage"
+      (orc/code "baseline-grade"
+        :fn "loyly.pi-harness.core.worker/baseline-grade-stage"
+        :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend
+                :builder-result :instrument-result :verify-result :repair-verification-result]
+        :writes [:baseline-grade-result])
+      (orc/code "instrument-conformance"
+        :fn "loyly.pi-harness.core.worker/instrument-conformance-stage"
         :reads [:request-id :orc-tick-id :selection :scope :execution-backend :builder-result
-                :repair-verification-result]
-        :writes [:generation-result]))))
+                :instrument-result :baseline-grade-result :repair-verification-result]
+        :writes [:instrument-conformance-result])
+      (orc/code "propose-oracle"
+        :fn "loyly.pi-harness.core.worker/propose-oracle-stage"
+        :reads [:request-id :orc-tick-id :selection :scope :execution-backend :builder-result
+                :repair-verification-result :baseline-grade-result
+                :instrument-conformance-result]
+        :writes [:oracle-proposal-result]))))
 
 (defn contract []
   (let [{:keys [workflow-name blackboard-schema root-node]} (workflow)]
@@ -128,4 +165,5 @@
      :workflowName workflow-name
      :rootType (name (:node-type root-node))
      :stages (mapv :name (:children root-node))
-     :candidateResultFields (mapv (comp name first) (rest (:generation-result blackboard-schema)))}))
+     :proposalResultFields (mapv (comp name first)
+                                 (rest (:oracle-proposal-result blackboard-schema)))}))
