@@ -519,6 +519,17 @@
   (let [digest (java.security.MessageDigest/getInstance "SHA-256")]
     (format "%064x" (BigInteger. 1 (.digest digest (.getBytes (str value) "UTF-8"))))))
 
+(defn sha256-file [file]
+  (let [digest (java.security.MessageDigest/getInstance "SHA-256")
+        buffer (byte-array 8192)]
+    (with-open [input (io/input-stream file)]
+      (loop []
+        (let [read (.read input buffer)]
+          (when (pos? read)
+            (.update digest buffer 0 read)
+            (recur)))))
+    (format "%064x" (BigInteger. 1 (.digest digest)))))
+
 (defn evidence-results-root [inputs]
   (str (:evidence-root (effective-instrument-result inputs)) "/allure-results"))
 
@@ -873,6 +884,14 @@
                       {:configured configured})))
     (.getPath root)))
 
+(defn- baseline-playwright-trace [evidence-root cycle-id]
+  (let [trace (io/file evidence-root "cycles" cycle-id
+                       "playwright" "baseline" "trace.zip")]
+    (when (and (.isFile trace) (pos? (.length trace)))
+      {:path "playwright/baseline/trace.zip"
+       :sha256 (sha256-file trace)
+       :bytes (.length trace)})))
+
 (defn baseline-grade-stage [{:keys [inputs] :as context}]
   (record-stage-progress! context "baseline-grade")
   (let [verification (effective-verify-result inputs)
@@ -915,21 +934,28 @@
                                        :verdict (:verdict verdict)
                                        :evidence (:evidence verdict)))
                          selected-items (:items measurement))
-        normalized-evidence-digest (sha256 (json/write-str normalized))
+        playwright-trace (baseline-playwright-trace
+                          (:evidence-root instrument) (:request-id inputs))
+        normalized-evidence-digest
+        (sha256 (json/write-str (sorted-map :items normalized
+                                            :playwright-trace playwright-trace)))
         passed (and (:passed interpreted)
                     (empty? command-failures)
                     (:complete? measurement)
-                    (zero? (:failed measurement)))]
+                    (zero? (:failed measurement))
+                    (some? playwright-trace))]
     (merge (stage-result "baseline-grade" context)
            {:passed (boolean passed)
             :judge-id (str "sha256:" (subject/digest grader-root))
             :grader-root grader-root
             :grader-producer "independent-baseline-judge"
             :measurement measurement
+            :playwright-trace playwright-trace
             :normalized-evidence-digest normalized-evidence-digest
             :evidence (json/write-str {:commands evidence
                                        :command-failures (mapv name command-failures)
-                                       :normalized normalized})})))
+                                       :normalized normalized
+                                       :playwright-trace playwright-trace})})))
 
 (defn propose-oracle-stage [{:keys [inputs] :as context}]
   (record-stage-progress! context "propose-oracle")

@@ -19,6 +19,7 @@
       "python3",
       "nodejs",
       "npm",
+      "chromium",
       "docker",
       "docker-cli-compose",
       "openssh",

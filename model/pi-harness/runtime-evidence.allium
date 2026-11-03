@@ -72,6 +72,15 @@ entity CycleEvidenceVolume {
     writable: Boolean
 }
 
+entity BrowserTraceArtifact {
+    cycle_identity: String
+    path: String
+    content_digest: RuntimeDigest
+    complete: Boolean
+    producer: String
+    authority: ProducerAuthority
+}
+
 rule RecordRuntimeSignal {
     when: RuntimeSignalCaptured(signal)
     requires: signal.identity != ""
@@ -165,6 +174,20 @@ rule OpenIndependentValidationRoom {
     )
 }
 
+rule BindSuccessfulBaselineTrace {
+    when: BaselineGradeCompleted(cycle_identity, evaluation, trace)
+    requires: evaluation.verdict = pass
+    requires: trace.cycle_identity = cycle_identity
+    requires: trace.path = "playwright/baseline/trace.zip"
+    requires: trace.complete
+    requires: trace.authority = independent_validator
+    ensures: NormalizedEvidenceProposalBound(
+        cycle_identity: cycle_identity,
+        evidence_digest: evaluation.evidence_digest,
+        browser_trace_digest: trace.content_digest
+    )
+}
+
 invariant CandidateCannotAuthorIndependentVerdict {
     for evaluation in IndependentInvariantEvaluations:
         evaluation.authority = independent_validator
@@ -199,6 +222,16 @@ invariant OtelCapturePolicyIsPinnedReadOnlyInput {
         capture_policy.read_only and capture_policy.mount_path = "/observability"
 }
 
+invariant PassingBaselineRequiresPlaywrightTrace {
+    for evaluation in IndependentInvariantEvaluations:
+        evaluation.verdict = pass implies
+            exists BrowserTraceArtifacts where
+                cycle_identity = evaluation.cycle_identity and
+                path = "playwright/baseline/trace.zip" and
+                complete and
+                authority = independent_validator
+}
+
 surface RuntimeEvidenceMeasurement {
     provides:
         RuntimeSignalCaptured(signal)
@@ -208,6 +241,7 @@ surface RuntimeEvidenceMeasurement {
                                              producer, subject_digest, signals, evidence_digest)
         RuntimeEvidenceReportRequested(evaluation)
         IndependentValidationRequested(cycle_identity, capture_policy, evidence_volume)
+        BaselineGradeCompleted(cycle_identity, evaluation, trace)
 
     @guarantee IndependentVerdictAuthority
         -- Candidate telemetry may supply correlated facts but cannot author the
@@ -223,4 +257,8 @@ surface RuntimeEvidenceMeasurement {
     @guarantee IsolatedCycleEvidence
         -- Independent validation writes only to one cycle-owned evidence volume; the
         -- candidate and instrument-OCI-supplied declarative capture policy remain read-only.
+
+    @guarantee BaselineTraceIsBound
+        -- A passing first grade is promotable only when its genuine Playwright trace exists,
+        -- is complete, and its digest is part of the normalized proposal evidence.
 }

@@ -4,6 +4,7 @@ RUN apk add --no-cache \
     bash \
     bpftool \
     ca-certificates \
+    chromium \
     curl \
     coreutils \
     perf \

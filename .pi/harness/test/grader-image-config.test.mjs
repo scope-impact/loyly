@@ -30,6 +30,14 @@ test("grader VM image bakes in the standard OTel eBPF stack", async () => {
   assert.equal(config.init.rootfsInitExtra, "grader-profile-init.sh");
 });
 
+test("grader images carry Chromium for Playwright evidence capture", async () => {
+  const config = JSON.parse(await readFile(projectFile("gondolin.json"), "utf8"));
+  const dockerfile = await readFile(projectFile("Dockerfile"), "utf8");
+
+  assert.ok(config.alpine.rootfsPackages.includes("chromium"));
+  assert.match(dockerfile, /\bchromium\b/);
+});
+
 test("grader OCI image carries the same OTel eBPF stack", async () => {
   const dockerfile = await readFile(projectFile("Dockerfile"), "utf8");
   const installer = await readFile(projectFile("install-otel-ebpf.sh"), "utf8");

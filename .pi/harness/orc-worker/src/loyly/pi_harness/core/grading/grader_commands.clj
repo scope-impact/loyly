@@ -6,7 +6,7 @@
 
 (def gondolin-runtime
   (str gondolin-daemon
-       "; base=$(head -n 1 impl/Dockerfile); base=${base#FROM }; case \"$base\" in node:*) (cd / && tar -c bin tmp lib/ld-musl-aarch64.so.1 usr/bin/node usr/bin/dirname usr/lib/*.so*) | docker import - \"$base\" >/dev/null ;; python:*) (cd / && tar -c bin tmp lib/ld-musl-aarch64.so.1 usr/bin/env usr/bin/dirname usr/bin/python3 usr/bin/python3.12 usr/lib/python3.12 usr/lib/*.so*) | docker import - \"$base\" >/dev/null ;; *) echo \"unsupported offline base image: $base\" >&2; exit 1 ;; esac"))
+       "; base=$(head -n 1 impl/Dockerfile); base=${base#FROM }; case \"$base\" in node:*) libs=$(for executable in /bin/* /usr/bin/node /usr/bin/dirname; do ldd \"$executable\" 2>/dev/null || true; done | awk '{for (i=1;i<=NF;i++) if ($i ~ /^\\//) print substr($i,2)}' | sort -u); (cd / && tar -ch bin tmp usr/bin/node usr/bin/dirname $libs) | docker import - \"$base\" >/dev/null ;; python:*) (cd / && tar -c bin tmp lib/ld-musl-aarch64.so.1 usr/bin/env usr/bin/dirname usr/bin/python3 usr/bin/python3.12 usr/lib/python3.12 usr/lib/*.so*) | docker import - \"$base\" >/dev/null ;; *) echo \"unsupported offline base image: $base\" >&2; exit 1 ;; esac"))
 
 (defn- runtime-command [backend runtime-image-archive]
   (if (= "gondolin" backend)

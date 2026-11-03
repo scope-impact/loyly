@@ -74,6 +74,12 @@
                        "docker load -i /runtime-images/rust-1.91-alpine.tar"))
     (is (not (str/includes? command "unsupported offline base image")))))
 
+(deftest gondolin-node-fallback-imports-only-transitive-runtime-libraries
+  (is (str/includes? grader-commands/gondolin-runtime
+                     "for executable in /bin/* /usr/bin/node /usr/bin/dirname"))
+  (is (str/includes? grader-commands/gondolin-runtime
+                     "tar -ch bin tmp usr/bin/node usr/bin/dirname $libs")))
+
 (deftest independent-grading-starts-the-candidate-through-its-compose-container
   (let [commands (grader-commands/commands
                   "independent" "gondolin"

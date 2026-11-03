@@ -4,6 +4,14 @@ Feature: Authoritative and complete runtime evidence
 
   Rule: Runtime evidence preserves authority and collection quality
 
+    @skip @gondolin
+    Scenario: A successful first grade preserves its Playwright trace
+      Given the independent baseline judge drives the candidate only through its public seam
+      When the complete selected denominator passes
+      Then the cycle evidence contains a non-empty Playwright trace archive
+      And the normalized evidence proposal binds the trace archive digest
+      And a missing Playwright trace prevents oracle proposal
+
     @item-01-031 @skip
     Scenario: Candidate telemetry cannot author an independent verdict
       Given the candidate emits a runtime signal claiming an invariant passed

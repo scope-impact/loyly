@@ -420,7 +420,14 @@
                   :instrument-conformance-result {:passed true}}}))))
 
 (deftest baseline-grade-normalizes-the-complete-selected-denominator
-  (with-redefs [worker/baseline-grader-root (constantly "/judge")
+  (let [evidence-root (.toFile (java.nio.file.Files/createTempDirectory
+                                "loyly-playwright-trace-test"
+                                (make-array java.nio.file.attribute.FileAttribute 0)))
+        trace (java.io.File. evidence-root
+                             "cycles/generation-graded/playwright/baseline/trace.zip")]
+    (.mkdirs (.getParentFile trace))
+    (spit trace "genuine trace fixture")
+    (with-redefs [worker/baseline-grader-root (constantly "/judge")
                 subject/digest (constantly "judge-digest")
                 worker/run-grader-adapter
                 (fn [request]
@@ -444,14 +451,47 @@
                             {:verify {:passed true}
                              :builder {:output-root "/candidate"
                                        :subject-digest "candidate-digest"}
-                             :instrument {:evidence-root "/evidence"
+                             :instrument {:evidence-root (.getPath evidence-root)
                                           :subject-digest "candidate-digest"}}}})]
       (is (true? (:passed result)))
+      (is (= "playwright/baseline/trace.zip"
+             (get-in result [:playwright-trace :path])))
+      (is (= "c02f235c5bcb7aa16738c113eb7fff23b2d062a2e7faba80d0fa798b503b9352"
+             (get-in result [:playwright-trace :sha256])))
       (is (= "sha256:judge-digest" (:judge-id result)))
       (is (= {:total 1 :passed 1 :failed 0 :complete? true}
              (select-keys (:measurement result)
                           [:total :passed :failed :complete?])))
-      (is (string? (:normalized-evidence-digest result))))))
+      (is (string? (:normalized-evidence-digest result)))))))
+
+(deftest baseline-grade-cannot-pass-without-a-playwright-trace
+  (with-redefs [worker/baseline-grader-root (constantly "/judge")
+                subject/digest (constantly "judge-digest")
+                worker/run-grader-adapter
+                (constantly
+                 {:baseline-runtime {:exitCode 0}
+                  :baseline-evidence {:exitCode 0}
+                  :baseline-up {:exitCode 0}
+                  :baseline-observe-start {:exitCode 0}
+                  :baseline-grade
+                  {:exitCode 0
+                   :stdout "[{\"itemId\":\"01-007\",\"verdict\":\"pass\",\"evidence\":\"observed\"}]"}
+                  :baseline-observe-stop {:exitCode 0}
+                  :baseline-down {:exitCode 0}})]
+    (let [result (worker/baseline-grade-stage
+                  {:inputs {:request-id "generation-without-trace"
+                            :selection approved-selection
+                            :scope ["impl"]
+                            :target-stack "typescript"
+                            :execution-backend "gondolin"
+                            :repair-verification-result
+                            {:verify {:passed true}
+                             :builder {:output-root "/candidate"
+                                       :subject-digest "candidate-digest"}
+                             :instrument {:evidence-root "/missing-evidence"
+                                          :subject-digest "candidate-digest"}}}})]
+      (is (false? (:passed result)))
+      (is (nil? (:playwright-trace result))))))
 
 (deftest regeneration-workflow-retains-every-stage-result
   (let [runtime (system/start!)]
