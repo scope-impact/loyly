@@ -390,6 +390,8 @@ const worldGroup = new THREE.Group(); scene.add(worldGroup);
 let nodeMeshes = [];
 let edgeMeshes = [];
 let nodePositions = new Map();
+let stationFixtures = [];
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 const productAssembly = new THREE.Group();
 productAssembly.userData.product = true;
@@ -568,23 +570,31 @@ function addAssemblyLine() {
 }
 
 function addFactoryFixtures() {
+  stationFixtures = [];
   const steel = new THREE.MeshStandardMaterial({ color: 0x6b7d89, roughness: .52, metalness: .65 });
   const safety = new THREE.MeshStandardMaterial({ color: 0xf2b84b, roughness: .5, metalness: .4 });
   const stationMaterial = (stageIndex, intensity = .45) => {
     const color = STAGES[stageIndex].color;
-    return new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: intensity, roughness: .42, metalness: .52 });
+    const material = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: intensity, roughness: .42, metalness: .52 });
+    material.userData.stationAccent = true;
+    return material;
   };
   const fixtureGroup = (stageIndex, zOffset = -1) => {
     const { x, z } = ASSEMBLY_ROUTE[stageIndex];
     const group = new THREE.Group();
     group.position.set(x, 0, z + zOffset);
-    group.userData.station = STAGES[stageIndex].id;
+    group.userData.station = STAGES[stageIndex].id; group.userData.stageIndex = stageIndex; group.userData.parts = {};
+    stationFixtures[stageIndex] = group;
     worldGroup.add(group);
     return group;
   };
-  const addFixtureMesh = (group, geometry, material, position, rotation = [0, 0, 0]) => {
+  const addFixtureMesh = (group, geometry, material, position, rotation = [0, 0, 0], role = null) => {
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.set(...position); mesh.rotation.set(...rotation); mesh.castShadow = true; group.add(mesh);
+    if (role) {
+      mesh.userData.basePosition = mesh.position.clone(); mesh.userData.baseRotation = mesh.rotation.clone(); mesh.userData.baseScale = mesh.scale.clone();
+      (group.userData.parts[role] ??= []).push(mesh);
+    }
     return mesh;
   };
   const addGantry = (stageIndex, color = 0x6b7d89) => {
@@ -595,17 +605,17 @@ function addFactoryFixtures() {
   // Receiving: a physical drafting table carries the sealed product blueprint.
   const blueprint = fixtureGroup(0);
   addFixtureMesh(blueprint, new THREE.BoxGeometry(1.5, .12, .86), steel, [0, 1.18, 0], [-.16, 0, 0]);
-  addFixtureMesh(blueprint, new THREE.BoxGeometry(1.28, .025, .7), stationMaterial(0, .68), [0, 1.26, -.02], [-.16, 0, 0]);
+  addFixtureMesh(blueprint, new THREE.BoxGeometry(1.28, .025, .7), stationMaterial(0, .68), [0, 1.26, -.02], [-.16, 0, 0], "blueprint");
   [-.52, .52].forEach((x) => addFixtureMesh(blueprint, new THREE.BoxGeometry(.08, 1.1, .08), steel, [x, .58, 0]));
-  [-.35, 0, .35].forEach((x) => addFixtureMesh(blueprint, new THREE.BoxGeometry(.025, .018, .62), safety, [x, 1.29, -.03], [-.16, 0, 0]));
+  [-.35, 0, .35].forEach((x) => addFixtureMesh(blueprint, new THREE.BoxGeometry(.025, .018, .62), safety, [x, 1.29, -.03], [-.16, 0, 0], "blueprint"));
 
   // Calibration: concentric target rings and crosshairs make tooling alignment visible.
   const calibration = fixtureGroup(1);
   const calibrationMaterial = stationMaterial(1, .72);
-  addFixtureMesh(calibration, new THREE.TorusGeometry(.63, .075, 10, 28), calibrationMaterial, [0, 1.63, 0]);
-  addFixtureMesh(calibration, new THREE.TorusGeometry(.29, .05, 10, 24), calibrationMaterial, [0, 1.63, .01]);
-  addFixtureMesh(calibration, new THREE.BoxGeometry(1.48, .035, .035), calibrationMaterial, [0, 1.63, .02]);
-  addFixtureMesh(calibration, new THREE.BoxGeometry(.035, 1.48, .035), calibrationMaterial, [0, 1.63, .02]);
+  addFixtureMesh(calibration, new THREE.TorusGeometry(.63, .075, 10, 28), calibrationMaterial, [0, 1.63, 0], [0, 0, 0], "target-ring");
+  addFixtureMesh(calibration, new THREE.TorusGeometry(.29, .05, 10, 24), calibrationMaterial, [0, 1.63, .01], [0, 0, 0], "target-ring");
+  addFixtureMesh(calibration, new THREE.BoxGeometry(1.48, .035, .035), calibrationMaterial, [0, 1.63, .02], [0, 0, 0], "crosshair");
+  addFixtureMesh(calibration, new THREE.BoxGeometry(.035, 1.48, .035), calibrationMaterial, [0, 1.63, .02], [0, 0, 0], "crosshair");
   addFixtureMesh(calibration, new THREE.CylinderGeometry(.07, .11, .8, 10), steel, [0, .62, 0]);
 
   // Component assembly: paired robot arms place software containers onto the carrier.
@@ -616,9 +626,9 @@ function addFactoryFixtures() {
   }));
   const assembly = fixtureGroup(2);
   const assemblyMaterial = stationMaterial(2, .6);
-  addFixtureMesh(assembly, new THREE.TorusGeometry(.48, .13, 8, 16), assemblyMaterial, [0, 2.18, 0]);
+  addFixtureMesh(assembly, new THREE.TorusGeometry(.48, .13, 8, 16), assemblyMaterial, [0, 2.18, 0], [0, 0, 0], "gear");
   Array.from({ length: 8 }, (_, index) => index * Math.PI / 4).forEach((angle) => {
-    addFixtureMesh(assembly, new THREE.BoxGeometry(.19, .34, .16), assemblyMaterial, [Math.cos(angle) * .7, 2.18 + Math.sin(angle) * .7, 0], [0, 0, angle]);
+    addFixtureMesh(assembly, new THREE.BoxGeometry(.19, .34, .16), assemblyMaterial, [Math.cos(angle) * .7, 2.18 + Math.sin(angle) * .7, 0], [0, 0, angle], "gear");
   });
 
   // Instrumentation: a translucent wiring cell surrounds a live signal antenna.
@@ -627,14 +637,14 @@ function addFactoryFixtures() {
   const signal = fixtureGroup(3);
   const signalMaterial = stationMaterial(3, .78);
   addFixtureMesh(signal, new THREE.CylinderGeometry(.055, .09, 1.55, 10), signalMaterial, [0, 1.02, 0]);
-  [.28, .55, .82].forEach((radius) => addFixtureMesh(signal, new THREE.TorusGeometry(radius, .035, 8, 28), signalMaterial, [0, 1.82, 0]));
+  [.28, .55, .82].forEach((radius) => addFixtureMesh(signal, new THREE.TorusGeometry(radius, .035, 8, 28), signalMaterial, [0, 1.82, 0], [0, 0, 0], "signal-ring"));
   addFixtureMesh(signal, new THREE.SphereGeometry(.11, 12, 8), signalMaterial, [0, 1.82, .03]);
 
   // Standards gate: the shackle closes over the pinned contract at marriage.
   addGantry(4, 0x8d76b5);
   const contract = fixtureGroup(4);
   const contractMaterial = stationMaterial(4, .56);
-  addFixtureMesh(contract, new THREE.TorusGeometry(.46, .1, 10, 24), contractMaterial, [0, 1.9, 0]);
+  addFixtureMesh(contract, new THREE.TorusGeometry(.46, .1, 10, 24), contractMaterial, [0, 1.9, 0], [0, 0, 0], "shackle");
   addFixtureMesh(contract, new THREE.BoxGeometry(1.15, .82, .32), contractMaterial, [0, 1.42, .02]);
   addFixtureMesh(contract, new THREE.CylinderGeometry(.08, .13, .32, 10), safety, [0, 1.42, -.19], [Math.PI / 2, 0, 0]);
 
@@ -643,37 +653,37 @@ function addFactoryFixtures() {
   [-.8, 0, .8].forEach((xOffset) => { const roller = new THREE.Mesh(new THREE.CylinderGeometry(.16, .16, 2.4, 12), steel); roller.rotation.x = Math.PI / 2; roller.position.set(test.x + xOffset, .24, test.z); worldGroup.add(roller); });
   const boot = fixtureGroup(5);
   const bootMaterial = stationMaterial(5, .45);
-  addFixtureMesh(boot, new THREE.TorusGeometry(.56, .1, 10, 28), bootMaterial, [0, 1.6, 0]);
-  addFixtureMesh(boot, new THREE.BoxGeometry(.13, .72, .15), bootMaterial, [0, 2.02, .02]);
+  addFixtureMesh(boot, new THREE.TorusGeometry(.56, .1, 10, 28), bootMaterial, [0, 1.6, 0], [0, 0, 0], "power");
+  addFixtureMesh(boot, new THREE.BoxGeometry(.13, .72, .15), bootMaterial, [0, 2.02, .02], [0, 0, 0], "power");
 
   addGantry(6, 0xd95555);
   const repair = fixtureGroup(6);
   const repairMaterial = stationMaterial(6, .62);
-  addFixtureMesh(repair, new THREE.BoxGeometry(.16, 1.48, .16), repairMaterial, [-.14, 1.45, 0], [0, 0, -.65]);
-  addFixtureMesh(repair, new THREE.BoxGeometry(.16, 1.48, .16), repairMaterial, [.14, 1.45, .03], [0, 0, .65]);
-  addFixtureMesh(repair, new THREE.BoxGeometry(.52, .15, .16), repairMaterial, [-.61, 1.9, 0], [0, 0, -.65]);
-  addFixtureMesh(repair, new THREE.CylinderGeometry(.2, .2, .16, 12), repairMaterial, [.62, 1.9, .03], [Math.PI / 2, 0, 0]);
+  addFixtureMesh(repair, new THREE.BoxGeometry(.16, 1.48, .16), repairMaterial, [-.14, 1.45, 0], [0, 0, -.65], "repair-a");
+  addFixtureMesh(repair, new THREE.BoxGeometry(.16, 1.48, .16), repairMaterial, [.14, 1.45, .03], [0, 0, .65], "repair-b");
+  addFixtureMesh(repair, new THREE.BoxGeometry(.52, .15, .16), repairMaterial, [-.61, 1.9, 0], [0, 0, -.65], "repair-a");
+  addFixtureMesh(repair, new THREE.CylinderGeometry(.2, .2, .16, 12), repairMaterial, [.62, 1.9, .03], [Math.PI / 2, 0, 0], "repair-b");
 
   addGantry(7, 0x75c18b);
   const inspection = fixtureGroup(7);
   const inspectionMaterial = stationMaterial(7, .58);
-  addFixtureMesh(inspection, new THREE.TorusGeometry(.55, .11, 10, 28), inspectionMaterial, [-.12, 1.75, 0], [0, 0, -.12]);
-  addFixtureMesh(inspection, new THREE.BoxGeometry(.16, .92, .16), inspectionMaterial, [.48, 1.12, 0], [0, 0, -.72]);
+  addFixtureMesh(inspection, new THREE.TorusGeometry(.55, .11, 10, 28), inspectionMaterial, [-.12, 1.75, 0], [0, 0, -.12], "lens");
+  addFixtureMesh(inspection, new THREE.BoxGeometry(.16, .92, .16), inspectionMaterial, [.48, 1.12, 0], [0, 0, -.72], "lens");
 
   // Telemetry finishing: a mast broadcasts the evidence trace before registration.
   const telemetry = fixtureGroup(8);
   const telemetryMaterial = stationMaterial(8, .7);
   addFixtureMesh(telemetry, new THREE.CylinderGeometry(.06, .12, 1.65, 10), telemetryMaterial, [0, 1, 0]);
   addFixtureMesh(telemetry, new THREE.ConeGeometry(.16, .34, 10), telemetryMaterial, [0, 2, 0]);
-  [.36, .65].forEach((radius) => addFixtureMesh(telemetry, new THREE.TorusGeometry(radius, .04, 8, 24), telemetryMaterial, [0, 1.84, 0]));
+  [.36, .65].forEach((radius) => addFixtureMesh(telemetry, new THREE.TorusGeometry(radius, .04, 8, 24), telemetryMaterial, [0, 1.84, 0], [0, 0, 0], "telemetry-ring"));
 
   // Accepted-product yard markings.
   const yard = ASSEMBLY_ROUTE[9];
   [-1.2, 0, 1.2].forEach((offset) => { const stripe = new THREE.Mesh(new THREE.BoxGeometry(.08, .025, 2.6), new THREE.MeshStandardMaterial({ color: 0xf1f0e8 })); stripe.position.set(yard.x + offset, .11, yard.z); worldGroup.add(stripe); });
   const registry = fixtureGroup(9);
   const registryMaterial = stationMaterial(9, .62);
-  addFixtureMesh(registry, new THREE.CylinderGeometry(.34, .48, .55, 16), registryMaterial, [0, 1.66, 0]);
-  addFixtureMesh(registry, new THREE.BoxGeometry(.22, .72, .22), registryMaterial, [0, 2.22, 0]);
+  addFixtureMesh(registry, new THREE.CylinderGeometry(.34, .48, .55, 16), registryMaterial, [0, 1.66, 0], [0, 0, 0], "stamp");
+  addFixtureMesh(registry, new THREE.BoxGeometry(.22, .72, .22), registryMaterial, [0, 2.22, 0], [0, 0, 0], "stamp");
   addFixtureMesh(registry, new THREE.TorusGeometry(.64, .08, 10, 28), registryMaterial, [0, 1.25, .01]);
   addFixtureMesh(registry, new THREE.BoxGeometry(.52, .11, .11), safety, [-.14, 1.23, -.08], [0, 0, -.75]);
   addFixtureMesh(registry, new THREE.BoxGeometry(1.0, .11, .11), safety, [.2, 1.38, -.08], [0, 0, .72]);
@@ -850,6 +860,56 @@ function updateSceneFromState() {
   agents.forEach((agent, index) => { agent.userData.target = target.clone().add(new THREE.Vector3((index - 1) * .72, 0, 1.75 + Math.abs(index - 1) * .2)); });
 }
 
+function animateStationFixtures(now) {
+  const time = now * .001;
+  const rotatePartsAround = (parts, pivotX, pivotY, angle) => parts.forEach((part) => {
+    const dx = part.userData.basePosition.x - pivotX; const dy = part.userData.basePosition.y - pivotY;
+    part.position.x = pivotX + dx * Math.cos(angle) - dy * Math.sin(angle);
+    part.position.y = pivotY + dx * Math.sin(angle) + dy * Math.cos(angle);
+    part.rotation.z = part.userData.baseRotation.z + angle;
+  });
+  stationFixtures.forEach((fixture, stageIndex) => {
+    if (!fixture) return;
+    const parts = fixture.userData.parts;
+    const isCurrent = Boolean(state.cycleId) && state.activeStage === stageIndex && !["passed", "failed"].includes(state.status);
+    const isComplete = state.completed.includes(stageIndex);
+    const pulse = .82 + Math.sin(time * 5.2) * .28;
+    fixture.traverse((object) => {
+      if (object.material?.userData.stationAccent) object.material.emissiveIntensity = isCurrent ? pulse : isComplete ? .3 : .08;
+    });
+    const isPaused = isCurrent && (state.paused || (replay.active && !replay.playing));
+    if (isPaused && !reducedMotion.matches) return;
+    Object.values(parts).flat().forEach((part) => {
+      part.position.copy(part.userData.basePosition); part.rotation.copy(part.userData.baseRotation); part.scale.copy(part.userData.baseScale);
+    });
+    const isWorking = isCurrent && !state.paused && state.status === "running" && (!replay.active || replay.playing);
+    if (!isWorking || reducedMotion.matches) return;
+    if (stageIndex === 0) {
+      parts.blueprint.forEach((part) => { part.position.y += Math.sin(time * 3.2) * .045; part.rotation.x += Math.sin(time * 2.1) * .035; });
+    } else if (stageIndex === 1) {
+      parts.crosshair.forEach((part, index) => { part.rotation.z += (index ? -1 : 1) * time * .9; });
+      parts["target-ring"].forEach((part, index) => part.scale.setScalar(1 + Math.sin(time * 4 - index) * .055));
+    } else if (stageIndex === 2) {
+      rotatePartsAround(parts.gear, 0, 2.18, time * 1.8);
+    } else if (stageIndex === 3) {
+      parts["signal-ring"].forEach((part, index) => part.scale.setScalar(.82 + ((time * 1.35 + index * .27) % 1) * .42));
+    } else if (stageIndex === 4) {
+      parts.shackle.forEach((part) => { part.position.y -= .18 * (.5 + .5 * Math.sin(time * 3)); });
+    } else if (stageIndex === 5) {
+      parts.power.forEach((part, index) => part.scale.setScalar(1 + Math.sin(time * 5 + index * .4) * .08));
+    } else if (stageIndex === 6) {
+      parts["repair-a"].forEach((part) => { part.rotation.z += Math.sin(time * 5) * .16; });
+      parts["repair-b"].forEach((part) => { part.rotation.z -= Math.sin(time * 5) * .16; });
+    } else if (stageIndex === 7) {
+      rotatePartsAround(parts.lens, -.12, 1.75, Math.sin(time * 2.4) * .24);
+    } else if (stageIndex === 8) {
+      parts["telemetry-ring"].forEach((part, index) => part.scale.setScalar(.86 + ((time * 1.6 + index * .35) % 1) * .32));
+    } else if (stageIndex === 9) {
+      parts.stamp.forEach((part) => { part.position.y -= Math.pow(Math.abs(Math.sin(time * 2.8)), 7) * .32; });
+    }
+  });
+}
+
 function setCamera(mode) {
   followProduct = false; refs.focusProduct.classList.remove("active"); refs.focusProduct.textContent = "Follow product"; controls.enabled = true;
   if (mode === "top") { camera.position.set(0, 46, .01); controls.target.set(-3, 0, 0); }
@@ -900,6 +960,7 @@ function frame(now) {
     });
   }
   agents.forEach((agent, index) => { if (agent.userData.target) agent.position.lerp(agent.userData.target, .018 + index * .003); agent.rotation.y = Math.sin(now * .001 + index) * .16; });
+  animateStationFixtures(now);
   if (followProduct) {
     const target = productAssembly.position.clone().add(new THREE.Vector3(0, 1.3, 0));
     const desired = target.clone().add(new THREE.Vector3(11.5, 8.5, 12.5));
