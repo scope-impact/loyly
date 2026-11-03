@@ -52,9 +52,15 @@ try {
   const bash = createBashToolDefinition("/workspace", {
     operations: {
       exec: async (command, _cwd, options) => {
-        const result = await room.exec(command, { signal: options.signal });
+        const result = await room.exec(command, {
+          signal: options.signal,
+          timeout: options.timeout,
+        });
         if (result.stdout) options.onData(Buffer.from(result.stdout));
         if (result.stderr) options.onData(Buffer.from(result.stderr));
+        if (options.timeout !== undefined && result.exitCode === 124) {
+          throw new Error(`timeout:${options.timeout}`);
+        }
         return { exitCode: result.exitCode };
       },
     },

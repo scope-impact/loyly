@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { executionBackend } from "../src/execution-backend.ts";
-import { openBuilderRoom } from "../src/builder-room.ts";
+import { commandWithTimeout, openBuilderRoom } from "../src/builder-room.ts";
 import { openGraderRoom } from "../src/grader-room.ts";
 import { openOracleFixtureRoom } from "../src/oracle-fixture-room.ts";
 
@@ -53,6 +53,17 @@ test("gondolin builder selects the requested language image", async () => {
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("gondolin builder enforces Pi tool timeouts inside the VM", () => {
+  assert.equal(
+    commandWithTimeout("PORT=8080 node server.js", 2),
+    "timeout -s TERM 2s /bin/sh -lc 'PORT=8080 node server.js'",
+  );
+  assert.equal(
+    commandWithTimeout("printf '%s' ready", 3),
+    "timeout -s TERM 3s /bin/sh -lc 'printf '\"'\"'%s'\"'\"' ready'",
+  );
 });
 
 test("gondolin repair builder starts from the candidate and points at shared verification evidence", async () => {
