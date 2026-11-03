@@ -67,11 +67,61 @@ function useFilmClock(initialTime = 0) {
   return { time, setTime, playing, setPlaying };
 }
 
-function Eye({ x, look = 0, worried = false }) {
-  return <group position={[x, .12, .47]} rotation={[0, 0, worried ? x * .3 : 0]}>
-    <mesh scale={[1, worried ? .7 : 1, .45]}><sphereGeometry args={[.13, 16, 12]} /><meshStandardMaterial color="#fdf8ed" /></mesh>
+function useStoryScore(chapterIndex, playing) {
+  const audio = useRef(null);
+  const [enabled, setEnabled] = useState(false);
+  const start = () => {
+    if (!audio.current) {
+      const Context = window.AudioContext || window.webkitAudioContext;
+      if (!Context) return;
+      const context = new Context();
+      const master = context.createGain();
+      const filter = context.createBiquadFilter();
+      const low = context.createOscillator();
+      const high = context.createOscillator();
+      low.type = "sine"; high.type = "triangle"; filter.type = "lowpass"; filter.frequency.value = 520;
+      low.connect(filter); high.connect(filter); filter.connect(master); master.connect(context.destination);
+      master.gain.value = .0001; low.start(); high.start();
+      audio.current = { context, master, low, high };
+    }
+    audio.current.context.resume();
+    setEnabled(true);
+  };
+  const toggle = () => {
+    if (!enabled) start(); else setEnabled(false);
+  };
+  useEffect(() => {
+    if (!audio.current) return;
+    const { context, master, low, high } = audio.current;
+    const now = context.currentTime;
+    const roots = [110, 98, 123.47, 130.81, 146.83, 92.5, 103.83, 146.83, 164.81, 110, 103.83, 123.47, 130.81, 146.83, 164.81];
+    const root = roots[chapterIndex];
+    low.frequency.setTargetAtTime(root, now, .8);
+    high.frequency.setTargetAtTime(root * (chapterIndex === 5 || chapterIndex === 9 ? 1.414 : 1.5), now, .8);
+    master.gain.setTargetAtTime(enabled ? (playing ? .022 : .006) : .0001, now, .35);
+  }, [chapterIndex, playing, enabled]);
+  return { enabled, start, toggle };
+}
+
+function Eye({ x, look = 0, worried = false, sleepy = false, z = .47 }) {
+  const ref = useRef();
+  useFrame(({ clock }) => {
+    if (!ref.current) return;
+    const blink = Math.sin(clock.elapsedTime * .72 + x * 4) > .985 ? .08 : 1;
+    ref.current.scale.y = sleepy ? .42 : blink * (worried ? .68 : 1);
+  });
+  return <group ref={ref} position={[x, .12, z]} rotation={[0, 0, worried ? x * .3 : 0]}>
+    <mesh scale={[1, 1, .45]}><sphereGeometry args={[.13, 16, 12]} /><meshStandardMaterial color="#fdf8ed" /></mesh>
     <mesh position={[look * .04, 0, .1]}><sphereGeometry args={[.055, 12, 8]} /><meshBasicMaterial color="#111827" /></mesh>
   </group>;
+}
+
+function Mouth({ mood = "soft", position = [0, -.18, .5], scale = 1 }) {
+  const turn = mood === "joy" ? -.25 : mood === "hurt" ? .28 : 0;
+  return <mesh position={position} rotation={[0, 0, turn]} scale={[scale, mood === "hurt" ? .55 : .3, .25]}>
+    <torusGeometry args={[.15, .027, 7, 18, Math.PI]} />
+    <meshBasicMaterial color="#1a1721" />
+  </mesh>;
 }
 
 function Lumo({ position = [0, 2.8, 0], scale = 1, mood = "bright", active = true }) {
@@ -84,7 +134,11 @@ function Lumo({ position = [0, 2.8, 0], scale = 1, mood = "bright", active = tru
   const dim = mood === "hurt";
   return <group ref={ref} position={position} scale={scale}>
     <mesh><icosahedronGeometry args={[.76, 3]} /><meshPhysicalMaterial color={dim ? "#694d8f" : "#a98bff"} emissive="#7b52d9" emissiveIntensity={active ? 2.4 : .5} transmission={.24} roughness={.22} /></mesh>
-    <Eye x={-.25} worried={dim} /><Eye x={.25} worried={dim} />
+    <Eye x={-.25} worried={dim} z={.72} /><Eye x={.25} worried={dim} z={.72} />
+    <Mouth mood={dim ? "hurt" : mood === "joy" ? "joy" : "soft"} position={[0, -.18, .73]} />
+    {[-1, 1].map((side) => <mesh key={side} position={[side * .72, -.25, 0]} rotation={[0, 0, side * (dim ? .9 : -.55)]}>
+      <capsuleGeometry args={[.07, .55, 5, 8]} /><meshBasicMaterial color="#b8a3ff" transparent opacity={.8} />
+    </mesh>)}
     <pointLight color="#9a74ff" intensity={active ? 18 : 3} distance={6} />
     <Sparkles count={18} scale={2.6} size={2.4} speed={.35} color="#c8b7ff" />
   </group>;
@@ -150,6 +204,7 @@ function Candidate({ position = [0, 0, 0], scale = 1, alive = true, anxious = fa
   return <group ref={ref} position={position} scale={scale}>
     <RoundedBox args={[2.25, 2.4, 1.4]} radius={.55} smoothness={6} position={[0, 1.7, 0]}><meshStandardMaterial color="#c67d4e" transparent opacity={translucent ? .22 : 1} roughness={.7} /></RoundedBox>
     <group position={[0, 1.75, .3]}><Eye x={-.38} worried={anxious} /><Eye x={.38} worried={anxious} /></group>
+    <Mouth mood={anxious ? "hurt" : alive ? "joy" : "soft"} position={[0, 1.43, .78]} scale={1.2} />
     <mesh position={[0, .02, .2]} scale={[1.4, .5, 1.7]}><sphereGeometry args={[.65, 16, 10]} /><meshStandardMaterial color="#6c4637" transparent opacity={translucent ? .18 : 1} /></mesh>
     {translucent && <Sparkles count={32} scale={[2.2, 3.2, 1.4]} size={2.2} color="#53c8bd" />}
   </group>;
@@ -284,13 +339,14 @@ function GraderFormation({ physiology = false }) {
     <mesh position={[0, -.2, 0]}><cylinderGeometry args={[9, 9, .35, 48]} /><meshStandardMaterial color="#dce3df" /></mesh>
     <Candidate position={[0, .1, 0]} scale={.75} anxious />
     <Lumo position={[-4.8, 3, 0]} scale={.8} mood="hurt" />
+    <Runi position={[-5.7, -.1, -1.6]} scale={.38} kneel gesture="protect" showLumo={false} showGrain={false} />
     <mesh position={[-2.7, 2.5, 0]}><boxGeometry args={[.05, 5.2, 8.8]} /><meshPhysicalMaterial color="#d8f4f4" transmission={.6} transparent opacity={.22} roughness={.05} /></mesh>
     {Array.from({ length: 11 }, (_, index) => {
       const angle = Math.PI * .12 + index / 10 * Math.PI * 1.76;
       const fail = index === 2 || index === 10;
       return <Drone key={index} index={index} verdict={fail ? "fail" : "pass"} position={[Math.cos(angle) * 5.3, 2.2 + (index % 2) * .3, Math.sin(angle) * 4.2]} />;
     })}
-    {physiology && <group position={[4.8, 1.2, 0]}>{Array.from({ length: 8 }, (_, index) => <mesh key={index} position={[0, index * .42, 0]}><sphereGeometry args={[.13, 10, 7]} /><meshBasicMaterial color="#53c8bd" /></mesh>)}</group>}
+    {physiology && <><Grain position={[4.1, 1.6, 1.1]} scale={.9} /><group position={[5.5, 1.2, 0]}>{Array.from({ length: 8 }, (_, index) => <mesh key={index} position={[0, index * .42, 0]}><sphereGeometry args={[.13, 10, 7]} /><meshBasicMaterial color="#53c8bd" /></mesh>)}</group></>}
   </group>;
 }
 
@@ -337,18 +393,41 @@ function FinalNestedScene() {
   </group>;
 }
 
+function AwakeningScene({ local }) {
+  return <group>
+    <Runi position={[0, 0, 0]} scale={1.05} awake={local > .16} showGrain={local > .42} />
+    {local > .28 && [-1, 1].map((side) => <mesh key={side} position={[side * .62, 4.62, .82]} scale={1 + Math.sin(local * 28) * .05}>
+      <sphereGeometry args={[.09, 12, 8]} /><meshBasicMaterial color="#53c8bd" toneMapped={false} />
+    </mesh>)}
+    {local > .64 && [0, 1, 2].map((index) => <Drone key={index} index={index} position={[-3 + index * 3, 5.5 + (index % 2) * .4, -1.5]} verdict="idle" />)}
+    {local > .8 && <Line points={[[0,.5,-.8],[0,3.2,-.8],[0,5,-.3]]} color="#53c8bd" lineWidth={4} />}
+  </group>;
+}
+
+function DirectionScene({ local }) {
+  const insert = ease(clamp(local / .55));
+  const reject = ease(clamp((local - .46) / .42));
+  return <group>
+    <Runi position={[-2.2, 0, 0]} scale={.9} gesture="protect" />
+    <group position={[6.2 - insert * 3.5, 3.1, .4]} rotation={[0, 0, -.1]}>
+      <mesh position={[2.1, 0, 0]} rotation={[0, 0, Math.PI / 2]}><capsuleGeometry args={[.48, 3.5, 8, 18]} /><meshStandardMaterial color="#d8a67f" roughness={.8} /></mesh>
+      <RoundedBox args={[1.4, 2.2, .28]} radius={.12} smoothness={3}><meshStandardMaterial color="#f2a93b" emissive="#f2a93b" emissiveIntensity={1.2} /></RoundedBox>
+    </group>
+    {PARTS.slice(0, 5).map(([kind, color], index) => <ProductPart key={kind} kind={kind} color={color} position={[.8 + (index % 3) * 1.5, 5.4 - Math.floor(index / 3) * 1.4, -1]} assembled={local > .34 + index * .08} />)}
+    <mesh position={[4.4, 2.3, -1.2]}><boxGeometry args={[.08, 4.8, 4.8]} /><meshPhysicalMaterial color="#dff8f8" transmission={.7} transparent opacity={.25} /></mesh>
+    <group position={[5.5 + reject * 4.5, .4, -2.1]} rotation={[0, reject * .5, reject * .24]}>
+      <Candidate scale={.42} translucent anxious />
+      <Sparkles count={18} scale={2.2} size={3} color="#9d8c76" />
+    </group>
+  </group>;
+}
+
 function StoryStage({ chapterIndex, local, variant, explore }) {
   const reveal = ease(local);
   if (chapterIndex === 0) return <ColdSaunaScene local={local} />;
   if (chapterIndex === 1) return <group><Lumo position={[0, 2.7, 0]} scale={1.25} /><Float speed={1.4} floatIntensity={1.2}>{Array.from({ length: 9 }, (_, i) => <mesh key={i} position={[Math.sin(i * 2) * 3.5, 1 + (i % 4), Math.cos(i) * 2]} rotation={[i, i * .4, 0]}><tetrahedronGeometry args={[.35 + (i % 3) * .15]} /><meshBasicMaterial color="#a98bff" wireframe /></mesh>)}</Float></group>;
-  if (chapterIndex === 2) return <Runi position={[0, 0, 0]} scale={1.05} awake={local > .18} />;
-  if (chapterIndex === 3) return <group>
-    <Runi position={[-2.2, 0, 0]} scale={.9} gesture="protect" />
-    <mesh position={[2.7, 3.1, 0]} rotation={[0, 0, -.1]}><boxGeometry args={[1.4, 2.2, .28]} /><meshStandardMaterial color="#f2a93b" emissive="#f2a93b" emissiveIntensity={1.2} /></mesh>
-    {PARTS.slice(0, 5).map(([kind, color], index) => <ProductPart key={kind} kind={kind} color={color} position={[1.1 + (index % 3) * 1.6, 5.4 - Math.floor(index / 3) * 1.4, -1]} />)}
-    <mesh position={[4.4, 2.3, -1.2]}><boxGeometry args={[.08, 4.8, 4.8]} /><meshPhysicalMaterial color="#dff8f8" transmission={.7} transparent opacity={.25} /></mesh>
-    <Candidate position={[5.2 + reveal * 3.5, .2, -2]} scale={.45} translucent />
-  </group>;
+  if (chapterIndex === 2) return <AwakeningScene local={local} />;
+  if (chapterIndex === 3) return <DirectionScene local={local} />;
   if (chapterIndex === 4) return <Workshop built={Math.ceil(reveal * 6)} gesture="protect" />;
   if (chapterIndex === 5) return <FailureScene local={local} />;
   if (chapterIndex === 6) return <Archive dissolve={local > .56} recording />;
@@ -370,13 +449,21 @@ const cameraShots = [
   [[8, 5, 10], [0, 2, 0]], [[0, 7, 17], [0, 2.2, 0]], [[10, 7, 13], [0, 1.8, 0]],
 ];
 
-function CameraDirector({ chapterIndex, variant, explore }) {
+function CameraDirector({ chapterIndex, local, variant, explore }) {
   const { camera } = useThree();
   const controls = useRef();
   useFrame((_, delta) => {
     if (explore) return;
     const shot = cameraShots[chapterIndex];
     const position = new THREE.Vector3(...shot[0]);
+    const attention = ease(local);
+    if (chapterIndex === 0) position.lerp(new THREE.Vector3(2.5, 2.6, 7.2), attention * .72);
+    if (chapterIndex === 1) position.lerp(new THREE.Vector3(0, 2.8, 6.2), attention * .58);
+    if (chapterIndex === 5) position.lerp(new THREE.Vector3(5.2, 2.8, 7), clamp((local - .42) / .32) * .72);
+    if (chapterIndex === 6) position.lerp(new THREE.Vector3(-1.2, 3.2, 7.4), clamp((local - .3) / .45) * .62);
+    if (chapterIndex === 9) position.lerp(new THREE.Vector3(-5.4, 3.7, 7), clamp((local - .58) / .3) * .55);
+    if (chapterIndex === 11) position.lerp(new THREE.Vector3(1.7, 2.8, 7.2), attention * .5);
+    if (chapterIndex === 14) position.lerp(new THREE.Vector3(4.4, 4.8, 8.2), attention * .5);
     if (variant === "B") position.add(new THREE.Vector3(0, 3.5, 2));
     if (variant === "C") position.multiplyScalar(.78).add(new THREE.Vector3(1.5, .2, 0));
     camera.position.lerp(position, Math.min(1, delta * 2.3));
@@ -395,7 +482,7 @@ function World({ chapterIndex, local, variant, explore }) {
     <directionalLight position={[7, 12, 9]} intensity={warm ? 3.2 : 2.1} color={warm ? "#ffc47c" : "#d7ecff"} castShadow shadow-mapSize={[1024, 1024]} />
     <pointLight position={[-8, 5, -5]} intensity={18} distance={18} color={dark ? "#8f6cff" : "#53c8bd"} />
     <StoryStage chapterIndex={chapterIndex} local={local} variant={variant} explore={explore} />
-    <CameraDirector chapterIndex={chapterIndex} variant={variant} explore={explore} />
+    <CameraDirector chapterIndex={chapterIndex} local={local} variant={variant} explore={explore} />
     {!dark && <Environment preset="warehouse" environmentIntensity={.22} />}
   </>;
 }
@@ -440,19 +527,23 @@ function ChapterRail({ active, setTime }) {
   return <ol className="chapter-rail">{CHAPTERS.map((chapter, index) => <li key={chapter.id} className={index === active ? "active" : index < active ? "past" : ""}><button onClick={() => setTime(chapterStarts[index] + .01)}><span>{index + 1}</span><em>{chapter.title}</em></button></li>)}</ol>;
 }
 
-function BeatOverlay({ index, local }) {
-  if (index === 0) return <div className="diegetic-status sauna-status" aria-hidden="true"><span className={local > .18 ? "ok" : ""}>Booking</span><span className={local > .66 ? "bad" : ""}>Heater</span><span className={local > .52 ? "ok" : ""}>Billing</span></div>;
-  if (index === 3) return <div className="sealed-direction" aria-hidden="true"><strong>Resident stories</strong><span>11 accepted behaviors</span><span>C4 architecture</span><span>Scope + stack</span><em>Previous answers do not enter</em></div>;
+function BeatOverlay({ index, local, variant }) {
+  const cinema = variant === "A";
+  if (index === 0) return <><div className="diegetic-status sauna-status" aria-hidden="true"><span className={local > .18 ? "ok" : ""}>Booking</span><span className={local > .66 ? "bad" : ""}>Heater</span><span className={local > .52 ? "ok" : ""}>Billing</span></div>{local > .68 && <div className="character-beat lo-beat">Why am I still cold?</div>}</>;
+  if (index === 1 && local > .48) return <div className="character-beat lumo-beat">I can imagine it. Why can’t I reach it?</div>;
+  if (index === 2 && local > .58) return <div className="character-beat runi-beat">Runi offers a hand.</div>;
+  if (index === 3) return cinema ? <div className="character-beat direction-beat">Intent enters. Old answers stay outside.</div> : <div className="sealed-direction" aria-hidden="true"><strong>Resident stories</strong><span>11 accepted behaviors</span><span>C4 architecture</span><span>Scope + stack</span><em>Previous answers do not enter</em></div>;
   if (index === 5) return <>
     <div className="done-sign" style={{ opacity: local < .58 ? 1 : 0, transform: `translate(-50%, ${Math.min(0, -180 + local * 500)}px) rotate(${-3 + local * 4}deg)` }}>DONE!</div>
     {local > .48 && <div className="toolbox-callout"><strong>npm</strong><span>toolbox empty</span></div>}
   </>;
-  if (index === 6) return <div className="attempt-card"><span>Attempt 1</span><strong>Verification failed</strong><em>npm not found</em><small>recorded—not secretly patched</small></div>;
-  if (index === 9) return <div className="verdict-board"><strong>9</strong><span>green</span><strong className="red">2</strong><span>red</span><em>Lumo cannot reach the graders</em></div>;
-  if (index === 10) return <div className="truth-cards"><article><span>Physiology</span><strong>8 / 8</strong><em>complete</em></article><article><span>Behavior</span><strong>9 / 11</strong><em>incomplete</em></article></div>;
+  if (index === 6) return <><div className="attempt-card"><span>Attempt 1</span><strong>Verification failed</strong><em>npm not found</em><small>recorded—not secretly patched</small></div>{local > .62 && <div className="character-beat grain-beat">Nothing honest is wasted.</div>}</>;
+  if (index === 9) return <>{cinema ? <div className="evidence-line"><strong>9</strong> understood <i /> <b>2</b> still hurt</div> : <div className="verdict-board"><strong>9</strong><span>green</span><strong className="red">2</strong><span>red</span><em>Lumo cannot reach the graders</em></div>}{local > .62 && <div className="character-beat lumo-beat">But I can explain—</div>}</>;
+  if (index === 10) return <>{cinema ? <div className="evidence-line"><strong>8 / 8</strong> physiology <i>≠</i> <b>9 / 11</b> behavior</div> : <div className="truth-cards"><article><span>Physiology</span><strong>8 / 8</strong><em>complete</em></article><article><span>Behavior</span><strong>9 / 11</strong><em>incomplete</em></article></div>}{local > .55 && <div className="character-beat grain-beat">Seeing everything is not the same as being right.</div>}</>;
+  if (index === 11 && local > .58) return <div className="character-beat candidate-beat">Then I helped?</div>;
   if (index === 12) return <div className="choice-labels"><span>Stop</span><span>Correct intent</span><span>Begin a child generation</span></div>;
   if (index === 13) return <div className="language-verdicts">{[["TypeScript","10/11"],["Rust","9/11"],["Java","9/11"],["Rails","0/11"]].map(([name, score]) => <article key={name}><span>{name}</span><strong>{local > .55 ? "11/11" : score}</strong><em>{local > .55 ? "fresh regrade" : "baseline"}</em></article>)}</div>;
-  if (index === 14) return <div className="final-nesting"><span>Runi · embodied harness</span><span>Candidate · generated body</span><span>Sauna · expressed behavior</span></div>;
+  if (index === 14) return cinema ? <div className="character-beat final-beat">One creative spark. A whole body learning the truth.</div> : <div className="final-nesting"><span>Runi · embodied harness</span><span>Candidate · generated body</span><span>Sauna · expressed behavior</span></div>;
   return null;
 }
 
@@ -466,6 +557,7 @@ function App() {
   const [started, setStarted] = useState(initialParams.has("chapter"));
   const film = useFilmClock(chapterStarts[initialChapter] + (initialParams.has("chapter") ? CHAPTERS[initialChapter].duration * initialProgress : 0));
   const { index, chapter, local } = chapterAt(film.time);
+  const score = useStoryScore(index, film.playing);
   useEffect(() => { const listener = () => setVariant(new URLSearchParams(location.search).get("variant")?.toUpperCase() in VARIANTS ? new URLSearchParams(location.search).get("variant").toUpperCase() : "A"); addEventListener("popstate", listener); return () => removeEventListener("popstate", listener); }, []);
   useEffect(() => { if (inspect) film.setPlaying(false); }, [inspect]);
   const seek = (value) => { film.setTime(Number(value)); setExplore(false); };
@@ -476,12 +568,13 @@ function App() {
         <Suspense fallback={null}><World chapterIndex={index} local={local} variant={variant} explore={explore} /></Suspense>
       </Canvas>
       <div className="film-grain" />
-      {!started && <section className="opening-card"><div className="opening-orbit"><i /><i /><i /></div><p>An original interactive animatic</p><h1>The Next Body</h1><blockquote>Can creativity learn to become dependable?</blockquote><button onClick={() => { setStarted(true); film.setPlaying(true); }}>Begin the story</button><small>About 2½ minutes · captions included · inspect any chapter</small></section>}
+      {!started && <section className="opening-card"><div className="opening-orbit"><i /><i /><i /></div><p>An original interactive story prototype</p><h1>The Next Body</h1><blockquote>Can creativity learn to become dependable?</blockquote><button onClick={() => { score.start(); setStarted(true); film.setPlaying(true); }}>Begin the story</button><small>About 2½ minutes · gentle sound · captions · inspect any chapter</small></section>}
       {variant === "B" && <ChapterRail active={index} setTime={(time) => { film.setTime(time); setStarted(true); }} />}
       {variant === "C" && <><div className="anatomy-legend" aria-hidden="true"><span className="brain">Lumo<i /></span><span className="spine">Direction<i /></span><span className="memory">Grain<i /></span><span className="senses">Evidence<i /></span></div><aside className="cutaway-pulse"><small>Inside this moment</small><strong>{chapter.title}</strong><p>{chapter.evidence}</p><dl><div><dt>Physiology</dt><dd>{index >= 10 ? "8 / 8" : "observing"}</dd></div><div><dt>Behavior</dt><dd>{index >= 9 ? "9 / 11" : "forming"}</dd></div></dl></aside></>}
       {started && <>
-        <BeatOverlay index={index} local={local} />
-        <header className="story-header"><div><strong>The Next Body</strong><span>{String(index + 1).padStart(2, "0")} / {CHAPTERS.length}</span></div><button onClick={() => setInspect(true)}>Inspect this moment</button></header>
+        <BeatOverlay index={index} local={local} variant={variant} />
+        <div className="shot-breathe" style={{ opacity: Math.max(0, .62 - Math.min(local, 1 - local) * 7) }} />
+        <header className="story-header"><div><strong>The Next Body</strong><span>{String(index + 1).padStart(2, "0")} / {CHAPTERS.length}</span></div><nav><button className="sound-toggle" onClick={score.toggle}>{score.enabled ? "Sound on" : "Sound off"}</button><button className="inspect-button" onClick={() => setInspect(true)}>Inspect this moment</button></nav></header>
         <section className="caption" aria-live="polite"><p>{chapter.caption}</p><span>{chapter.title}</span></section>
         <div className="transport">
           <button onClick={() => jump(-1)} aria-label="Previous chapter">‹</button>
