@@ -1,53 +1,32 @@
-# Regeneration Yard — hybrid 2D/3D prototype
+# Regeneration Yard — open-world factory prototype
 
-> **Prototype question:** What should an agentic software factory feel like as a live control room when
-> Grain owns durable facts and the Pi harness owns the regeneration cycle?
+> **Throwaway prototype question:** Does moving through the factory as a player make the Grain/Pi/Löyly model easier to understand than operating a dashboard?
 
-This is deliberately throwaway code on `spike/3d-agentic-software-factory`. It is a visual and
-interaction model, not a production harness client. The simulation replays all game state from an
-in-memory event log and uses the committed Pi pipeline vocabulary. No command reaches the real
-harness.
+Three variants of the same agentic factory are switchable with `?variant=` on the existing spike route:
 
-The default 2D control-room map and optional 3D world are not hand-authored approximations of the architecture. Vite imports
-`.pi/architecture.md` as source, and the prototype parses the repository's actual Mermaid C4
-blocks at runtime. In 2D, nodes become compact control plates and relationships stay visible as a
-schematic; in 3D, the same nodes become buildings or data-store cylinders. Recorded regeneration
-signals highlight the responsible architecture elements in both views.
+- `A` — **Walk the line.** A physics-driven third-person operator walks, runs and jumps through the factory. Entering a station's proximity exposes an inspection action.
+- `B` — **Factory simulation.** An overhead, orbitable operations world makes the whole material flow and ten stations visible at once.
+- `C` — **Guided tour.** The camera follows the active product and explains one station at a time.
 
-The physical footprint is grounded in first-party descriptions of Toyota, BMW,
-Mercedes-Benz, and Ford production rather than the C4 graph's automatic topology. See
-[`automotive-assembly-layout-research.md`](automotive-assembly-layout-research.md). The dominant
-product-carrier path is a folded one-way line with side-fed infrastructure, overhead C4 data/utility
-gantries, end-of-line testing, an inspection-adjacent rework loop returning to test, and a
-accepted-product yard.
+Use `?prototype=1` to expose the floating variant switcher in a production build. In development it is always visible. Left and right arrow keys also change variants when a form control is not focused.
 
-## Recorded E2E replay
+This is deliberately throwaway code on `spike/3d-agentic-software-factory`. It does not call the live Pi harness and it does not write Grain facts.
 
-The main control replays the repository's sealed `e2e-full-1793630744537.zip` fixture instead of
-inventing a successful demo run. The normalized timeline in `src/e2e-replay.js` preserves its two
-builder attempts, attempt-one container failure, repaired 13-test application run, eleven Gondolin
-item verdicts, eight correlated runtime signals, instrument-conformance result, source artifact
-paths, and terminal 9/11 product verdict. It is labelled as historical playback throughout the UI;
-it does not imply a fresh regeneration.
+## What is real
 
-Replay can be paused, stepped one recorded signal at a time, scrubbed, or accelerated. Scrubbing
-rebuilds the projection from the start, so station activity, product position, evidence, score,
-and the full-state view remain deterministic.
+- The C4 station names, types and relationships are parsed at runtime from the repository's `.pi/architecture.md` Container diagram.
+- The factory activity replays the committed `e2e-full-1793630744537.zip` normalization in `src/e2e-replay.js`.
+- The recording includes the failed first container attempt, fresh repair builder, independent 9/11 verdict, runtime signals and final recorded result.
+- Löyly is the product moving through the line. Its Booking API, Booking Core, Event Store, Weekly Schedule, Heater Schedule and Billing Signals modules appear on the carrier as assembly progresses.
 
-## World analogy
+The replay runs at one quarter recorded speed so a player has time to move between stations. It remains historical playback, not a claim that a new regeneration is running.
 
-- **The Pi/ORC/Grain harness is the assembly line.** Its real C4 elements are the machinery,
-  inspection stations, stores, and routes.
-- **Löyly is the assembled C4 product.** A moving steel carrier begins empty. Booking API,
-  Booking Core, Event Store, Weekly Schedule, Heater Schedule, and Billing Signals containers
-  descend onto it as the build reaches their stages.
-- **A target language is an implementation profile.** Rust, Java, Rails, and Node use the same C4
-  product boundary and behavioral contract; the stack changes the container build, not the product
-  architecture.
-- **Grain is the product history.** It records durable build, observation, and measurement facts;
-  it does not move the assembly line forward.
-- **Independent graders are product inspection.** Builder claims and fitted telemetry cannot
-  author the final quality verdict.
+## Game stack
+
+- React Three Fiber renders the Three.js world.
+- Rapier supplies the physical world and station colliders.
+- Ecctrl supplies the physics-driven player, keyboard movement and mobile joystick/buttons.
+- Ordinary DOM overlays provide accessible controls, the replay timeline and station evidence.
 
 ## Run
 
@@ -57,35 +36,16 @@ npm install
 npm run spike
 ```
 
-Open <http://127.0.0.1:5173/?variant=A>. The 2D map is the responsive default. Use the persistent
-**2D map / 3D floor** switch or add `&view=floor` to a shareable URL.
+Open <http://127.0.0.1:5173/?variant=A&prototype=1>.
 
-- `A` — Factory floor: spatial process and operator action.
-- `B` — Evidence observatory: provenance and runtime evidence first.
-- `C` — Command deck: dense stage control and intervention.
+Desktop controls: `WASD`/arrow keys to move, `Shift` to run, `Space` to jump and `E` to inspect a nearby station. Mobile uses an on-screen joystick, jump and inspect controls.
 
-The alternative layout experiments are intentionally hidden from the primary journey. Add
-`&prototype=1` to expose their bottom switcher and left/right keyboard controls. Press Space to
-replay or pause the recorded cycle. Its first attempt really failed, so the repair boundary remains
-visible without fabricating a fault. Select any 2D or 3D element to see its C4 type, description,
-and source view.
+## Interpretation
 
-Use the **C4 world** selector to move between the repository's System Context, Container, and ORC
-Worker Component views. Selecting a building or relationship shows the exact parsed C4 name, type,
-description, and diagram. The full-state tab includes the active source line, parsed elements,
-relations, and stage-highlighted element IDs.
+- **Pi/ORC is the assembly line:** it moves a bound product cut through build, repair and independent inspection.
+- **Löyly is the product:** C4 components emerge on its carrier as the implementation is assembled.
+- **Language is the product model:** the behavior and C4 boundary stay stable while the implementation profile changes.
+- **Grain is the durable product history:** it records build and observation facts but does not move the line forward.
+- **Independent graders are the quality gate:** builder claims cannot author the product verdict.
 
-Select a map station and choose **Open 3D station** (or select **Zoom into station** on the floor)
-to enter a close inspection view. Its live feed shows whether the station is processing the current Löyly model, waiting on an
-operator repair decision, queued for a later stage, or complete. The feed also lists the station's
-actual incoming and outgoing C4 relationships. **Return to overview** flies back to the full line.
-
-## What this spike is testing
-
-1. Whether Pi stages become understandable when represented as a physical material flow.
-2. Whether an append-only Grain event stream is a useful game mechanic and debugging surface.
-3. Whether independent grading feels meaningfully separate from builder activity.
-
-The model seam is intentionally explicit in `src/main.js`: stage definitions mirror
-`model/pi-harness/execution-pipeline.allium`, while authority labels mirror
-`model/pi-harness/runtime-evidence.allium` and `docs/orc-harness-boundary.md`.
+The alternative factory-layout research remains in `automotive-assembly-layout-research.md`.

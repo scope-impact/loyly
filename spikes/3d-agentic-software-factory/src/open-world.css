@@ -1,0 +1,140 @@
+@import "@fontsource/barlow-condensed/500.css";
+@import "@fontsource/barlow-condensed/600.css";
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+
+:root {
+  font-family: "IBM Plex Sans", sans-serif;
+  color: #f0eee5;
+  background: #07111b;
+  font-synthesis: none;
+  --ink: #07111b;
+  --steel: #101e2d;
+  --steel-2: #182b3c;
+  --line: rgba(208, 225, 232, .18);
+  --muted: #8fa1ae;
+  --paper: #f0eee5;
+  --cyan: #50d0cc;
+  --amber: #f2b84b;
+  --copper: #d47542;
+  --fault: #d85c5c;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { width: 100%; min-width: 320px; height: 100%; margin: 0; overflow: hidden; }
+button, input { font: inherit; }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; }
+.game { height: 100%; background: var(--ink); }
+
+.game-header {
+  position: relative; z-index: 20; height: 68px; display: grid; grid-template-columns: 1fr auto 1fr;
+  align-items: center; padding: 0 22px; border-bottom: 1px solid var(--line); background: #0a1622;
+}
+.game-brand, .live-cycle { display: flex; align-items: center; gap: 11px; }
+.game-brand > span:last-child, .live-cycle > span { display: flex; flex-direction: column; }
+.game-brand strong { font: 600 22px "Barlow Condensed"; }
+.game-brand small, .live-cycle small, .cycle-score small { color: var(--muted); font-size: 9px; }
+.factory-mark { width: 34px; height: 34px; display: flex; align-items: end; gap: 3px; transform: skewY(-9deg); }
+.factory-mark i { width: 8px; background: var(--copper); }
+.factory-mark i:nth-child(1) { height: 18px; }.factory-mark i:nth-child(2) { height: 28px; }.factory-mark i:nth-child(3) { height: 23px; background: var(--amber); }
+.live-cycle > i, .inspector-state > i { width: 9px; height: 9px; border-radius: 50%; background: #5b6f7c; box-shadow: 0 0 0 5px rgba(91,111,124,.12); }
+.live-cycle > i.live, .inspector-state > i.live { background: var(--cyan); box-shadow: 0 0 14px var(--cyan); }
+.live-cycle strong { font: 500 17px "Barlow Condensed"; }
+.cycle-score { justify-self: end; display: flex; align-items: baseline; gap: 4px; }
+.cycle-score small { margin-right: 7px; }.cycle-score strong { font: 600 27px "Barlow Condensed"; }.cycle-score span { color: var(--muted); }
+
+.world-shell { position: relative; height: calc(100% - 68px); overflow: hidden; }
+.world-shell canvas { width: 100% !important; height: 100% !important; touch-action: none; }
+.replay-line { position: absolute; z-index: 10; top: 16px; left: 50%; transform: translateX(-50%); width: min(520px, calc(100% - 420px)); display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 5px; background: rgba(7,17,27,.88); border: 1px solid var(--line); backdrop-filter: blur(10px); }
+.replay-line button { min-width: 62px; min-height: 36px; border: 0; color: var(--ink); background: var(--cyan); cursor: pointer; font-size: 11px; font-weight: 600; }
+.replay-line > div { position: relative; height: 4px; background: #2a4050; }
+.replay-line > div span { position: absolute; inset: 0 auto 0 0; background: var(--amber); }
+.replay-line > div i { position: absolute; top: 50%; width: 11px; height: 11px; transform: translate(-50%,-50%); border-radius: 50%; background: var(--amber); box-shadow: 0 0 10px var(--amber); }
+.replay-line output { min-width: 42px; color: var(--amber); font-size: 10px; }
+
+.station-label { pointer-events: auto; }
+.station-label button { width: 180px; padding: 7px 9px; border: 1px solid #698094; border-left: 4px solid #698094; color: var(--paper); text-align: left; background: rgba(5,13,21,.94); box-shadow: 0 5px 18px rgba(0,0,0,.48); cursor: pointer; }
+.station-label small, .station-label strong, .station-label span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.station-label small { color: var(--amber); font-size: 8px; }.station-label strong { margin-top: 2px; font: 600 15px "Barlow Condensed"; }.station-label span { margin-top: 2px; color: #9eb0ba; font-size: 8px; }
+.station-label.active button { border-color: var(--amber); border-left-color: var(--amber); box-shadow: 0 0 24px rgba(242,184,75,.35); }
+.station-label.selected button { outline: 2px solid var(--cyan); }
+.variant-A .station-label button { width: 150px; }
+.variant-B .station-label button { width: 145px; padding: 5px 7px; }
+.variant-B .station-label strong { font-size: 12px; }
+.variant-B .component-tag, .variant-A .component-tag, .variant-C .component-tag { display: none; }
+.component-tag span, .product-tag { display: block; padding: 3px 5px; color: #f6f2e8; background: rgba(5,13,21,.88); border: 1px solid rgba(255,255,255,.22); white-space: nowrap; font-size: 7px; }
+.product-tag { display: flex; flex-direction: column; align-items: center; border-color: var(--copper); }
+.product-tag strong { font: 600 17px "Barlow Condensed"; }.product-tag span { color: #c2cbd0; font-size: 8px; }
+
+.explorer-objective { position: absolute; z-index: 8; top: 22px; left: 22px; width: 278px; padding: 15px 17px; background: rgba(7,17,27,.9); border-left: 4px solid var(--amber); backdrop-filter: blur(8px); }
+.explorer-objective small { color: var(--amber); font: 500 11px "Barlow Condensed"; }.explorer-objective strong { display: block; margin-top: 3px; font: 600 23px/1 "Barlow Condensed"; }.explorer-objective p { margin: 8px 0 0; color: #b7c2c9; font-size: 11px; line-height: 1.45; }
+.controls-help { position: absolute; z-index: 8; left: 22px; bottom: 22px; display: flex; gap: 7px; }
+.controls-help span { padding: 6px 8px; color: #aebbc3; background: rgba(7,17,27,.82); font-size: 9px; }
+kbd { padding: 2px 5px; color: var(--paper); border: 1px solid #607687; background: #1a2b39; font: 600 9px "IBM Plex Sans"; }
+.interact-prompt { position: absolute; z-index: 9; left: 50%; bottom: 84px; transform: translateX(-50%); min-width: 255px; min-height: 58px; display: flex; align-items: center; gap: 12px; padding: 8px 15px; color: var(--ink); background: var(--amber); border: 0; box-shadow: 0 10px 40px rgba(0,0,0,.55); cursor: pointer; text-align: left; }
+.interact-prompt kbd { color: var(--ink); border-color: rgba(7,17,27,.35); background: rgba(255,255,255,.38); font-size: 15px; }.interact-prompt span { display: flex; flex-direction: column; font-size: 9px; }.interact-prompt strong { font: 600 17px "Barlow Condensed"; }
+.touch-controls { display: none; }
+
+.simulation-deck { position: absolute; z-index: 8; top: 18px; left: 18px; bottom: 18px; width: 300px; display: flex; flex-direction: column; padding: 18px; background: rgba(7,17,27,.92); border-top: 5px solid var(--cyan); backdrop-filter: blur(12px); overflow: hidden; }
+.simulation-deck header small { color: var(--cyan); font: 500 12px "Barlow Condensed"; }.simulation-deck h1 { margin: 3px 0 0; font: 600 31px/.95 "Barlow Condensed"; }.simulation-deck header p { margin: 7px 0 13px; color: var(--muted); font-size: 10px; }
+.simulation-deck ol { min-height: 0; overflow: auto; list-style: none; margin: 0 -7px; padding: 0 7px 70px; }
+.simulation-deck li { border-top: 1px solid rgba(255,255,255,.09); }
+.simulation-deck li button { width: 100%; min-height: 48px; display: grid; grid-template-columns: 27px 1fr; gap: 9px; align-items: center; padding: 6px 4px; color: #8496a3; border: 0; background: none; text-align: left; cursor: pointer; }
+.simulation-deck li button > span { display: grid; place-items: center; width: 23px; height: 23px; border: 1px solid currentColor; font: 600 10px "IBM Plex Sans"; }
+.simulation-deck li button div { min-width: 0; }.simulation-deck li strong, .simulation-deck li small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.simulation-deck li strong { color: #b8c3ca; font: 600 14px "Barlow Condensed"; }.simulation-deck li small { margin-top: 2px; font-size: 8px; }
+.simulation-deck li.complete button { color: var(--cyan); }.simulation-deck li.active button { color: var(--amber); background: rgba(242,184,75,.08); }.simulation-deck li.active strong { color: var(--paper); }
+.variant-B .replay-line { left: auto; right: 18px; transform: none; width: min(430px, calc(100% - 356px)); }
+
+.tour-card { position: absolute; z-index: 8; right: 26px; top: 50%; transform: translateY(-50%); width: min(360px, calc(100% - 52px)); padding: 26px; color: #12202b; background: #eae7dd; box-shadow: 0 25px 80px rgba(0,0,0,.55); border-top: 8px solid var(--copper); }
+.tour-count { float: right; color: #9c3e23; font: 600 47px/.8 "Barlow Condensed"; }.tour-count span { color: #7c8488; font-size: 17px; }
+.tour-card > small { color: #9c3e23; font: 600 12px "Barlow Condensed"; }.tour-card h1 { max-width: 230px; margin: 5px 0 12px; font: 600 35px/.95 "Barlow Condensed"; }.tour-card > p { color: #44505a; font-size: 13px; line-height: 1.55; }
+.tour-card dl { margin: 20px 0; border-top: 1px solid #b9b6ad; }.tour-card dl div { padding: 9px 0; border-bottom: 1px solid #cbc7bc; }.tour-card dt { color: #777e82; font-size: 9px; }.tour-card dd { margin: 2px 0 0; font: 600 16px "Barlow Condensed"; }
+.tour-card button { width: 100%; min-height: 48px; color: white; background: var(--copper); border: 0; cursor: pointer; font-weight: 600; }
+.tour-card footer { position: absolute; left: 0; right: 0; bottom: -6px; height: 6px; background: #a8aaa5; }.tour-card footer span { display: block; height: 100%; background: var(--cyan); }
+.variant-C .replay-line { left: 22px; transform: none; width: min(500px, calc(100% - 440px)); }
+
+.station-inspector { position: fixed; z-index: 30; right: 18px; top: 86px; width: min(365px, calc(100vw - 36px)); max-height: calc(100vh - 104px); padding: 25px; overflow: auto; color: #14212c; background: #ece9df; border-top: 7px solid var(--cyan); box-shadow: 0 24px 80px rgba(0,0,0,.72); }
+.close-inspector { position: absolute; top: 5px; right: 7px; width: 44px; height: 44px; color: #14212c; border: 0; background: none; cursor: pointer; font-size: 26px; }
+.station-inspector > small { color: #9c3e23; font: 600 12px "Barlow Condensed"; }.station-inspector h2 { margin: 4px 30px 9px 0; font: 600 31px/.95 "Barlow Condensed"; }.station-inspector > p { color: #4e5961; font-size: 12px; line-height: 1.5; }
+.inspector-state { display: flex; align-items: center; gap: 10px; margin: 17px 0; padding: 12px; color: white; background: #142637; }.inspector-state span { display: flex; flex-direction: column; }.inspector-state small { color: #9db0bb; font-size: 8px; }.inspector-state strong { font: 600 17px "Barlow Condensed"; }
+.station-inspector dl { margin: 0; }.station-inspector dl div { padding: 9px 0; border-top: 1px solid #c1beb5; }.station-inspector dt { color: #747c80; font-size: 9px; }.station-inspector dd { margin: 2px 0 0; font: 600 17px "Barlow Condensed"; }
+.station-inspector section { margin-top: 15px; padding: 12px; color: white; background: #172a3a; }.station-inspector section > strong { font: 600 16px "Barlow Condensed"; }.station-inspector section p { margin: 7px 0 0; color: #b9c5cb; font-size: 9px; line-height: 1.4; }
+.station-inspector footer { margin-top: 15px; color: #798085; font-size: 8px; }
+
+.prototype-switcher { position: fixed; z-index: 40; left: 50%; bottom: 14px; transform: translateX(-50%); display: grid; grid-template-columns: 44px minmax(170px, auto) 44px; align-items: center; color: #101c27; background: #f1eee5; border: 1px solid white; box-shadow: 0 8px 35px rgba(0,0,0,.6); }
+.prototype-switcher button { width: 44px; height: 44px; border: 0; color: #101c27; background: #d8d6ce; cursor: pointer; font-size: 18px; }.prototype-switcher span { display: flex; flex-direction: column; text-align: center; padding: 3px 16px; }.prototype-switcher small { color: #747c80; font-size: 8px; }.prototype-switcher strong { font: 600 14px "Barlow Condensed"; }
+
+@media (max-width: 800px) {
+  .game-header { height: 58px; grid-template-columns: 1fr auto; padding: 0 12px; }
+  .game-brand { gap: 8px; }.game-brand strong { font-size: 19px; }.game-brand small, .live-cycle { display: none; }.factory-mark { width: 27px; height: 29px; }.factory-mark i { width: 6px; }
+  .cycle-score small, .cycle-score span { display: none; }.cycle-score strong { font-size: 24px; }
+  .world-shell { height: calc(100% - 58px); }
+  .replay-line, .variant-B .replay-line, .variant-C .replay-line { top: auto; left: 12px; right: 12px; bottom: 12px; width: auto; transform: none; }
+  .explorer-objective { top: 12px; left: 12px; width: min(270px, calc(100% - 24px)); padding: 11px 13px; }.explorer-objective strong { font-size: 20px; }.explorer-objective p { margin-top: 5px; font-size: 10px; }
+  .controls-help { display: none; }
+  .variant-A .station-label, .variant-C .station-label { display: none; }
+  .interact-prompt { display: none; }
+  .station-label button { width: 138px; padding: 5px 7px; }.station-label strong { font-size: 12px; }.station-label span { display: none; }
+  .component-tag { display: none; }
+  .touch-controls { position: absolute; z-index: 12; inset: 0; display: block; pointer-events: none; }
+  .touch-controls > * { pointer-events: auto; }
+  #ecctrl-joystick { position: fixed !important; left: -36px !important; top: auto !important; bottom: 72px !important; transform: scale(.82); }
+  #ecctrl-virtual-button { position: fixed !important; right: 18px !important; left: auto !important; top: auto !important; bottom: 132px !important; }
+  .touch-controls > button { position: absolute; right: 12px; bottom: 202px; min-width: 78px; min-height: 44px; color: var(--ink); background: var(--amber); border: 0; }
+  .simulation-deck { top: 10px; left: 10px; bottom: 68px; width: min(245px, calc(100% - 20px)); padding: 12px; }.simulation-deck h1 { font-size: 25px; }.simulation-deck header p { margin-bottom: 8px; }.simulation-deck li button { min-height: 43px; }
+  .tour-card { right: 12px; top: 12px; transform: none; width: min(330px, calc(100% - 24px)); padding: 20px; }.tour-card h1 { font-size: 29px; }.tour-card > p { font-size: 11px; }.tour-card dl { margin: 12px 0; }
+  .station-inspector { top: auto; right: 0; left: 0; bottom: 0; width: 100%; max-height: 78svh; padding: 22px 20px calc(20px + env(safe-area-inset-bottom)); border-top-width: 5px; }
+  .prototype-switcher { bottom: 69px; grid-template-columns: 38px minmax(135px, auto) 38px; }.prototype-switcher button { width: 38px; height: 38px; }.prototype-switcher span { padding-inline: 8px; }
+}
+
+@media (max-width: 800px) and (orientation: landscape) {
+  .explorer-objective { width: 230px; }.explorer-objective p { display: none; }
+  .simulation-deck { width: 225px; }.simulation-deck header p { display: none; }
+  .tour-card { width: 300px; }.tour-card dl { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
