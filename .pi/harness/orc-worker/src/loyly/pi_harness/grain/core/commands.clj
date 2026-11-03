@@ -335,3 +335,84 @@
                      candidate
                      "generated candidate projection did not settle"
                      {:candidate-id (:candidate-id candidate)}))
+
+(defcommand :loyly.pi-harness record-oracle-proposal
+  {:grain.event-model/reads #{:loyly.pi-harness/oracle-proposals}
+   :grain.event-model/produces #{:loyly.pi-harness/oracle-proposal-recorded}}
+  "Record normalized evidence proposed by a complete passing first grade."
+  [{:keys [command] :as context}]
+  (let [proposal (:proposal command)
+        existing (read-models/find-oracle-proposal context (:proposal-id proposal))]
+    (cond
+      (= existing proposal) {:command/result existing}
+      existing {::anom/category ::anom/conflict
+                ::anom/message "oracle proposal identity already names different evidence"}
+      (not= "proposed" (:status proposal))
+      {::anom/category ::anom/incorrect
+       ::anom/message "a new oracle proposal must await approval"}
+      :else {:command-result/events
+             [(event-store/->event
+               {:type :loyly.pi-harness/oracle-proposal-recorded
+                :tags #{(read-models/oracle-proposal-tag (:proposal-id proposal))}
+                :body proposal})]})))
+
+(defcommand :loyly.pi-harness approve-oracle-proposal
+  {:grain.event-model/reads #{:loyly.pi-harness/oracle-proposals}
+   :grain.event-model/produces #{:loyly.pi-harness/oracle-proposal-approved}}
+  "Manually approve only the exact digest of a recorded oracle proposal."
+  [{:keys [command] :as context}]
+  (let [proposal (read-models/find-oracle-proposal context (:proposal-id command))]
+    (cond
+      (nil? proposal) {::anom/category ::anom/not-found
+                       ::anom/message "unknown oracle proposal"}
+      (not= (:proposal-digest command) (:proposal-digest proposal))
+      {::anom/category ::anom/conflict
+       ::anom/message "oracle proposal digest does not match the reviewed evidence"}
+      (#{"approved" "published"} (:status proposal)) {:command/result proposal}
+      :else {:command-result/events
+             [(event-store/->event
+               {:type :loyly.pi-harness/oracle-proposal-approved
+                :tags #{(read-models/oracle-proposal-tag (:proposal-id proposal))}
+                :body (select-keys command [:proposal-id :proposal-digest :approved-by])})]})))
+
+(defcommand :loyly.pi-harness record-accepted-product-oracle
+  {:grain.event-model/reads #{:loyly.pi-harness/oracle-proposals}
+   :grain.event-model/produces #{:loyly.pi-harness/product-oracle-accepted}}
+  "Record independently published immutable oracle evidence and its descriptor."
+  [{:keys [command] :as context}]
+  (let [accepted (:accepted-oracle command)
+        proposal (read-models/find-oracle-proposal context (:proposal-id accepted))]
+    (cond
+      (nil? proposal) {::anom/category ::anom/not-found
+                       ::anom/message "unknown oracle proposal"}
+      (not= "approved" (:status proposal))
+      {::anom/category ::anom/conflict
+       ::anom/message "oracle proposal must be manually approved before publication"}
+      (not= (:proposal-digest accepted) (:proposal-digest proposal))
+      {::anom/category ::anom/conflict
+       ::anom/message "published oracle does not match the approved proposal digest"}
+      :else {:command-result/events
+             [(event-store/->event
+               {:type :loyly.pi-harness/product-oracle-accepted
+                :tags #{(read-models/oracle-proposal-tag (:proposal-id accepted))}
+                :body accepted})]})))
+
+(defn record-oracle-proposal! [context proposal]
+  (process! context {:command/name :loyly.pi-harness/record-oracle-proposal
+                     :proposal proposal}
+            "oracle proposal command failed")
+  (read-models/find-oracle-proposal (dissoc context :cache) (:proposal-id proposal)))
+
+(defn approve-oracle-proposal! [context proposal-id proposal-digest approved-by]
+  (process! context {:command/name :loyly.pi-harness/approve-oracle-proposal
+                     :proposal-id proposal-id :proposal-digest proposal-digest
+                     :approved-by approved-by}
+            "oracle proposal approval failed")
+  (read-models/find-oracle-proposal (dissoc context :cache) proposal-id))
+
+(defn record-accepted-product-oracle! [context accepted-oracle]
+  (process! context {:command/name :loyly.pi-harness/record-accepted-product-oracle
+                     :accepted-oracle accepted-oracle}
+            "accepted product oracle command failed")
+  (read-models/find-oracle-proposal
+   (dissoc context :cache) (:proposal-id accepted-oracle)))

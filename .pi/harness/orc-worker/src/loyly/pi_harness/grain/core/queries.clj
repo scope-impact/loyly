@@ -49,6 +49,13 @@
   {:query/result (read-models/find-component-candidates
                   context project-id container-id component-id)})
 
+(defquery :loyly.pi-harness oracle-proposal
+  {:authorized? (constantly true)
+   :grain.event-model/reads #{:loyly.pi-harness/oracle-proposals}}
+  "Return one oracle proposal with approval and publication status."
+  [{{:keys [proposal-id]} :query :as context}]
+  {:query/result (read-models/find-oracle-proposal context proposal-id)})
+
 (defquery :loyly.pi-harness approved-slice-operation-route
   {:authorized? (constantly true)
    :grain.event-model/reads #{:loyly.pi-harness/approved-slice-operation-routes}}
@@ -93,6 +100,11 @@
                    :project-id project-id :container-id container-id
                    :component-id component-id}
           "component candidates query failed"))
+
+(defn oracle-proposal [context proposal-id]
+  (query! context {:query/name :loyly.pi-harness/oracle-proposal
+                   :proposal-id proposal-id}
+          "oracle proposal query failed"))
 
 (defn approved-slice-operation-route [context request-id]
   (query! context {:query/name :loyly.pi-harness/approved-slice-operation-route

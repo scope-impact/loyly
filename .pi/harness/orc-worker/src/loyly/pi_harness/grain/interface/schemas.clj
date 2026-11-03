@@ -37,6 +37,28 @@
    [:subject-digest :string]
    [:disposition [:enum "ungraded" "measured"]]])
 
+(def oracle-proposal-schema
+  [:map
+   [:proposal-id :string]
+   [:proposal-digest :string]
+   [:generation-id :string]
+   [:selection-id :string]
+   [:selection-digest :string]
+   [:subject-digest :string]
+   [:normalized-evidence-digest :string]
+   [:status [:enum "proposed" "approved" "published"]]])
+
+(def oracle-proposal-approval-schema
+  [:map [:proposal-id :string] [:proposal-digest :string] [:approved-by :string]])
+
+(def accepted-product-oracle-schema
+  [:map
+   [:proposal-id :string]
+   [:proposal-digest :string]
+   [:descriptor-digest :string]
+   [:approved-by :string]
+   [:published-at :string]])
+
 (def approved-slice-route-schema
   [:map
    [:request-id :string]
@@ -155,6 +177,9 @@
    :loyly.pi-harness/approve-cycle-preparation [:map [:preparation-id :string]
                                                  [:preparation-digest :string]]
    :loyly.pi-harness/record-generated-candidate [:map [:candidate generated-candidate-schema]]
+   :loyly.pi-harness/record-oracle-proposal [:map [:proposal oracle-proposal-schema]]
+   :loyly.pi-harness/approve-oracle-proposal oracle-proposal-approval-schema
+   :loyly.pi-harness/record-accepted-product-oracle [:map [:accepted-oracle accepted-product-oracle-schema]]
    :loyly.pi-harness/record-approved-slice-route [:map [:route approved-slice-route-schema]]
    :loyly.pi-harness/record-observation [:map [:observation observation-schema]]
    :loyly.pi-harness/record-cycle-measurement [:map [:measurement measurement-schema]]})
@@ -166,6 +191,9 @@
    :loyly.pi-harness/cycle-preparation-approved [:map [:preparation-id :string]
                                                  [:preparation-digest :string]]
    :loyly.pi-harness/generated-candidate-recorded generated-candidate-schema
+   :loyly.pi-harness/oracle-proposal-recorded oracle-proposal-schema
+   :loyly.pi-harness/oracle-proposal-approved oracle-proposal-approval-schema
+   :loyly.pi-harness/product-oracle-accepted accepted-product-oracle-schema
    :loyly.pi-harness/approved-slice-operation-routed approved-slice-route-schema
    :loyly.pi-harness/observation-recorded observation-schema
    :loyly.pi-harness/cycle-measurement-recorded measurement-event-schema})
@@ -179,4 +207,5 @@
    :loyly.pi-harness/component-candidates [:map [:project-id :string]
                                            [:container-id :string]
                                            [:component-id :string]]
+   :loyly.pi-harness/oracle-proposal [:map [:proposal-id :string]]
    :loyly.pi-harness/approved-slice-operation-route [:map [:request-id :string]]})
