@@ -35,8 +35,9 @@
           (do (Thread/sleep 10)
               (recur)))))))
 
-(defcommand :loyly record-selection
-  {:grain.event-model/produces #{:loyly/selection-recorded}}
+(defcommand :loyly.pi-harness record-selection
+  {:grain.event-model/reads #{:loyly.pi-harness/selections}
+   :grain.event-model/produces #{:loyly.pi-harness/selection-recorded}}
   "Record the deterministic selection contract shown to the user."
   [{:keys [command] :as context}]
   (let [contract (:contract command)
@@ -52,12 +53,13 @@
 
       :else
       {:command-result/events
-       [(event-store/->event {:type :loyly/selection-recorded
+       [(event-store/->event {:type :loyly.pi-harness/selection-recorded
                               :tags #{(read-models/selection-tag selection-id)}
                               :body contract})]})))
 
-(defcommand :loyly approve-selection
-  {:grain.event-model/produces #{:loyly/selection-approved}}
+(defcommand :loyly.pi-harness approve-selection
+  {:grain.event-model/reads #{:loyly.pi-harness/selections}
+   :grain.event-model/produces #{:loyly.pi-harness/selection-approved}}
   "Approve only the exact digest of the recorded selection contract."
   [{:keys [command] :as context}]
   (let [selection-id (:selection-id command)
@@ -76,57 +78,90 @@
 
       :else
       {:command-result/events
-       [(event-store/->event {:type :loyly/selection-approved
+       [(event-store/->event {:type :loyly.pi-harness/selection-approved
                               :tags #{(read-models/selection-tag selection-id)}
                               :body {:selectionId selection-id
                                      :selectionDigest selection-digest}})]})))
 
 (defn record-selection! [context contract]
-  (process! context {:command/name :loyly/record-selection :contract contract}
+  (process! context {:command/name :loyly.pi-harness/record-selection :contract contract}
             "selection command failed")
   (read-models/find-selection context (:selectionId contract)))
 
 (defn approve-selection! [context selection-id selection-digest]
-  (process! context {:command/name :loyly/approve-selection
+  (process! context {:command/name :loyly.pi-harness/approve-selection
                      :selection-id selection-id
                      :selection-digest selection-digest}
             "selection command failed")
   (read-models/find-selection context selection-id))
 
-(defcommand :loyly record-cycle-progress
-  {:grain.event-model/produces #{:loyly/cycle-progress-recorded}}
-  "Record the latest observational stage view for one durable ORC tick."
-  [{:keys [command]}]
-  (let [progress (:progress command)]
-    {:command-result/events
-     [(event-store/->event
-       {:type :loyly/cycle-progress-recorded
-        :tags #{(read-models/progress-tag (:tick-id progress))}
-        :body progress})]}))
+(defcommand :loyly.pi-harness record-cycle-preparation
+  {:grain.event-model/reads #{:loyly.pi-harness/cycle-preparations}
+   :grain.event-model/produces #{:loyly.pi-harness/cycle-preparation-recorded}}
+  "Record the complete cycle preparation shown for approval."
+  [{:keys [command] :as context}]
+  (let [preparation (:preparation command)
+        preparation-id (:preparation-id preparation)
+        existing (read-models/find-cycle-preparation context preparation-id)]
+    (cond
+      (= (dissoc existing :status) (dissoc preparation :status)) {:command/result existing}
+      existing {::anom/category ::anom/conflict
+                ::anom/message "preparation identity already names different content"}
+      :else {:command-result/events
+             [(event-store/->event
+               {:type :loyly.pi-harness/cycle-preparation-recorded
+                :tags #{(read-models/preparation-tag preparation-id)}
+                :body preparation})]})))
 
-(defn record-cycle-progress! [context progress]
-  (process! context {:command/name :loyly/record-cycle-progress
-                     :progress progress}
-            "cycle progress command failed")
-  (await-projection! #(read-models/find-cycle-progress (dissoc context :cache)
-                                                        (:tick-id progress))
-                     progress
-                     "cycle progress projection did not settle"
-                     {:tick-id (:tick-id progress)}))
+(defcommand :loyly.pi-harness approve-cycle-preparation
+  {:grain.event-model/reads #{:loyly.pi-harness/cycle-preparations}
+   :grain.event-model/produces #{:loyly.pi-harness/cycle-preparation-approved}}
+  "Approve only the exact digest of a recorded cycle preparation."
+  [{:keys [command] :as context}]
+  (let [preparation-id (:preparation-id command)
+        supplied (:preparation-digest command)
+        preparation (read-models/find-cycle-preparation context preparation-id)]
+    (cond
+      (nil? preparation) {::anom/category ::anom/not-found
+                          ::anom/message "unknown preparationId"}
+      (not= supplied (:preparation-digest preparation))
+      {::anom/category ::anom/conflict
+       ::anom/message "preparation digest does not match the reviewed contract"}
+      (= "approved" (:status preparation)) {:command/result preparation}
+      :else {:command-result/events
+             [(event-store/->event
+               {:type :loyly.pi-harness/cycle-preparation-approved
+                :tags #{(read-models/preparation-tag preparation-id)}
+                :body {:preparation-id preparation-id
+                       :preparation-digest supplied}})]})))
+
+(defn record-cycle-preparation! [context preparation]
+  (process! context {:command/name :loyly.pi-harness/record-cycle-preparation
+                     :preparation preparation}
+            "cycle preparation command failed")
+  (read-models/find-cycle-preparation context (:preparation-id preparation)))
+
+(defn approve-cycle-preparation! [context preparation-id preparation-digest]
+  (process! context {:command/name :loyly.pi-harness/approve-cycle-preparation
+                     :preparation-id preparation-id
+                     :preparation-digest preparation-digest}
+            "cycle preparation approval failed")
+  (read-models/find-cycle-preparation context preparation-id))
 
 (defn- observation-identity [observation]
   (str (:cycle-id observation) "|" (:item-id observation) "|"
-       (:evidence-kind observation) "|" (:producer observation)))
+       (:claim-type observation) "|" (:producer observation)))
 
 (defn- find-observation [context observation]
   (some #(when (and (= (:item-id observation) (:item-id %))
-                    (= (:evidence-kind observation) (:evidence-kind %))
+                    (= (:claim-type observation) (:claim-type %))
                     (= (:producer observation) (:producer %)))
            %)
         (read-models/find-cycle context (:cycle-id observation))))
 
-(defcommand :loyly record-observation
-  {:grain.event-model/produces #{:loyly/observation-recorded}}
+(defcommand :loyly.pi-harness record-observation
+  {:grain.event-model/reads #{:loyly.pi-harness/cycle-observations}
+   :grain.event-model/produces #{:loyly.pi-harness/observation-recorded}}
   "Persist one tool or grader observation for a binary grading cycle."
   [{:keys [command] :as context}]
   (let [observation (:observation command)
@@ -137,14 +172,14 @@
                 ::anom/message "observation identity already names different evidence"}
       :else {:command-result/events
              [(event-store/->event
-               {:type :loyly/observation-recorded
+               {:type :loyly.pi-harness/observation-recorded
                 :tags #{(read-models/observation-cycle-tag (:cycle-id observation))
                         (read-models/uuid-tag :observation
                                               (observation-identity observation))}
                 :body observation})]})))
 
 (defn record-observation! [context observation]
-  (process! context {:command/name :loyly/record-observation
+  (process! context {:command/name :loyly.pi-harness/record-observation
                      :observation observation}
             "observation command failed")
   (await-projection! #(find-observation (dissoc context :cache) observation)
@@ -214,8 +249,9 @@
        :complete? (every? :graded? items)
        :items items})))
 
-(defcommand :loyly record-cycle-measurement
-  {:grain.event-model/produces #{:loyly/cycle-measurement-recorded}}
+(defcommand :loyly.pi-harness record-cycle-measurement
+  {:grain.event-model/reads #{:loyly.pi-harness/cycle-measurements}
+   :grain.event-model/produces #{:loyly.pi-harness/cycle-measurement-recorded}}
   "Persist the strict result for one approved regeneration cycle."
   [{:keys [command] :as context}]
   (let [measurement (:measurement command)
@@ -227,12 +263,12 @@
                 ::anom/message "cycle identity already names a different measurement"}
       :else {:command-result/events
              [(event-store/->event
-               {:type :loyly/cycle-measurement-recorded
+               {:type :loyly.pi-harness/cycle-measurement-recorded
                 :tags #{(read-models/measurement-tag cycle-id)}
                 :body measurement})]})))
 
 (defn record-measurement! [context measurement]
-  (process! context {:command/name :loyly/record-cycle-measurement
+  (process! context {:command/name :loyly.pi-harness/record-cycle-measurement
                      :measurement measurement}
             "cycle measurement command failed")
   (await-projection! #(read-models/find-measurement (dissoc context :cache)
@@ -241,8 +277,9 @@
                      "cycle measurement projection did not settle"
                      {:cycle-id (:cycle-id measurement)}))
 
-(defcommand :loyly record-approved-slice-route
-  {:grain.event-model/produces #{:loyly/approved-slice-operation-routed}}
+(defcommand :loyly.pi-harness record-approved-slice-route
+  {:grain.event-model/reads #{:loyly.pi-harness/approved-slice-operation-routes}
+   :grain.event-model/produces #{:loyly.pi-harness/approved-slice-operation-routed}}
   "Persist ORC's generation-versus-regeneration decision for an approved request."
   [{:keys [command] :as context}]
   (let [route (:route command)
@@ -253,12 +290,12 @@
                 ::anom/message "approved-slice request identity already has a different operation route"}
       :else {:command-result/events
              [(event-store/->event
-               {:type :loyly/approved-slice-operation-routed
+               {:type :loyly.pi-harness/approved-slice-operation-routed
                 :tags #{(read-models/operation-route-tag (:request-id route))}
                 :body route})]})))
 
 (defn record-approved-slice-route! [context route]
-  (process! context {:command/name :loyly/record-approved-slice-route :route route}
+  (process! context {:command/name :loyly.pi-harness/record-approved-slice-route :route route}
             "approved-slice route command failed")
   (await-projection! #(read-models/find-approved-slice-route (dissoc context :cache)
                                                                (:request-id route))
@@ -271,8 +308,9 @@
         (read-models/find-component-candidates
          context (:project-id candidate) (:container-id candidate) (:component-id candidate))))
 
-(defcommand :loyly record-generated-candidate
-  {:grain.event-model/produces #{:loyly/generated-candidate-recorded}}
+(defcommand :loyly.pi-harness record-generated-candidate
+  {:grain.event-model/reads #{:loyly.pi-harness/component-candidates}
+   :grain.event-model/produces #{:loyly.pi-harness/generated-candidate-recorded}}
   "Record a generated candidate as durable lineage for later ORC routing."
   [{:keys [command] :as context}]
   (let [candidate (:candidate command)
@@ -283,14 +321,14 @@
                 ::anom/message "candidate identity already names different lineage"}
       :else {:command-result/events
              [(event-store/->event
-               {:type :loyly/generated-candidate-recorded
+               {:type :loyly.pi-harness/generated-candidate-recorded
                 :tags #{(read-models/candidate-tag (:candidate-id candidate))
                         (read-models/component-candidates-tag
                          (:project-id candidate) (:container-id candidate) (:component-id candidate))}
                 :body candidate})]})))
 
 (defn record-generated-candidate! [context candidate]
-  (process! context {:command/name :loyly/record-generated-candidate
+  (process! context {:command/name :loyly.pi-harness/record-generated-candidate
                      :candidate candidate}
             "generated candidate command failed")
   (await-projection! #(find-candidate (dissoc context :cache) candidate)

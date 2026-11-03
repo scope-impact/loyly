@@ -73,17 +73,10 @@
 
 (defn record-stage-progress!
   ([context stage] (record-stage-progress! context stage 1 nil "running"))
-  ([{:keys [cycle-id inputs tick-id]} stage attempt builder-session-ref status]
-   (let [tick-id (or tick-id (:orc-tick-id inputs))]
-    (when-let [grain-context (and tick-id (some-> @runtime :context))]
-     (model/record-cycle-progress!
-      grain-context
-      (cond-> {:cycle-id (or cycle-id (:request-id inputs) (str tick-id))
-               :tick-id (str tick-id)
-               :stage stage
-               :attempt attempt
-               :status status}
-        builder-session-ref (assoc :builder-session-ref builder-session-ref)))))))
+  ([_context _stage _attempt _builder-session-ref _status]
+   ;; ORC's execution facts are the sole progress history. The Pi harness
+   ;; projects those facts; it never mirrors them into harness-owned events.
+   nil))
 
 (defn effective-builder-result [inputs]
   (or (get-in inputs [:repair-verification-result :builder])
@@ -585,20 +578,35 @@
           (:items measurement))))
 
 (defn cycle-observation [inputs producer evidence-kind item]
-  (let [instrument (effective-instrument-result inputs)]
-   {:cycle-id (:request-id inputs)
-   :cut-digest (get-in inputs [:selection :cut])
-   :project-id (get-in inputs [:selection :projectId])
-   :container-id (get-in inputs [:selection :containerId])
-   :component-id (get-in inputs [:selection :componentId])
-   :item-id (:item-id item)
-   :subject-digest (:subject-digest instrument)
-   :producer producer
-   :evidence-kind evidence-kind
-   :result (or (:result item) (:verdict item))
-   :reached? (if (contains? item :reached?) (:reached? item) (:graded? item))
-   :evidence (:evidence item)
-   :oracle-digest (get-in inputs [:oracle-result :oracle-digest])}))
+  (let [instrument (effective-instrument-result inputs)
+        cycle-id (:request-id inputs)
+        item-id (:item-id item)
+        evidence (:evidence item)]
+    {:cycle-id cycle-id
+     :cut-digest (get-in inputs [:selection :cut])
+     :project-id (get-in inputs [:selection :projectId])
+     :container-id (get-in inputs [:selection :containerId])
+     :component-id (get-in inputs [:selection :componentId])
+     :item-id item-id
+     :subject-digest (:subject-digest instrument)
+     :producer producer
+     :producer-authority (if (= "grader" evidence-kind)
+                           "independent-grader"
+                           "harness-observer")
+     :evidence-purpose "assertion"
+     :claim-type "gherkin-scenario-verdict"
+     :evaluation-id (str "evaluation-" (sha256 (str cycle-id "|" item-id "|" producer)))
+     :evidence-digest (sha256 evidence)
+     ;; Kept as a presentation hint for the existing Allure/OTel adapters. It
+     ;; is not part of the durable event contract.
+     :evidence-kind evidence-kind
+     :result (or (:result item) (:verdict item))
+     :reached? (if (contains? item :reached?) (:reached? item) (:graded? item))
+     :evidence evidence
+     :collection {:complete? true :sampled? false :dropped 0}
+     :correlation {:operation-id cycle-id}
+     :artifacts []
+     :oracle-digest (get-in inputs [:oracle-result :oracle-digest])}))
 
 
 (defn emit-cycle-observation! [{:keys [inputs evidence-manifest]} value]
@@ -618,7 +626,16 @@
               (sha256 (str/join "|" (map observation
                                            [:cycle-id :item-id :evidence-kind :producer]))))
          :evidence-digest (:digest manifest)
-         :artifact-digests (mapv :sha256 (:artifacts manifest))))
+         :producer-authority (if (= "grader" (:evidence-kind observation))
+                               "independent-grader"
+                               "harness-observer")
+         :evidence-purpose "assertion"
+         :claim-type "gherkin-scenario-verdict"
+         :collection {:complete? true :sampled? false :dropped 0}
+         :correlation {:operation-id (:cycle-id observation)}
+         :artifacts (mapv (fn [{:keys [sha256 media-type path]}]
+                            {:digest sha256 :media-type media-type :location path})
+                          (:artifacts manifest))))
 
 (defn oracle-stage [{:keys [inputs] :as context}]
   (record-stage-progress! context "oracle")
@@ -1149,6 +1166,38 @@
                                      :parentCandidateDigest (:parent-candidate-digest route)))
       (throw (ex-info "persisted approved-slice route has an unknown operation"
                       {:route route})))))
+
+(defn start-approved-cycle-preparation!
+  "Translate one digest-approved preparation into the existing idempotent ORC
+   submission boundary. Called by the Grain todo processor after commit."
+  [context preparation-id preparation-digest]
+  (let [deadline (+ (System/nanoTime) (* 30 1000000000))
+        _ (loop []
+            (when-not (and @runtime
+                           (get @workflows :generation)
+                           (get @workflows :cycle))
+              (when (>= (System/nanoTime) deadline)
+                (throw (ex-info "ORC cycle workflow was not ready for approved preparation"
+                                {:preparation-id preparation-id})))
+              (Thread/sleep 25)
+              (recur)))
+        preparation (model/query-cycle-preparation context preparation-id)]
+    (when-not (and (= "approved" (:status preparation))
+                   (= preparation-digest (:preparation-digest preparation)))
+      (throw (ex-info "processor received an unapproved or stale preparation"
+                      {:preparation-id preparation-id
+                       :preparation-digest preparation-digest})))
+    (let [selection (model/query-selection context (:selection-id preparation))
+          execution-backend (if (= "gondolin-isolated"
+                                   (:execution-profile preparation))
+                              "gondolin"
+                              "host")]
+      (submit-approved-slice!
+       {:requestId preparation-id
+        :selectionContract selection
+        :scope (:scope preparation)
+        :targetStack (:target-stack preparation)
+        :executionBackend execution-backend}))))
 
 (defn prepare-cut! [{:keys [sourceCommit executionBackend] :as request}]
   (when-not (and (string? sourceCommit)

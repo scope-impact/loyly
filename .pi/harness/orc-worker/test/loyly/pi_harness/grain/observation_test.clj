@@ -14,11 +14,20 @@
    :item-id "@item-01-007"
    :subject-digest "subject-def"
    :producer "candidate-suite"
+   :producer-authority "candidate"
+   :evidence-purpose "assertion"
+   :claim-type "gherkin-scenario-verdict"
+   :evaluation-id "evaluation-cycle-02-item-01-007-candidate"
+   :evidence-digest "sha256:evidence"
    :evidence-kind "tool"
-   :artifact-digests ["sha256:evidence-artifact"]
    :result "pass"
    :reached? true
    :evidence "candidate suite exercised all three derived views"
+   :collection {:complete? true :sampled? false :dropped 0}
+   :correlation {:operation-id "cycle-02"}
+   :artifacts [{:digest "sha256:evidence-artifact"
+                :media-type "application/json"
+                :location "candidate/report.json"}]
    :oracle-digest "oracle-123"})
 
 (deftest common-observations-survive-an-event-store-restart

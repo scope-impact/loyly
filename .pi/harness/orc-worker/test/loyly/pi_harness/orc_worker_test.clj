@@ -22,7 +22,9 @@
    :componentId "booking-core"
    :cut "cut-1"
    :slice "01-booking-core"
-   :items [{:id "@item-01-007" :name "Booking" :rule "Booking" :source "spec.feature:1"}]})
+   :items [{:id "@item-01-007"
+            :scenario-digest "sha256:booking-scenario"
+            :name "Booking" :rule "Booking" :source "spec.feature:1"}]})
 
 (deftest persisted-prompt-executor-name-remains-resolvable
   (let [executor (requiring-resolve
@@ -107,7 +109,6 @@
 
 (deftest builder-publishes-its-session-reference-before-execution
   (let [tick-id (random-uuid)
-        progress (atom nil)
         request (atom nil)
         context {:tick-id tick-id
                  :inputs {:request-id "cycle-37"
@@ -116,7 +117,6 @@
                           :target-stack "typescript"
                           :execution-backend "gondolin"}}]
     (with-redefs [worker/builder-sessions-root (constantly "/state/builder-sessions")
-                  worker/record-stage-progress! (fn [& args] (reset! progress args))
                   worker/run-builder-adapter
                   (fn [value]
                     (reset! request value)
@@ -124,8 +124,6 @@
                      :builder-session-id (:builder-session-ref value)})
                   subject/digest (constantly "subject-digest")]
       (let [result (worker/builder-stage context)]
-        (is (= [context "builder" 1 (:builder-session-ref @request) "running"]
-               @progress))
         (is (= "/state/builder-sessions" (:builder-sessions-root @request)))
         (is (= (:builder-session-ref @request) (:builder-session-id result)))))))
 
@@ -795,7 +793,7 @@
         (is (= result @recorded))
         (is (= 2 (count @observations)))
         (is (every? #(= (set (map :sha256 artifacts))
-                         (set (:artifact-digests %)))
+                         (set (map :digest (:artifacts %))))
                     @observations))
         (is (every? #(and (re-matches #"evaluation-[0-9a-f]{64}" (:evaluation-id %))
                           (= (:digest manifest) (:evidence-digest %)))

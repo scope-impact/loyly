@@ -5,7 +5,8 @@
             [ai.obney.grain.kv-store-lmdb.interface :as lmdb]
             [ai.obney.grain.pubsub.interface :as pubsub]
             [ai.obney.grain.todo-processor-v2.interface :as todo]
-            [ai.obney.orc.orc-service.interface]))
+            [ai.obney.orc.orc-service.interface]
+            [loyly.pi-harness.grain.runtime-event-model :as runtime-event-model]))
 
 (def tenant-id #uuid "27e205ec-80c4-3e7c-86ca-9a8cc66e51e7")
 
@@ -26,6 +27,7 @@
                        :database-file (str root "/orc-events.sqlite")}
                 :event-pubsub event-pubsub
                 :logger nil})
+        _ (runtime-event-model/load-and-verify! store)
         cache (kv/start
                (lmdb/->KV-Store-LMDB
                 {:storage-dir (str root "/projections") :db-name "pi-harness-orc"}))

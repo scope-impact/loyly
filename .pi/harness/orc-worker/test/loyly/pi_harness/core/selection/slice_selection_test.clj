@@ -24,8 +24,26 @@
         (is (= first-contract second-contract))
         (is (= "booking-core" (:componentId first-contract)))
         (is (= ["@item-01-001" "@item-01-002"] (mapv :id (:items first-contract))))
+        (is (every? #(re-matches #"[0-9a-f]{64}" (:scenario-digest %))
+                    (:items first-contract)))
         (is (= "awaiting-approval" (:status first-contract)))
         (is (re-matches #"[0-9a-f]{64}" (:selectionDigest first-contract)))))))
+
+(deftest scenario-digest-changes-when-the-scenario-body-changes
+  (let [digest (atom nil)]
+    (with-cut
+      "Feature: Booking\n\n  @item-01-001\n  Scenario: First\n    Given one apartment\n"
+      (fn [root]
+        (reset! digest (get-in (selection/resolve-selection
+                                root "cut-1" "01-booking-core")
+                               [:items 0 :scenario-digest]))))
+    (with-cut
+      "Feature: Booking\n\n  @item-01-001\n  Scenario: First\n    Given two apartments\n"
+      (fn [root]
+        (is (not= @digest
+                  (get-in (selection/resolve-selection
+                           root "cut-1" "01-booking-core")
+                          [:items 0 :scenario-digest])))))))
 
 (deftest selection-contract-can-pin-an-approved-item-subset
   (with-cut

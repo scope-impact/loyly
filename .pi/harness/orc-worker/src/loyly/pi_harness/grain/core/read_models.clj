@@ -4,21 +4,36 @@
             [ai.obney.grain.read-model-processor-v2.interface :as rmp :refer [defreadmodel]]))
 
 (def selection-event-types
-  #{:loyly/selection-recorded :loyly/selection-approved})
+  #{:loyly.pi-harness/selection-recorded :loyly.pi-harness/selection-approved})
+(def preparation-event-types
+  #{:loyly.pi-harness/cycle-preparation-recorded
+    :loyly.pi-harness/cycle-preparation-approved})
 
-(def observation-event-types #{:loyly/observation-recorded})
-(def measurement-event-types #{:loyly/cycle-measurement-recorded})
-(def progress-event-types #{:loyly/cycle-progress-recorded})
-(def candidate-event-types #{:loyly/generated-candidate-recorded})
-(def operation-route-event-types #{:loyly/approved-slice-operation-routed})
+(def observation-event-types #{:loyly.pi-harness/observation-recorded})
+(def measurement-event-types #{:loyly.pi-harness/cycle-measurement-recorded})
+(def progress-event-types
+  #{:sheet/tree-tick-started
+    :sheet/node-execution-started
+    :sheet/node-execution-completed
+    :sheet/tree-tick-completed
+    :sheet/tick-cancelled})
+(def candidate-event-types #{:loyly.pi-harness/generated-candidate-recorded})
+(def operation-route-event-types #{:loyly.pi-harness/approved-slice-operation-routed})
 
 (def selection-keys
   [:selectionId :selectionDigest :status :projectId :containerId :componentId
    :cut :slice :items])
 
+(def preparation-keys
+  [:preparation-id :preparation-digest :status :selection-id :selection-digest
+   :scope :target-stack :execution-profile :cut-digest :oracle-digest
+   :diagram-digest :max-outer-cycles])
+
 (def observation-keys
   [:cycle-id :cut-digest :project-id :container-id :component-id :item-id :subject-digest
-   :producer :evidence-kind :artifact-digests :result :reached? :evidence :oracle-digest])
+   :producer :producer-authority :evidence-purpose :claim-type :evaluation-id
+   :evidence-digest :result :reached? :evidence :collection :correlation :artifacts
+   :oracle-digest :evidence-kind])
 
 (def measurement-keys
   [:cycle-id :selection-id :cut :backend :total :passed :failed :complete? :items
@@ -39,9 +54,10 @@
   [tag (java.util.UUID/nameUUIDFromBytes (.getBytes value "UTF-8"))])
 
 (defn selection-tag [selection-id] (uuid-tag :selection selection-id))
+(defn preparation-tag [preparation-id] (uuid-tag :cycle-preparation preparation-id))
 (defn observation-cycle-tag [cycle-id] (uuid-tag :observation-cycle cycle-id))
 (defn measurement-tag [cycle-id] (uuid-tag :cycle-measurement cycle-id))
-(defn progress-tag [tick-id] (uuid-tag :cycle-progress tick-id))
+(defn progress-tag [tick-id] [:tick (java.util.UUID/fromString (str tick-id))])
 (defn candidate-tag [candidate-id] (uuid-tag :generated-candidate candidate-id))
 (defn operation-route-tag [request-id] (uuid-tag :approved-slice-operation request-id))
 (defn component-candidates-tag [project-id container-id component-id]
@@ -49,59 +65,97 @@
 
 (defn selection-reducer [selection event]
   (case (:event/type event)
-    :loyly/selection-recorded (select-keys event selection-keys)
-    :loyly/selection-approved (when selection (assoc selection :status "approved"))
+    :loyly.pi-harness/selection-recorded (select-keys event selection-keys)
+    :loyly.pi-harness/selection-approved (when selection (assoc selection :status "approved"))
     selection))
 
-(defreadmodel :loyly selection
+(defreadmodel :loyly.pi-harness selections
   {:events selection-event-types :version 1}
   [state event]
   (selection-reducer state event))
 
+(defn preparation-reducer [preparation event]
+  (case (:event/type event)
+    :loyly.pi-harness/cycle-preparation-recorded (select-keys event preparation-keys)
+    :loyly.pi-harness/cycle-preparation-approved
+    (when preparation (assoc preparation :status "approved"))
+    preparation))
+
+(defreadmodel :loyly.pi-harness cycle-preparations
+  {:events preparation-event-types :version 1}
+  [state event]
+  (preparation-reducer state event))
+
 (defn observations-reducer [observations event]
-  (if (= :loyly/observation-recorded (:event/type event))
+  (if (= :loyly.pi-harness/observation-recorded (:event/type event))
     (conj (or observations []) (select-keys event observation-keys))
     observations))
 
-(defreadmodel :loyly observations
+(defreadmodel :loyly.pi-harness cycle-observations
   {:events observation-event-types :version 1}
   [state event]
   (observations-reducer state event))
 
 (defn measurement-reducer [measurement event]
-  (if (= :loyly/cycle-measurement-recorded (:event/type event))
+  (if (= :loyly.pi-harness/cycle-measurement-recorded (:event/type event))
     (select-keys event measurement-keys)
     measurement))
 
-(defreadmodel :loyly cycle-measurement
+(defreadmodel :loyly.pi-harness cycle-measurements
   {:events measurement-event-types :version 1}
   [state event]
   (measurement-reducer state event))
 
 (defn progress-reducer [progress event]
-  (if (= :loyly/cycle-progress-recorded (:event/type event))
-    (select-keys event progress-keys)
-    progress))
+  (let [tick-id (some-> (:tick-id event) str)]
+    (case (:event/type event)
+      :sheet/tree-tick-started
+      {:cycle-id tick-id :tick-id tick-id :stage "workflow" :attempt 1 :status "running"}
 
-(defreadmodel :loyly cycle-progress
+      :sheet/node-execution-started
+      (cond-> (assoc (or progress {})
+                     :tick-id tick-id
+                     :stage (str (:node-id event))
+                     :attempt 1
+                     :status "running")
+        (string? (get-in event [:inputs :request-id]))
+        (assoc :cycle-id (get-in event [:inputs :request-id])))
+
+      :sheet/node-execution-completed
+      (assoc (or progress {})
+             :tick-id tick-id
+             :stage (str (:node-id event))
+             :status (if (= :success (:status event)) "completed" "failed"))
+
+      :sheet/tree-tick-completed
+      (assoc (or progress {})
+             :tick-id tick-id
+             :status (if (= :success (:root-status event)) "completed" "failed"))
+
+      :sheet/tick-cancelled
+      (assoc (or progress {}) :tick-id tick-id :status "failed")
+
+      progress)))
+
+(defreadmodel :loyly.pi-harness cycle-progress
   {:events progress-event-types :version 1}
   [state event]
   (progress-reducer state event))
 
 (defn candidates-reducer [candidates event]
-  (if (= :loyly/generated-candidate-recorded (:event/type event))
+  (if (= :loyly.pi-harness/generated-candidate-recorded (:event/type event))
     (conj (or candidates []) (select-keys event candidate-keys))
     candidates))
 
-(defreadmodel :loyly component-candidates
+(defreadmodel :loyly.pi-harness component-candidates
   {:events candidate-event-types :version 1}
   [state event]
   (candidates-reducer state event))
 
-(defreadmodel :loyly approved-slice-operation-route
+(defreadmodel :loyly.pi-harness approved-slice-operation-routes
   {:events operation-route-event-types :version 1}
   [state event]
-  (if (= :loyly/approved-slice-operation-routed (:event/type event))
+  (if (= :loyly.pi-harness/approved-slice-operation-routed (:event/type event))
     (select-keys event operation-route-keys)
     state))
 
@@ -113,28 +167,34 @@
 (defn find-selection [context selection-id]
   (let [tags #{(selection-tag selection-id)}]
     (if (:cache context)
-      (not-empty (rmp/project context :loyly/selection {:tags tags}))
+      (not-empty (rmp/project context :loyly.pi-harness/selections {:tags tags}))
       (direct-project context tags selection-reducer nil))))
+
+(defn find-cycle-preparation [context preparation-id]
+  (let [tags #{(preparation-tag preparation-id)}]
+    (if (:cache context)
+      (not-empty (rmp/project context :loyly.pi-harness/cycle-preparations {:tags tags}))
+      (direct-project context tags preparation-reducer nil))))
 
 (defn find-cycle [context cycle-id]
   (let [tags #{(observation-cycle-tag cycle-id)}
         observations (if (:cache context)
-                       (rmp/project context :loyly/observations {:tags tags})
+                       (rmp/project context :loyly.pi-harness/cycle-observations {:tags tags})
                        (direct-project context tags observations-reducer []))]
     (->> observations
-         (sort-by (juxt :evidence-kind :producer))
+         (sort-by (juxt :claim-type :producer))
          vec)))
 
 (defn find-measurement [context cycle-id]
   (let [tags #{(measurement-tag cycle-id)}]
     (if (:cache context)
-      (not-empty (rmp/project context :loyly/cycle-measurement {:tags tags}))
+      (not-empty (rmp/project context :loyly.pi-harness/cycle-measurements {:tags tags}))
       (direct-project context tags measurement-reducer nil))))
 
 (defn find-cycle-progress [context tick-id]
   (let [tags #{(progress-tag tick-id)}]
     (if (:cache context)
-      (not-empty (rmp/project context :loyly/cycle-progress {:tags tags}))
+      (not-empty (rmp/project context :loyly.pi-harness/cycle-progress {:tags tags}))
       (direct-project context tags progress-reducer nil))))
 
 (defn find-component-candidates [context project-id container-id component-id]
@@ -150,10 +210,10 @@
 (defn find-approved-slice-route [context request-id]
   (let [tags #{(operation-route-tag request-id)}]
     (if (:cache context)
-      (not-empty (rmp/project context :loyly/approved-slice-operation-route {:tags tags}))
+      (not-empty (rmp/project context :loyly.pi-harness/approved-slice-operation-routes {:tags tags}))
       (direct-project context tags
                       (fn [state event]
-                        (if (= :loyly/approved-slice-operation-routed (:event/type event))
+                        (if (= :loyly.pi-harness/approved-slice-operation-routed (:event/type event))
                           (select-keys event operation-route-keys)
                           state))
                       nil))))

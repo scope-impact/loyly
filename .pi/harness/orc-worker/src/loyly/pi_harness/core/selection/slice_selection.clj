@@ -36,11 +36,19 @@
             (when-not (str/starts-with? pending-id (str "@item-" slice-prefix "-"))
               (throw (ex-info "scenario item identity does not belong to the selected slice"
                               {:line line-number :item pending-id :slice-prefix slice-prefix})))
-            (recur (rest lines) (inc line-number) rule nil
-                   (conj items {:id pending-id
-                                :name scenario
-                                :rule (or rule "")
-                                :source (str "docs/plan/" line-number)})))
+            (let [scenario-lines
+                  (cons line
+                        (take-while #(not (or (re-find item-tag %)
+                                              (re-find rule-line %)
+                                              (re-find scenario-line %)))
+                                    (rest lines)))]
+              (recur (rest lines) (inc line-number) rule nil
+                     (conj items {:id pending-id
+                                  :scenario-digest
+                                  (sha256 (pr-str [pending-id (or rule "") scenario-lines]))
+                                  :name scenario
+                                  :rule (or rule "")
+                                  :source (str "docs/plan/" line-number)}))))
 
           :else
           (recur (rest lines) (inc line-number) rule pending-id items)))
