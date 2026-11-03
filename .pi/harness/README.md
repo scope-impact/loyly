@@ -55,6 +55,13 @@ while [`config/instrument-oracle.json`](config/instrument-oracle.json) declares 
 inputs whose aggregate digest is bound into that oracle. There are no checked-in generated
 OCI source or layout trees.
 
+The product artifact has one whole-system `catalog.json` layer
+(`application/vnd.loyly.product-oracle.catalog.v1+json`), followed by its runnable fixture
+server, non-authoritative observability policy, and grader files. Catalogue entries
+are keyed by stable Gherkin item ID and full scenario digest. A measured cycle validates and
+materializes only its approved entries; unrelated catalogue entries and unrelated model files
+do not enter the denominator. Initial generation neither resolves nor fabricates this artifact.
+
 Preview the instrument OCI layout without publishing:
 
 ```bash

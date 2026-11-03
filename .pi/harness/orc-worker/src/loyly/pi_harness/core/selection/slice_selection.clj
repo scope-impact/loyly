@@ -1,6 +1,7 @@
 (ns loyly.pi-harness.core.selection.slice-selection
   (:require [clojure.java.io :as io]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [loyly.pi-harness.core.selection.gherkin :as gherkin]))
 
 (def ^:private item-tag #"@item-(\d+)-(\d+)")
 (def ^:private rule-line #"^\s*Rule:\s*(.*?)\s*$")
@@ -45,7 +46,7 @@
               (recur (rest lines) (inc line-number) rule nil
                      (conj items {:id pending-id
                                   :scenario-digest
-                                  (sha256 (pr-str [pending-id (or rule "") scenario-lines]))
+                                  (gherkin/scenario-digest pending-id rule scenario-lines)
                                   :name scenario
                                   :rule (or rule "")
                                   :source (str "docs/plan/" line-number)}))))

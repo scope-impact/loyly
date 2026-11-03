@@ -4,7 +4,10 @@
             [clojure.java.shell :as shell]
             [clojure.string :as str]))
 
-(def artifact-type "application/vnd.loyly.oracle.pack.v1")
+(def artifact-type "application/vnd.loyly.product-oracle.v1")
+
+(def catalog-type
+  "application/vnd.loyly.product-oracle.catalog.v1+json")
 
 (def fixture-server-type
   "application/vnd.loyly.oracle.fixture-server.v1+javascript")
@@ -16,10 +19,7 @@
   "application/vnd.loyly.oracle.otel-capture-policy.v1+json")
 
 (def required-metadata-layer-types
-  ["application/vnd.loyly.oracle.policy.v1+json"
-   "application/vnd.loyly.oracle.project.v1+json"
-   "application/vnd.loyly.oracle.slice.v1+json"
-   "application/vnd.loyly.oracle.calibration.v1+json"
+  [catalog-type
    "application/vnd.loyly.oracle.fixture-server.v1+javascript"
    otel-capture-policy-type])
 
@@ -128,24 +128,35 @@
                  (not-any? #(= ".." (str %)) path))
         relative))))
 
-(defn materialize-grader! [pack cache-root]
-  (when-not cache-root
-    (throw (ex-info "OCI oracle cache root is required to materialize its grader" {})))
-  (let [root (.getCanonicalFile
-              (io/file cache-root (str/replace (:digest pack) #"^sha256:" "") "grader"))
-        grader-layers (filter #(= grader-file-type (:media-type %)) (:layers pack))]
-    (.mkdirs root)
-    (doseq [{:keys [title content] :as layer} grader-layers]
-      (let [relative (grader-relative-path title)
-            target (when relative (.getCanonicalFile (io/file root relative)))]
-        (when-not (and target (.startsWith (.toPath target) (.toPath root)))
-          (throw (ex-info "OCI grader layer title must be a safe path below grader/"
-                          {:layer (dissoc layer :content)})))
-        (some-> target .getParentFile .mkdirs)
-        (java.nio.file.Files/write (.toPath target)
-                                   (.decode (java.util.Base64/getDecoder) ^String content)
-                                   (make-array java.nio.file.OpenOption 0))))
-    (.getPath root)))
+(defn- selected-paths-digest [selected-paths]
+  (let [digest (java.security.MessageDigest/getInstance "SHA-256")
+        value (str/join "\n" (sort selected-paths))]
+    (format "%064x" (BigInteger. 1 (.digest digest (.getBytes value "UTF-8"))))))
+
+(defn materialize-grader!
+  ([pack cache-root] (materialize-grader! pack cache-root nil))
+  ([pack cache-root selected-paths]
+   (when-not cache-root
+     (throw (ex-info "OCI oracle cache root is required to materialize its grader" {})))
+   (let [pack-root (io/file cache-root (str/replace (:digest pack) #"^sha256:" ""))
+         root (.getCanonicalFile
+               (if selected-paths
+                 (io/file pack-root (selected-paths-digest selected-paths) "grader")
+                 (io/file pack-root "grader")))
+         grader-layers (filter #(= grader-file-type (:media-type %)) (:layers pack))]
+     (.mkdirs root)
+     (doseq [{:keys [title content] :as layer} grader-layers
+             :let [relative (grader-relative-path title)]
+             :when (or (nil? selected-paths) (contains? selected-paths relative))]
+       (let [target (when relative (.getCanonicalFile (io/file root relative)))]
+         (when-not (and target (.startsWith (.toPath target) (.toPath root)))
+           (throw (ex-info "OCI grader layer title must be a safe path below grader/"
+                           {:layer (dissoc layer :content)})))
+         (some-> target .getParentFile .mkdirs)
+         (java.nio.file.Files/write (.toPath target)
+                                    (.decode (java.util.Base64/getDecoder) ^String content)
+                                    (make-array java.nio.file.OpenOption 0))))
+     (.getPath root))))
 
 (defn- observability-relative-path [title]
   (when (and (string? title) (str/starts-with? title "runtime-observability/"))
@@ -211,54 +222,47 @@
   ([pack selection contract]
    (validate-pack! pack selection contract {}))
   ([pack selection contract {:keys [grader-root fixture-runner]}]
-  (let [policy (layer-content pack "application/vnd.loyly.oracle.policy.v1+json")
-        project (layer-content pack "application/vnd.loyly.oracle.project.v1+json")
-        slice (layer-content pack "application/vnd.loyly.oracle.slice.v1+json")
-        calibration (layer-content pack "application/vnd.loyly.oracle.calibration.v1+json")
+  (let [catalog (layer-content pack catalog-type)
         expected-project (:projectId selection)
-        selected-item-ids (->> (:items selection)
-                               (map #(if (map? %) (:id %) %))
-                               set)
-        packed-item-ids (->> (:items slice)
-                             (map #(if (map? %) (:id %) %))
-                             set)
-        missing-items (sort (remove packed-item-ids selected-item-ids))
+        selected-items (mapv #(if (map? %) % {:id %}) (:items selection))
+        selected-item-ids (mapv :id selected-items)
         contract-by-item (into {} (map (juxt :id identity)) (:items contract))
-        slice-by-item (into {} (keep #(when (map? %) [(:id %) %])) (:items slice))
-        minimum-fixtures (or (:minimumCalibrationFixtures policy) 2)
-        calibration-by-item (into {} (map (juxt :itemId identity)) (:items calibration))
-        grader-artifacts (:graderArtifacts calibration)
+        entries (:entries catalog)
+        entry-counts (frequencies (map :itemId entries))
+        duplicate-entries (->> entry-counts (keep (fn [[item-id n]] (when (> n 1) item-id))) sort vec)
+        entry-by-item (into {} (map (juxt :itemId identity)) entries)
+        missing-items (sort (remove entry-by-item selected-item-ids))
+        selected-entries (mapv entry-by-item selected-item-ids)
+        minimum-fixtures (or (:minimumCalibrationFixtures catalog) 2)
+        grader-artifacts (:graderArtifacts catalog)
         fixture-server (layer-content pack fixture-server-type)
         capture-policy (layer-content pack otel-capture-policy-type)
         calibration-cases (atom [])]
-    (when-not (and (= 1 (:version policy))
+    (when-not (and (= 1 (:version catalog))
                    (integer? minimum-fixtures)
                    (<= 2 minimum-fixtures))
-      (throw (ex-info "OCI oracle policy requires version 1 and at least two calibration fixtures"
-                      {:policy policy})))
-    (when-not (and (= 1 (:version capture-policy))
-                   (= "opentelemetry" (:standard capture-policy))
-                   (= ["traces" "metrics" "profiles"] (:signals capture-policy))
-                   (= "otlp-json" (:format capture-policy))
-                   (false? (:authoritativeGrade capture-policy)))
+      (throw (ex-info "OCI product catalogue requires version 1 and at least two calibration fixtures"
+                      {:catalog catalog})))
+    (when (seq duplicate-entries)
+      (throw (ex-info (str "OCI product catalogue contains duplicate item "
+                           (str/join ", " duplicate-entries))
+                      {:duplicates duplicate-entries})))
+    (when (and capture-policy
+               (not (and (= 1 (:version capture-policy))
+                         (= "opentelemetry" (:standard capture-policy))
+                         (= ["traces" "metrics" "profiles"] (:signals capture-policy))
+                         (= "otlp-json" (:format capture-policy))
+                         (false? (:authoritativeGrade capture-policy)))))
       (throw (ex-info "OCI oracle requires a non-authoritative OpenTelemetry capture policy"
                       {:capture-policy capture-policy})))
-    (when-not (= expected-project (:projectId project))
-      (throw (ex-info (str "OCI oracle project layer names " (:projectId project)
+    (when-not (= expected-project (:projectId catalog))
+      (throw (ex-info (str "OCI product catalogue names project " (:projectId catalog)
                            " but the selection names " expected-project)
-                      {:project-layer project :selection selection})))
-    (when-not (= (:artifacts contract) (:artifacts project))
-      (throw (ex-info "OCI oracle project artifacts do not match the pinned model contract"
-                      {:expected (:artifacts contract)
-                       :actual (:artifacts project)})))
-    (when (and (:slice selection) (not= (:slice selection) (:sliceId slice)))
-      (throw (ex-info (str "OCI oracle slice layer names " (:sliceId slice)
-                           " but the selection names " (:slice selection))
-                      {:slice-layer slice :selection selection})))
+                      {:catalog catalog :selection selection})))
     (when (seq missing-items)
       (throw (ex-info (str "selected item " (str/join ", " missing-items)
-                           " is absent from the OCI oracle slice layer")
-                      {:slice-layer slice :selection selection})))
+                           " is absent from the OCI product catalogue")
+                      {:catalog catalog :selection selection})))
     (when grader-root
       (let [root (.getCanonicalFile (io/file grader-root))]
         (doseq [{:keys [path digest] :as artifact} grader-artifacts]
@@ -273,19 +277,21 @@
               (when-not (= digest actual)
                 (throw (ex-info (str "grader dependency digest mismatch for " path)
                                 {:artifact artifact :actual actual}))))))))
-    (doseq [item-id selected-item-ids]
-      (let [expected-semantics (select-keys (get contract-by-item item-id) [:id :name :rule])
-            actual-semantics (select-keys (get slice-by-item item-id) [:id :name :rule])
-            _ (when-not (= expected-semantics actual-semantics)
-                (throw (ex-info (str "OCI oracle slice semantics for " item-id
-                                     " do not match the pinned model contract")
-                                {:expected expected-semantics :actual actual-semantics})))
-            {:keys [grader fixtures] :as item-calibration} (get calibration-by-item item-id)
+    (doseq [selection-item selected-items]
+      (let [item-id (:id selection-item)
+            contract-item (get contract-by-item item-id)
+            entry (get entry-by-item item-id)
+            scenario-digest (:scenario-digest contract-item)
+            _ (when-not (= scenario-digest (:scenario-digest selection-item))
+                (throw (ex-info (str "approved scenario digest for " item-id
+                                     " does not match the pinned cut")
+                                {:selection-item selection-item :contract-item contract-item})))
+            _ (when-not (= scenario-digest (:scenarioDigest entry))
+                (throw (ex-info (str "OCI product catalogue scenario digest for " item-id
+                                     " does not match the approved selection")
+                                {:expected scenario-digest :actual (:scenarioDigest entry)})))
+            {:keys [grader fixtures]} entry
             roles (set (map :role fixtures))]
-        (when-not item-calibration
-          (throw (ex-info (str "selected item " item-id
-                               " has no OCI oracle calibration entry")
-                          {:item-id item-id :calibration calibration})))
         (when-not (and (string? (:path grader))
                        (re-matches #"[0-9a-f]{64}" (or (:digest grader) "")))
           (throw (ex-info (str "selected item " item-id
@@ -345,4 +351,7 @@
                                               (get actual-by-case [(:itemId expected) (:role expected)]))
                                              :backend "gondolin"))
                                     @calibration-cases)]
-      (assoc pack :calibration-results calibration-results)))))
+      (assoc pack
+             :selected-item-ids selected-item-ids
+             :selected-entries selected-entries
+             :calibration-results calibration-results)))))

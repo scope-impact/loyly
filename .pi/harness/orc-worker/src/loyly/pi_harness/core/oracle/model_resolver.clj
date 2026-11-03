@@ -1,6 +1,7 @@
 (ns loyly.pi-harness.core.oracle.model-resolver
   (:require [clojure.java.io :as io]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [loyly.pi-harness.core.selection.gherkin :as gherkin]))
 
 (def item-tag #"@item-(\d+-\d+)")
 (def scenario-line #"^\s*Scenario(?: Outline)?:\s*(.+?)\s*$")
@@ -8,6 +9,10 @@
 
 (defn- relative-path [root file]
   (-> (.relativize (.toPath (io/file root)) (.toPath file)) str (str/replace "\\" "/")))
+
+(defn- sha256-value [value]
+  (let [digest (java.security.MessageDigest/getInstance "SHA-256")]
+    (format "%064x" (BigInteger. 1 (.digest digest (.getBytes (str value) "UTF-8"))))))
 
 (defn- scan-feature [root file]
   (loop [lines (str/split-lines (slurp file)) line-number 1 rule nil pending nil items []]
@@ -18,9 +23,19 @@
         (cond
           tag (recur (rest lines) (inc line-number) rule (str "@item-" tag) items)
           next-rule (recur (rest lines) (inc line-number) next-rule pending items)
-          scenario (recur (rest lines) (inc line-number) rule nil
-                          (conj items {:id pending :name scenario :rule rule
-                                       :source (str (relative-path root file) ":" line-number)}))
+          scenario
+          (let [scenario-lines
+                (cons line
+                      (take-while #(not (or (re-find item-tag %)
+                                            (re-find rule-line %)
+                                            (re-find scenario-line %)))
+                                  (rest lines)))]
+            (recur (rest lines) (inc line-number) rule nil
+                   (conj items {:id pending
+                                :scenario-digest
+                                (gherkin/scenario-digest pending rule scenario-lines)
+                                :name scenario :rule rule
+                                :source (str (relative-path root file) ":" line-number)})))
           :else (recur (rest lines) (inc line-number) rule pending items)))
       items)))
 
@@ -35,12 +50,8 @@
               (recur))))))
     (format "%064x" (BigInteger. 1 (.digest digest)))))
 
-(defn- sha256-value [value]
-  (let [digest (java.security.MessageDigest/getInstance "SHA-256")]
-    (format "%064x" (BigInteger. 1 (.digest digest (.getBytes (str value) "UTF-8"))))))
-
 (defn contract-digest [{:keys [items artifacts]}]
-  (sha256-value (pr-str {:items (mapv #(select-keys % [:id :name :rule :source]) items)
+  (sha256-value (pr-str {:items (mapv #(select-keys % [:id :scenario-digest]) items)
                          :artifacts artifacts})))
 
 (defn resolve-contract [cut-root {:keys [items slice allItems] :as selection}]
