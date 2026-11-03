@@ -3,7 +3,7 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Html, KeyboardControls, OrbitControls, useKeyboardControls } from "@react-three/drei";
+import { Html, KeyboardControls, Line, OrbitControls, useKeyboardControls } from "@react-three/drei";
 import { CuboidCollider, Physics, RigidBody } from "@react-three/rapier";
 import { Ecctrl } from "ecctrl";
 import { Joystick, useButtonStore, useJoystickStore } from "ecctrl/input";
@@ -22,17 +22,30 @@ const keyboardMap = [
 ];
 
 const STAGES = [
-  { id: "cut", name: "Pin product model", role: "Receiving", icon: "blueprint", node: "cutworker", hint: "The approved Löyly model enters the factory read-only." },
-  { id: "calibrate", name: "Calibrate tooling", role: "Tool room", icon: "gauge", node: "registry", hint: "Pi proves its tools before it touches the product." },
-  { id: "build", name: "Assemble components", role: "Body shop", icon: "robot", node: "builder", hint: "A fresh builder creates the C4 product containers." },
-  { id: "instrument", name: "Wire runtime signals", role: "Sensor fit", icon: "signal", node: "outputs", hint: "Telemetry is fitted without changing the candidate." },
-  { id: "oracle", name: "Bind product contract", role: "Marriage", icon: "link", node: "worker", hint: "The candidate meets the pinned product contract." },
-  { id: "verify", name: "Boot system", role: "Road test", icon: "power", node: "docker", hint: "The assembled system boots inside its isolated runtime." },
-  { id: "repair", name: "Repair bay", role: "Rework", icon: "wrench", node: "builder", hint: "A new builder receives failure evidence for one repair." },
-  { id: "grade", name: "Independent inspection", role: "Quality gate", icon: "inspect", node: "grader", hint: "Independent graders—not the builder—author the verdict." },
-  { id: "signals", name: "Check telemetry", role: "Signal lab", icon: "pulse", node: "events", hint: "Grain facts and runtime signals are checked for completeness." },
-  { id: "record", name: "Register product", role: "Product yard", icon: "archive", node: "projections", hint: "Grain records the result; it does not advance the line." },
+  { id: "cut", name: "Pin product model", role: "Receiving", icon: "blueprint", node: "cutworker", focus: ["git", "worker", "cutworker", "cuts", "gondolin"], hint: "The approved Löyly model enters the factory read-only." },
+  { id: "calibrate", name: "Calibrate tooling", role: "Tool room", icon: "gauge", node: "registry", focus: ["extension", "worker", "registry", "git", "events"], hint: "Pi proves its tools before it touches the product." },
+  { id: "build", name: "Assemble components", role: "Body shop", icon: "robot", node: "builder", focus: ["worker", "builder", "cuts", "llm", "outputs", "gondolin"], hint: "A fresh builder creates the C4 product containers." },
+  { id: "instrument", name: "Wire runtime signals", role: "Sensor fit", icon: "signal", node: "outputs", focus: ["builder", "outputs", "grader", "events", "projections"], hint: "Telemetry is fitted without changing the candidate." },
+  { id: "oracle", name: "Bind product contract", role: "Marriage", icon: "link", node: "worker", focus: ["extension", "worker", "registry", "git", "events"], hint: "The candidate meets the pinned product contract." },
+  { id: "verify", name: "Boot system", role: "Road test", icon: "power", node: "docker", focus: ["worker", "grader", "cuts", "outputs", "gondolin", "docker", "subject"], hint: "The assembled system boots inside its isolated runtime." },
+  { id: "repair", name: "Repair bay", role: "Rework", icon: "wrench", node: "builder", focus: ["worker", "builder", "cuts", "llm", "outputs", "gondolin"], hint: "A new builder receives failure evidence for one repair." },
+  { id: "grade", name: "Independent inspection", role: "Quality gate", icon: "inspect", node: "grader", focus: ["worker", "grader", "cuts", "outputs", "gondolin", "docker", "subject"], hint: "Independent graders—not the builder—author the verdict." },
+  { id: "signals", name: "Check telemetry", role: "Signal lab", icon: "pulse", node: "events", focus: ["worker", "grader", "outputs", "events", "projections"], hint: "Grain facts and runtime signals are checked for completeness." },
+  { id: "record", name: "Register product", role: "Product yard", icon: "archive", node: "projections", focus: ["extension", "worker", "events", "projections"], hint: "Grain records the result; it does not advance the line." },
 ];
+
+const STAGE_DETAILS = {
+  cut: { owner: "Cut adapter", boundary: "Pins commit/tree and enforces the physical fence; it does not select scope.", input: "Approved commit + cut policy", output: "Immutable cut + manifest", product: "Löyly contract only · no candidate yet" },
+  calibrate: { owner: "ORC worker · oracle components", boundary: "Descriptor digests and bindings must validate before a builder starts.", input: "Instrument + product OCI descriptors", output: "Calibrated immutable bindings", product: "Target stack: Node" },
+  build: { owner: "Fresh Builder adapter session", boundary: "May create the candidate; cannot grade it or author the final measurement.", input: "Fenced cut + selected instruction/scope", output: "Candidate snapshot + builder transcript", product: "Booking API and Booking core assembled" },
+  instrument: { owner: "Instrument stage + evidence store", boundary: "Fits observation without changing candidate behavior or denominator.", input: "Generated candidate + runtime contract", output: "OTel runtime evidence", product: "Event store and schedules become observable" },
+  oracle: { owner: "ORC worker · model resolver", boundary: "The product contract is pinned independently of candidate claims.", input: "Product oracle digest + candidate binding", output: "Cross-oracle binding", product: "All Löyly contract surfaces bound" },
+  verify: { owner: "Execution adapter", boundary: "Runs in an independent room and cannot change the candidate.", input: "Cut + candidate + Compose commands", output: "Command evidence + test result", product: "13 application tests after repair" },
+  repair: { owner: "New Builder adapter session", boundary: "Receives failure evidence once; the failed builder is not resumed.", input: "Attempt 1 evidence: npm not found", output: "Attempt 2 candidate image", product: "Same product contract · rebuilt runtime" },
+  grade: { owner: "Independent Execution adapter", boundary: "The builder cannot see or author the independent verdict.", input: "Sealed candidate + 11 product items", output: "9 pass / 2 fail verdicts", product: "Household booking behavior measured" },
+  signals: { owner: "Instrument conformance grader", boundary: "Checks captured facts for completeness; product events stay product-owned.", input: "Domain events + projection snapshots", output: "8 / 8 signals complete", product: "Weekly, heater and billing projections correlated" },
+  record: { owner: "Grain event/projection path", boundary: "Records observation and measurement; it does not advance ORC workflow.", input: "Sealed result + independent evidence", output: "Durable cycle measurement", product: "Historical verdict: 9 / 11" },
+};
 
 const ROUTE = [
   [-22, -10], [-16, -10], [-10, -10], [-4, -10], [2, -10], [8, -10],
@@ -93,6 +106,17 @@ function stationConnections(station) {
     const other = edge.from === station.node ? edge.to : edge.from;
     return `${edge.from === station.node ? "To" : "From"} ${C4.nodes.get(other)?.name ?? other}: ${edge.label}`;
   });
+}
+
+function stationTopology(station) {
+  const ids = new Set(station.focus);
+  const nodes = station.focus.map((id) => C4.nodes.get(id)).filter(Boolean);
+  const edges = C4.edges.filter((edge) => ids.has(edge.from) && ids.has(edge.to));
+  return { nodes, edges };
+}
+
+function stageEvents(station) {
+  return E2E_RECORDING.timeline.filter((event) => event.stageIndex === station.index);
 }
 
 function useReplay() {
@@ -364,75 +388,108 @@ function Timeline({ replay }) {
   </div>;
 }
 
-function FlowPacket({ index, running }) {
+function TopologyPacket({ from, to, index, running }) {
   const ref = useRef();
   useFrame(({ clock }) => {
     if (!ref.current) return;
-    const progress = running ? (clock.elapsedTime * .23 + index / 4) % 1 : index / 4;
-    ref.current.position.set(-4.2 + progress * 8.4, .55 + Math.sin(progress * Math.PI) * 1.05, 0);
-    ref.current.scale.setScalar(.72 + Math.sin(progress * Math.PI) * .38);
+    const progress = running ? (clock.elapsedTime * .2 + index * .19) % 1 : .5;
+    ref.current.position.set(
+      THREE.MathUtils.lerp(from[0], to[0], progress),
+      THREE.MathUtils.lerp(from[1], to[1], progress) + Math.sin(progress * Math.PI) * .3,
+      THREE.MathUtils.lerp(from[2], to[2], progress),
+    );
   });
   return <mesh ref={ref}>
-    <octahedronGeometry args={[.17, 0]} />
+    <octahedronGeometry args={[.11, 0]} />
     <meshStandardMaterial color="#f2b84b" emissive="#f2b84b" emissiveIntensity={4} toneMapped={false} />
   </mesh>;
 }
 
-function ActivityPulse({ running }) {
+function TopologyNode({ node, position, central, running }) {
   const ref = useRef();
   useFrame(({ clock }) => {
     if (!ref.current) return;
-    const pulse = running ? 1 + Math.sin(clock.elapsedTime * 4.5) * .08 : 1;
+    const pulse = central && running ? 1 + Math.sin(clock.elapsedTime * 4.5) * .06 : 1;
     ref.current.scale.setScalar(pulse);
-    ref.current.rotation.y += .006;
   });
+  const dataStore = node.type.includes("data store");
+  const external = node.type.includes("External");
+  const color = central ? "#50d0cc" : external ? "#d47542" : dataStore ? "#f2b84b" : "#7598aa";
   return <group ref={ref}>
-    <mesh castShadow><dodecahedronGeometry args={[1.22, 0]} /><meshStandardMaterial color="#18364a" metalness={.72} roughness={.26} /></mesh>
-    <mesh><dodecahedronGeometry args={[1.27, 0]} /><meshBasicMaterial color={running ? "#50d0cc" : "#607687"} wireframe transparent opacity={.82} /></mesh>
+    <mesh position={position} castShadow>
+      {dataStore ? <cylinderGeometry args={[central ? .9 : .7, central ? .9 : .7, central ? 1.5 : 1.15, 20]} /> : <boxGeometry args={central ? [1.8, 1.5, 1.35] : [1.45, 1.12, 1.05]} />}
+      <meshStandardMaterial color="#122b3d" metalness={.64} roughness={.3} emissive={color} emissiveIntensity={central && running ? .45 : .12} />
+    </mesh>
+    <mesh position={[position[0], position[1] + (central ? .82 : .62), position[2]]}>
+      <boxGeometry args={[central ? 1.84 : 1.49, .08, central ? 1.39 : 1.09]} />
+      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={2.3} />
+    </mesh>
+    <Html position={[position[0], position[1] + (central ? 1.35 : 1.05), position[2]]} center distanceFactor={9} className={`system-node-label ${central ? "central" : ""}`}>
+      <span><small>{node.type}</small><strong>{node.name}</strong>{central && node.description && <em>{node.description}</em>}</span>
+    </Html>
   </group>;
 }
 
-function InteriorRack({ position, label, accent }) {
-  return <group position={position}>
-    <mesh castShadow><boxGeometry args={[1.55, 2.4, 1.35]} /><meshStandardMaterial color="#102536" metalness={.62} roughness={.32} /></mesh>
-    {[-.65, 0, .65].map((y) => <mesh key={y} position={[0, y, .7]}><boxGeometry args={[1.16, .12, .05]} /><meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={1.7} /></mesh>)}
-    <Html position={[0, 1.55, 0]} center distanceFactor={8} className="cutaway-label"><span>{label}</span></Html>
+function ProductModule({ component, index, visible }) {
+  const x = (index - (COMPONENTS.length - 1) / 2) * 1.18;
+  return <group position={[x, .55, 4.1]}>
+    <mesh castShadow>
+      {component.shape === "store" ? <cylinderGeometry args={[.38, .38, .62, 18]} /> : component.shape === "signal" ? <octahedronGeometry args={[.42, 0]} /> : <boxGeometry args={[.72, .66, .62]} />}
+      <meshStandardMaterial color={visible ? component.color : "#314453"} metalness={.48} roughness={.34} emissive={component.color} emissiveIntensity={visible ? .3 : 0} transparent opacity={visible ? 1 : .4} />
+    </mesh>
+    <Html position={[0, .68, 0]} center distanceFactor={9} className={`product-node-label ${visible ? "assembled" : "pending"}`}><span>{component.name}</span></Html>
   </group>;
 }
 
 function StationInterior({ station, replay }) {
   const running = station.index === replay.stage;
-  const connections = stationConnections(station);
-  return <Canvas dpr={[1, 1.5]} camera={{ position: [7.5, 5.4, 8.8], fov: 43 }} gl={{ antialias: true }}>
+  const topology = stationTopology(station);
+  const positions = useMemo(() => {
+    const map = new Map([[station.node, [0, 1.25, 0]]]);
+    topology.nodes.filter((node) => node.id !== station.node).forEach((node, index, nodes) => {
+      const angle = -Math.PI / 2 + (index / Math.max(1, nodes.length)) * Math.PI * 2;
+      map.set(node.id, [Math.cos(angle) * 4, .85, Math.sin(angle) * 2.65]);
+    });
+    return map;
+  }, [station, topology.nodes]);
+  return <Canvas dpr={[1, 1.5]} camera={{ position: [8.8, 7.2, 11.5], fov: 44 }} gl={{ antialias: true }}>
     <color attach="background" args={["#07131e"]} />
-    <fog attach="fog" args={["#07131e", 14, 27]} />
+    <fog attach="fog" args={["#07131e", 17, 30]} />
     <ambientLight intensity={.7} />
     <hemisphereLight args={["#8fc8d2", "#101923", 2.6]} />
     <directionalLight position={[5, 9, 5]} intensity={4} castShadow />
     <pointLight position={[0, 3, 2]} color={running ? "#50d0cc" : "#718795"} intensity={running ? 38 : 14} distance={12} />
     <group position={[0, -.25, 0]}>
-      <mesh position={[0, -.12, 0]} receiveShadow><boxGeometry args={[12, .22, 7]} /><meshStandardMaterial color="#0d2130" metalness={.45} roughness={.72} /></mesh>
-      <gridHelper args={[12, 24, "#315367", "#172f3f"]} position={[0, .01, 0]} />
-      <InteriorRack position={[-4.15, 1.25, 0]} label="INPUT EVIDENCE" accent="#d47542" />
-      <InteriorRack position={[4.15, 1.25, 0]} label="OUTPUT ARTIFACTS" accent="#f2b84b" />
-      <group position={[0, 1.35, 0]}>
-        <ActivityPulse running={running} />
-        <group position={[0, -.55, 1.2]} scale={.72}><MachineIcon kind={station.icon} active={running} /></group>
-        <Html position={[0, 2, 0]} center distanceFactor={8} className="cutaway-core-label">
-          <span><small>ACTUAL C4 CONTAINER</small><strong>{station.c4.name}</strong></span>
-        </Html>
-      </group>
-      <mesh position={[0, .26, 0]}><boxGeometry args={[8.2, .12, .52]} /><meshStandardMaterial color="#294759" metalness={.8} /></mesh>
-      {[0, 1, 2, 3].map((index) => <FlowPacket key={index} index={index} running={running} />)}
-      {connections.slice(0, 3).map((connection, index) => <Html key={connection} position={[-2.4 + index * 2.4, .5, -2.25]} center distanceFactor={9} className="cutaway-relationship"><span>{connection}</span></Html>)}
+      <mesh position={[0, -.12, -.75]} receiveShadow><boxGeometry args={[12, .22, 10.5]} /><meshStandardMaterial color="#0d2130" metalness={.45} roughness={.72} /></mesh>
+      <gridHelper args={[12, 24, "#315367", "#172f3f"]} position={[0, .01, -.75]} />
+      <Html position={[-4.8, 4.1, -1]} distanceFactor={10} className="cutaway-layer-label"><span>HARNESS C4 · ACTUAL REPOSITORY TOPOLOGY</span></Html>
+      {topology.edges.map((edge, index) => {
+        const from = positions.get(edge.from);
+        const to = positions.get(edge.to);
+        if (!from || !to) return null;
+        const midpoint = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2 + .2, (from[2] + to[2]) / 2];
+        return <group key={`${edge.from}-${edge.to}`}>
+          <Line points={[from, to]} color={edge.from === station.node || edge.to === station.node ? "#50d0cc" : "#3e6072"} lineWidth={1.1} transparent opacity={.78} />
+          <TopologyPacket from={from} to={to} index={index} running={running} />
+          <Html position={midpoint} center distanceFactor={10} className="topology-edge-label"><span>{edge.label}</span></Html>
+        </group>;
+      })}
+      {topology.nodes.map((node) => <TopologyNode key={node.id} node={node} position={positions.get(node.id)} central={node.id === station.node} running={running} />)}
+      <mesh position={[0, .08, 4.1]}><boxGeometry args={[8.2, .15, 1.25]} /><meshStandardMaterial color="#1d3545" metalness={.7} /></mesh>
+      <Html position={[-4, 1.55, 4.1]} distanceFactor={10} className="cutaway-layer-label product"><span>LÖYLY PRODUCT · COMPONENT STATE</span></Html>
+      {COMPONENTS.map((component, index) => <ProductModule key={component.name} component={component} index={index} visible={station.index >= component.stage} />)}
     </group>
-    <OrbitControls makeDefault target={[0, 1, 0]} minDistance={7} maxDistance={18} maxPolarAngle={Math.PI * .49} enablePan={false} autoRotate={running} autoRotateSpeed={.45} />
+    <OrbitControls makeDefault target={[0, .8, .45]} minDistance={9} maxDistance={20} maxPolarAngle={Math.PI * .49} enablePan={false} autoRotate={false} />
   </Canvas>;
 }
 
 function Inspector({ station, replay, onClose, automatic }) {
   if (!station) return null;
   const connections = stationConnections(station);
+  const detail = STAGE_DETAILS[station.id];
+  const events = stageEvents(station);
+  const observedEvents = events.filter((event) => event.offset <= replay.elapsed);
+  const evidence = observedEvents.at(-1) ?? events[0];
   const state = station.index === replay.stage ? "Working now" : station.index < replay.stage ? "Completed" : "Waiting";
   if (!automatic) return <section className="station-cutaway" role="dialog" aria-modal="true" aria-labelledby={`station-title-${station.id}`}>
     <div className="cutaway-world" aria-label={`Three-dimensional cutaway of ${station.name}`}><StationInterior station={station} replay={replay} /></div>
@@ -441,10 +498,20 @@ function Inspector({ station, replay, onClose, automatic }) {
       <small>Inside station {station.index + 1} · {station.role}</small>
       <h2 id={`station-title-${station.id}`}>{station.name}</h2>
       <p>{station.hint}</p>
+      <div className="cycle-identity"><span><small>CYCLE</small><strong>{E2E_RECORDING.cycleId}</strong></span><span><small>STACK</small><strong>{E2E_RECORDING.targetStack}</strong></span></div>
       <div className="inspector-state"><i className={state === "Working now" ? "live" : ""} /><span><small>Live replay state</small><strong>{state}</strong></span></div>
-      <dl><div><dt>Machinery represents</dt><dd>{station.c4.name}</dd></div><div><dt>C4 element type</dt><dd>{station.c4.type}</dd></div></dl>
-      {connections.length > 0 && <section><strong>Signals passing through</strong>{connections.map((item) => <p key={item}>{item}</p>)}</section>}
-      <footer><span>Drag to orbit · Scroll to zoom</span><span><kbd>Esc</kbd> Exit inspection</span></footer>
+      <div className="system-facts">
+        <div><small>OWNER</small><strong>{detail.owner}</strong></div>
+        <div><small>INPUT</small><strong>{detail.input}</strong></div>
+        <div><small>OUTPUT</small><strong>{detail.output}</strong></div>
+      </div>
+      <section className="boundary-rule"><small>RESPONSIBILITY BOUNDARY</small><p>{detail.boundary}</p></section>
+      <section className="product-state"><header><small>LÖYLY PRODUCT</small><strong>{detail.product}</strong></header><div>{COMPONENTS.map((component) => <span key={component.name} className={station.index >= component.stage ? "assembled" : "pending"}>{component.name}</span>)}</div></section>
+      {evidence && <section className="recorded-evidence"><header><small>RECORDED E2E EVIDENCE</small><strong>{evidence.type}</strong></header><p>{evidence.label}</p><dl><div><dt>Artifact</dt><dd>{evidence.sourcePath}</dd></div>{evidence.digest && <div><dt>Digest</dt><dd>{evidence.digest}</dd></div>}{evidence.itemId && <div><dt>Item / verdict</dt><dd>{evidence.itemId} · {evidence.verdict}</dd></div>}</dl></section>}
+      <section className="station-event-log"><header><small>THIS STATION’S REPLAY EVENTS</small><strong>{events.length}</strong></header>{events.map((event) => <div key={`${event.offset}-${event.itemId ?? event.type}`} className={event.offset <= replay.elapsed ? "observed" : "future"}><time>{(event.offset / 1000).toFixed(1)}s</time><span><strong>{event.itemId ?? event.type}</strong><small>{event.label}</small></span></div>)}</section>
+      {connections.length > 0 && <details><summary>Direct C4 relationships</summary>{connections.map((item) => <p key={item}>{item}</p>)}</details>}
+      <details className="cycle-bindings"><summary>Sealed cycle bindings</summary><dl><div><dt>Cut</dt><dd>{E2E_RECORDING.binding.cutDigest}</dd></div><div><dt>Subject</dt><dd>{E2E_RECORDING.binding.subjectDigest}</dd></div><div><dt>Oracle</dt><dd>{E2E_RECORDING.binding.oracleDigest}</dd></div></dl></details>
+      <footer><span>.pi/architecture.md + sealed E2E fixture</span><span><kbd>Esc</kbd> Exit</span></footer>
     </aside>
   </section>;
   return <aside className={`station-inspector ${automatic ? "auto-inspection" : ""}`} role="dialog" aria-modal={automatic ? undefined : "true"} aria-labelledby={`station-title-${station.id}`}>

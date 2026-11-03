@@ -96,29 +96,73 @@ kbd { padding: 2px 5px; color: var(--paper); border: 1px solid #607687; backgrou
 .station-inspector section { margin-top: 15px; padding: 12px; color: white; background: #172a3a; }.station-inspector section > strong { font: 600 16px "Barlow Condensed"; }.station-inspector section p { margin: 7px 0 0; color: #b9c5cb; font-size: 9px; line-height: 1.4; }
 .station-inspector footer { margin-top: 15px; color: #798085; font-size: 8px; }
 
-.station-cutaway { position: fixed; z-index: 35; inset: 68px 0 0; display: grid; grid-template-columns: minmax(0, 1fr) 360px; color: var(--paper); background: #07111b; }
+.station-cutaway { position: fixed; z-index: 35; inset: 68px 0 0; display: grid; grid-template-columns: minmax(0, 1fr) 420px; color: var(--paper); background: #07111b; }
 .cutaway-world { position: relative; min-width: 0; overflow: hidden; border-top: 3px solid var(--amber); }
 .cutaway-world::before { content: "STATION CUTAWAY · LIVE INTERNAL VIEW"; position: absolute; z-index: 2; top: 18px; left: 20px; padding: 7px 10px; color: var(--amber); background: rgba(7,17,27,.82); border-left: 3px solid var(--amber); font: 600 10px "IBM Plex Sans"; letter-spacing: .08em; pointer-events: none; }
 .cutaway-world canvas { width: 100% !important; height: 100% !important; touch-action: none; }
-.cutaway-evidence { position: relative; min-width: 0; padding: 30px 25px 24px; overflow: auto; color: #14212c; background: #ece9df; border-top: 7px solid var(--cyan); box-shadow: -18px 0 60px rgba(0,0,0,.38); }
+.cutaway-evidence { position: relative; min-width: 0; padding: 25px 24px 24px; overflow: auto; color: #14212c; background: #ece9df; border-top: 7px solid var(--cyan); box-shadow: -18px 0 60px rgba(0,0,0,.38); }
 .cutaway-evidence > small { color: #9c3e23; font: 600 12px "Barlow Condensed"; }
 .cutaway-evidence h2 { margin: 5px 35px 10px 0; font: 600 34px/.95 "Barlow Condensed"; }
 .cutaway-evidence > p { color: #4e5961; font-size: 12px; line-height: 1.55; }
-.cutaway-evidence dl { margin: 0; }
-.cutaway-evidence dl div { padding: 10px 0; border-top: 1px solid #c1beb5; }
-.cutaway-evidence dt { color: #747c80; font-size: 9px; }
-.cutaway-evidence dd { margin: 2px 0 0; font: 600 17px "Barlow Condensed"; }
-.cutaway-evidence > section { margin-top: 16px; padding: 13px; color: white; background: #172a3a; }
-.cutaway-evidence > section > strong { font: 600 16px "Barlow Condensed"; }
-.cutaway-evidence > section p { margin: 7px 0 0; color: #b9c5cb; font-size: 9px; line-height: 1.45; }
+.cycle-identity { display: flex; gap: 14px; margin: 10px 0 -7px; }
+.cycle-identity span { min-width: 0; }
+.cycle-identity small, .cycle-identity strong { display: block; }
+.cycle-identity small { color: #82898c; font-size: 7px; letter-spacing: .08em; }
+.cycle-identity strong { max-width: 235px; overflow: hidden; color: #35464f; text-overflow: ellipsis; white-space: nowrap; font: 600 11px "Barlow Condensed"; }
+.system-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin-top: 15px; background: #c7c4ba; border: 1px solid #c7c4ba; }
+.system-facts div { min-width: 0; padding: 10px; background: #f6f3e9; }
+.system-facts div:first-child { grid-column: 1 / -1; }
+.system-facts small, .cutaway-evidence section header small, .boundary-rule > small { display: block; color: #777f83; font-size: 8px; letter-spacing: .08em; }
+.system-facts strong { display: block; margin-top: 3px; font: 600 14px/1.15 "Barlow Condensed"; }
+.cutaway-evidence > section { margin-top: 12px; padding: 12px; }
+.boundary-rule { color: white; background: #9c3e23; }
+.boundary-rule > small { color: #f5b89f; }
+.boundary-rule p { margin: 5px 0 0; font-size: 10px; line-height: 1.45; }
+.product-state { color: #14212c; background: #dcd9cf; }
+.product-state header, .recorded-evidence header, .station-event-log header { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.product-state header strong, .recorded-evidence header strong, .station-event-log header strong { font: 600 14px "Barlow Condensed"; }
+.product-state > div { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 9px; }
+.product-state span { padding: 4px 6px; color: #7d878c; border: 1px solid #aaa9a3; font-size: 8px; }
+.product-state span.assembled { color: #0a5050; background: rgba(80,208,204,.18); border-color: #50a7a4; }
+.recorded-evidence { color: white; background: #172a3a; border-left: 4px solid var(--amber); }
+.recorded-evidence header small { color: var(--amber); }
+.recorded-evidence > p { margin: 8px 0; color: #edf1ec; font: 500 13px/1.35 "Barlow Condensed"; }
+.recorded-evidence dl { margin: 0; }
+.recorded-evidence dl div { display: grid; grid-template-columns: 58px 1fr; gap: 8px; padding: 5px 0; border-top: 1px solid rgba(255,255,255,.12); }
+.recorded-evidence dt { color: #8fa3ae; font-size: 8px; }
+.recorded-evidence dd { min-width: 0; margin: 0; overflow-wrap: anywhere; color: #c9d3d7; font-size: 8px; }
+.station-event-log { color: white; background: #102332; }
+.station-event-log header { margin-bottom: 7px; }
+.station-event-log header small { color: var(--cyan); }
+.station-event-log > div { display: grid; grid-template-columns: 38px 1fr; gap: 7px; padding: 6px 0; border-top: 1px solid rgba(255,255,255,.09); opacity: .4; }
+.station-event-log > div.observed { opacity: 1; }
+.station-event-log time { color: var(--amber); font-size: 8px; }
+.station-event-log span strong, .station-event-log span small { display: block; }
+.station-event-log span strong { font-size: 9px; }
+.station-event-log span small { margin-top: 2px; color: #aebcc3; font-size: 8px; line-height: 1.3; }
+.cutaway-evidence details { margin-top: 12px; padding: 10px 12px; color: white; background: #2a3d49; }
+.cutaway-evidence summary { cursor: pointer; font: 600 12px "Barlow Condensed"; }
+.cutaway-evidence details p { margin: 7px 0 0; color: #bac6cb; font-size: 8px; }
+.cutaway-evidence details.cycle-bindings { color: #182832; background: #d5d2c8; }
+.cycle-bindings dl { margin: 7px 0 0; }
+.cycle-bindings dl div { display: grid; grid-template-columns: 42px 1fr; gap: 7px; padding: 5px 0; border-top: 1px solid #b5b2a9; }
+.cycle-bindings dt { color: #68747a; font-size: 8px; }
+.cycle-bindings dd { min-width: 0; margin: 0; overflow-wrap: anywhere; font: 500 8px/1.3 "IBM Plex Sans"; }
 .cutaway-evidence > footer { display: flex; justify-content: space-between; gap: 10px; margin-top: 18px; color: #707a80; font-size: 8px; }
-.cutaway-label span, .cutaway-relationship span, .cutaway-core-label span { display: block; color: #f6f2e8; background: rgba(5,13,21,.9); border: 1px solid rgba(255,255,255,.22); white-space: nowrap; }
-.cutaway-label span { padding: 5px 8px; font: 600 8px "IBM Plex Sans"; letter-spacing: .08em; }
-.cutaway-core-label span { min-width: 155px; padding: 7px 10px; text-align: center; border-color: rgba(80,208,204,.55); }
-.cutaway-core-label small, .cutaway-core-label strong { display: block; }
-.cutaway-core-label small { color: var(--cyan); font-size: 6px; letter-spacing: .09em; }
-.cutaway-core-label strong { margin-top: 2px; font: 600 13px "Barlow Condensed"; }
-.cutaway-relationship span { max-width: 190px; padding: 5px 7px; overflow: hidden; color: #b9c8cf; border-left: 2px solid var(--cyan); text-overflow: ellipsis; font-size: 6px; }
+.cutaway-layer-label span, .system-node-label span, .product-node-label span, .topology-edge-label span { display: block; color: #f6f2e8; background: rgba(5,13,21,.9); border: 1px solid rgba(255,255,255,.22); }
+.cutaway-layer-label span { padding: 5px 8px; color: var(--cyan); border-left: 3px solid var(--cyan); white-space: nowrap; font: 600 7px "IBM Plex Sans"; letter-spacing: .1em; }
+.cutaway-layer-label.product span { color: var(--amber); border-left-color: var(--amber); }
+.system-node-label span { width: 128px; padding: 6px 7px; text-align: center; }
+.system-node-label small, .system-node-label strong, .system-node-label em { display: block; }
+.system-node-label small { color: #7fc4c6; font-size: 5px; }
+.system-node-label strong { margin-top: 2px; font: 600 11px "Barlow Condensed"; }
+.system-node-label em { margin-top: 3px; overflow: hidden; color: #a9b8bf; font: normal 5px/1.25 "IBM Plex Sans"; }
+.system-node-label.central span { width: 170px; border-color: rgba(80,208,204,.7); }
+.system-node-label.central strong { font-size: 14px; }
+.product-node-label span { width: 76px; padding: 4px; overflow: hidden; text-align: center; text-overflow: ellipsis; white-space: nowrap; font-size: 6px; }
+.product-node-label.pending span { color: #70818c; opacity: .6; }
+.product-node-label.assembled span { color: #e9f5ef; border-color: rgba(80,208,204,.45); }
+.topology-edge-label span { max-width: 145px; padding: 3px 5px; overflow: hidden; color: #9fb0b8; border: 0; text-overflow: ellipsis; white-space: nowrap; font-size: 5px; }
 
 .prototype-switcher { position: fixed; z-index: 40; left: 50%; bottom: 14px; transform: translateX(-50%); display: grid; grid-template-columns: 44px minmax(170px, auto) 44px; align-items: center; color: #101c27; background: #f1eee5; border: 1px solid white; box-shadow: 0 8px 35px rgba(0,0,0,.6); }
 .prototype-switcher button { width: 44px; height: 44px; border: 0; color: #101c27; background: #d8d6ce; cursor: pointer; font-size: 18px; }.prototype-switcher span { display: flex; flex-direction: column; text-align: center; padding: 3px 16px; }.prototype-switcher small { color: #747c80; font-size: 8px; }.prototype-switcher strong { font: 600 14px "Barlow Condensed"; }
@@ -150,9 +194,9 @@ kbd { padding: 2px 5px; color: var(--paper); border: 1px solid #607687; backgrou
   .cutaway-evidence h2 { margin-block: 3px 6px; font-size: 27px; }
   .cutaway-evidence > p { display: none; }
   .cutaway-evidence .inspector-state { float: right; width: 150px; margin: 2px 0 8px 12px; padding: 8px; }
-  .cutaway-evidence dl div { padding: 7px 0; }
   .cutaway-evidence > section { clear: both; margin-top: 10px; padding: 10px; }
-  .cutaway-evidence > section p:nth-of-type(n+3) { display: none; }
+  .system-facts { clear: both; }
+  .station-event-log > div:nth-of-type(n+5) { display: none; }
   .cutaway-evidence > footer { margin-top: 10px; }
   .prototype-switcher { bottom: 69px; grid-template-columns: 38px minmax(135px, auto) 38px; }.prototype-switcher button { width: 38px; height: 38px; }.prototype-switcher span { padding-inline: 8px; }
 }
@@ -163,7 +207,9 @@ kbd { padding: 2px 5px; color: var(--paper); border: 1px solid #607687; backgrou
   .tour-card { width: 300px; }.tour-card dl { display: none; }
   .station-cutaway { grid-template-columns: minmax(0, 1fr) 300px; grid-template-rows: 1fr; }
   .cutaway-evidence { padding: 14px 16px; }
-  .cutaway-evidence > section { display: none; }
+  .cutaway-evidence .boundary-rule, .cutaway-evidence .product-state, .cutaway-evidence .station-event-log, .cutaway-evidence details { display: none; }
+  .system-facts { grid-template-columns: 1fr; }
+  .system-facts div:first-child { grid-column: auto; }
   .cutaway-evidence h2 { font-size: 25px; }
 }
 

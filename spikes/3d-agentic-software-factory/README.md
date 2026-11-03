@@ -38,7 +38,7 @@ npm run spike
 
 Open <http://127.0.0.1:5173/?variant=A&prototype=1>.
 
-While the recorded cycle plays, the operator automatically walks to the active assembly station, opens its C4 evidence briefly, and continues. Desktop controls (`WASD`/arrow keys, `Shift`, `Space`) or the mobile joystick temporarily take over; cycle-follow resumes after a short idle period. Press `E` or use Inspect to enter that station's own 3D cutaway: orbit or zoom around the C4 container, live machinery, evidence input, output artifacts and moving signal packets. Press `Esc` to return to the factory. Automatic cycle inspections remain compact so they do not interrupt playback.
+While the recorded cycle plays, the operator automatically walks to the active assembly station, opens its C4 evidence briefly, and continues. Desktop controls (`WASD`/arrow keys, `Shift`, `Space`) or the mobile joystick temporarily take over; cycle-follow resumes after a short idle period. Press `E` or use Inspect to enter that station's own 3D cutaway. It renders the station's local topology directly from `.pi/architecture.md`, including named C4 containers, data stores, external systems and communication labels. A product pallet shows which Löyly components exist at that point. The evidence rail exposes ownership, responsibility boundaries, exact E2E events, artifact paths, verdicts, digests and sealed cycle bindings from the committed recording. Press `Esc` to return to the factory. Automatic cycle inspections remain compact so they do not interrupt playback.
 
 Ecctrl 2.x accepts movement through its imperative controller API. `OperatorInput` bridges the Drei keyboard state and Ecctrl touch stores into that API; displaying controls alone does not connect them.
 
