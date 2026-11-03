@@ -12,8 +12,9 @@ operation.
 _Avoid_: Regeneration cut, checkout, clone, workspace
 
 **Generation**:
-The first creation of a candidate from an approved source cut for a component with no prior
-candidate. It has no parent candidate and yields an explicitly ungraded result.
+An explicitly requested creation of an ungraded candidate from an approved source cut. Existing
+candidate history does not change Generation into Regeneration. Generation has no parent
+candidate and invokes no oracle-backed measurement.
 _Avoid_: Regeneration, measured run
 
 **Selection contract**:
@@ -25,10 +26,10 @@ A selection contract whose exact digest has been explicitly accepted.
 _Avoid_: Confirmed prompt, chosen tests
 
 **Approved-slice operation route**:
-The operation ORC chooses after slice approval: a component with no prior candidate begins
-initial generation; a component with a prior candidate continues through measured regeneration
-from that candidate. The operator approves the slice, not the operation.
-_Avoid_: Operator-selected workflow, inferred rerun
+The Generate or Regenerate operation explicitly requested with an approved slice and pinned by
+request identity. Generate forbids a parent candidate. Regenerate requires an explicitly named
+parent candidate. ORC validates and persists the request; candidate history never changes its mode.
+_Avoid_: Inferred workflow, automatic latest-candidate routing
 
 **Cycle preparation**:
 The reviewed plan binding an approved selection, candidate scope, target stack, execution
@@ -45,8 +46,9 @@ observes, and evaluates regeneration cycles.
 _Avoid_: Builder, ORC worker, root agent
 
 **Regeneration cycle**:
-One idempotently identified, oracle-backed ORC execution that builds and independently measures
-an approved selection. It is distinct from first-time generation and owns its own measurement.
+One explicitly requested, idempotently identified, oracle-backed ORC execution that builds and
+independently measures an approved selection from a named parent candidate. It is distinct from
+Generation and owns its own measurement.
 _Avoid_: Generation, run, session, job
 
 **Builder**:

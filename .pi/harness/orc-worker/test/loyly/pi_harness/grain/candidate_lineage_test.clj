@@ -37,7 +37,7 @@
         (try
           (is (= regeneration
                  (model/find-latest-candidate
-                  {:event-store events :tenant-id tenant}
+                  {:event-store events :tenant-id tenant :cache ::untrusted-projection-cache}
                   "loyly" "loyly" "booking-core")))
           (is (= route
                  (model/find-approved-slice-route

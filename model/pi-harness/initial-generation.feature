@@ -5,12 +5,12 @@ Feature: Initial generation from an implementation-free source cut
   Rule: Initial generation does not require oracles
 
     @item-01-043 @skip
-    Scenario: ORC routes a first approved slice to initial generation before oracles exist
+    Scenario: ORC runs explicitly requested generation without consulting candidate history
       Given a prepared source cut with the implementation and prior measurements fenced out
       And an approved non-empty selection
-      And no prior candidate lineage exists for its project component
+      And a prior candidate may exist for its project component
       And no product oracle or instrument oracle is pinned
-      When the operator submits the approved slice once
+      When the operator explicitly submits Generate for the approved slice
       Then ORC persists a generation route for that request
       And ORC starts the pi-harness-initial-generation workflow
       And its ordered stages are cut, builder, and record-candidate
@@ -44,14 +44,14 @@ Feature: Initial generation from an implementation-free source cut
       Then the request is refused until ORC runs an oracle-backed regeneration cycle
       And that regeneration has its own operation identity and measurement evidence
 
-  Rule: ORC selects measured regeneration when candidate lineage exists
+  Rule: Regeneration requires an explicit parent candidate
 
     @item-01-047 @skip
-    Scenario: An approved slice is routed from the latest persisted component candidate
+    Scenario: An explicitly requested regeneration uses the named persisted component candidate
       Given an approved selection for a project component
-      And a latest candidate with a persisted output root and subject digest exists
+      And a named candidate with a persisted output root and subject digest exists
       And the accepted product oracle and instrument oracle are pinned
-      When the operator submits the approved slice once
-      Then ORC persists a regeneration route with the latest candidate as parent
+      When the operator explicitly submits Regenerate with that candidate as parent
+      Then ORC persists a regeneration route with the named candidate as parent
       And the builder receives that candidate root and verifies its digest before use
       And independent grading and instrument conformance run in the regeneration workflow

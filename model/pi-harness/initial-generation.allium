@@ -1,5 +1,5 @@
--- Initial candidate generation from an implementation-free source cut.
--- This workflow is deliberately separate from oracle-backed regeneration.
+-- Explicit candidate generation from an implementation-free source cut.
+-- Generation is deliberately separate from operator-requested, oracle-backed regeneration.
 
 enum InitialGenerationStatus { requested | running | candidate_produced | failed }
 enum CandidateDisposition { ungraded | measured }
@@ -62,10 +62,8 @@ entity GeneratedCandidate {
 rule RouteApprovedSliceToInitialGeneration {
     when: ApprovedSliceSubmitted(request)
     requires: selection_is_approved_and_matches_digest(request)
-    requires: not exists ComponentCandidates where
-        project_identity = request.project_identity and
-        container_identity = request.container_identity and
-        component_identity = request.component_identity
+    requires: request.operation = generation
+    requires: request.parent_candidate_identity = null
     ensures: ApprovedSliceRoute.created(
         request_identity: request.identity,
         project_identity: request.project_identity,
@@ -84,11 +82,15 @@ rule RouteApprovedSliceToInitialGeneration {
 rule RouteApprovedSliceToMeasuredRegeneration {
     when: ApprovedSliceSubmitted(request)
     requires: selection_is_approved_and_matches_digest(request)
+    requires: request.operation = regeneration
+    requires: request.parent_candidate_identity != null
     requires: exists ComponentCandidates where
+        identity = request.parent_candidate_identity and
         project_identity = request.project_identity and
         container_identity = request.container_identity and
         component_identity = request.component_identity
-    requires: latest_candidate_for_component(request) != null
+    requires: candidate_named(request.parent_candidate_identity).output_root != ""
+    requires: candidate_named(request.parent_candidate_identity).subject_digest != ""
     ensures: ApprovedSliceRoute.created(
         request_identity: request.identity,
         project_identity: request.project_identity,
@@ -97,12 +99,12 @@ rule RouteApprovedSliceToMeasuredRegeneration {
         selection_identity: request.selection_identity,
         request_digest: request.digest,
         operation: regeneration,
-        parent_candidate_identity: latest_candidate_for_component(request).identity,
-        parent_candidate_root: latest_candidate_for_component(request).output_root,
-        parent_candidate_digest: latest_candidate_for_component(request).subject_digest
+        parent_candidate_identity: request.parent_candidate_identity,
+        parent_candidate_root: candidate_named(request.parent_candidate_identity).output_root,
+        parent_candidate_digest: candidate_named(request.parent_candidate_identity).subject_digest
     )
     ensures: MeasuredRegenerationRequested(request,
-        parent_candidate: latest_candidate_for_component(request))
+        parent_candidate: candidate_named(request.parent_candidate_identity))
 }
 
 rule StartInitialGeneration {
@@ -183,7 +185,7 @@ rule RefuseGenerationAsMeasuredPass {
     ensures: MeasuredRegenerationResultRefused(generation)
 }
 
-invariant ApprovedSliceOperationIsPinnedByRequestIdentity {
+invariant RequestedSliceOperationIsPinnedByRequestIdentity {
     for route in ApprovedSliceRoutes:
         route.request_identity != "" and
         route.selection_identity != "" and

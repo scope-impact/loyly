@@ -97,11 +97,11 @@ afterAll(async () => {
 // Keep scenario tests at module root: allure-vitest installs its runtime with root hooks.
 // Component ownership is projected through scenarioLabels instead of nested describe blocks.
 test.skip("A regeneration cycle follows the declared stage order", () => {});
-test.skip("ORC routes a first approved slice to initial generation before oracles exist", () => {});
+test.skip("ORC runs explicitly requested generation without consulting candidate history", () => {});
 test.skip("A successful initial generation records candidate provenance without a verdict", () => {});
 test.skip("Initial generation fails when the builder produces no candidate", () => {});
 test.skip("An ungraded generation result cannot pass the regeneration grade gate", () => {});
-test.skip("An approved slice is routed from the latest persisted component candidate", () => {});
+test.skip("An explicitly requested regeneration uses the named persisted component candidate", () => {});
 test.skip("make bootstrap builds every harness and supported-stack runtime", () => {});
 test.skip("make bootstrap does not run Löyly application or oracle workflows", () => {});
 test.skip("An invalid runtime build fails the Makefile target", () => {});

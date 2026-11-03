@@ -22,9 +22,9 @@ unclassified or doubly classified scenarios.
   config and supported-stack Dockerfiles under root `harness/<project-id>/`, resolved by
   convention without a per-project profile JSON; shared harness config remains under
   `.pi/harness/config/`.
-- `initial-generation.feature` and `initial-generation.allium` define a distinct first-time,
-  builder-only generation from an implementation-free source cut. It has no parent candidate
-  and records only an ungraded candidate.
+- `initial-generation.feature` and `initial-generation.allium` define explicitly requested,
+  builder-only Generation from an implementation-free source cut. Existing candidate history
+  does not change its mode; it has no parent candidate and records only an ungraded candidate.
 - `regeneration-cycle.feature` defines the separate, oracle-backed measured regeneration workflow.
 - `operator-control-plane.feature`, `prompt-optimization.feature`,
   `execution-pipeline.feature`, and `runtime-evidence.feature` own acceptance behavior for
@@ -99,10 +99,11 @@ The contract exposes gaps found while deriving it from the current implementatio
    so only Gondolin can produce a passing complete measurement.
 2. Selection preview currently reads `docs/plan/<slice>/spec.feature` rather than the complete
    project model contract used by the oracle.
-3. Approved-slice submission persists ORC's operation decision by request ID before starting
-   work. Candidate lineage is keyed by project/container/component; no prior candidate routes
-   to ungraded generation, while an existing candidate routes to measured regeneration from
-   the latest output. ORC tick/correlation IDs are derived deterministically from the request.
+3. The target contract requires approved-slice submission to persist the explicitly requested
+   Generate or Regenerate operation by request ID before starting work. Generate forbids a parent;
+   Regenerate requires a named persisted parent. The current implementation still infers the mode
+   from project/container/component lineage and therefore drifts from this contract. ORC
+   tick/correlation IDs are derived deterministically from the request.
    Numeric wait-task receipts remain process-local; ORC owns execution state and resumes
    abandoned leaf frontiers on startup.
 4. The activated optimized instruction is held in worker memory rather than durable state.

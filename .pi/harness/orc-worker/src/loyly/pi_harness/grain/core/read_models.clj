@@ -139,9 +139,10 @@
 
 (defn find-component-candidates [context project-id container-id component-id]
   (let [tags #{(component-candidates-tag project-id container-id component-id)}]
-    (if (:cache context)
-      (or (rmp/project context :loyly/component-candidates {:tags tags}) [])
-      (direct-project context tags candidates-reducer []))))
+    ;; Candidate lineage controls whether ORC starts measured regeneration. Read it
+    ;; from the durable event store rather than the general projection cache, whose
+    ;; tag-scoped projection can return state from another read-model partition.
+    (direct-project (dissoc context :cache) tags candidates-reducer [])))
 
 (defn find-latest-candidate [context project-id container-id component-id]
   (last (find-component-candidates context project-id container-id component-id)))
