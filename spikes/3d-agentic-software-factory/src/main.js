@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import architectureSource from "../../../.pi/architecture.md?raw";
 import "./style.css";
 
 // Three variants of the same playable factory, switchable via ?variant=.
@@ -20,6 +21,27 @@ const VARIANTS = {
   A: { label: "A · Factory floor", kicker: "Floor operator", title: "Build software you can prove", camera: "isometric" },
   B: { label: "B · Evidence observatory", kicker: "Evidence observatory", title: "Every claim leaves a trace", camera: "perspective" },
   C: { label: "C · Command deck", kicker: "Agent command deck", title: "Intervene at the boundary", camera: "top" },
+};
+
+const DIAGRAM_SPECS = [
+  { id: "context", heading: "System Context", label: "System Context" },
+  { id: "containers", heading: "Container view", label: "Container view" },
+  { id: "components", heading: "ORC worker component view", label: "ORC worker components" },
+];
+
+const STAGE_TARGETS = {
+  context: [
+    ["source", "harness"], ["registry", "harness"], ["models", "harness"], ["candidate", "harness"], ["registry", "harness"],
+    ["compose", "candidate"], ["models", "candidate"], ["candidate", "harness"], ["candidate", "harness"], ["harness", "pi"],
+  ],
+  containers: [
+    ["git", "cutworker", "cuts"], ["registry", "worker"], ["builder", "llm", "outputs"], ["grader", "outputs"], ["registry", "worker"],
+    ["grader", "docker", "subject"], ["builder", "outputs"], ["grader", "subject"], ["grader", "outputs"], ["worker", "events", "projections"],
+  ],
+  components: [
+    ["workflows", "runtime"], ["oracle", "runtime"], ["build", "runtime"], ["evidence", "runtime"], ["oracle", "worker"],
+    ["grading", "runtime"], ["build", "worker"], ["grading", "worker"], ["evidence", "grading"], ["grainmodel", "grain"],
+  ],
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -148,7 +170,19 @@ function renderState() {
 
   refs.events.innerHTML = eventLog.length ? [...eventLog].reverse().map((event, index) => `<div class="event-row ${index === 0 ? "new" : ""}"><time>${event.at}</time><strong>${event.type}<br><small>${event.stage ?? event.cycleId ?? event.measurement ?? "projection updated"}</small></strong></div>`).join("") : `<div class="event-row"><time>—</time><strong>No Grain facts yet<br><small>Start a cycle to append the first event.</small></strong></div>`;
   refs.evidence.innerHTML = state.evidence.length ? [...state.evidence].reverse().map((item) => `<div class="evidence-item"><span>${item.verdict.includes("pass") ? "✓" : "×"}</span>${item.name}<small>${item.digest} · ${item.authority}</small></div>`).join("") : `<div class="evidence-item">No evidence captured.<small>Candidate claims cannot determine an independent verdict.</small></div>`;
-  refs.state.textContent = JSON.stringify({ projection: state, eventCount: eventLog.length, activeEvent: eventLog.at(-1) ?? null }, null, 2);
+  refs.state.textContent = JSON.stringify({
+    projection: state,
+    architecture: activeDiagram ? {
+      source: ".pi/architecture.md",
+      diagram: activeDiagram.label,
+      sourceLine: activeDiagram.sourceLine,
+      elements: activeDiagram.nodes.map(({ id, name, type }) => ({ id, name, type })),
+      relations: activeDiagram.edges,
+      highlightedElementIds: activeTargetIds(),
+    } : null,
+    eventCount: eventLog.length,
+    activeEvent: eventLog.at(-1) ?? null,
+  }, null, 2);
   updateSceneFromState();
 }
 
@@ -164,7 +198,51 @@ document.querySelectorAll(".evidence-tabs button").forEach((button) => button.ad
   ["events", "evidence", "state"].forEach((name) => { $(`#${name}-view`).hidden = name !== button.dataset.tab; });
 }));
 
-// 3D factory floor -----------------------------------------------------------
+// Live C4 world ---------------------------------------------------------------
+function extractMermaid(spec) {
+  const marker = `## ${spec.heading}`;
+  const sectionStart = architectureSource.indexOf(marker);
+  const fenceStart = architectureSource.indexOf("```mermaid", sectionStart);
+  const contentStart = architectureSource.indexOf("\n", fenceStart) + 1;
+  const fenceEnd = architectureSource.indexOf("```", contentStart);
+  const sourceLine = architectureSource.slice(0, sectionStart).split("\n").length;
+  return { ...spec, sourceLine, source: architectureSource.slice(contentStart, fenceEnd) };
+}
+
+function parseMermaid(spec) {
+  const nodes = new Map();
+  const edges = [];
+  const groups = [];
+  for (const rawLine of spec.source.split("\n")) {
+    const line = rawLine.trim();
+    const subgraph = line.match(/^subgraph\s+(\w+)(?:\["([^"]+)"\])?/);
+    if (subgraph) { groups.push({ id: subgraph[1], label: subgraph[2] ?? subgraph[1] }); continue; }
+    if (line === "end") { groups.pop(); continue; }
+    const nodeMatch = line.match(/^(\w+)\s*(?:\[\("([\s\S]*?)"\)\]|\["([\s\S]*?)"\])/);
+    if (nodeMatch) {
+      const text = (nodeMatch[2] ?? nodeMatch[3]).replaceAll("<br/>", "\n").replaceAll("&amp;", "&");
+      const parts = text.split("\n").map((part) => part.trim()).filter(Boolean);
+      const typeIndex = parts.findIndex((part) => part.startsWith("[") && part.endsWith("]"));
+      const type = typeIndex >= 0 ? parts[typeIndex].slice(1, -1) : "Architecture element";
+      const description = parts.filter((_, index) => index !== 0 && index !== typeIndex).join(" ");
+      nodes.set(nodeMatch[1], { id: nodeMatch[1], name: parts[0], type, description, group: groups.at(-1)?.id ?? null, groupLabel: groups.at(-1)?.label ?? null });
+    }
+    const edgeMatch = line.match(/^(\w+)\s*-->\s*(?:\|"([^"]*)"\|\s*)?(\w+)/);
+    if (edgeMatch) edges.push({ from: edgeMatch[1], to: edgeMatch[3], label: edgeMatch[2] ?? "relates to" });
+  }
+  return { ...spec, nodes: [...nodes.values()], edges: edges.filter((edge) => nodes.has(edge.from) && nodes.has(edge.to)) };
+}
+
+const diagrams = Object.fromEntries(DIAGRAM_SPECS.map((spec) => {
+  const parsed = parseMermaid(extractMermaid(spec));
+  return [parsed.id, parsed];
+}));
+let activeDiagram = diagrams.containers;
+
+const diagramSelect = $("#diagram-select");
+diagramSelect.innerHTML = Object.values(diagrams).map((diagram) => `<option value="${diagram.id}">${diagram.label}</option>`).join("");
+diagramSelect.value = activeDiagram.id;
+
 const canvas = $("#factory-canvas");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -174,141 +252,193 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setClearColor(0x0b1623);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x0b1623, 0.024);
-const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 120);
+scene.fog = new THREE.FogExp2(0x0b1623, 0.018);
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 160);
 const controls = new OrbitControls(camera, canvas);
-controls.enableDamping = true;
-controls.dampingFactor = 0.065;
-controls.maxPolarAngle = Math.PI * 0.48;
-controls.minDistance = 10;
-controls.maxDistance = 42;
+controls.enableDamping = true; controls.dampingFactor = 0.065; controls.maxPolarAngle = Math.PI * 0.48; controls.minDistance = 10; controls.maxDistance = 58;
+scene.add(new THREE.HemisphereLight(0x90b6ca, 0x1d2630, 2.35));
+const keyLight = new THREE.DirectionalLight(0xffd8a4, 3.5);
+keyLight.position.set(-12, 24, 10); keyLight.castShadow = true; keyLight.shadow.mapSize.set(2048, 2048); scene.add(keyLight);
+const cyanLight = new THREE.PointLight(0x52d6d2, 42, 30, 2); cyanLight.position.set(9, 7, -6); scene.add(cyanLight);
 
-scene.add(new THREE.HemisphereLight(0x90b6ca, 0x1d2630, 2.1));
-const keyLight = new THREE.DirectionalLight(0xffd8a4, 3.3);
-keyLight.position.set(-10, 18, 9); keyLight.castShadow = true; keyLight.shadow.mapSize.set(2048, 2048); scene.add(keyLight);
-const cyanLight = new THREE.PointLight(0x52d6d2, 32, 22, 2); cyanLight.position.set(8, 5, -5); scene.add(cyanLight);
+const worldGroup = new THREE.Group(); scene.add(worldGroup);
+let nodeMeshes = [];
+let edgeMeshes = [];
+let nodePositions = new Map();
 
-const floor = new THREE.Mesh(new THREE.BoxGeometry(30, .45, 17), new THREE.MeshStandardMaterial({ color: 0x172332, roughness: .87, metalness: .15 }));
-floor.position.y = -.28; floor.receiveShadow = true; scene.add(floor);
-const grid = new THREE.GridHelper(30, 30, 0x496179, 0x293b4e); grid.position.y = -.045; scene.add(grid);
-
-const stationMeshes = [];
-const stationPositions = [
-  [-11, -4], [-6, -4], [-1, -4], [4, -4], [9, -4],
-  [9, 4], [4, 4], [-1, 4], [-6, 4], [-11, 4],
-];
-
-const sharedDark = new THREE.MeshStandardMaterial({ color: 0x24364a, roughness: .62, metalness: .42 });
-const sharedSteel = new THREE.MeshStandardMaterial({ color: 0x536779, roughness: .55, metalness: .55 });
-
-STAGES.forEach((stage, index) => {
-  const group = new THREE.Group();
-  const [x, z] = stationPositions[index]; group.position.set(x, 0, z); group.userData.stageIndex = index;
-  const base = new THREE.Mesh(new THREE.BoxGeometry(3.2, .5, 2.55), sharedDark); base.position.y = .24; base.castShadow = base.receiveShadow = true; group.add(base);
-  const body = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.75 + (index % 3) * .24, 1.7), index === 7 ? sharedSteel : sharedDark); body.position.y = 1.32; body.castShadow = true; group.add(body);
-  const signal = new THREE.Mesh(new THREE.BoxGeometry(1.5, .11, .08), new THREE.MeshStandardMaterial({ color: stage.color, emissive: stage.color, emissiveIntensity: 2 })); signal.position.set(0, 2.1 + (index % 3) * .12, .88); group.add(signal);
-  const chimney = new THREE.Mesh(new THREE.CylinderGeometry(.15, .21, 1.5, 8), sharedSteel); chimney.position.set(.73, 2.5, -.5); chimney.castShadow = true; group.add(chimney);
-  const number = makeLabel(String(index + 1).padStart(2, "0")); number.position.set(0, .72, .89); group.add(number);
-  scene.add(group); stationMeshes.push(group);
-});
-
-const pathPoints = stationPositions.map(([x, z]) => new THREE.Vector3(x, .25, z));
-const pathMaterial = new THREE.MeshStandardMaterial({ color: 0x33485a, roughness: .7, metalness: .35 });
-for (let i = 0; i < pathPoints.length - 1; i++) addBeam(pathPoints[i], pathPoints[i + 1]);
-
-function addBeam(from, to) {
-  const midpoint = from.clone().add(to).multiplyScalar(.5);
-  const length = from.distanceTo(to);
-  const beam = new THREE.Mesh(new THREE.BoxGeometry(length, .16, .52), pathMaterial);
-  beam.position.copy(midpoint); beam.position.y = .12; beam.rotation.y = -Math.atan2(to.z - from.z, to.x - from.x); beam.receiveShadow = true; scene.add(beam);
-}
-
-function makeLabel(text) {
-  const labelCanvas = document.createElement("canvas"); labelCanvas.width = 128; labelCanvas.height = 64;
-  const ctx = labelCanvas.getContext("2d"); ctx.fillStyle = "#e5e0cf"; ctx.font = "600 40px sans-serif"; ctx.textAlign = "center"; ctx.fillText(text, 64, 44);
-  const texture = new THREE.CanvasTexture(labelCanvas); texture.colorSpace = THREE.SRGBColorSpace;
-  const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
-  const sprite = new THREE.Sprite(material); sprite.scale.set(1.2, .6, 1); return sprite;
-}
-
-// Workpiece and three builder agents make progress spatially legible.
-const workpiece = new THREE.Mesh(new THREE.IcosahedronGeometry(.5, 1), new THREE.MeshStandardMaterial({ color: 0xf2b84b, emissive: 0xc76b3c, emissiveIntensity: 1.2, metalness: .75, roughness: .22 }));
+const workpiece = new THREE.Mesh(new THREE.IcosahedronGeometry(.48, 1), new THREE.MeshStandardMaterial({ color: 0xf2b84b, emissive: 0xc76b3c, emissiveIntensity: 1.4, metalness: .75, roughness: .22 }));
 workpiece.castShadow = true; workpiece.visible = false; scene.add(workpiece);
-const agents = [0x52d6d2, 0xc76b3c, 0xf1f0e8].map((color, index) => {
+const agents = [0x52d6d2, 0xc76b3c, 0xf1f0e8].map((color) => {
   const agent = new THREE.Group();
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(.5, .55, .38), new THREE.MeshStandardMaterial({ color, roughness: .4, metalness: .5 })); torso.position.y = .45; torso.castShadow = true; agent.add(torso);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.22, 12, 8), new THREE.MeshStandardMaterial({ color: 0x172332, emissive: color, emissiveIntensity: .45 })); head.position.y = .9; agent.add(head);
-  agent.position.set(-12 + index, .25, -6.5); scene.add(agent); return agent;
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(.48, .53, .36), new THREE.MeshStandardMaterial({ color, roughness: .4, metalness: .5 })); torso.position.y = .43; torso.castShadow = true; agent.add(torso);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.2, 12, 8), new THREE.MeshStandardMaterial({ color: 0x172332, emissive: color, emissiveIntensity: .45 })); head.position.y = .86; agent.add(head);
+  scene.add(agent); return agent;
 });
+
+function layoutDiagram(diagram) {
+  const positions = new Map();
+  if (diagram.id === "context") {
+    const center = diagram.nodes.find((node) => node.id === "harness");
+    if (center) positions.set(center.id, new THREE.Vector3(0, 0, 0));
+    const outer = diagram.nodes.filter((node) => node !== center);
+    outer.forEach((node, index) => {
+      const angle = (index / outer.length) * Math.PI * 2 - Math.PI / 2;
+      positions.set(node.id, new THREE.Vector3(Math.cos(angle) * 13, 0, Math.sin(angle) * 8));
+    });
+  } else if (diagram.id === "components") {
+    const fixed = {
+      rpc: [-12, -5], selection: [-12, 2], worker: [-6, -1], workflows: [0, 6], build: [0, 3], oracle: [0, 0], grading: [0, -3], evidence: [0, -6], runtime: [7, 4], grainmodel: [7, -4], orc: [13, 5], grain: [13, -5],
+    };
+    diagram.nodes.forEach((node, index) => { const pos = fixed[node.id] ?? [((index % 4) - 1.5) * 6, (Math.floor(index / 4) - 1) * 5]; positions.set(node.id, new THREE.Vector3(pos[0], 0, pos[1])); });
+  } else {
+    const internal = diagram.nodes.filter((node) => node.group === "system");
+    const external = diagram.nodes.filter((node) => node.group !== "system");
+    internal.forEach((node, index) => positions.set(node.id, new THREE.Vector3((index % 4 - 1.5) * 5.1, 0, (Math.floor(index / 4) - .5) * 5.2)));
+    external.forEach((node, index) => {
+      const angle = (index / external.length) * Math.PI * 2 - Math.PI / 2;
+      positions.set(node.id, new THREE.Vector3(Math.cos(angle) * 16, 0, Math.sin(angle) * 10.5));
+    });
+  }
+  return positions;
+}
+
+function c4Color(node) {
+  if (/data store/i.test(node.type)) return 0xf2b84b;
+  if (/external/i.test(node.type)) return 0x60778a;
+  if (/component/i.test(node.type)) return 0xc76b3c;
+  if (/person/i.test(node.type)) return 0xd9d2a7;
+  return node.group === "system" || /software system/i.test(node.type) ? 0x52d6d2 : 0x74a5c2;
+}
+
+function makeTextSprite(lines, accent = "#f1f0e8", scale = 1) {
+  const labelCanvas = document.createElement("canvas"); labelCanvas.width = 512; labelCanvas.height = 160;
+  const ctx = labelCanvas.getContext("2d"); ctx.clearRect(0, 0, 512, 160); ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(8,17,28,.88)"; ctx.fillRect(6, 9, 500, 142);
+  ctx.strokeStyle = accent; ctx.lineWidth = 4; ctx.strokeRect(6, 9, 500, 142);
+  ctx.fillStyle = "#f1f0e8"; ctx.font = "600 34px sans-serif"; ctx.fillText(lines[0].slice(0, 30), 256, 67);
+  ctx.fillStyle = accent; ctx.font = "500 22px sans-serif"; ctx.fillText(lines[1].slice(0, 42), 256, 111);
+  const texture = new THREE.CanvasTexture(labelCanvas); texture.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
+  sprite.scale.set(5.1 * scale, 1.6 * scale, 1); return sprite;
+}
+
+function addRelationship(edge) {
+  const from = nodePositions.get(edge.from); const to = nodePositions.get(edge.to);
+  if (!from || !to) return;
+  const middle = from.clone().lerp(to, .5); middle.y = 1.05 + Math.min(2.5, from.distanceTo(to) * .08);
+  const curve = new THREE.QuadraticBezierCurve3(from.clone().setY(.34), middle, to.clone().setY(.34));
+  const material = new THREE.MeshStandardMaterial({ color: 0x3d6071, emissive: 0x183442, emissiveIntensity: .5, roughness: .45, metalness: .5 });
+  const route = new THREE.Mesh(new THREE.TubeGeometry(curve, 18, .075, 6, false), material);
+  route.userData.edge = edge; route.userData.baseColor = 0x3d6071; worldGroup.add(route); edgeMeshes.push(route);
+  const label = makeTextSprite([edge.label, `${edge.from} → ${edge.to}`], "#91a0ae", .62); label.position.copy(middle).add(new THREE.Vector3(0, .48, 0)); worldGroup.add(label);
+}
+
+function addC4Node(node) {
+  const color = c4Color(node); const height = 2.4 + (node.description.length % 5) * .34;
+  const group = new THREE.Group(); group.position.copy(nodePositions.get(node.id)); group.userData.node = node;
+  const material = new THREE.MeshStandardMaterial({ color, roughness: .5, metalness: .42, emissive: color, emissiveIntensity: .09 });
+  const base = new THREE.Mesh(new THREE.BoxGeometry(3.4, .34, 2.7), new THREE.MeshStandardMaterial({ color: 0x213347, roughness: .8 })); base.position.y = .17; base.receiveShadow = true; group.add(base);
+  const body = /data store/i.test(node.type)
+    ? new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, height, 24), material)
+    : new THREE.Mesh(new THREE.BoxGeometry(2.45, height, 1.8), material);
+  body.position.y = .34 + height / 2; body.castShadow = true; group.add(body);
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(2.15, .1, 1.48), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2 })); cap.position.y = height + .38; group.add(cap);
+  const label = makeTextSprite([node.name, node.type], `#${new THREE.Color(color).getHexString()}`, .75); label.position.set(0, height + 1.5, 0); group.add(label);
+  worldGroup.add(group); nodeMeshes.push(group);
+}
+
+function buildDiagram(diagramId) {
+  activeDiagram = diagrams[diagramId] ?? diagrams.containers;
+  refs.stationCard.hidden = true;
+  while (worldGroup.children.length) {
+    const child = worldGroup.children.pop(); child.traverse((object) => { object.geometry?.dispose(); if (Array.isArray(object.material)) object.material.forEach((material) => material.dispose()); else object.material?.dispose(); });
+  }
+  nodeMeshes = []; edgeMeshes = []; nodePositions = layoutDiagram(activeDiagram);
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(38, .4, 25), new THREE.MeshStandardMaterial({ color: 0x172332, roughness: .9, metalness: .12 })); floor.position.y = -.25; floor.receiveShadow = true; worldGroup.add(floor);
+  const grid = new THREE.GridHelper(38, 38, 0x496179, 0x293b4e); grid.position.y = -.04; worldGroup.add(grid);
+  if (activeDiagram.id === "containers") {
+    const boundary = new THREE.Mesh(new THREE.BoxGeometry(19.5, .16, 12.2), new THREE.MeshStandardMaterial({ color: 0x183b47, transparent: true, opacity: .68, roughness: .8 })); boundary.position.y = -.02; worldGroup.add(boundary);
+    const boundaryLabel = makeTextSprite(["Session-hosted ORC Regeneration Harness", "Software System boundary"], "#52d6d2", .82); boundaryLabel.position.set(0, .55, -6); worldGroup.add(boundaryLabel);
+  }
+  activeDiagram.edges.forEach(addRelationship);
+  activeDiagram.nodes.forEach(addC4Node);
+  $("#diagram-count").textContent = `${activeDiagram.nodes.length} elements · ${activeDiagram.edges.length} relations`;
+  $("#diagram-source").textContent = `Source: .pi/architecture.md:${activeDiagram.sourceLine}`;
+  updateSceneFromState();
+}
+
+diagramSelect.addEventListener("change", () => { buildDiagram(diagramSelect.value); renderState(); setCamera(VARIANTS[activeVariant].camera); });
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 canvas.addEventListener("click", (event) => {
-  const rect = canvas.getBoundingClientRect();
-  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  const rect = canvas.getBoundingClientRect(); pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1; pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
-  const hit = raycaster.intersectObjects(stationMeshes, true)[0];
+  const hit = raycaster.intersectObjects([...nodeMeshes, ...edgeMeshes], true)[0];
   if (!hit) return;
   let target = hit.object;
-  while (target.parent && target.userData.stageIndex === undefined) target = target.parent;
-  if (target.userData.stageIndex !== undefined) showStation(target.userData.stageIndex);
+  while (target.parent && !target.userData.node && !target.userData.edge) target = target.parent;
+  if (target.userData.node) showArchitectureElement(target.userData.node);
+  if (target.userData.edge) showRelationship(target.userData.edge);
 });
 
-function showStation(index) {
-  selectedStage = index;
-  const stage = STAGES[index];
-  $("#station-code").textContent = stage.code; $("#station-name").textContent = stage.name;
-  $("#station-description").textContent = stage.description; $("#station-owner").textContent = stage.owner;
-  $("#station-authority").textContent = stage.authority; refs.stationCard.hidden = false;
+function showArchitectureElement(node) {
+  selectedStage = node.id;
+  $("#station-code").textContent = node.id; $("#station-name").textContent = node.name;
+  $("#station-description").textContent = node.description || "This element is named in the repository C4 source without an additional description.";
+  $("#station-owner").textContent = node.type; $("#station-authority").textContent = activeDiagram.label; refs.stationCard.hidden = false;
+}
+
+function showRelationship(edge) {
+  $("#station-code").textContent = `${edge.from} → ${edge.to}`; $("#station-name").textContent = edge.label;
+  $("#station-description").textContent = "Relationship loaded from the selected Mermaid C4 view in .pi/architecture.md.";
+  $("#station-owner").textContent = "C4 relationship"; $("#station-authority").textContent = activeDiagram.label; refs.stationCard.hidden = false;
 }
 $("#close-station").addEventListener("click", () => { refs.stationCard.hidden = true; selectedStage = null; });
 
+function activeTargetIds() { return STAGE_TARGETS[activeDiagram.id]?.[Math.max(0, state.activeStage)] ?? []; }
+
 function updateSceneFromState() {
-  workpiece.visible = Boolean(state.cycleId) && !["failed"].includes(state.status);
-  const active = Math.max(0, state.activeStage);
-  stationMeshes.forEach((group, index) => {
-    const scale = state.activeStage === index && state.status !== "passed" ? 1.07 : 1;
-    group.scale.setScalar(scale);
+  if (!activeDiagram) return;
+  const targets = new Set(activeTargetIds());
+  workpiece.visible = Boolean(state.cycleId) && state.status !== "failed";
+  nodeMeshes.forEach((group) => {
+    const active = targets.has(group.userData.node.id);
+    group.scale.setScalar(active ? 1.1 : 1);
+    group.children.forEach((child) => { if (child.material?.emissive) child.material.emissiveIntensity = active ? 1.25 : .09; });
   });
-  const pos = pathPoints[active] ?? pathPoints[0];
-  agents.forEach((agent, index) => {
-    const offset = new THREE.Vector3((index - 1) * .7, 0, 1.6 + Math.abs(index - 1) * .25);
-    agent.userData.target = pos.clone().add(offset);
+  edgeMeshes.forEach((route) => {
+    const active = targets.has(route.userData.edge.from) && targets.has(route.userData.edge.to);
+    route.material.color.setHex(active ? 0xf2b84b : route.userData.baseColor); route.material.emissiveIntensity = active ? 2 : .5;
   });
+  const destinations = [...targets].map((id) => nodePositions.get(id)).filter(Boolean);
+  const target = destinations[0] ?? nodePositions.values().next().value ?? new THREE.Vector3();
+  agents.forEach((agent, index) => { const destination = destinations[index % Math.max(1, destinations.length)] ?? target; agent.userData.target = destination.clone().add(new THREE.Vector3((index - 1) * .7, 0, 1.8)); });
 }
 
 function setCamera(mode) {
-  if (mode === "top") { camera.position.set(0, 31, .01); controls.target.set(0, 0, 0); }
-  else if (mode === "perspective") { camera.position.set(20, 10, 17); controls.target.set(0, 1, 0); }
-  else { camera.position.set(18, 17, 20); controls.target.set(0, 1, 0); }
+  if (mode === "top") { camera.position.set(0, 38, .01); controls.target.set(0, 0, 0); }
+  else if (mode === "perspective") { camera.position.set(27, 16, 24); controls.target.set(0, 1, 0); }
+  else { camera.position.set(25, 23, 28); controls.target.set(0, 1, 0); }
   controls.update();
 }
 $("#camera-reset").addEventListener("click", () => setCamera(VARIANTS[activeVariant].camera));
 
 function resize() {
-  const rect = canvas.getBoundingClientRect();
-  if (!rect.width || !rect.height) return;
+  const rect = canvas.getBoundingClientRect(); if (!rect.width || !rect.height) return;
   renderer.setSize(rect.width, rect.height, false); camera.aspect = rect.width / rect.height; camera.updateProjectionMatrix();
 }
 new ResizeObserver(resize).observe(canvas);
 
 function frame(now) {
   const delta = Math.min((now - lastFrame) / 1000, .1); lastFrame = now;
-  if (state.status === "running" && !state.paused) {
-    stageElapsed += delta * state.speed;
-    const duration = state.activeStage === 2 ? 4.3 : 2.8;
-    if (stageElapsed >= duration) completeActiveStage();
-  }
+  if (state.status === "running" && !state.paused) { stageElapsed += delta * state.speed; const duration = state.activeStage === 2 ? 4.3 : 2.8; if (stageElapsed >= duration) completeActiveStage(); }
   workpiece.rotation.x += delta * 1.4; workpiece.rotation.y += delta * 2;
   if (workpiece.visible) {
-    const target = pathPoints[Math.max(0, state.activeStage)] ?? pathPoints[0];
-    workpiece.position.lerp(new THREE.Vector3(target.x, 2.9 + Math.sin(now * .003) * .18, target.z), .045 * Math.max(1, state.speed));
+    const targetId = activeTargetIds()[0]; const target = nodePositions.get(targetId) ?? new THREE.Vector3();
+    workpiece.position.lerp(new THREE.Vector3(target.x, 4 + Math.sin(now * .003) * .2, target.z), .045 * Math.max(1, state.speed));
   }
-  agents.forEach((agent, index) => {
-    if (agent.userData.target) agent.position.lerp(agent.userData.target, .018 + index * .003);
-    agent.rotation.y = Math.sin(now * .001 + index) * .16;
-  });
+  agents.forEach((agent, index) => { if (agent.userData.target) agent.position.lerp(agent.userData.target, .018 + index * .003); agent.rotation.y = Math.sin(now * .001 + index) * .16; });
   controls.update(); renderer.render(scene, camera); requestAnimationFrame(frame);
 }
 
@@ -335,6 +465,7 @@ document.addEventListener("keydown", (event) => {
   if (!editing && event.code === "Space") { event.preventDefault(); if (!state.cycleId || ["passed", "failed"].includes(state.status)) startCycle(); else if (!state.awaitingDecision) append(state.paused ? "CycleResumed" : "CyclePaused"); }
 });
 
+buildDiagram("containers");
 setVariant(new URLSearchParams(location.search).get("variant") ?? "A", false);
 renderState();
 requestAnimationFrame(frame);

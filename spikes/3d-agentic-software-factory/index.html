@@ -23,11 +23,17 @@
       <main class="game-shell">
         <section class="world" aria-label="Interactive 3D factory floor">
           <canvas id="factory-canvas"></canvas>
+          <div class="architecture-toolbar">
+            <label for="diagram-select">C4 world</label>
+            <select id="diagram-select"></select>
+            <span id="diagram-count">0 elements · 0 relations</span>
+            <span id="diagram-source">Source: .pi/architecture.md</span>
+          </div>
           <div class="world-title">
             <p id="view-kicker">Floor operator</p>
             <h1 id="view-title">Build software you can prove</h1>
           </div>
-          <div class="world-hint">Drag to orbit · Scroll to zoom · Select a station to inspect</div>
+          <div class="world-hint">Drag to orbit · Scroll to zoom · Select a C4 element to inspect</div>
           <button class="camera-reset" id="camera-reset" type="button">Reset camera</button>
         </section>
 
@@ -75,11 +81,11 @@
       </main>
 
       <div class="station-card" id="station-card" hidden>
-        <button id="close-station" type="button" aria-label="Close station details">×</button>
-        <span id="station-code">ST–00</span>
-        <h2 id="station-name">Station</h2>
+        <button id="close-station" type="button" aria-label="Close C4 element details">×</button>
+        <span id="station-code">C4 element</span>
+        <h2 id="station-name">Architecture element</h2>
         <p id="station-description"></p>
-        <dl><div><dt>Owner</dt><dd id="station-owner"></dd></div><div><dt>Authority</dt><dd id="station-authority"></dd></div></dl>
+        <dl><div><dt>C4 type</dt><dd id="station-owner"></dd></div><div><dt>Diagram</dt><dd id="station-authority"></dd></div></dl>
       </div>
 
       <nav class="prototype-switcher" aria-label="Prototype view switcher">
