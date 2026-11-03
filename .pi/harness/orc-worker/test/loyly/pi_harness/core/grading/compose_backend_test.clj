@@ -73,9 +73,19 @@
                        "docker load -i /runtime-images/rust-1.91-alpine.tar"))
     (is (str/includes? (get by-name "independent-up") "docker compose"))
     (is (str/includes? (get by-name "independent-up") "docker inspect"))
+    (is (str/includes? (get by-name "independent-observe-start") "otelcol-contrib"))
+    (is (str/includes? (get by-name "independent-observe-start") "otelcol-ebpf-profiler"))
+    (is (str/includes? (get by-name "independent-observe-start") "OTEL_EBPF_OPEN_PORT=8080"))
+    (is (str/includes? (get by-name "independent-observe-start") "/usr/local/bin/obi"))
+    (is (not (str/includes? (get by-name "independent-observe-start") "bpftrace")))
     (is (not (str/includes? (get by-name "independent-up") "./impl/start.sh")))
     (is (str/includes? (get by-name "independent-grade")
-                       "/tmp/pi-harness-independent-base-url"))))
+                       "/tmp/pi-harness-independent-base-url"))
+    (is (str/includes? (get by-name "independent-observe-stop") "kill -INT"))
+    (is (< (.indexOf (mapv :name commands) "independent-observe-start")
+           (.indexOf (mapv :name commands) "independent-grade")))
+    (is (< (.indexOf (mapv :name commands) "independent-grade")
+           (.indexOf (mapv :name commands) "independent-observe-stop")))))
 
 (deftest independent-grading-scopes-candidate-runtime-evidence-to-the-item
   (let [command (-> (grader-commands/commands

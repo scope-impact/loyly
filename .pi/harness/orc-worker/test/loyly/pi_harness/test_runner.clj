@@ -2,7 +2,9 @@
   (:require [clojure.test :as test]
             [loyly.pi-harness.core.runtime.adapters-test]
             [loyly.pi-harness.core.evidence.allure-evidence-test]
+            [loyly.pi-harness.core.evidence.evidence-projection-test]
             [loyly.pi-harness.core.grading.compose-backend-test]
+            [loyly.pi-harness.grain.cycle-progress-test]
             [loyly.pi-harness.grain.cycle-measurement-test]
             [loyly.pi-harness.entrypoint-test]
             [loyly.pi-harness.core.oracle.harness-calibration-test]
@@ -20,7 +22,9 @@
 (def test-namespaces
   '[loyly.pi-harness.core.runtime.adapters-test
     loyly.pi-harness.core.evidence.allure-evidence-test
+    loyly.pi-harness.core.evidence.evidence-projection-test
     loyly.pi-harness.core.grading.compose-backend-test
+    loyly.pi-harness.grain.cycle-progress-test
     loyly.pi-harness.grain.cycle-measurement-test
     loyly.pi-harness.entrypoint-test
     loyly.pi-harness.core.oracle.harness-calibration-test

@@ -25,6 +25,12 @@
                             (or oracle-cache-root
                                 (io/file (System/getProperty "java.io.tmpdir")
                                          "pi-harness-oracles"))))
+             observability-root (when resolved-pack
+                          (oci-oracle/materialize-observability!
+                           resolved-pack
+                           (or oracle-cache-root
+                               (io/file (System/getProperty "java.io.tmpdir")
+                                        "pi-harness-oracles"))))
              pack (when resolved-pack
                     (oci-oracle/validate-pack! resolved-pack selection contract
                                                {:grader-root grader-root
@@ -45,6 +51,7 @@
            pack (assoc :oracle-pack-digest (:digest pack)
                        :oracle-layers (:layers pack)
                        :grader-root grader-root
+                       :observability-root observability-root
                        :calibration-results (:calibration-results pack))))
        (catch Exception error
          {:passed false

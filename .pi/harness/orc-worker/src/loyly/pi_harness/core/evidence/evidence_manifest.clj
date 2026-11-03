@@ -58,9 +58,13 @@
                    (str/starts-with? lower "playwright/") "playwright"
                    (str/starts-with? lower "otel/") "opentelemetry"
                    (str/starts-with? lower "compose/") "docker-compose"
+                   (str/starts-with? lower "instrument/independent/pi-ebpf-profiler/") "pi-ebpf-profiler"
                    (str/starts-with? lower "independent/") "independent-grader"
                    :else "project")
         kind (cond
+               (str/ends-with? lower "/profile.pb.gz") "profile"
+               (str/ends-with? lower "/collection-status.json") "collection-status"
+               (str/ends-with? lower "/profile-manifest.json") "profile-manifest"
                (and (= producer "playwright") (str/ends-with? lower ".zip")) "trace"
                (re-find #"\.(png|jpe?g)$" lower) "screenshot"
                (str/ends-with? lower ".webm") "video"
@@ -74,6 +78,7 @@
                    (str/ends-with? lower ".stderr.txt")) "command-output"
                :else "artifact")
         media-type (cond
+                     (str/ends-with? lower ".pb.gz") "application/octet-stream"
                      (str/ends-with? lower ".json") "application/json"
                      (str/ends-with? lower ".xml") "application/xml"
                      (str/ends-with? lower ".zip") "application/zip"

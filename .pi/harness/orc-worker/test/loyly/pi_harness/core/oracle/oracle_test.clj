@@ -70,6 +70,10 @@
 (def fixture-server-layer
   ["fixture-server.mjs" "application/vnd.loyly.oracle.fixture-server.v1+javascript"])
 
+(def otel-capture-policy-layer
+  ["runtime-observability/capture-policy.json"
+   "application/vnd.loyly.oracle.otel-capture-policy.v1+json"])
+
 (def grader-layer
   ["grader/grader.sh" "application/vnd.loyly.oracle.grader-file.v1"])
 
@@ -115,7 +119,7 @@
         source (io/file root "source")
         layout (io/file root "layout")
         layer-types (cond-> oracle-layer-types
-                      runnable? (conj fixture-server-layer)
+                      runnable? (conj fixture-server-layer otel-capture-policy-layer)
                       true (conj grader-layer))]
     (try
       (.mkdirs source)
@@ -130,7 +134,18 @@
                 (get layers name test-grader-source)
 
                 :else
-                (json/write-str (get layers name {})))))
+                (json/write-str
+                 (get layers name
+                      (case name
+                        "runtime-observability/capture-policy.json"
+                        {:version 1
+                         :standard "opentelemetry"
+                         :target {:openPorts [8080]}
+                         :signals ["traces" "metrics" "profiles"]
+                         :format "otlp-json"
+                         :purpose "diagnostic"
+                         :authoritativeGrade false}
+                        {}))))))
       (let [result (apply shell/sh
                           (concat ["oras" "push" "--oci-layout" (str layout ":accepted")
                                    "--artifact-type" "application/vnd.loyly.oracle.pack.v1"]
@@ -161,9 +176,16 @@
                          :fixture-runner calibrated-fixture-runner})]
             (is (true? (:passed result)))
             (is (re-matches #"sha256:[0-9a-f]{64}" (:oracle-pack-digest result)))
-            (is (= (mapv second (conj oracle-layer-types fixture-server-layer grader-layer))
+            (is (= (mapv second (conj oracle-layer-types fixture-server-layer
+                                      otel-capture-policy-layer grader-layer))
                    (mapv :media-type (:oracle-layers result))))
             (is (.isFile (io/file (:grader-root result) "grader.sh")))
+            (is (.isFile (io/file (:observability-root result) "capture-policy.json")))
+            (let [layer (some #(when (= "runtime-observability/capture-policy.json" (:title %)) %)
+                              (:oracle-layers result))]
+              (is (= (str "sha256:" (file-digest
+                                      (io/file (:observability-root result) "capture-policy.json")))
+                     (:digest layer))))
             (is (= test-grader-source
                    (slurp (io/file (:grader-root result) "grader.sh"))))
             (is (= [{:item-id "@item-01-001" :role "carried"

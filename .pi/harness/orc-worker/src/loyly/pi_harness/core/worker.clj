@@ -6,6 +6,7 @@
             [clojure.string :as str]
             [loyly.pi-harness.core.evidence.allure-evidence :as allure-evidence]
             [loyly.pi-harness.core.evidence.allure-golden :as allure-golden]
+            [loyly.pi-harness.core.evidence.evidence-projection :as evidence-projection]
             [loyly.pi-harness.core.runtime.adapters :as adapters]
             [loyly.pi-harness.core.grading.compose :as compose]
             [loyly.pi-harness.grain.interface :as model]
@@ -50,6 +51,12 @@
       (System/getenv "LOYLEY_CUTS_ROOT")
       (str (System/getProperty "user.home") "/.pi/harness/cuts")))
 
+(defn builder-sessions-root []
+  (or (System/getenv "PI_HARNESS_BUILDER_SESSIONS_ROOT")
+      (some-> (System/getenv "PI_HARNESS_STATE_ROOT")
+              (str "/builder-sessions"))
+      (str (project-root) "/.pi/harness/.state/builder-sessions")))
+
 (defn project-adapter [selection]
   (project-profile/resolved (project-root) selection))
 
@@ -62,6 +69,20 @@
    :cut (get-in inputs [:selection :cut])
    :scope (get inputs :scope)
    :execution-backend (get inputs :execution-backend)})
+
+(defn record-stage-progress!
+  ([context stage] (record-stage-progress! context stage 1 nil "running"))
+  ([{:keys [cycle-id inputs tick-id]} stage attempt builder-session-ref status]
+   (let [tick-id (or tick-id (:orc-tick-id inputs))]
+    (when-let [grain-context (and tick-id (some-> @runtime :context))]
+     (model/record-cycle-progress!
+      grain-context
+      (cond-> {:cycle-id (or cycle-id (:request-id inputs) (str tick-id))
+               :tick-id (str tick-id)
+               :stage stage
+               :attempt attempt
+               :status status}
+        builder-session-ref (assoc :builder-session-ref builder-session-ref)))))))
 
 (defn effective-builder-result [inputs]
   (or (get-in inputs [:repair-verification-result :builder])
@@ -78,11 +99,14 @@
 (defn run-cut-adapter [source-commit execution-backend]
   (adapters/run-cut! (project-root) source-commit execution-backend))
 
-(defn prepare-cut-stage [{:keys [inputs]}]
+(defn prepare-cut-stage [{:keys [inputs] :as context}]
+  (record-stage-progress! context "prepare-cut")
   (merge {:stage "cut" :source-commit (:source-commit inputs) :execution-backend (:execution-backend inputs)}
          (run-cut-adapter (:source-commit inputs) (:execution-backend inputs))))
 
-(defn cut-stage [context] (stage-result "cut" context))
+(defn cut-stage [context]
+  (record-stage-progress! context "cut")
+  (stage-result "cut" context))
 
 (defn calibrate-harness! []
   (let [root (project-root)
@@ -102,6 +126,7 @@
     result))
 
 (defn harness-calibration-stage [context]
+  (record-stage-progress! context "harness-calibration")
   (let [result (calibrate-harness!)
         suite-summary (into {}
                             (map (fn [[suite value]]
@@ -125,19 +150,36 @@
                           :project-adapter project-adapter}
                          request))
 
+(defn run-builder-session-adapter [builder-session-ref]
+  (adapters/read-builder-session! (project-root)
+                                  (builder-sessions-root)
+                                  builder-session-ref))
+
+(defn builder-session! [{:keys [builderSessionRef]}]
+  (when-not (and (string? builderSessionRef) (not (str/blank? builderSessionRef)))
+    (throw (ex-info "builder-session requires builderSessionRef"
+                    {:builderSessionRef builderSessionRef})))
+  (run-builder-session-adapter builderSessionRef))
+
 (defn builder-stage [{:keys [inputs] :as context}]
-  (let [builder-result (run-builder-adapter {:request-id (:request-id inputs)
+  (let [builder-session-ref (str (random-uuid))
+        _ (record-stage-progress! context "builder" 1 builder-session-ref "running")
+        builder-result (run-builder-adapter {:request-id (:request-id inputs)
                                              :cut (get-in inputs [:selection :cut])
                                              :scope (:scope inputs)
                                              :selection (:selection inputs)
                                              :target-stack (:target-stack inputs)
-                                             :execution-backend (:execution-backend inputs)})]
+                                             :execution-backend (:execution-backend inputs)
+                                             :builder-session-ref builder-session-ref
+                                             :builder-sessions-root (builder-sessions-root)
+                                             :attempt 1})]
     (merge (stage-result "builder" context)
            builder-result
            {:builder (or (:builder builder-result) (builder-id))
             :subject-digest (subject/digest (:output-root builder-result))})))
 
 (defn instrument-stage [{:keys [inputs] :as context}]
+  (record-stage-progress! context "instrument")
   (let [output-root (get-in inputs [:builder-result :output-root])
         expected-digest (get-in inputs [:builder-result :subject-digest])
         observed-digest (subject/digest output-root)
@@ -252,11 +294,14 @@
         oracle-result {:passed (:passed oracle)
                        :oracle-digest (:oracle-digest oracle)
                        :grader-root (:grader-root oracle)
+                       :observability-root (:observability-root oracle)
                        :grader-producer (:graderProducer adapter)
                        :grader-id (:graderId adapter)}
         grader-request {:cut cut :output-root (:output-root evidence)
+                        :cycle-id evaluation-id
                         :evidence-root evidence-root
                         :grader-root (:grader-root oracle)
+                        :observability-root (:observability-root oracle)
                         :execution-backend execution-backend
                         :target-stack target-stack}
         verification (compose/interpret-verification
@@ -530,17 +575,26 @@
 
 
 (defn emit-cycle-observation! [{:keys [inputs evidence-manifest]} value]
-  (allure-evidence/write-observation!
-   (evidence-results-root inputs)
+  (evidence-projection/project!
+   (:evidence-root (effective-instrument-result inputs))
    (merge value
           {:role "observed"
            :builder (:builder (effective-builder-result inputs))
            :room (:execution-backend inputs)
-           :scope (str/join "," (:scope inputs))})
-   (:evidence-root (effective-instrument-result inputs))
-   evidence-manifest))
+           :scope (str/join "," (:scope inputs))
+           :evidence-manifest evidence-manifest})))
+
+(defn- persisted-evaluation [manifest observation]
+  (assoc observation
+         :evaluation-id
+         (str "evaluation-"
+              (sha256 (str/join "|" (map observation
+                                           [:cycle-id :item-id :evidence-kind :producer]))))
+         :evidence-digest (:digest manifest)
+         :artifact-digests (mapv :sha256 (:artifacts manifest))))
 
 (defn oracle-stage [{:keys [inputs] :as context}]
+  (record-stage-progress! context "oracle")
   (let [selection (:selection inputs)
         adapter (project-adapter selection)
         result (run-oracle (get-in inputs [:selection :cut])
@@ -559,17 +613,21 @@
             :accepted-contract-digest accepted-contract-digest
             :instrument-oracle-digest instrument-oracle-digest
             :grader-root (:grader-root result)
+            :observability-root (:observability-root result)
             :grader-producer (:graderProducer adapter)
             :grader-id (:graderId adapter)
             :evidence (json/write-str result)})))
 
 (defn verify-stage [{:keys [inputs] :as context}]
+  (record-stage-progress! context "verify")
   (let [stack-result (stack-conformance/check (get-in inputs [:builder-result :output-root])
                                                (:target-stack inputs))
-        evidence (run-grader-adapter {:cut (get-in inputs [:selection :cut])
+        evidence (run-grader-adapter {:cycle-id (:request-id inputs)
+                                      :cut (get-in inputs [:selection :cut])
                                       :output-root (get-in inputs [:builder-result :output-root])
                                       :evidence-root (get-in inputs [:instrument-result :evidence-root])
                                       :grader-root (get-in inputs [:oracle-result :grader-root])
+                                      :observability-root (get-in inputs [:oracle-result :observability-root])
                                       :execution-backend (:execution-backend inputs)
                                       :target-stack (:target-stack inputs)
                                       :mode "compose"})
@@ -584,6 +642,7 @@
 (def max-verification-rounds 3)
 
 (defn repair-verification-stage [{:keys [inputs] :as context}]
+  (record-stage-progress! context "repair-verification")
   (let [initial-builder (:builder-result inputs)
         initial-instrument (:instrument-result inputs)
         initial-verify (:verify-result inputs)]
@@ -605,6 +664,9 @@
                 :attempts attempts})
         (let [next-round (inc round)
               repair-id (format "%s-repair-%02d" (:request-id inputs) next-round)
+              builder-session-ref (str (random-uuid))
+              _ (record-stage-progress! context "builder" next-round
+                                        builder-session-ref "running")
               raw-builder (run-builder-adapter
                            {:request-id repair-id
                             :cut (get-in inputs [:selection :cut])
@@ -614,7 +676,10 @@
                             :execution-backend (:execution-backend inputs)
                             :initial-workspace-root (:output-root builder)
                             :verification-evidence-root (:evidence-root instrument)
-                            :round next-round})
+                            :round next-round
+                            :builder-session-ref builder-session-ref
+                            :builder-sessions-root (builder-sessions-root)
+                            :attempt next-round})
               repaired-builder (merge (stage-result "builder" {:inputs (assoc inputs :request-id repair-id)})
                                       raw-builder
                                       {:builder (or (:builder raw-builder) (builder-id))
@@ -622,10 +687,14 @@
               repaired-inputs (assoc inputs
                                      :request-id repair-id
                                      :builder-result repaired-builder)
-              repaired-instrument (instrument-stage {:inputs repaired-inputs})
+              repaired-context {:inputs repaired-inputs
+                                :tick-id (:tick-id context)
+                                :cycle-id (:request-id inputs)}
+              repaired-instrument (instrument-stage repaired-context)
               repaired-verification (verify-stage
-                                     {:inputs (assoc repaired-inputs
-                                                     :instrument-result repaired-instrument)})]
+                                     (assoc repaired-context :inputs
+                                            (assoc repaired-inputs
+                                                   :instrument-result repaired-instrument)))]
           (recur next-round
                  repaired-builder
                  repaired-instrument
@@ -637,6 +706,7 @@
                         :passed (boolean (:passed repaired-verification))})))))))
 
 (defn graders-stage [{:keys [inputs] :as context}]
+  (record-stage-progress! context "graders")
   (let [verification (effective-verify-result inputs)
         _ (when-not (:passed verification)
             (throw (ex-info "verification did not pass; independent grading was not run"
@@ -651,7 +721,8 @@
                             (let [item-id (:id item)
                                   expected-id (str/replace item-id #"^@item-" "")
                                   evidence (run-grader-adapter
-                                            {:cut (get-in inputs [:selection :cut])
+                                            {:cycle-id (:request-id inputs)
+                                             :cut (get-in inputs [:selection :cut])
                                              :output-root (:output-root builder)
                                              :evidence-root (:evidence-root instrument)
                                              :evidence-namespace (str "independent/" expected-id)
@@ -660,6 +731,7 @@
                                              :grader-script
                                              (project-profile/grader-script adapter item-id)
                                              :grader-root (get-in inputs [:oracle-result :grader-root])
+                                             :observability-root (get-in inputs [:oracle-result :observability-root])
                                              :target-stack (:target-stack inputs)
                                              :mode "independent"})]
                               {:item-id item-id
@@ -700,6 +772,7 @@
                                        :independent independent})})))
 
 (defn instrument-conformance-stage [{:keys [inputs] :as context}]
+  (record-stage-progress! context "instrument-conformance")
   (let [builder (effective-builder-result inputs)
         instrument (effective-instrument-result inputs)
         selected-items (get-in inputs [:selection :items])
@@ -717,12 +790,14 @@
         expected-ids (mapv #(str/replace (:id %) #"^@item-" "") instrumented-items)
         gondolin? (= "gondolin" (:execution-backend inputs))
         evidence (when gondolin?
-                   (run-grader-adapter {:cut (get-in inputs [:selection :cut])
+                   (run-grader-adapter {:cycle-id (:request-id inputs)
+                                        :cut (get-in inputs [:selection :cut])
                                         :output-root (:output-root builder)
                                         :evidence-root (:evidence-root instrument)
                                         :execution-backend "gondolin"
                                         :project-id (get-in inputs [:selection :projectId])
                                         :grader-root (get-in inputs [:oracle-result :grader-root])
+                                        :observability-root (get-in inputs [:oracle-result :observability-root])
                                         :item-ids (mapv :id instrumented-items)
                                         :mode "instrument"}))
         command (get evidence :instrument-conformance)
@@ -757,7 +832,8 @@
             :evidence (json/write-str {:command command
                                        :evaluation interpreted})})))
 
-(defn record-cycle-stage [{:keys [inputs]}]
+(defn record-cycle-stage [{:keys [inputs] :as stage-context}]
+  (record-stage-progress! stage-context "record-cycle")
   (let [instrument (effective-instrument-result inputs)
         manifest (evidence-manifest/seal!
                   (:evidence-root instrument)
@@ -772,10 +848,9 @@
         measurement (assoc (get-in inputs [:graders-result :measurement])
                            :instrument-conformance instrument-conformance
                            :evidence-manifest manifest)
-        artifact-digests (mapv :sha256 (:artifacts manifest))
         observations (->> (into (vec (get-in inputs [:graders-result :observations]))
                                 (get-in inputs [:instrument-conformance-result :observations]))
-                          (mapv #(assoc % :artifact-digests artifact-digests)))
+                          (mapv #(persisted-evaluation manifest %)))
         context (:context @runtime)
         persisted-observations (mapv #(model/record-observation! context %) observations)
         persisted (model/record-measurement! context measurement)]
@@ -784,19 +859,22 @@
     (when-not (= measurement persisted)
       (throw (ex-info "persisted cycle measurement does not match the grader result"
                       {:expected measurement :persisted persisted})))
-    (doseq [value observations]
+    (doseq [value persisted-observations]
       (emit-cycle-observation! {:inputs inputs :evidence-manifest manifest} value))
     persisted))
 
 (defn grade-gate-stage [{:keys [inputs] :as context}]
-  (let [verification (effective-verify-result inputs)]
-   (merge (stage-result "result" context)
-         {:passed (boolean (and (get-in inputs [:graders-result :passed])
-                                (get-in inputs [:instrument-conformance-result :passed])))
-          :verified? (boolean (:passed verification))
-          :instrumented? (boolean (get-in inputs [:instrument-conformance-result :passed]))
-          :score (select-keys (get-in inputs [:graders-result :measurement])
-                              [:passed :failed])})))
+  (record-stage-progress! context "result")
+  (let [verification (effective-verify-result inputs)
+        result (merge (stage-result "result" context)
+                      {:passed (boolean (and (get-in inputs [:graders-result :passed])
+                                             (get-in inputs [:instrument-conformance-result :passed])))
+                       :verified? (boolean (:passed verification))
+                       :instrumented? (boolean (get-in inputs [:instrument-conformance-result :passed]))
+                       :score (select-keys (get-in inputs [:graders-result :measurement])
+                                           [:passed :failed])})]
+    (record-stage-progress! context "result" 1 nil "completed")
+    result))
 
 (defn cut-workflow [] (cut-workflow/workflow))
 
@@ -855,13 +933,16 @@
     (let [_ (ensure-runtime!)
           {:keys [context sheet-id]} (get @workflows :cycle)
           task-id (swap! next-task inc)
+          tick-id (random-uuid)
+          correlation-id (random-uuid)
           trace (future
                   (orc/execute context sheet-id
                                {:request-id requestId :selection selectionContract
                                 :scope scope :target-stack targetStack
-                                :execution-backend executionBackend}
-                               :tick-id (random-uuid)
-                               :correlation-id (random-uuid)
+                                :execution-backend executionBackend
+                                :orc-tick-id (str tick-id)}
+                               :tick-id tick-id
+                               :correlation-id correlation-id
                                :timeout-ms 900000))
           receipt {:cycleId requestId :selectionId (:selectionId selectionContract)
                    :taskId task-id :targetStack targetStack
@@ -966,7 +1047,8 @@
                                           :selection selectionContract
                                           :scope scope
                                           :target-stack targetStack
-                                          :execution-backend executionBackend}
+                                          :execution-backend executionBackend
+                                          :orc-tick-id (str tick-id)}
                                          :tick-id tick-id
                                          :correlation-id correlation-id
                                          :timeout-ms 900000))]
@@ -978,7 +1060,9 @@
   "Return transport-safe execution state from ORC's durable tick read model."
   [{:keys [tickId]}]
   (let [tick-id (parse-uuid-field :tickId tickId)
-        tick (orc/get-tick (runtime-context) tick-id)]
+        context (runtime-context)
+        tick (orc/get-tick context tick-id)
+        progress (model/find-cycle-progress (dissoc context :cache) tickId)]
     (if-not tick
       {:tickId tickId :status "not-started"}
       (cond-> {:tickId tickId
@@ -991,7 +1075,14 @@
         (assoc :rootStatus (name (:root-status tick)))
 
         (:error tick)
-        (assoc :error (str (:error tick)))))))
+        (assoc :error (str (:error tick)))
+
+        (:stage progress)
+        (assoc :stage (:stage progress)
+               :attempt (:attempt progress))
+
+        (:builder-session-ref progress)
+        (assoc :builderSessionRef (:builder-session-ref progress))))))
 
 (defn wait! [{:keys [taskId]}]
   (when-not (number? taskId)

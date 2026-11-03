@@ -4,12 +4,14 @@ import { persistCommandEvidence } from "./command-evidence.ts";
 
 type Request = {
   backend: ExecutionBackend;
+  cycleId: string;
   cutId: string;
   outputRoot: string;
   cutsRoot: string;
   evidenceRoot: string;
   evidenceNamespace: string;
   graderAssetsRoot?: string;
+  observabilityAssetsRoot?: string;
   runtimeImagesRoot?: string;
   commands: Array<{ name: string; command: string }>;
 };
@@ -20,7 +22,7 @@ try {
   const results: Record<string, unknown> = {};
   for (const item of request.commands) {
     const result = await run(room, item.command);
-    await persistCommandEvidence(request.evidenceRoot, request.evidenceNamespace, item.name, result);
+    await persistCommandEvidence(room.evidenceRoot, request.evidenceNamespace, item.name, result);
     results[item.name] = result;
   }
   process.stdout.write(JSON.stringify({ ok: true, result: results }) + "\n");

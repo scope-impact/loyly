@@ -16,6 +16,7 @@
 (def submit! worker/submit!)
 (def start-cycle! worker/start-cycle!)
 (def execution-status! worker/execution-status!)
+(def builder-session! worker/builder-session!)
 (def wait! worker/wait!)
 
 (def optimize-builder-prompt! worker/optimize-builder-prompt!)

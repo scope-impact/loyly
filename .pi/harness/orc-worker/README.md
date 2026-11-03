@@ -10,6 +10,11 @@ identities, status is read from ORC's durable tick projection, and runtime start
 ORC's idempotent `resume-in-progress!` recovery. The older `submit!`/`wait!` boundary is
 retained for compatibility but its numeric receipts and futures are process-local.
 
+`execution-status!` reconciles that authoritative ORC status with the harness-owned Grain
+projection of stage, attempt, and builder-session reference. `builder-session!` is a separate
+read-only adapter over append-only Pi transcripts; neither query can advance ORC or mutate a
+candidate.
+
 ## Reading order
 
 1. `interface.clj` — public API used by entrypoints and consumers.

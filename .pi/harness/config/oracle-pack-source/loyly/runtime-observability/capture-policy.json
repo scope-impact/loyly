@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "standard": "opentelemetry",
+  "target": {
+    "openPorts": [8080]
+  },
+  "signals": ["traces", "metrics", "profiles"],
+  "format": "otlp-json",
+  "purpose": "diagnostic",
+  "authoritativeGrade": false
+}

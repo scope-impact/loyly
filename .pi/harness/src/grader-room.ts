@@ -6,6 +6,7 @@ import { ReadonlyProvider, RealFSProvider, VM } from "./gondolin.ts";
 import { execOnHost } from "./host-exec.ts";
 
 export type GraderRoom = {
+  evidenceRoot: string;
   exec(command: string, options?: { signal?: AbortSignal }): Promise<{ exitCode: number; stdout: string; stderr: string }>;
   close(): Promise<void>;
 };
@@ -18,7 +19,9 @@ export async function openGraderRoom(options: {
   cutId: string;
   outputRoot: string;
   evidenceRoot?: string;
+  cycleId?: string;
   graderAssetsRoot?: string;
+  observabilityAssetsRoot?: string;
   runtimeImagesRoot?: string;
   createVm?: (options: Record<string, unknown>) => Promise<Vm>;
 }): Promise<GraderRoom> {
@@ -30,14 +33,28 @@ export async function openGraderRoom(options: {
   await cp(cutRoot, candidateRoot, { recursive: true });
   await cp(options.outputRoot, candidateRoot, { recursive: true, force: true });
   const requestedEvidenceRoot = options.evidenceRoot ?? `${options.outputRoot}.evidence`;
-  await mkdir(requestedEvidenceRoot, { recursive: true });
-  const evidenceRoot = await realpath(requestedEvidenceRoot);
+  const cycleDirectory = options.cycleId ? safeCycleDirectory(options.cycleId) : undefined;
+  const requestedCycleEvidenceRoot = cycleDirectory
+    ? path.join(requestedEvidenceRoot, "cycles", cycleDirectory)
+    : requestedEvidenceRoot;
+  await mkdir(requestedCycleEvidenceRoot, { recursive: true });
+  const evidenceRoot = await realpath(requestedCycleEvidenceRoot);
+  const observabilityAssetsRoot = options.observabilityAssetsRoot
+    ? await realpath(options.observabilityAssetsRoot)
+    : undefined;
 
   if (backend === "host") {
     return {
+      evidenceRoot,
       exec: (command, execOptions) => execOnHost(command, candidateRoot, {
         ...execOptions,
-        env: { ...process.env, HARNESS_EVIDENCE_ROOT: evidenceRoot },
+        env: {
+          ...process.env,
+          HARNESS_EVIDENCE_ROOT: evidenceRoot,
+          ...(observabilityAssetsRoot
+            ? { HARNESS_OBSERVABILITY_ROOT: observabilityAssetsRoot }
+            : {}),
+        },
       }),
       close: () => rm(candidateRoot, { recursive: true, force: true }),
     };
@@ -54,6 +71,9 @@ export async function openGraderRoom(options: {
     "/workspace": new ReadonlyProvider(new RealFSProvider(candidateRoot)),
     "/grader": new ReadonlyProvider(new RealFSProvider(graderAssetsRoot)),
     "/evidence": new RealFSProvider(evidenceRoot),
+    ...(observabilityAssetsRoot
+      ? { "/observability": new ReadonlyProvider(new RealFSProvider(observabilityAssetsRoot)) }
+      : {}),
     ...(runtimeImagesRoot
       ? { "/runtime-images": new ReadonlyProvider(new RealFSProvider(runtimeImagesRoot)) }
       : {}),
@@ -72,9 +92,20 @@ export async function openGraderRoom(options: {
     },
   });
   return {
-    exec: (command, execOptions) => vm.exec(`export HARNESS_EVIDENCE_ROOT=/evidence; cd /workspace && ${command}`, execOptions),
+    evidenceRoot,
+    exec: (command, execOptions) => vm.exec(
+      `export HARNESS_EVIDENCE_ROOT=/evidence${observabilityAssetsRoot ? " HARNESS_OBSERVABILITY_ROOT=/observability" : ""}; cd /workspace && ${command}`,
+      execOptions,
+    ),
     async close() {
       try { await vm.close(); } finally { await rm(candidateRoot, { recursive: true, force: true }); }
     },
   };
+}
+
+function safeCycleDirectory(cycleId: string): string {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(cycleId)) {
+    throw new Error(`unsafe grading cycle identity: ${cycleId}`);
+  }
+  return cycleId;
 }

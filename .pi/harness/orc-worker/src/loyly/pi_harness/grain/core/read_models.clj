@@ -8,6 +8,7 @@
 
 (def observation-event-types #{:loyly/observation-recorded})
 (def measurement-event-types #{:loyly/cycle-measurement-recorded})
+(def progress-event-types #{:loyly/cycle-progress-recorded})
 
 (def selection-keys
   [:selectionId :selectionDigest :status :projectId :containerId :componentId
@@ -21,12 +22,16 @@
   [:cycle-id :selection-id :cut :backend :total :passed :failed :complete? :items
    :instrument-conformance :evidence-manifest])
 
+(def progress-keys
+  [:cycle-id :tick-id :stage :attempt :builder-session-ref :status])
+
 (defn uuid-tag [tag value]
   [tag (java.util.UUID/nameUUIDFromBytes (.getBytes value "UTF-8"))])
 
 (defn selection-tag [selection-id] (uuid-tag :selection selection-id))
 (defn observation-cycle-tag [cycle-id] (uuid-tag :observation-cycle cycle-id))
 (defn measurement-tag [cycle-id] (uuid-tag :cycle-measurement cycle-id))
+(defn progress-tag [tick-id] (uuid-tag :cycle-progress tick-id))
 
 (defn selection-reducer [selection event]
   (case (:event/type event)
@@ -59,6 +64,16 @@
   [state event]
   (measurement-reducer state event))
 
+(defn progress-reducer [progress event]
+  (if (= :loyly/cycle-progress-recorded (:event/type event))
+    (select-keys event progress-keys)
+    progress))
+
+(defreadmodel :loyly cycle-progress
+  {:events progress-event-types :version 1}
+  [state event]
+  (progress-reducer state event))
+
 (defn- direct-project [context tags reducer initial-state]
   (reduce reducer initial-state
           (event-store/read (:event-store context)
@@ -84,3 +99,9 @@
     (if (:cache context)
       (not-empty (rmp/project context :loyly/cycle-measurement {:tags tags}))
       (direct-project context tags measurement-reducer nil))))
+
+(defn find-cycle-progress [context tick-id]
+  (let [tags #{(progress-tag tick-id)}]
+    (if (:cache context)
+      (not-empty (rmp/project context :loyly/cycle-progress {:tags tags}))
+      (direct-project context tags progress-reducer nil))))

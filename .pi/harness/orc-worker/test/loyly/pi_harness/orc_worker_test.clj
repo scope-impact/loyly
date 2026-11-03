@@ -66,6 +66,69 @@
               :rootStatus "success"}
              (worker/execution-status! {:tickId (str tick-id)}))))))
 
+(deftest execution-status-reconciles-durable-stage-and-builder-session-progress
+  (let [tick-id #uuid "f36dc9b7-9b92-4e15-84f5-1b9c4b798416"
+        sheet-id #uuid "952b704e-c4e6-44aa-859c-b54594f1f06d"
+        context {:durable true :cache ::possibly-stale-projection-cache}]
+    (with-redefs [worker/runtime-context (constantly context)
+                  orc/get-tick (constantly {:id tick-id
+                                            :sheet-id sheet-id
+                                            :status :running})
+                  model/find-cycle-progress
+                  (fn [actual-context actual-tick-id]
+                    (is (= (dissoc context :cache) actual-context))
+                    (is (= (str tick-id) actual-tick-id))
+                    {:stage "builder"
+                     :attempt 2
+                     :builder-session-ref "builder-session-02"
+                     :status "running"})]
+      (is (= {:tickId (str tick-id)
+              :sheetId (str sheet-id)
+              :status "running"
+              :stage "builder"
+              :attempt 2
+              :builderSessionRef "builder-session-02"}
+             (worker/execution-status! {:tickId (str tick-id)}))))))
+
+(deftest builder-session-rpc-is-a-read-only-adapter
+  (let [view {:builderSessionRef "builder-session-38"
+              :status "completed"
+              :entries [{:type "message"}]
+              :toolCalls 2
+              :workspaceGeneration ["src"]
+              :progress {:stage "builder" :attempt 1}}]
+    (with-redefs [worker/run-builder-session-adapter
+                  (fn [builder-session-ref]
+                    (is (= "builder-session-38" builder-session-ref))
+                    view)]
+      (is (= view
+             (worker/builder-session!
+              {:builderSessionRef "builder-session-38"}))))))
+
+(deftest builder-publishes-its-session-reference-before-execution
+  (let [tick-id (random-uuid)
+        progress (atom nil)
+        request (atom nil)
+        context {:tick-id tick-id
+                 :inputs {:request-id "cycle-37"
+                          :selection approved-selection
+                          :scope ["impl"]
+                          :target-stack "typescript"
+                          :execution-backend "gondolin"}}]
+    (with-redefs [worker/builder-sessions-root (constantly "/state/builder-sessions")
+                  worker/record-stage-progress! (fn [& args] (reset! progress args))
+                  worker/run-builder-adapter
+                  (fn [value]
+                    (reset! request value)
+                    {:output-root "/state/output"
+                     :builder-session-id (:builder-session-ref value)})
+                  subject/digest (constantly "subject-digest")]
+      (let [result (worker/builder-stage context)]
+        (is (= [context "builder" 1 (:builder-session-ref @request) "running"]
+               @progress))
+        (is (= "/state/builder-sessions" (:builder-sessions-root @request)))
+        (is (= (:builder-session-ref @request) (:builder-session-id result)))))))
+
 (deftest cycle-start-uses-caller-supplied-durable-identities
   (let [_ (worker/start-runtime! system/start!)
         tick-id #uuid "f36dc9b7-9b92-4e15-84f5-1b9c4b798416"
@@ -98,7 +161,8 @@
                   :selection approved-selection
                   :scope ["impl"]
                   :target-stack "typescript"
-                  :execution-backend "gondolin"}
+                  :execution-backend "gondolin"
+                  :orc-tick-id (str tick-id)}
                  (:inputs invoked)))
           (is (= tick-id (get-in invoked [:options :tick-id])))
           (is (= correlation-id (get-in invoked [:options :correlation-id])))))
@@ -578,6 +642,7 @@
         _ (spit (java.io.File. evidence-root "otel/traces.json") "[]")
         recorded (atom nil)
         observations (atom [])
+        projected (atom [])
         order (atom [])
         grader-observation {:producer "loyly-black-box" :evidence-kind "grader"}
         instrument-observation {:producer "runtime-instrument-conformance"
@@ -609,11 +674,13 @@
                                    value)
                                  model/record-observation!
                                  (fn [_ value]
+                                   (swap! order conj :observation-persisted)
                                    (swap! observations conj value)
                                    value)
                                  worker/emit-cycle-observation!
-                                 (fn [_ _]
-                                   (swap! order conj :allure-projected))]
+                                 (fn [_ value]
+                                   (swap! order conj :evidence-projected)
+                                   (swap! projected conj value))]
                      (worker/record-cycle-stage {:inputs inputs}))
             manifest (:evidence-manifest result)
             artifacts (:artifacts manifest)]
@@ -622,7 +689,13 @@
         (is (every? #(= (set (map :sha256 artifacts))
                          (set (:artifact-digests %)))
                     @observations))
-        (is (= [:measurement-persisted :allure-projected :allure-projected] @order))
+        (is (every? #(and (re-matches #"evaluation-[0-9a-f]{64}" (:evaluation-id %))
+                          (= (:digest manifest) (:evidence-digest %)))
+                    @observations))
+        (is (= @observations @projected))
+        (is (= [:observation-persisted :observation-persisted
+                :measurement-persisted :evidence-projected :evidence-projected]
+               @order))
         (is (true? (get-in result [:instrument-conformance :passed])))
         (is (= "subject-test" (:subject-digest manifest)))
         (is (= "digest-1" (:oracle-digest manifest)))

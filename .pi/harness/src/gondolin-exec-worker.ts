@@ -1,9 +1,13 @@
 import { openGraderRoom } from "./grader-room.ts";
 
 type Request = {
+  cycleId: string;
   cutId: string;
   outputRoot: string;
   cutsRoot: string;
+  evidenceRoot?: string;
+  graderAssetsRoot?: string;
+  observabilityAssetsRoot?: string;
   commands: Array<{ name: string; command: string }>;
 };
 

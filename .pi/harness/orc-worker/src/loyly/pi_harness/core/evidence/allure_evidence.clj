@@ -75,6 +75,12 @@
                         (label "subject_digest" (:subject-digest observation))
                         (label "oracle_digest" (:oracle-digest observation))
                         (label "room" (:room observation))]
+                 (:evaluation-id observation)
+                 (conj (label "evaluation_id" (:evaluation-id observation)))
+                 (:evidence-digest observation)
+                 (conj (label "evidence_digest" (:evidence-digest observation)))
+                 (:profile-kind observation)
+                 (conj (label "profile_kind" (:profile-kind observation)))
                  (:grader-id observation) (conj (label "grader_id" (:grader-id observation))))
         status ({"pass" "passed" "fail" "failed" "broken" "broken"}
                 (:result observation))

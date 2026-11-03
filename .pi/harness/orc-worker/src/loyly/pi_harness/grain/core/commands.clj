@@ -93,6 +93,27 @@
             "selection command failed")
   (read-models/find-selection context selection-id))
 
+(defcommand :loyly record-cycle-progress
+  {:grain.event-model/produces #{:loyly/cycle-progress-recorded}}
+  "Record the latest observational stage view for one durable ORC tick."
+  [{:keys [command]}]
+  (let [progress (:progress command)]
+    {:command-result/events
+     [(event-store/->event
+       {:type :loyly/cycle-progress-recorded
+        :tags #{(read-models/progress-tag (:tick-id progress))}
+        :body progress})]}))
+
+(defn record-cycle-progress! [context progress]
+  (process! context {:command/name :loyly/record-cycle-progress
+                     :progress progress}
+            "cycle progress command failed")
+  (await-projection! #(read-models/find-cycle-progress (dissoc context :cache)
+                                                        (:tick-id progress))
+                     progress
+                     "cycle progress projection did not settle"
+                     {:tick-id (:tick-id progress)}))
+
 (defn- observation-identity [observation]
   (str (:cycle-id observation) "|" (:item-id observation) "|"
        (:evidence-kind observation) "|" (:producer observation)))

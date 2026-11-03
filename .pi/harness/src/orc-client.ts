@@ -9,11 +9,43 @@ export type CycleRequest = {
   executionBackend: "host" | "gondolin";
 };
 
+export type DurableCycleRequest = Omit<CycleRequest, "requestId"> & {
+  cycleId: string;
+  tickId: string;
+  correlationId: string;
+};
+
+export type DurableCycleReceipt = {
+  cycleId: string;
+  tickId: string;
+  correlationId: string;
+  sheetId: string;
+  status: string;
+};
+
 export type CycleReceipt = { cycleId: string; taskId: number };
 export type CycleOutcome = {
   status: "completed" | "failed";
   result?: unknown;
   error?: string;
+};
+
+export type ExecutionStatus = {
+  tickId: string;
+  sheetId?: string;
+  status: "not-started" | "running" | "completed" | "failed";
+  stage?: string;
+  attempt?: number;
+  builderSessionRef?: string;
+};
+
+export type BuilderSessionView = {
+  builderSessionRef: string;
+  status: "running" | "completed" | "failed";
+  entries: readonly unknown[];
+  toolCalls: number;
+  workspaceGeneration: readonly string[];
+  progress: { stage: string; attempt: number };
 };
 
 export type WorkflowContract = {
@@ -69,8 +101,24 @@ export class OrcClient {
     return this.invoke("submit", request) as Promise<CycleReceipt>;
   }
 
+  startCycle(request: DurableCycleRequest): Promise<DurableCycleReceipt> {
+    return this.invoke("start-cycle", request) as Promise<DurableCycleReceipt>;
+  }
+
   wait(taskId: number): Promise<CycleOutcome> {
     return this.invoke("wait", { taskId }) as Promise<CycleOutcome>;
+  }
+
+  executionStatus(tickId: string): Promise<ExecutionStatus> {
+    return this.invoke("execution-status", { tickId }) as Promise<ExecutionStatus>;
+  }
+
+  builderSession(builderSessionRef: string): Promise<BuilderSessionView> {
+    return this.invoke("builder-session", { builderSessionRef }) as Promise<BuilderSessionView>;
+  }
+
+  measurement(cycleId: string): Promise<unknown> {
+    return this.invoke("measurement", { cycleId });
   }
 
   workflowContract(): Promise<WorkflowContract> {

@@ -57,6 +57,7 @@
     "submit" (submit-approved! params)
     "start-cycle" (start-approved-cycle! params)
     "execution-status" (harness/execution-status! params)
+    "builder-session" (harness/builder-session! params)
     "workflow-contract" (regeneration/contract)
     "wait" (harness/wait! params)
     "measurement" (model/find-measurement (context) (:cycleId params))

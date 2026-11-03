@@ -25,7 +25,8 @@
 (defn run-builder!
   [{:keys [project-root cuts-root builder-id builder-prompt project-adapter]}
    {:keys [request-id cut scope execution-backend prompt-text selection target-stack
-           initial-workspace-root verification-evidence-root round]}]
+           initial-workspace-root verification-evidence-root round builder-session-ref
+           builder-sessions-root attempt]}]
   (let [adapter (project-adapter selection)
         output-root (str (or (System/getenv "PI_HARNESS_OUTPUT_ROOT")
                              (System/getenv "LOYLEY_OUTPUT_ROOT")
@@ -52,6 +53,9 @@
                  :targetStack target-stack
                  :initialWorkspaceRoot initial-workspace-root
                  :verificationEvidenceRoot verification-evidence-root
+                 :builderSessionRef builder-session-ref
+                 :builderSessionsRoot builder-sessions-root
+                 :attempt attempt
                  :cutsRoot cuts-root
                  :outputRoot output-root}
         result (successful-result! "builder adapter"
@@ -59,6 +63,14 @@
     {:output-root (:outputRoot result)
      :builder-session-id (:builderSessionId result)
      :builder (builder-id)}))
+
+(defn read-builder-session!
+  [project-root builder-sessions-root builder-session-ref]
+  (successful-result!
+   "builder session adapter"
+   (json-process/invoke! (str project-root "/.pi/harness/src/builder-session-worker.ts")
+                         {:builderSessionsRoot builder-sessions-root
+                          :builderSessionRef builder-session-ref})))
 
 (defn run-oracle-fixture!
   [project-root request]
@@ -69,19 +81,21 @@
 
 (defn run-grader!
   [{:keys [project-root cuts-root]}
-   {:keys [cut output-root evidence-root evidence-namespace mode execution-backend
-           project-id item-ids grader-script grader-root target-stack]}]
+   {:keys [cycle-id cut output-root evidence-root evidence-namespace mode execution-backend
+           project-id item-ids grader-script grader-root observability-root target-stack]}]
   (let [stack (when target-stack
                 (application-contract/stack-requirements target-stack))
         runtime-image-archive (:archive stack)
         script (str project-root "/.pi/harness/src/execution-worker.ts")
         request {:backend execution-backend
+                 :cycleId cycle-id
                  :cutId cut
                  :outputRoot output-root
                  :evidenceRoot (or evidence-root (str output-root ".evidence"))
                  :evidenceNamespace (or evidence-namespace mode)
                  :cutsRoot cuts-root
                  :graderAssetsRoot grader-root
+                 :observabilityAssetsRoot observability-root
                  :runtimeImagesRoot (when runtime-image-archive
                                       (str project-root "/.pi/harness/.state/runtime-images"))
                  :commands (grader-commands/commands

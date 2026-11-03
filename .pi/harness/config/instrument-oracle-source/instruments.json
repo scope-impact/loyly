@@ -2,7 +2,7 @@
   "instruments": [
     {
       "id": "full-pi-harness",
-      "digest": "sha256:7c43f6e1c5f4648eb5a68e374bf1778cc623bb2414edaa9f4ca9c388fcbd6856",
+      "digest": "sha256:18f26039ddb4dfef4b0de14d6f91f35dbee6bdaaaef92bc17bc09f24b2d7cfd9",
       "roots": [
         ".pi/harness/orc-worker/src",
         ".pi/harness/orc-worker/test",
@@ -17,6 +17,7 @@
         ".pi/harness/config/build/builder-java.json",
         ".pi/harness/config/build/builder-rails.json",
         ".pi/harness/config/build/grader.json",
+        ".pi/harness/config/build/grader-profile-init.sh",
         ".pi/harness/config/assets/builder-rust/manifest.json",
         ".pi/harness/config/assets/builder-java/manifest.json",
         ".pi/harness/config/assets/builder-rails/manifest.json",

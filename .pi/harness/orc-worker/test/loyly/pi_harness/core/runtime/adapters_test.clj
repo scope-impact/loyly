@@ -57,3 +57,24 @@
         (is (= "cut adapter" (:adapter (ex-data error))))
         (is (= 17 (:exit-code (ex-data error))))
         (is (re-find #"worker exploded" (.getMessage error)))))))
+
+(deftest grader-adapter-carries-cycle-and-pinned-observability-roots
+  (let [invocation (atom nil)]
+    (with-redefs [json-process/invoke!
+                  (fn [script request]
+                    (reset! invocation {:script script :request request})
+                    {:exit-code 0 :stdout "" :stderr ""
+                     :response {:ok true :result {:compose-config {:exitCode 0}}}})]
+      (adapters/run-grader!
+       {:project-root "/repo" :cuts-root "/cuts"}
+       {:cycle-id "cycle-42"
+        :cut "cut-1"
+        :output-root "/candidate"
+        :evidence-root "/evidence"
+        :grader-root "/oracle/grader"
+        :observability-root "/oracle/runtime-observability"
+        :execution-backend "gondolin"
+        :mode "compose"})
+      (is (= "cycle-42" (get-in @invocation [:request :cycleId])))
+      (is (= "/oracle/runtime-observability" (get-in @invocation [:request :observabilityAssetsRoot])))
+      (is (= "/evidence" (get-in @invocation [:request :evidenceRoot]))))))

@@ -189,6 +189,36 @@ export default function register(pi: {
     },
   });
 
+  pi.registerTool({
+    name: "get_regeneration_cycle_status",
+    description: "Reconcile a progress view from ORC's durable tick state and the harness stage projection. This read never advances the workflow.",
+    parameters: {
+      type: "object",
+      properties: { tickId: { type: "string" } },
+      required: ["tickId"],
+      additionalProperties: false,
+    },
+    execute: async (_toolCallId: string, args: { tickId: string }) => {
+      const result = await getWorker().client.executionStatus(args.tickId);
+      return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
+    },
+  });
+
+  pi.registerTool({
+    name: "inspect_builder_session",
+    description: "Inspect committed turns, tool calls, generated workspace entries, and progress for one builder session. This interface is read-only.",
+    parameters: {
+      type: "object",
+      properties: { builderSessionRef: { type: "string" } },
+      required: ["builderSessionRef"],
+      additionalProperties: false,
+    },
+    execute: async (_toolCallId: string, args: { builderSessionRef: string }) => {
+      const result = await getWorker().client.builderSession(args.builderSessionRef);
+      return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
+    },
+  });
+
   pi.on("shutdown", async () => {
     await worker?.close();
     worker = undefined;

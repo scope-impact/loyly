@@ -79,9 +79,43 @@
                       "; ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' \"$container\")"
                       "; test -n \"$ip\"; echo http://$ip:8080 >/tmp/pi-harness-independent-base-url"
                       "; curl -fsS \"http://$ip:8080/health\" >/dev/null")}
+       {:name "independent-observe-start"
+        :command (str "mkdir -p " runtime-root
+                      "; OTEL_FILE_EXPORT_DIR=" runtime-root
+                      " nohup /usr/local/bin/otelcol-contrib --config=/etc/loyly/otel/collector.yaml"
+                      " >" runtime-root "/collector.log 2>&1 & echo $! >/tmp/pi-harness-otel-collector.pid"
+                      "; OTEL_FILE_EXPORT_DIR=" runtime-root
+                      " nohup /usr/local/bin/otelcol-ebpf-profiler"
+                      " --feature-gates=+service.profilesSupport"
+                      " --config=/etc/loyly/otel/profiler.yaml"
+                      " >" runtime-root "/profiler.log 2>&1 & echo $! >/tmp/pi-harness-otel-profiler.pid"
+                      "; OTEL_EBPF_OPEN_PORT=8080"
+                      " OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318"
+                      " OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf"
+                      " OTEL_METRIC_EXPORT_INTERVAL=5000"
+                      " nohup /usr/local/bin/obi"
+                      " >" runtime-root "/obi.log 2>&1 & echo $! >/tmp/pi-harness-obi.pid"
+                      "; sleep 2"
+                      "; for pidfile in /tmp/pi-harness-otel-collector.pid"
+                      " /tmp/pi-harness-otel-profiler.pid /tmp/pi-harness-obi.pid; do"
+                      " kill -0 \"$(cat \"$pidfile\")\" || exit 1; done"
+                      "; attempts=0; until grep -q 'Launching p.Tracer' " runtime-root "/obi.log; do"
+                      " attempts=$((attempts + 1)); [ $attempts -lt 40 ] || exit 1; sleep 0.25; done"
+                      "; sleep 1")}
        {:name "independent-grade"
         :command (str "OTEL_FILE_EXPORT_DIR=" runtime-root " bash /grader/" grader-script
                       " \"$(cat /tmp/pi-harness-independent-base-url)\"")}
+       {:name "independent-observe-stop"
+        :command (str "test -r /tmp/pi-harness-obi.pid"
+                      " && kill -INT \"$(cat /tmp/pi-harness-obi.pid)\" 2>/dev/null || true"
+                      "; sleep 2"
+                      "; test -r /tmp/pi-harness-otel-profiler.pid"
+                      " && kill -INT \"$(cat /tmp/pi-harness-otel-profiler.pid)\" 2>/dev/null || true"
+                      "; sleep 1"
+                      "; test -r /tmp/pi-harness-otel-collector.pid"
+                      " && kill -INT \"$(cat /tmp/pi-harness-otel-collector.pid)\" 2>/dev/null || true"
+                      "; sleep 2"
+                      "; find " runtime-root " -maxdepth 1 -type f -print -exec wc -c {} \\;")}
        {:name "independent-logs" :command (str "docker compose " independent-compose-files " logs --no-color")}
        {:name "independent-down" :command (str "docker compose " independent-compose-files " down --volumes --remove-orphans")}]))
 

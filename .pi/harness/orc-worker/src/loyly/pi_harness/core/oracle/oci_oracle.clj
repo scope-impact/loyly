@@ -12,20 +12,25 @@
 (def grader-file-type
   "application/vnd.loyly.oracle.grader-file.v1")
 
+(def otel-capture-policy-type
+  "application/vnd.loyly.oracle.otel-capture-policy.v1+json")
+
 (def required-metadata-layer-types
   ["application/vnd.loyly.oracle.policy.v1+json"
    "application/vnd.loyly.oracle.project.v1+json"
    "application/vnd.loyly.oracle.slice.v1+json"
    "application/vnd.loyly.oracle.calibration.v1+json"
-   "application/vnd.loyly.oracle.fixture-server.v1+javascript"])
+   "application/vnd.loyly.oracle.fixture-server.v1+javascript"
+   otel-capture-policy-type])
 
 (defn- valid-layer-types? [actual-types]
   (and (= required-metadata-layer-types
           (subvec actual-types 0 (min (count actual-types)
                                       (count required-metadata-layer-types))))
        (< (count required-metadata-layer-types) (count actual-types))
-       (every? #(= grader-file-type %)
-               (drop (count required-metadata-layer-types) actual-types))))
+       (let [payload-types (drop (count required-metadata-layer-types) actual-types)]
+         (and (some #{grader-file-type} payload-types)
+              (every? #{grader-file-type} payload-types)))))
 
 (defn- run-oras [& arguments]
   (let [result (apply shell/sh "oras" arguments)]
@@ -70,11 +75,11 @@
                    (when-not (and (string? title) (.isFile file))
                      (throw (ex-info "OCI oracle layer has no extractable titled payload"
                                      {:layer layer})))
-                   {:media-type (:mediaType layer)
-                    :digest (:digest layer)
-                    :size (:size layer)
-                    :title title
-                    :content (cond
+                   (cond-> {:media-type (:mediaType layer)
+                            :digest (:digest layer)
+                            :size (:size layer)
+                            :title title
+                            :content (cond
                                (= fixture-server-type (:mediaType layer))
                                (slurp file)
 
@@ -83,7 +88,11 @@
                                                 (java.nio.file.Files/readAllBytes (.toPath file)))
 
                                :else
-                               (json/read-str (slurp file) :key-fn keyword))}))
+                               (json/read-str (slurp file) :key-fn keyword))}
+                     (= otel-capture-policy-type (:mediaType layer))
+                     (assoc :raw-content
+                            (.encodeToString (java.util.Base64/getEncoder)
+                                             (java.nio.file.Files/readAllBytes (.toPath file)))))))
                layers)})
       (finally
         (delete-tree! directory)))))
@@ -116,6 +125,35 @@
         (some-> target .getParentFile .mkdirs)
         (java.nio.file.Files/write (.toPath target)
                                    (.decode (java.util.Base64/getDecoder) ^String content)
+                                   (make-array java.nio.file.OpenOption 0))))
+    (.getPath root)))
+
+(defn- observability-relative-path [title]
+  (when (and (string? title) (str/starts-with? title "runtime-observability/"))
+    (let [relative (subs title (count "runtime-observability/"))
+          path (java.nio.file.Paths/get relative (make-array String 0))]
+      (when (and (not (str/blank? relative))
+                 (not (.isAbsolute path))
+                 (not-any? #(= ".." (str %)) path))
+        relative))))
+
+(defn materialize-observability! [pack cache-root]
+  (when-not cache-root
+    (throw (ex-info "OCI oracle cache root is required to materialize observability policy" {})))
+  (let [root (.getCanonicalFile
+              (io/file cache-root (str/replace (:digest pack) #"^sha256:" "") "runtime-observability"))
+        policy-layers (filter #(= otel-capture-policy-type (:media-type %)) (:layers pack))]
+    (.mkdirs root)
+    (doseq [{:keys [title content raw-content] :as layer} policy-layers]
+      (let [relative (observability-relative-path title)
+            target (when relative (.getCanonicalFile (io/file root relative)))]
+        (when-not (and target (.startsWith (.toPath target) (.toPath root)))
+          (throw (ex-info "OCI observability layer title must be a safe path below runtime-observability/"
+                          {:layer (dissoc layer :content)})))
+        (some-> target .getParentFile .mkdirs)
+        (java.nio.file.Files/write (.toPath target)
+                                   (.decode (java.util.Base64/getDecoder)
+                                            ^String (or raw-content content))
                                    (make-array java.nio.file.OpenOption 0))))
     (.getPath root)))
 
@@ -172,12 +210,20 @@
         calibration-by-item (into {} (map (juxt :itemId identity)) (:items calibration))
         grader-artifacts (:graderArtifacts calibration)
         fixture-server (layer-content pack fixture-server-type)
+        capture-policy (layer-content pack otel-capture-policy-type)
         calibration-cases (atom [])]
     (when-not (and (= 1 (:version policy))
                    (integer? minimum-fixtures)
                    (<= 2 minimum-fixtures))
       (throw (ex-info "OCI oracle policy requires version 1 and at least two calibration fixtures"
                       {:policy policy})))
+    (when-not (and (= 1 (:version capture-policy))
+                   (= "opentelemetry" (:standard capture-policy))
+                   (= ["traces" "metrics" "profiles"] (:signals capture-policy))
+                   (= "otlp-json" (:format capture-policy))
+                   (false? (:authoritativeGrade capture-policy)))
+      (throw (ex-info "OCI oracle requires a non-authoritative OpenTelemetry capture policy"
+                      {:capture-policy capture-policy})))
     (when-not (= expected-project (:projectId project))
       (throw (ex-info (str "OCI oracle project layer names " (:projectId project)
                            " but the selection names " expected-project)

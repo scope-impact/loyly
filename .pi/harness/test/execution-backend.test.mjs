@@ -115,21 +115,24 @@ test("host grader runs from a disposable merged candidate", async () => {
   }
 });
 
-test("gondolin grader mounts harness-owned probes read-only", async () => {
+test("gondolin grader isolates cycle evidence and mounts OCI probes read-only", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "loyly-gondolin-grader-test-"));
   const cutsRoot = path.join(root, "cuts");
   const outputRoot = path.join(root, "output");
   const graderAssetsRoot = path.join(root, "grader-assets");
+  const observabilityAssetsRoot = path.join(root, "runtime-observability");
   const runtimeImagesRoot = path.join(root, "runtime-images");
   const evidenceRoot = path.join(root, "evidence");
   await mkdir(path.join(cutsRoot, "cut-1"), { recursive: true });
   await mkdir(path.join(outputRoot, "impl"), { recursive: true });
   await mkdir(graderAssetsRoot, { recursive: true });
+  await mkdir(observabilityAssetsRoot, { recursive: true });
   await mkdir(runtimeImagesRoot, { recursive: true });
   let vmOptions;
   let vmCommand;
   const room = await openGraderRoom({
     backend: "gondolin", cutsRoot, cutId: "cut-1", outputRoot, evidenceRoot, graderAssetsRoot,
+    observabilityAssetsRoot, cycleId: "cycle-42",
     runtimeImagesRoot,
     createVm: async (options) => {
       vmOptions = options;
@@ -138,9 +141,15 @@ test("gondolin grader mounts harness-owned probes read-only", async () => {
   });
   try {
     await room.exec("true");
-    assert.deepEqual(Object.keys(vmOptions.vfs.mounts).sort(), ["/evidence", "/grader", "/runtime-images", "/workspace"]);
+    assert.deepEqual(Object.keys(vmOptions.vfs.mounts).sort(), ["/evidence", "/grader", "/observability", "/runtime-images", "/workspace"]);
+    assert.equal(vmOptions.vfs.mounts["/workspace"].readonly, true);
+    assert.equal(vmOptions.vfs.mounts["/grader"].readonly, true);
+    assert.equal(vmOptions.vfs.mounts["/observability"].readonly, true);
+    assert.equal(vmOptions.vfs.mounts["/evidence"].readonly, false);
+    assert.equal(vmOptions.vfs.mounts["/evidence"].rootPath, await realpath(path.join(evidenceRoot, "cycles", "cycle-42")));
     assert.deepEqual(vmOptions.rootfs, { mode: "cow", size: "4G" });
     assert.match(vmCommand, /HARNESS_EVIDENCE_ROOT=\/evidence/);
+    assert.match(vmCommand, /HARNESS_OBSERVABILITY_ROOT=\/observability/);
   } finally {
     await room.close();
     await rm(root, { recursive: true, force: true });

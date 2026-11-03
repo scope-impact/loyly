@@ -1,14 +1,17 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import os from "node:os";
 import path from "node:path";
 import * as allure from "allure-js-commons";
+import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { afterAll, beforeAll, test } from "vitest";
 import { spawnOrcClient, type WorkflowContract } from "../src/orc-client.ts";
+import { writeBuilderSessionState } from "../src/builder-session-store.ts";
+import { openGraderRoom } from "../src/grader-room.ts";
 
 type ScenarioContext = {
   contract?: WorkflowContract;
@@ -20,6 +23,18 @@ type ScenarioContext = {
   selections?: any[];
   selection?: any;
   taskId?: number;
+  builderSessionRef?: string;
+  builderSessionView?: any;
+  builderSessionFilesBefore?: Array<{ file: string; content: string }>;
+  persistedEvaluation?: Record<string, unknown>;
+  evidenceProjections?: { allure: any; otel: any };
+  gradingProbe?: {
+    cycleId: string;
+    evidenceRoot: string;
+    result?: { exitCode: number; stdout: string; stderr: string };
+    root: string;
+    subjectDigest?: string;
+  };
 };
 
 type PreparedCut = {
@@ -105,8 +120,7 @@ test("ORC exposes the declared regeneration stage order", async () => {
 });
 
 test.skip("Instrumentation records the subject without changing it", () => {});
-test.skip("The oracle binds the calibrated instrument and complete pinned model contract", () => {});
-test.skip("Independent observers cannot modify the candidate", () => {});
+test.skip("The product-oracle OCI is bound to the approved Git revision", () => {});
 test.skip("Evidence identity cannot be reused for different content", () => {});
 test.skip("Evidence reports are derived projections", () => {});
 test.skip("A non-successful stage cannot disappear from the result [builder]", () => {});
@@ -152,7 +166,16 @@ test.skip("A durable task remains observable after worker restart", () => {});
 test.skip("Approval binds the complete cycle preparation and diagram", () => {});
 test.skip("The control plane does not depend on one interactive session implementation", () => {});
 test.skip("Live progress reconciles with durable ORC execution state", () => {});
-test.skip("An operator observes a builder session read-only", () => {});
+test("An operator observes a builder session read-only", async () => {
+  const context = scenarioContext();
+  await scenarioLabels("operator-control-plane", "item-01-038", ["e2e"]);
+
+  await given("ORC opened a separately identified builder session for one build attempt", context);
+  await when("an operator session opens that builder-session reference", context);
+  await then("it can inspect committed model turns, tool calls, workspace generation, and progress", context);
+  await but("observation cannot change the builder transcript or candidate", context);
+  await and("the builder cannot read the operator transcript or independent grader evidence", context);
+});
 test.skip("Intervention is explicit and provenance-recorded", () => {});
 test.skip("A builder transcript is restored with its matching workspace generation", () => {});
 test("Prompt optimization requires training and validation examples", async () => {
@@ -255,7 +278,30 @@ test("ORC exposes artifact provenance in its executable contract", async () => {
 
 test.skip("Instrument conformance is independent of the behavioral grade", () => {});
 test.skip("Instrument conformance is selected entirely from the pinned project model", () => {});
-test.skip("OTel and Allure project the persisted invariant evaluation", () => {});
+test.skip("An operator Pi session profiles a Gondolin VM directly", () => {});
+test("OTel and Allure project the persisted invariant evaluation", async () => {
+  const context = scenarioContext();
+  await scenarioLabels("runtime-evidence", "item-01-034", ["e2e"]);
+
+  await given("an independent invariant evaluation and its evidence digest were persisted", context);
+  await when("an OTel result span and Allure report are emitted", context);
+  await then("both identify the persisted evaluation and evidence digest", context);
+  await and("both name the same candidate subject and oracle digests", context);
+  await and("neither projection can change the recorded verdict", context);
+});
+
+test("Each grading cycle isolates evidence from its pinned OTel capture policy", async () => {
+  const context = scenarioContext();
+  await scenarioLabels("runtime-evidence", "item-01-042", ["e2e", "gondolin"]);
+
+  await given("the pinned product-oracle OCI supplies a declarative OTel capture policy", context);
+  await when("an independent Gondolin grader room opens for one regeneration cycle", context);
+  await then("the candidate and OTel capture policy are mounted read-only", context);
+  await and("the candidate subject digest remains unchanged after observation", context);
+  await and("a fresh cycle evidence volume is the only writable grading mount", context);
+  await and("the grader image supplies OBI and the OTel eBPF profiler with tracefs and BPF FS mounted", context);
+  await and("native OTLP traces, metrics, and profiles are cycle-scoped diagnostic evidence", context);
+});
 
 function scenarioContext(): ScenarioContext {
   return {};
@@ -308,6 +354,229 @@ async function executeStep(
   dataTable: { rows: Array<{ cells: Array<{ value: string }> }> } | undefined,
   context: ScenarioContext,
 ): Promise<void> {
+  if (text === "the pinned product-oracle OCI supplies a declarative OTel capture policy") {
+    const root = mkdtempSync(path.join(os.tmpdir(), "loyly-grading-probe-e2e-"));
+    extractedPlaybackRoots.push(root);
+    const oracleRoot = path.join(root, "oracle");
+    execFileSync("oras", [
+      "pull", "--oci-layout",
+      path.join(projectRoot, ".pi/harness/config/oracle-packs/loyly:accepted"),
+      "--output", oracleRoot, "--no-tty",
+    ]);
+    assert.ok(existsSync(path.join(oracleRoot, "runtime-observability", "capture-policy.json")));
+    assert.equal(existsSync(path.join(oracleRoot, "runtime-probes")), false);
+    context.gradingProbe = {
+      cycleId: "e2e-cycle-01-042",
+      evidenceRoot: path.join(root, "evidence"),
+      root,
+    };
+    return;
+  }
+  if (text === "an independent Gondolin grader room opens for one regeneration cycle") {
+    const probe = assertRequired(context.gradingProbe, "grading probe");
+    const cutsRoot = path.join(probe.root, "cuts");
+    const outputRoot = path.join(probe.root, "output");
+    await mkdir(path.join(cutsRoot, "cut-1"), { recursive: true });
+    await mkdir(outputRoot, { recursive: true });
+    const candidateContent = "candidate-e2e-item-01-042\n";
+    await writeFile(path.join(cutsRoot, "cut-1", "candidate.txt"), candidateContent);
+    probe.subjectDigest = createHash("sha256").update(candidateContent).digest("hex");
+    const room = await openGraderRoom({
+      backend: "gondolin",
+      cycleId: probe.cycleId,
+      cutsRoot,
+      cutId: "cut-1",
+      outputRoot,
+      evidenceRoot: probe.evidenceRoot,
+      graderAssetsRoot: path.join(probe.root, "oracle", "grader"),
+      observabilityAssetsRoot: path.join(probe.root, "oracle", "runtime-observability"),
+    });
+    try {
+      probe.result = await room.exec([
+        "test -r /observability/capture-policy.json",
+        "sha256sum /workspace/candidate.txt | cut -d ' ' -f1 > /evidence/subject.before",
+        "! touch /observability/not-writable 2>/dev/null",
+        "! touch /workspace/not-writable 2>/dev/null",
+        "sha256sum /workspace/candidate.txt | cut -d ' ' -f1 > /evidence/subject.after",
+        "touch /evidence/capture.ok",
+        "command -v perf",
+        "command -v bpftool",
+        "command -v obi",
+        "command -v otelcol-contrib",
+        "command -v otelcol-ebpf-profiler",
+        "command -v strace",
+        "grep -q ' /sys/kernel/tracing tracefs ' /proc/mounts",
+        "grep -q ' /sys/fs/bpf bpf ' /proc/mounts",
+      ].join(" && "));
+    } finally {
+      await room.close();
+    }
+    return;
+  }
+  if (text === "the candidate and OTel capture policy are mounted read-only") {
+    const result = assertRequired(assertRequired(context.gradingProbe, "grading probe").result, "grading probe result");
+    assert.equal(result.exitCode, 0, result.stderr);
+    return;
+  }
+  if (text === "the candidate subject digest remains unchanged after observation") {
+    const probe = assertRequired(context.gradingProbe, "grading probe");
+    const expected = assertRequired(probe.subjectDigest, "candidate subject digest");
+    const cycleEvidenceRoot = path.join(probe.evidenceRoot, "cycles", probe.cycleId);
+    assert.equal(readFileSync(path.join(cycleEvidenceRoot, "subject.before"), "utf8").trim(), expected);
+    assert.equal(readFileSync(path.join(cycleEvidenceRoot, "subject.after"), "utf8").trim(), expected);
+    return;
+  }
+  if (text === "a fresh cycle evidence volume is the only writable grading mount") {
+    const probe = assertRequired(context.gradingProbe, "grading probe");
+    assert.ok(existsSync(path.join(probe.evidenceRoot, "cycles", probe.cycleId, "capture.ok")));
+    assert.equal(existsSync(path.join(probe.evidenceRoot, "capture.ok")), false);
+    return;
+  }
+  if (text === "the grader image supplies OBI and the OTel eBPF profiler with tracefs and BPF FS mounted") {
+    const result = assertRequired(assertRequired(context.gradingProbe, "grading probe").result, "grading probe result");
+    assert.equal(result.exitCode, 0, result.stderr);
+    return;
+  }
+  if (text === "native OTLP traces, metrics, and profiles are cycle-scoped diagnostic evidence") {
+    const policy = JSON.parse(readFileSync(path.join(
+      assertRequired(context.gradingProbe, "grading probe").root,
+      "oracle/runtime-observability/capture-policy.json",
+    ), "utf8"));
+    assert.deepEqual(policy.signals, ["traces", "metrics", "profiles"]);
+    assert.equal(policy.format, "otlp-json");
+    assert.equal(policy.purpose, "diagnostic");
+    assert.equal(policy.authoritativeGrade, false);
+    return;
+  }
+  if (text === "an independent invariant evaluation and its evidence digest were persisted") {
+    context.persistedEvaluation = {
+      evaluationId: "evaluation-e2e-item-01-034",
+      evidenceDigest: "evidence-digest-e2e-34",
+      verdict: "fail",
+    };
+    return;
+  }
+  if (text === "an OTel result span and Allure report are emitted") {
+    const projectionRoot = mkdtempSync(path.join(os.tmpdir(), "loyly-otel-e2e-"));
+    extractedPlaybackRoots.push(projectionRoot);
+    const evaluation = assertRequired(context.persistedEvaluation, "persisted evaluation");
+    const observation = {
+      "evaluation-id": evaluation.evaluationId,
+      "evidence-digest": evaluation.evidenceDigest,
+      role: "observed", builder: "openai-codex/e2e", "evidence-kind": "grader",
+      producer: "runtime-instrument-conformance", "container-id": "loyly",
+      "component-id": "01-booking-core", "item-id": "@item-01-034",
+      "cycle-id": "cycle-e2e-34", "cut-digest": "cut-e2e",
+      "subject-digest": "subject-e2e", "oracle-digest": "oracle-e2e",
+      room: "gondolin", scope: "impl", result: evaluation.verdict,
+      "reached?": true, evidence: "known failed invariant",
+    };
+    const expression = "(require '[clojure.data.json :as json] '[loyly.pi-harness.core.evidence.evidence-projection :as projection]) (projection/project! (System/getenv \"LOYLEY_E2E_PROJECTION_ROOT\") (json/read-str (System/getenv \"LOYLEY_E2E_EVALUATION\") :key-fn keyword))";
+    execFileSync("clojure", [
+      "-Sdeps", `{:paths [${JSON.stringify(path.join(projectRoot, ".pi/harness/orc-worker/src"))}]}`,
+      "-M:dev", "-e", expression,
+    ], {
+      cwd: path.join(projectRoot, "orc"),
+      env: { ...process.env, LOYLEY_E2E_PROJECTION_ROOT: projectionRoot, LOYLEY_E2E_EVALUATION: JSON.stringify(observation) },
+    });
+    const allureFile = readdirSync(path.join(projectionRoot, "allure-results")).find((file) => file.endsWith("-result.json"));
+    const otelFile = readdirSync(path.join(projectionRoot, "otel-results")).find((file) => file.endsWith(".otlp.json"));
+    context.evidenceProjections = {
+      allure: JSON.parse(readFileSync(path.join(projectionRoot, "allure-results", assertRequired(allureFile, "Allure result")), "utf8")),
+      otel: JSON.parse(readFileSync(path.join(projectionRoot, "otel-results", assertRequired(otelFile, "OTel result")), "utf8")),
+    };
+    return;
+  }
+  if (text === "both identify the persisted evaluation and evidence digest") {
+    const evaluation = assertRequired(context.persistedEvaluation, "persisted evaluation");
+    const projections = assertRequired(context.evidenceProjections, "evidence projections");
+    const labels = Object.fromEntries(projections.allure.labels.map(({ name, value }: any) => [name, value]));
+    const span = projections.otel.resourceSpans[0].scopeSpans[0].spans[0];
+    const attributes = Object.fromEntries(span.attributes.map(({ key, value }: any) => [key, value.stringValue]));
+    assert.equal(labels.evaluation_id, evaluation.evaluationId);
+    assert.equal(attributes["loyly.evaluation.id"], evaluation.evaluationId);
+    assert.equal(labels.evidence_digest, evaluation.evidenceDigest);
+    assert.equal(attributes["loyly.evidence.digest"], evaluation.evidenceDigest);
+    return;
+  }
+  if (text === "both name the same candidate subject and oracle digests") {
+    const projections = assertRequired(context.evidenceProjections, "evidence projections");
+    const labels = Object.fromEntries(projections.allure.labels.map(({ name, value }: any) => [name, value]));
+    const span = projections.otel.resourceSpans[0].scopeSpans[0].spans[0];
+    const attributes = Object.fromEntries(span.attributes.map(({ key, value }: any) => [key, value.stringValue]));
+    assert.equal(labels.subject_digest, "subject-e2e");
+    assert.equal(attributes["loyly.subject.digest"], labels.subject_digest);
+    assert.equal(labels.oracle_digest, "oracle-e2e");
+    assert.equal(attributes["loyly.oracle.digest"], labels.oracle_digest);
+    return;
+  }
+  if (text === "neither projection can change the recorded verdict") {
+    const evaluation = assertRequired(context.persistedEvaluation, "persisted evaluation");
+    const projections = assertRequired(context.evidenceProjections, "evidence projections");
+    const span = projections.otel.resourceSpans[0].scopeSpans[0].spans[0];
+    const attributes = Object.fromEntries(span.attributes.map(({ key, value }: any) => [key, value.stringValue]));
+    assert.equal(evaluation.verdict, "fail");
+    assert.equal(projections.allure.status, "failed");
+    assert.equal(attributes["loyly.evaluation.verdict"], "fail");
+    return;
+  }
+  if (text === "ORC opened a separately identified builder session for one build attempt") {
+    const builderSessionRef = "e2e-builder-session-38";
+    const sessionRoot = path.join(e2eStateRoot, "builder-sessions");
+    const workspace = path.join(e2eStateRoot, "builder-workspace-38");
+    await mkdir(workspace, { recursive: true });
+    await writeFile(path.join(workspace, "generated.ts"), "export const generated = true;\n");
+    const session = SessionManager.create(workspace, sessionRoot, { id: builderSessionRef });
+    session.appendMessage({ role: "user", content: "build only the approved slice", timestamp: Date.now() });
+    session.appendMessage({
+      role: "assistant",
+      content: [{ type: "text", text: "implemented the approved slice" }],
+      api: "responses",
+      provider: "test",
+      model: "test",
+      usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+      stopReason: "stop",
+      timestamp: Date.now(),
+    });
+    await writeBuilderSessionState(sessionRoot, {
+      builderSessionRef,
+      sessionFile: session.getSessionFile(),
+      status: "completed",
+      toolCalls: 2,
+      workspaceGeneration: ["generated.ts"],
+      progress: { stage: "builder", attempt: 1 },
+    });
+    context.builderSessionRef = builderSessionRef;
+    context.builderSessionFilesBefore = [session.getSessionFile(), path.join(workspace, "generated.ts")]
+      .map((file) => ({ file: assertRequired(file, "builder session file"), content: readFileSync(assertRequired(file, "builder session file"), "utf8") }));
+    return;
+  }
+  if (text === "an operator session opens that builder-session reference") {
+    context.builderSessionView = await worker.client.builderSession(
+      assertRequired(context.builderSessionRef, "builder session reference"),
+    );
+    return;
+  }
+  if (text === "it can inspect committed model turns, tool calls, workspace generation, and progress") {
+    const view = assertRequired(context.builderSessionView, "builder session view");
+    assert.equal(view.entries.length, 2);
+    assert.equal(view.toolCalls, 2);
+    assert.deepEqual(view.workspaceGeneration, ["generated.ts"]);
+    assert.deepEqual(view.progress, { stage: "builder", attempt: 1 });
+    await allure.attachment("builder-session.json", JSON.stringify(view, null, 2), "application/json");
+    return;
+  }
+  if (text === "observation cannot change the builder transcript or candidate") {
+    for (const snapshot of assertRequired(context.builderSessionFilesBefore, "builder files")) {
+      assert.equal(readFileSync(snapshot.file, "utf8"), snapshot.content);
+    }
+    return;
+  }
+  if (text === "the builder cannot read the operator transcript or independent grader evidence") {
+    const transcript = JSON.stringify(assertRequired(context.builderSessionView, "builder session view").entries);
+    assert.doesNotMatch(transcript, /operator transcript|independent grader evidence/i);
+    return;
+  }
   if (text === "the Pi harness ORC worker is running") {
     assert.ok(worker, "the ORC worker must be started by the E2E harness");
     return;

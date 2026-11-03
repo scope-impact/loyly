@@ -18,6 +18,15 @@
    [:slice :string]
    [:items [:vector item-schema]]])
 
+(def cycle-progress-schema
+  [:map
+   [:cycle-id :string]
+   [:tick-id :string]
+   [:stage :string]
+   [:attempt :int]
+   [:builder-session-ref {:optional true} :string]
+   [:status [:enum "running" "completed" "failed"]]])
+
 (def observation-schema
   [:map
    [:cycle-id :string]
@@ -29,6 +38,8 @@
    [:subject-digest :string]
    [:producer :string]
    [:evidence-kind [:enum "tool" "grader"]]
+   [:evaluation-id {:optional true} :string]
+   [:evidence-digest {:optional true} :string]
    [:artifact-digests {:optional true} [:vector :string]]
    [:result [:enum "pass" "fail"]]
    [:reached? :boolean]
@@ -66,11 +77,13 @@
 (defschemas commands
   {:loyly/record-selection [:map [:contract selection-contract-schema]]
    :loyly/approve-selection [:map [:selection-id :string] [:selection-digest :string]]
+   :loyly/record-cycle-progress [:map [:progress cycle-progress-schema]]
    :loyly/record-observation [:map [:observation observation-schema]]
    :loyly/record-cycle-measurement [:map [:measurement measurement-schema]]})
 
 (defschemas events
   {:loyly/selection-recorded selection-contract-schema
    :loyly/selection-approved [:map [:selectionId :string] [:selectionDigest :string]]
+   :loyly/cycle-progress-recorded cycle-progress-schema
    :loyly/observation-recorded observation-schema
    :loyly/cycle-measurement-recorded measurement-schema})

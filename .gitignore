@@ -3,6 +3,8 @@ __pycache__/
 server.log
 *.db
 allure-report/
+.clj-kondo/
+.lsp/
 
 # preserved Loyly reference tree
 /.reference/
