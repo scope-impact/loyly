@@ -38,7 +38,7 @@
 
 (defn commands
   ([mode backend] (commands mode backend {:grader-script independent-grader-script}))
-  ([mode backend {:keys [grader-script project-id item-ids runtime-image-archive]
+  ([mode backend {:keys [grader-script project-id slice item-ids runtime-image-archive]
                   :or {grader-script independent-grader-script}}]
   (case mode
     "compose"
@@ -166,6 +166,38 @@
           :command (str "docker compose " baseline-compose-files " logs --no-color")}
          {:name "baseline-down"
           :command (str "docker compose " baseline-compose-files
+                        " down --volumes --remove-orphans")}]))
+
+    "affordance"
+    (do
+      (when-not (= "gondolin" backend)
+        (throw (ex-info "affordance conformance currently requires Gondolin"
+                        {:backend backend})))
+      (when-not (and (re-matches #"[A-Za-z0-9._-]+" (or project-id ""))
+                     (not (#{"." ".."} project-id)))
+        (throw (ex-info "affordance conformance requires a safe project identity"
+                        {:project-id project-id})))
+      (when-not (re-matches #"[A-Za-z0-9._-]+" (or slice ""))
+        (throw (ex-info "affordance conformance requires a safe slice identity"
+                        {:slice slice})))
+      (let [base-file "/tmp/pi-harness-affordance-base-url"]
+        [{:name "affordance-runtime" :command (runtime-command backend runtime-image-archive)}
+         {:name "affordance-evidence" :command evidence-compose}
+         {:name "affordance-up"
+          :command (str "docker compose " compose-files
+                        " up --detach --build --wait --wait-timeout 10 app"
+                        "; container=$(docker compose " compose-files " ps -q app)"
+                        "; ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' \"$container\")"
+                        "; test -n \"$ip\"; echo http://$ip:8080 >" base-file)}
+         {:name "affordance-grade"
+          :command (str "mkdir -p /evidence/playwright/affordance"
+                        "; node /grader/affordance-conformance.mjs"
+                        " --contract /workspace/model/" project-id "/affordances.yaml"
+                        " --slice " slice
+                        " --base-url \"$(cat " base-file ")\""
+                        " --evidence-root /evidence/playwright/affordance")}
+         {:name "affordance-down"
+          :command (str "docker compose " compose-files
                         " down --volumes --remove-orphans")}]))
 
     "instrument"

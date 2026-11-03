@@ -33,6 +33,46 @@
     (is (= {:prompt "Build from the approved cut."}
            (executor {:node {:instruction "Build from the approved cut."}})))))
 
+(deftest generation-runs-affordance-conformance-before-verification
+  (let [stages (:stages (generation-workflow/contract))]
+    (is (= "affordance-conformance"
+           (nth stages (inc (.indexOf stages "instrument")))))
+    (is (< (.indexOf stages "affordance-conformance")
+           (.indexOf stages "verify")))))
+
+(deftest affordance-conformance-preserves-a-flexible-independent-browser-verdict
+  (let [request (atom nil)]
+    (with-redefs [worker/baseline-grader-root (constantly "/judge")
+                  worker/run-grader-adapter
+                  (fn [value]
+                    (reset! request value)
+                    {:affordance-runtime {:exitCode 0}
+                     :affordance-evidence {:exitCode 0}
+                     :affordance-up {:exitCode 0}
+                     :affordance-grade
+                     {:exitCode 0
+                      :stdout (json/write-str
+                               {:passed false
+                                :checks [{:id "screen:Home"
+                                          :passed false
+                                          :evidence "GET / returned JSON, not an operable page"
+                                          :validator-extension "allowed"}]
+                                :additional-validator-data {:layout "unconstrained"}})}
+                     :affordance-down {:exitCode 0}})]
+      (let [result (worker/affordance-conformance-stage
+                    {:inputs {:request-id "generation-api-only"
+                              :selection approved-selection
+                              :scope ["impl"]
+                              :target-stack "typescript"
+                              :execution-backend "gondolin"
+                              :builder-result {:output-root "/candidate"}
+                              :instrument-result {:evidence-root "/evidence"}}})]
+        (is (= "affordance" (:mode @request)))
+        (is (= "loyly" (:project-id @request)))
+        (is (false? (:passed result)))
+        (is (= 1 (:total result)))
+        (is (= 0 (:passed-count result)))))))
+
 (def approved-oracle
   {:passed true :oracle-digest "digest-1"
    :grader-producer "loyly-black-box" :grader-id "booking-core-v1"})
@@ -313,7 +353,8 @@
     (try
       (let [context (:context runtime)
             sheet-id (orc/build-workflow! context (worker/generation-workflow))
-            result (with-redefs [worker/harness-calibration-stage
+            result (with-redefs [worker/baseline-grader-root (constantly "/judge")
+                                 worker/harness-calibration-stage
                                  (fn [{:keys [inputs]}]
                                    {:stage "harness-calibration"
                                     :request-id (:request-id inputs)
@@ -329,12 +370,22 @@
                                           :builder-session-id "generation-session"})
                                  subject/digest (constantly "generation-subject")
                                  worker/run-grader-adapter
-                                 (fn [_] {:compose-config {:exitCode 0 :stdout "{\"services\":{\"app\":{\"healthcheck\":{}},\"test\":{}}}" :stderr ""}
-                                          :compose-services {:exitCode 0 :stdout "app\ntest\n" :stderr ""}
-                                          :compose-test {:exitCode 0 :stdout "tests passed" :stderr ""}
-                                          :compose-up {:exitCode 0 :stdout "healthy" :stderr ""}
-                                          :compose-logs {:exitCode 0 :stdout "ready" :stderr ""}
-                                          :compose-down {:exitCode 0 :stdout "removed" :stderr ""}})
+                                 (fn [{:keys [mode]}]
+                                   (case mode
+                                     "affordance"
+                                     {:affordance-runtime {:exitCode 0}
+                                      :affordance-evidence {:exitCode 0}
+                                      :affordance-up {:exitCode 0}
+                                      :affordance-grade {:exitCode 0 :stdout "{\"passed\":true,\"checks\":[{\"id\":\"screen:Home\",\"passed\":true}]}"}
+                                      :affordance-down {:exitCode 0}}
+
+                                     "compose"
+                                     {:compose-config {:exitCode 0 :stdout "{\"services\":{\"app\":{\"healthcheck\":{}},\"test\":{}}}" :stderr ""}
+                                      :compose-services {:exitCode 0 :stdout "app\ntest\n" :stderr ""}
+                                      :compose-test {:exitCode 0 :stdout "tests passed" :stderr ""}
+                                      :compose-up {:exitCode 0 :stdout "healthy" :stderr ""}
+                                      :compose-logs {:exitCode 0 :stdout "ready" :stderr ""}
+                                      :compose-down {:exitCode 0 :stdout "removed" :stderr ""}}))
                                  stack-conformance/check
                                  (fn [& _] {:passed true :exit-code 0 :stdout "stack ok" :stderr ""})
                                  worker/baseline-grade-stage
@@ -391,7 +442,8 @@
                                    :execution-backend "gondolin"}))
             outputs (:outputs result)]
         (is (= :success (:status result)) (pr-str result))
-        (is (= ["cut" "harness-calibration" "builder" "instrument" "verify"
+        (is (= ["cut" "harness-calibration" "builder" "instrument"
+                "affordance-conformance" "verify"
                 "repair-verification" "baseline-grade" "instrument-conformance"
                 "repair-evaluation" "materialize-allure" "propose-oracle"]
                (:stages (generation-workflow/contract))))
@@ -536,6 +588,13 @@
                                                                   :stdout "[{\"itemId\":\"01-007\",\"verdict\":\"pass\",\"evidence\":\"one event and three correlated snapshots\"}]"
                                                                   :stderr ""}}
 
+                                                                "affordance"
+                                                                {:affordance-runtime {:exitCode 0}
+                                                                 :affordance-evidence {:exitCode 0}
+                                                                 :affordance-up {:exitCode 0}
+                                                                 :affordance-grade {:exitCode 0 :stdout "{\"passed\":true,\"checks\":[{\"id\":\"screen:Home\",\"passed\":true}]}"}
+                                                                 :affordance-down {:exitCode 0}}
+
                                                                 "compose"
                                                                 {:compose-config {:exitCode 0 :stdout "{\"services\":{\"app\":{\"healthcheck\":{\"test\":[\"CMD\",\"true\"]}},\"test\":{}}}" :stderr ""}
                                                                  :compose-services {:exitCode 0 :stdout "app\ntest\n" :stderr ""}
@@ -573,7 +632,8 @@
                           :target-stack "typescript"
                           :execution-backend "host"
                           :builder-result {:output-root "/tmp/loyly-compose-output"
-                                           :subject-digest "subject-test"}}}
+                                           :subject-digest "subject-test"}
+                          :affordance-conformance-result {:passed true}}}
         evidence {:compose-config {:exitCode 0 :stdout "{\"services\":{\"app\":{\"healthcheck\":{\"test\":[\"CMD\",\"true\"]}},\"test\":{}}}" :stderr ""}
                   :compose-services {:exitCode 0 :stdout "app\ntest\n" :stderr ""}
                   :compose-test {:exitCode 0 :stdout "tests passed" :stderr ""}
@@ -595,6 +655,52 @@
     (is (= true (:passed result)))
     (is (re-find #"tests passed" (:evidence result)))
     (is (re-find #"app ready" (:evidence result)))))
+
+(deftest verification-rejects-an-api-only-affordance-result
+  (let [context {:inputs {:request-id "request-api-only"
+                          :selection approved-selection
+                          :scope ["impl"]
+                          :target-stack "typescript"
+                          :execution-backend "gondolin"
+                          :builder-result {:output-root "/tmp/api-only"}
+                          :affordance-conformance-result
+                          {:passed false :total 1 :passed-count 0}}}
+        compose-evidence {:compose-config {:exitCode 0 :stdout "{\"services\":{\"app\":{\"healthcheck\":{}},\"test\":{}}}"}
+                          :compose-services {:exitCode 0 :stdout "app\ntest\n"}
+                          :compose-test {:exitCode 0 :stdout "tests passed"}
+                          :compose-up {:exitCode 0 :stdout "healthy"}
+                          :compose-down {:exitCode 0 :stdout "removed"}}
+        result (with-redefs [worker/run-grader-adapter (constantly compose-evidence)
+                             stack-conformance/check (constantly {:passed true})]
+                 (worker/verify-stage context))]
+    (is (false? (:passed result)))
+    (is (re-find #"affordance" (:evidence result)))))
+
+(deftest affordance-conformance-passes-when-the-contract-does-not-apply-to-the-slice
+  (let [request (atom nil)
+        result (with-redefs [worker/baseline-grader-root (constantly "/judge")
+                             worker/run-grader-adapter
+                             (fn [value]
+                               (reset! request value)
+                               {:affordance-runtime {:exitCode 0}
+                                :affordance-evidence {:exitCode 0}
+                                :affordance-up {:exitCode 0}
+                                :affordance-grade
+                                {:exitCode 0
+                                 :stdout "{\"passed\":true,\"applicable\":false,\"checks\":[]}"}
+                                :affordance-down {:exitCode 0}})]
+                 (worker/affordance-conformance-stage
+                  {:inputs {:request-id "request-no-ui"
+                            :selection (assoc approved-selection :slice "02-ledger")
+                            :scope ["impl"]
+                            :target-stack "typescript"
+                            :execution-backend "gondolin"
+                            :builder-result {:output-root "/candidate"}
+                            :instrument-result {:evidence-root "/evidence"}}}))]
+    (is (= "02-ledger" (:slice @request)))
+    (is (true? (:passed result)))
+    (is (false? (:applicable result)))
+    (is (zero? (:total result)))))
 
 (deftest failed-verification-is-repaired-from-the-shared-evidence-directory
   (let [builder-call (atom nil)
@@ -622,6 +728,10 @@
                                 :subject-digest "subject-two"
                                 :evidence-root "/state/request-repair-repair-02.evidence"
                                 :evidence-locations []})
+                             worker/affordance-conformance-stage
+                             (fn [_] {:stage "affordance-conformance"
+                                      :passed true :total 1 :passed-count 1
+                                      :evidence "green"})
                              worker/verify-stage
                              (fn [_] {:stage "verify" :passed true :evidence "green"})]
                  (worker/repair-verification-stage context))]
@@ -631,6 +741,7 @@
     (is (= "/state/request-repair.evidence" (:verification-evidence-root @builder-call)))
     (is (= 2 (:round @builder-call)))
     (is (= "/state/request-repair-repair-02" (get-in result [:builder :output-root])))
+    (is (true? (get-in result [:affordance :passed])))
     (is (true? (get-in result [:verify :passed])))))
 
 (deftest independent-grading-never-runs-for-an-unverified-candidate
@@ -662,6 +773,7 @@
                                            :subject-digest "subject-one"}
                           :instrument-result {:evidence-root "/state/candidate.evidence"
                                               :subject-digest "subject-one"}
+                          :affordance-conformance-result {:passed true}
                           :verify-result {:passed true}
                           :baseline-grade-result {:passed true}
                           :instrument-conformance-result {:passed false}}}
@@ -672,8 +784,14 @@
                                 :builder "openai-codex/test"})
                              subject/digest (constantly "subject-two")
                              worker/instrument-stage
-                             (fn [_] {:evidence-root "/state/candidate-evaluation-repair-02.evidence"
-                                      :subject-digest "subject-two"})
+                             (fn [{:keys [inputs]}]
+                               (is (= "/state/candidate-evaluation-repair-02"
+                                      (get-in inputs [:builder-result :output-root])))
+                               {:evidence-root "/state/candidate-evaluation-repair-02.evidence"
+                                :subject-digest "subject-two"})
+                             worker/affordance-conformance-stage
+                             (fn [_] {:passed true :applicable true :total 1
+                                      :passed-count 1 :evidence "green"})
                              worker/verify-stage (fn [_] {:passed true})
                              worker/baseline-grade-stage (fn [_] {:passed true})
                              worker/instrument-conformance-stage (fn [_] {:passed true})]

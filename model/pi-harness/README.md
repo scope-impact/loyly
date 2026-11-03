@@ -64,8 +64,12 @@ unclassified or doubly classified scenarios.
   use the `:loyly.pi-harness/*` namespace, its public commands, events, read models, queries, and
   processors must reconcile with live registries, and every event has an explicit `defevent`
   history contract. Startup and CI fail strict validation on missing, extra, or mismatched blocks.
-- `.pi/affordances.schema.json` defines the public Pi tool inputs; observable outcomes and
-  refusals remain in the Allium and Gherkin contracts rather than a parallel YAML model.
+- `model/<project>/affordances.yaml` defines the minimum actor-facing interaction surface that
+  exposes Allium/Gherkin behavior to people and tools for the slices selected by its `slice` or
+  `slices` field. A non-selected slice records affordance conformance as non-applicable and does
+  not invent a UI. `.pi/affordances.schema.json` is an
+  extensible vocabulary, not a closed shape: independent conformance ignores unknown fields and
+  validates reachable screens, operable accessible actions, declared calls, and visible feedback.
 - `GLOSSARY.md` fixes the generation, source-cut, and regeneration vocabulary.
 - `docs/adr/0001-session-and-cycle-ownership.md` records why ORC owns the inner cycle while
   operator sessions own approval and outer continuation.

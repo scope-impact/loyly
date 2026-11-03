@@ -44,6 +44,17 @@
                            [:subject-digest :string]
                            [:evidence-root :string]
                            [:evidence-locations [:vector :string]]]
+       :affordance-conformance-result [:map
+                                       [:stage :string]
+                                       [:request-id :string]
+                                       [:cut :string]
+                                       [:scope [:vector :string]]
+                                       [:execution-backend :string]
+                                       [:passed :boolean]
+                                       [:applicable :boolean]
+                                       [:total :int]
+                                       [:passed-count :int]
+                                       [:evidence :string]]
        :verify-result [:map
                        [:stage :string]
                        [:request-id :string]
@@ -76,6 +87,12 @@
                                                   [:subject-digest :string]
                                                   [:evidence-root :string]
                                                   [:evidence-locations [:vector :string]]]]
+                                    [:affordance [:map
+                                                  [:passed :boolean]
+                                                  [:applicable :boolean]
+                                                  [:total :int]
+                                                  [:passed-count :int]
+                                                  [:evidence :string]]]
                                     [:verify [:map
                                               [:stage :string]
                                               [:request-id :string]
@@ -128,6 +145,12 @@
                                   [:instrument [:map
                                                 [:evidence-root :string]
                                                 [:subject-digest :string]]]
+                                  [:affordance [:map
+                                                [:passed :boolean]
+                                                [:applicable :boolean]
+                                                [:total :int]
+                                                [:passed-count :int]
+                                                [:evidence :string]]]
                                   [:verify [:map [:passed :boolean]]]
                                   [:baseline-grade [:map [:passed :boolean]]]
                                   [:instrument-conformance [:map [:passed :boolean]]]
@@ -137,6 +160,7 @@
                                                [:subject-digest :string]
                                                [:evidence-root :string]
                                                [:verification-passed :boolean]
+                                               [:affordance-passed :boolean]
                                                [:grade-passed :boolean]
                                                [:instrument-conformance-passed :boolean]]]]]
        :allure-result [:map
@@ -165,15 +189,20 @@
         :fn "loyly.pi-harness.core.worker/instrument-stage"
         :reads [:request-id :orc-tick-id :selection :scope :execution-backend :builder-result]
         :writes [:instrument-result])
+      (orc/code "affordance-conformance"
+        :fn "loyly.pi-harness.core.worker/affordance-conformance-stage"
+        :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend
+                :builder-result :instrument-result]
+        :writes [:affordance-conformance-result])
       (orc/code "verify"
         :fn "loyly.pi-harness.core.worker/verify-stage"
         :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend
-                :builder-result :instrument-result]
+                :builder-result :instrument-result :affordance-conformance-result]
         :writes [:verify-result])
       (orc/code "repair-verification"
         :fn "loyly.pi-harness.core.worker/repair-verification-stage"
         :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend
-                :builder-result :instrument-result :verify-result]
+                :builder-result :instrument-result :affordance-conformance-result :verify-result]
         :writes [:repair-verification-result])
       (orc/code "baseline-grade"
         :fn "loyly.pi-harness.core.worker/baseline-grade-stage"
@@ -196,6 +225,7 @@
         :reads [:request-id :orc-tick-id :selection :scope :execution-backend
                 :builder-result :instrument-result :repair-verification-result
                 :baseline-grade-result :instrument-conformance-result
+                :affordance-conformance-result
                 :repair-evaluation-result]
         :writes [:allure-result])
       (orc/code "propose-oracle"

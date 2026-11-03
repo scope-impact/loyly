@@ -15,6 +15,10 @@ affordance contract
 The contract is framework-neutral. It names abstract components and accessibility requirements;
 a design-system binding identifies the concrete implementation.
 
+`slice` or `slices` limits a contract to the named generation slices. With no selector the
+contract is project-wide; a selected slice outside the selector records conformance as
+non-applicable and does not require the generator to invent a UI.
+
 ## Why this exists
 
 A regenerated UI may change layout, framework, and visual design. Screenshot tests would reject

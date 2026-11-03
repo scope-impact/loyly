@@ -83,7 +83,7 @@
 (defn run-grader!
   [{:keys [project-root cuts-root]}
    {:keys [cycle-id cut output-root evidence-root evidence-namespace mode execution-backend
-           project-id item-ids grader-script grader-root observability-root target-stack]}]
+           project-id slice item-ids grader-script grader-root observability-root target-stack]}]
   (when (and (#{"independent" "baseline"} mode) (not grader-root))
     (throw (ex-info "independent grading requires read-only grader assets"
                     {:mode mode})))
@@ -105,6 +105,7 @@
                  :commands (grader-commands/commands
                             mode execution-backend
                             {:project-id project-id
+                             :slice slice
                              :item-ids item-ids
                              :grader-script grader-script
                              :runtime-image-archive runtime-image-archive})}

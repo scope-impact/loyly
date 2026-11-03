@@ -268,11 +268,18 @@
                  :judge-id "sha256:judge" :normalized-evidence-digest "evidence-digest"
                  :measurement {:passed 1 :items [measured]}}
                 :instrument-conformance-result
-                {:passed true :items [measured]}}]
+                {:passed true :items [measured]}
+                :affordance-conformance-result
+                {:passed false :applicable true :total 1 :passed-count 0
+                 :evidence "initial candidate had no UI"}
+                :repair-verification-result
+                {:affordance
+                {:passed true :total 30 :passed-count 30
+                 :evidence "{\"checks\":[{\"id\":\"screen:Home\",\"passed\":true}]}"}}}]
     (try
       (let [result (worker/initial-allure-stage {:inputs inputs})
             files (file-seq (io/file evidence-root "allure-results"))]
-        (is (= 2 (:result-count result)))
-        (is (= 2 (count (filter #(str/ends-with? (.getName %) "-result.json") files)))))
+        (is (= 3 (:result-count result)))
+        (is (= 3 (count (filter #(str/ends-with? (.getName %) "-result.json") files)))))
       (finally
         (doseq [file (reverse (file-seq root))] (.delete file))))))

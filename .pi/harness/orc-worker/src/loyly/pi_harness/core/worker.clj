@@ -102,6 +102,11 @@
   (or (get-in inputs [:repair-evaluation-result :instrument-conformance])
       (:instrument-conformance-result inputs)))
 
+(defn effective-affordance-conformance-result [inputs]
+  (or (get-in inputs [:repair-evaluation-result :affordance])
+      (get-in inputs [:repair-verification-result :affordance])
+      (:affordance-conformance-result inputs)))
+
 (defn effective-grading-context [inputs]
   (or (:oracle-result inputs)
       (:baseline-grade-result inputs)))
@@ -227,7 +232,8 @@
               :evidence-root evidence-root
               :evidence-locations [(str evidence-root "/allure-results")]}))))
 
-(declare ensure-runtime! run-grader-adapter graders-stage sha256)
+(declare ensure-runtime! run-grader-adapter graders-stage sha256 baseline-grader-root
+         affordance-conformance-stage)
 
 (defn run-oracle-fixture-adapter [request]
   (adapters/run-oracle-fixture! (project-root) request))
@@ -340,18 +346,25 @@
                         :observability-root (:observability-root oracle)
                         :execution-backend execution-backend
                         :target-stack target-stack}
-        verification (compose/interpret-verification
-                      (run-grader-adapter (assoc grader-request :mode "compose")))
-        context {:inputs {:request-id evaluation-id
-                          :selection selection
-                          :scope scope
-                          :target-stack target-stack
-                          :execution-backend execution-backend
-                          :builder-result (assoc evidence :subject-digest subject-digest)
-                          :instrument-result {:subject-digest subject-digest
-                                              :evidence-root evidence-root}
-                          :oracle-result oracle-result
-                          :verify-result verification}}
+        base-inputs {:request-id evaluation-id
+                     :selection selection
+                     :scope scope
+                     :target-stack target-stack
+                     :execution-backend execution-backend
+                     :builder-result (assoc evidence :subject-digest subject-digest)
+                     :instrument-result {:subject-digest subject-digest
+                                         :evidence-root evidence-root}
+                     :oracle-result oracle-result}
+        affordance (affordance-conformance-stage {:inputs base-inputs})
+        compose-verification (compose/interpret-verification
+                              (run-grader-adapter (assoc grader-request :mode "compose")))
+        verification (assoc compose-verification
+                            :passed (and (:passed compose-verification)
+                                         (:passed affordance))
+                            :affordance affordance)
+        context {:inputs (assoc base-inputs
+                                :affordance-conformance-result affordance
+                                :verify-result verification)}
         grading (when (and (:passed oracle-result) (:passed verification))
                   (graders-stage context))
         measurement (:measurement grading)
@@ -370,6 +383,7 @@
                                        (filter #(= "fail" (:verdict %)))
                                        (mapv #(select-keys % [:item-id :evidence :graded?])))}
                    {:oracle-passed (:passed oracle-result)
+                    :affordance-passed (:passed affordance)
                     :verification-passed (:passed verification)
                     :reason "candidate did not reach a complete independent measurement"})]
     {:score score
@@ -617,11 +631,13 @@
   (record-stage-progress! context "materialize-allure")
   (let [grade (effective-baseline-grade-result inputs)
         conformance (effective-instrument-conformance-result inputs)
+        affordance (effective-affordance-conformance-result inputs)
         denominator (count (get-in inputs [:selection :items]))]
-    (when-not (and (:passed grade) (:passed conformance)
+    (when-not (and (:passed grade) (:passed conformance) (:passed affordance)
                    (= denominator (get-in grade [:measurement :passed])))
       (throw (ex-info "Allure results require a complete first-grade measurement"
-                      {:grade grade :instrument-conformance conformance})))
+                      {:grade grade :instrument-conformance conformance
+                       :affordance-conformance affordance})))
     (let [grade-paths (emit-grader-observations! context (:measurement grade))
           conformance-paths
           (emit-grader-observations!
@@ -629,7 +645,13 @@
            {:producer "runtime-instrument-conformance"
             :grader-id "runtime-evidence-contract"
             :evidence-kind "instrument-conformance"})
-          paths (into grade-paths conformance-paths)]
+          affordance-path
+          (emit-allure! "affordance-conformance" context
+                        {:passed (:passed affordance)
+                         :exit-code (if (:passed affordance) 0 1)
+                         :stdout (:evidence affordance)
+                         :stderr ""})
+          paths (conj (into grade-paths conformance-paths) affordance-path)]
       (merge (stage-result "materialize-allure" context)
              {:result-count (count paths)
               :paths paths}))))
@@ -722,21 +744,80 @@
             :grader-id (:graderId adapter)
             :evidence (json/write-str result)})))
 
+(defn- interpret-affordance-conformance [evidence]
+  (let [required [:affordance-runtime :affordance-evidence :affordance-up
+                  :affordance-grade :affordance-down]
+        command-failures (->> required
+                              (remove #(zero? (or (get-in evidence [% :exitCode]) 1)))
+                              vec)
+        payload (try
+                  (json/read-str (get-in evidence [:affordance-grade :stdout] "")
+                                 :key-fn keyword)
+                  (catch Exception _ nil))
+        applicable (not (false? (:applicable payload)))
+        checks (if (vector? (:checks payload)) (:checks payload) [])
+        passed-count (count (filter #(true? (:passed %)) checks))
+        passed (and (empty? command-failures)
+                    (true? (:passed payload))
+                    (or (not applicable) (seq checks))
+                    (= passed-count (count checks)))]
+    {:passed (boolean passed)
+     :applicable applicable
+     :total (count checks)
+     :passed-count passed-count
+     :command-failures (mapv name command-failures)
+     :checks checks
+     :stdout (get-in evidence [:affordance-grade :stdout] "")
+     :stderr (str/join "\n" (remove str/blank?
+                                     (map #(get-in evidence [% :stderr] "") required)))}))
+
+(defn affordance-conformance-stage [{:keys [inputs] :as context}]
+  (record-stage-progress! context "affordance-conformance")
+  (let [builder (:builder-result inputs)
+        instrument (:instrument-result inputs)
+        grader-root (or (get-in inputs [:oracle-result :grader-root])
+                        (baseline-grader-root))
+        evidence (run-grader-adapter
+                  {:cycle-id (:request-id inputs)
+                   :cut (get-in inputs [:selection :cut])
+                   :output-root (:output-root builder)
+                   :evidence-root (:evidence-root instrument)
+                   :evidence-namespace "affordance-conformance"
+                   :execution-backend (:execution-backend inputs)
+                   :grader-root grader-root
+                   :project-id (get-in inputs [:selection :projectId])
+                   :slice (get-in inputs [:selection :slice])
+                   :target-stack (:target-stack inputs)
+                   :mode "affordance"})
+        result (interpret-affordance-conformance evidence)]
+    (merge (stage-result "affordance-conformance" context)
+           {:passed (:passed result)
+            :applicable (:applicable result)
+            :total (:total result)
+            :passed-count (:passed-count result)
+            :evidence (json/write-str (assoc result :commands evidence))})))
+
 (defn verify-stage [{:keys [inputs] :as context}]
   (record-stage-progress! context "verify")
-  (let [stack-result (stack-conformance/check (get-in inputs [:builder-result :output-root])
+  (let [builder (effective-builder-result inputs)
+        instrument (effective-instrument-result inputs)
+        stack-result (stack-conformance/check (:output-root builder)
                                                (:target-stack inputs))
         evidence (run-grader-adapter {:cycle-id (:request-id inputs)
                                       :cut (get-in inputs [:selection :cut])
-                                      :output-root (get-in inputs [:builder-result :output-root])
-                                      :evidence-root (get-in inputs [:instrument-result :evidence-root])
+                                      :output-root (:output-root builder)
+                                      :evidence-root (:evidence-root instrument)
                                       :execution-backend (:execution-backend inputs)
                                       :target-stack (:target-stack inputs)
                                       :mode "compose"})
         compose-result (compose/interpret-verification evidence)
-        result {:passed (and (:passed stack-result) (:passed compose-result))
+        affordance-result (effective-affordance-conformance-result inputs)
+        result {:passed (and (:passed stack-result)
+                             (:passed compose-result)
+                             (:passed affordance-result))
                 :stack stack-result
-                :compose compose-result}]
+                :compose compose-result
+                :affordance affordance-result}]
     (merge (stage-result "verify" context)
            {:passed (:passed result)
             :evidence (json/write-str result)})))
@@ -747,10 +828,12 @@
   (record-stage-progress! context "repair-verification")
   (let [initial-builder (:builder-result inputs)
         initial-instrument (:instrument-result inputs)
+        initial-affordance (:affordance-conformance-result inputs)
         initial-verify (:verify-result inputs)]
     (loop [round 1
            builder initial-builder
            instrument initial-instrument
+           affordance initial-affordance
            verification initial-verify
            attempts [{:round 1
                       :subject-digest (:subject-digest initial-builder)
@@ -762,6 +845,7 @@
                 :rounds round
                 :builder builder
                 :instrument instrument
+                :affordance affordance
                 :verify verification
                 :attempts attempts})
         (let [next-round (inc round)
@@ -793,13 +877,19 @@
                                 :tick-id (:tick-id context)
                                 :cycle-id (:request-id inputs)}
               repaired-instrument (instrument-stage repaired-context)
+              repaired-affordance (affordance-conformance-stage
+                                    (assoc repaired-context :inputs
+                                           (assoc repaired-inputs
+                                                  :instrument-result repaired-instrument)))
               repaired-verification (verify-stage
                                      (assoc repaired-context :inputs
                                             (assoc repaired-inputs
-                                                   :instrument-result repaired-instrument)))]
+                                                   :instrument-result repaired-instrument
+                                                   :affordance-conformance-result repaired-affordance)))]
           (recur next-round
                  repaired-builder
                  repaired-instrument
+                 repaired-affordance
                  repaired-verification
                  (conj attempts
                        {:round next-round
@@ -879,6 +969,7 @@
         root (when configured (.getCanonicalFile (io/file configured)))]
     (when-not (and root (.isDirectory root)
                    (.isFile (io/file root "grade.mjs"))
+                   (.isFile (io/file root "affordance-conformance.mjs"))
                    (.isFile (io/file root "runtime-conformance.py")))
       (throw (ex-info "initial generation requires an independent baseline judge package"
                       {:configured configured})))
@@ -1056,23 +1147,25 @@
 
 (def max-evaluation-rounds 3)
 
-(defn- evaluation-passed? [verification grade conformance]
-  (and (:passed verification) (:passed grade) (:passed conformance)))
+(defn- evaluation-passed? [verification affordance grade conformance]
+  (and (:passed verification) (:passed affordance) (:passed grade) (:passed conformance)))
 
 (defn repair-evaluation-stage [{:keys [inputs] :as context}]
   (record-stage-progress! context "repair-evaluation")
   (loop [round 1
          builder (effective-builder-result inputs)
          instrument (effective-instrument-result inputs)
+         affordance (effective-affordance-conformance-result inputs)
          verification (effective-verify-result inputs)
          grade (:baseline-grade-result inputs)
          conformance (:instrument-conformance-result inputs)
          attempts []]
-    (let [passed (evaluation-passed? verification grade conformance)
+    (let [passed (evaluation-passed? verification affordance grade conformance)
           attempt {:round round
                    :subject-digest (:subject-digest builder)
                    :evidence-root (:evidence-root instrument)
                    :verification-passed (boolean (:passed verification))
+                   :affordance-passed (boolean (:passed affordance))
                    :grade-passed (boolean (:passed grade))
                    :instrument-conformance-passed (boolean (:passed conformance))}
           attempts (conj attempts attempt)]
@@ -1082,6 +1175,7 @@
                 :rounds round
                 :builder builder
                 :instrument instrument
+                :affordance affordance
                 :verify verification
                 :baseline-grade grade
                 :instrument-conformance conformance
@@ -1111,6 +1205,7 @@
                                  :subject-digest (subject/digest (:output-root raw-builder))})
               repaired-inputs (-> inputs
                                   (assoc :request-id repair-id
+                                         :builder-result repaired-builder
                                          :repair-verification-result
                                          {:builder repaired-builder
                                           :instrument instrument
@@ -1120,10 +1215,16 @@
                                 :tick-id (:tick-id context)
                                 :cycle-id (:request-id inputs)}
               repaired-instrument (instrument-stage repaired-context)
+              repaired-affordance (affordance-conformance-stage
+                                    (assoc repaired-context :inputs
+                                           (assoc repaired-inputs
+                                                  :builder-result repaired-builder
+                                                  :instrument-result repaired-instrument)))
               evaluation-inputs (assoc repaired-inputs
                                        :repair-verification-result
                                        {:builder repaired-builder
                                         :instrument repaired-instrument
+                                        :affordance repaired-affordance
                                         :verify verification})
               repaired-verification (verify-stage
                                      (assoc repaired-context :inputs evaluation-inputs))
@@ -1143,6 +1244,7 @@
           (recur next-round
                  repaired-builder
                  repaired-instrument
+                 repaired-affordance
                  repaired-verification
                  (or repaired-grade {:passed false})
                  (or repaired-conformance {:passed false})

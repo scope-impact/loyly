@@ -1,7 +1,7 @@
 -- allium: 3
 -- Full ordered regeneration execution and evidence pipeline.
 
-enum PipelineStage { cut | harness_calibration | builder | instrument | verify | repair_verification | collect_evidence | compare_oracle | instrument_conformance | record_cycle | result }
+enum PipelineStage { cut | harness_calibration | builder | instrument | affordance_conformance | verify | repair_verification | collect_evidence | compare_oracle | instrument_conformance | record_cycle | result }
 enum PipelineStatus { submitted | running | passed | failed }
 enum PipelineVerdict { pass | fail | inconclusive }
 enum StageFailureKind { refused | skipped | timed_out | errored }
@@ -22,7 +22,8 @@ entity PipelineCycle {
         cut -> harness_calibration
         harness_calibration -> builder
         builder -> instrument
-        instrument -> verify
+        instrument -> affordance_conformance
+        affordance_conformance -> verify
         verify -> repair_verification
         repair_verification -> collect_evidence
         collect_evidence -> compare_oracle
@@ -70,6 +71,16 @@ entity InstrumentationRecord {
     evidence_locations: List<String>
     runtime_signal_identities: List<String>
     collection_complete: Boolean
+}
+
+entity AffordanceConformanceEvaluation {
+    cycle: PipelineCycle
+    producer: String
+    passed: Boolean
+    applicable: Boolean
+    total: Integer
+    passed_count: Integer
+    evidence: String
 }
 
 entity VerificationAttempt {
@@ -199,6 +210,28 @@ rule InstrumentPipelineCandidate {
         evidence_locations: evidence_locations,
         runtime_signal_identities: runtime_signal_identities,
         collection_complete: collection_complete
+    )
+    ensures: cycle.stage = affordance_conformance
+}
+
+rule EvaluateCandidateAffordances {
+    when: IndependentAffordanceConformanceReturned(cycle, producer, passed, applicable,
+                                                    total, passed_count, evidence)
+    requires: cycle.status = running
+    requires: cycle.stage = affordance_conformance
+    requires: applicable implies total > 0
+    requires: not applicable implies (passed and total = 0)
+    requires: passed_count >= 0
+    requires: passed_count <= total
+    requires: passed implies passed_count = total
+    ensures: AffordanceConformanceEvaluation.created(
+        cycle: cycle,
+        producer: producer,
+        passed: passed,
+        applicable: applicable,
+        total: total,
+        passed_count: passed_count,
+        evidence: evidence
     )
     ensures: cycle.stage = verify
 }
@@ -354,6 +387,7 @@ rule PassPipelineCycle {
     requires: cycle_measurement(cycle).complete
     requires: cycle_measurement(cycle).failed = 0
     requires: instrument_conformance(cycle).passed
+    requires: latest_affordance_conformance(cycle).passed
     ensures: cycle.status = passed
 }
 
@@ -426,6 +460,8 @@ surface RegenerationExecutionPipeline {
                               generated_paths, tool_calls)
         CandidateInstrumented(cycle, subject_digest, evidence_locations,
                               runtime_signal_identities, collection_complete)
+        IndependentAffordanceConformanceReturned(cycle, producer, passed, applicable,
+                                                 total, passed_count, evidence)
         ApplicationContractVerificationReturned(cycle, subject_digest, target_stack,
                                                 passed, evidence_root)
         VerificationRepairBuilderCompleted(cycle, attempt, builder_session_identity,

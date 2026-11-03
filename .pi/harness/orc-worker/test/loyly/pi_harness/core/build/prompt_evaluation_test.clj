@@ -62,6 +62,14 @@
                             (fn [{:keys [mode item-ids]}]
                               (case mode
                                 "compose" compose-evidence
+                                "affordance"
+                                {:affordance-runtime {:exitCode 0}
+                                 :affordance-evidence {:exitCode 0}
+                                 :affordance-up {:exitCode 0}
+                                 :affordance-grade
+                                 {:exitCode 0
+                                  :stdout "{\"passed\":true,\"checks\":[{\"id\":\"screen:Home\",\"passed\":true}]}"}
+                                 :affordance-down {:exitCode 0}}
                                 "independent" (independent-evidence
                                                (first item-ids)
                                                (if (= ["@item-01-002"] item-ids) "fail" "pass"))
@@ -84,6 +92,34 @@
     (is (= selection (:selection (first @requests))))
     (is (str/starts-with? (:request-id (first @requests))
                           "gepa-request-independent-"))))
+
+(deftest prompt-optimization-gives-api-only-candidates-no-score
+  (let [result (with-redefs [worker/run-oracle
+                             (constantly {:passed true :oracle-digest "oracle"
+                                          :grader-root "/oracle/grader"})
+                             worker/product-oracle-options (constantly {})
+                             subject/digest (constantly "subject-digest")
+                             worker/run-builder-adapter
+                             (constantly {:output-root "/tmp/api-only-output"})
+                             worker/run-grader-adapter
+                             (fn [{:keys [mode item-ids]}]
+                               (case mode
+                                 "compose" compose-evidence
+                                 "affordance"
+                                 {:affordance-runtime {:exitCode 0}
+                                  :affordance-evidence {:exitCode 0}
+                                  :affordance-up {:exitCode 0}
+                                  :affordance-grade
+                                  {:exitCode 1
+                                   :stdout "{\"passed\":false,\"checks\":[{\"id\":\"screen:Home\",\"passed\":false}]}"}
+                                  :affordance-down {:exitCode 0}}
+                                 "independent" (independent-evidence (first item-ids) "pass")))]
+                 (worker/evaluate-prompt
+                  valid-example
+                  {:prompt "Build an API without pages."}))]
+    (is (= 0.0 (:score result)))
+    (is (= false (:affordance-passed
+                  (json/read-str (:feedback result) :key-fn keyword))))))
 
 (deftest prompt-optimization-refuses-an-example-without-an-approved-selection
   (is (thrown-with-msg?

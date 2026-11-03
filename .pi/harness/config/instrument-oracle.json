@@ -27,6 +27,7 @@
   ],
   "components": [
     "accepted-contract-eligibility",
+    "affordance-conformance",
     "allure-evidence-projection",
     "allure-golden-normalizer",
     "application-contract",

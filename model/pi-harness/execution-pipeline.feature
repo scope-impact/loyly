@@ -8,7 +8,7 @@ Feature: Ordered regeneration execution and evidence
     Scenario: A regeneration cycle follows the declared stage order
       Given an approved cycle starts
       When ORC advances the cycle
-      Then its stages are cut, harness calibration, builder, instrument, verify, repair verification, collect evidence, compare oracle, instrument conformance, record cycle, and grade gate in that order
+      Then its stages are cut, harness calibration, builder, instrument, affordance conformance, verify, repair verification, collect evidence, compare oracle, instrument conformance, record cycle, and grade gate in that order
       And adapter completion cannot reorder or skip an ORC stage
       And before the builder starts ORAS resolves the pinned instrument oracle
       And every verdict-affecting harness component and the complete harness source digest match
@@ -24,6 +24,7 @@ Feature: Ordered regeneration execution and evidence
         | harness-calibration    |
         | builder                |
         | instrument             |
+        | affordance-conformance |
         | verify                 |
         | repair-verification    |
         | collect-evidence       |
@@ -31,6 +32,13 @@ Feature: Ordered regeneration execution and evidence
         | instrument-conformance |
         | record-cycle           |
         | grade-gate             |
+
+    @item-01-024 @skip
+    Scenario: A slice without a human affordance contract does not invent a UI
+      Given the approved slice is not selected by the project's affordance contract
+      When independent affordance conformance runs
+      Then it records a passed non-applicable result with zero checks
+      And verification continues without requiring screens or forms
 
     @item-01-025 @skip
     Scenario: Instrumentation records the subject without changing it
