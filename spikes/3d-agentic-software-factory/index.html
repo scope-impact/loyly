@@ -1,14 +1,127 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#07111b" />
-    <meta name="description" content="The Next Body — an original interactive animatic about creativity, embodiment, evidence, and memory." />
-    <title>The Next Body — interactive animatic</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/story-prototype.jsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0b292c" />
+  <meta name="description" content="The Next Body: a visual essay about LLM creativity, embodied software harnesses, independent judgment, and durable memory." />
+  <title>The Next Body — a visual essay</title>
+  <style>
+    :root { --spruce:#0b292c; --spruce-2:#12383a; --ink:#172b2c; --birch:#e7d5a8; --paper:#f4f0e6; --steam:#fbfaf5; --amber:#f2a33a; --violet:#a98bff; --teal:#58c7bc; --red:#e85d4a; --muted:#9eb3ae; --serif:Georgia,"Times New Roman",serif; --sans:"Arial Narrow","Aptos Narrow","Helvetica Neue",Arial,sans-serif; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; background:var(--spruce); }
+    body { margin:0; color:var(--paper); background:var(--spruce); font-family:var(--serif); font-size:18px; line-height:1.65; }
+    a { color:inherit; } button, summary { font:inherit; }
+    .reading-progress { position:fixed; z-index:20; inset:0 0 auto; height:4px; transform-origin:left; transform:scaleX(0); background:var(--amber); }
+    .masthead { position:absolute; z-index:5; top:26px; left:clamp(22px,5vw,72px); right:clamp(22px,5vw,72px); display:flex; justify-content:space-between; align-items:center; font-family:var(--sans); font-size:13px; }
+    .masthead a { text-decoration:none; } .masthead span { color:var(--muted); }
+    .hero { min-height:100svh; display:grid; grid-template-columns:minmax(0,.92fr) minmax(430px,1.08fr); align-items:center; gap:clamp(20px,4vw,72px); padding:110px clamp(24px,6vw,92px) 70px; overflow:hidden; background:radial-gradient(circle at 72% 42%,#1c4a49 0,var(--spruce) 52%); }
+    .hero-copy { position:relative; z-index:2; max-width:700px; }
+    .hero h1 { margin:0; color:var(--birch); font:400 clamp(68px,10vw,154px)/.82 var(--serif); letter-spacing:-.065em; }
+    .hero .thesis { margin:clamp(30px,5vw,64px) 0 0; max-width:620px; color:var(--steam); font-size:clamp(23px,2.45vw,39px); line-height:1.2; }
+    .hero .thesis strong { color:var(--amber); font-weight:400; }
+    .hero .dek { max-width:580px; margin:24px 0 0; color:#bed0cb; font-family:var(--sans); font-size:clamp(15px,1.35vw,19px); line-height:1.6; }
+    .scroll-cue { display:inline-flex; gap:12px; align-items:center; margin-top:38px; color:var(--birch); font-family:var(--sans); font-size:13px; text-decoration:none; }
+    .scroll-cue i { width:48px; height:1px; background:var(--amber); }
+    .body-figure { position:relative; width:min(100%,680px); justify-self:center; filter:drop-shadow(0 35px 70px rgba(0,0,0,.3)); }
+    .body-figure svg { display:block; width:100%; height:auto; overflow:visible; }
+    .body-fill { fill:#173c3f; stroke:#7bb4ad; stroke-width:2; } .glass { fill:rgba(200,238,230,.08); stroke:#7bb4ad; stroke-width:2; }
+    .nerve { fill:none; stroke:var(--teal); stroke-width:5; stroke-linecap:round; opacity:.72; } .nerve.fine { stroke-width:2.4; opacity:.55; }
+    .brain { fill:var(--violet); filter:drop-shadow(0 0 14px rgba(169,139,255,.8)); } .memory { fill:#1c7e75; stroke:var(--teal); stroke-width:3; }
+    .pulse { fill:var(--amber); filter:drop-shadow(0 0 10px var(--amber)); } .body-label text { fill:var(--paper); font:16px var(--sans); }
+    .body-label .quiet { fill:#9eb9b3; font-size:12px; } .body-label line { stroke:#91afa9; stroke-width:1; } .brain-eyes { fill:#17202a; }
+    .section { padding:clamp(74px,11vw,150px) clamp(24px,8vw,124px); } .section-inner { width:min(1180px,100%); margin:0 auto; }
+    .section h2 { max-width:900px; margin:0; color:var(--birch); font:400 clamp(48px,7vw,92px)/.95 var(--serif); letter-spacing:-.045em; }
+    .section-lead { max-width:740px; margin:30px 0 0; color:#c6d7d2; font-size:clamp(20px,2.2vw,29px); line-height:1.45; }
+    .section-number { display:block; margin-bottom:18px; color:var(--amber); font-family:var(--sans); font-size:13px; }
+    .anatomy { color:var(--ink); background:var(--birch); } .anatomy h2 { color:var(--ink); } .anatomy .section-lead { color:#385253; }
+    .analogy-wrap { margin-top:60px; border-top:2px solid var(--ink); } .analogy { width:100%; border-collapse:collapse; font-family:var(--sans); }
+    .analogy th { padding:14px 12px; color:#516463; border-bottom:1px solid rgba(23,43,44,.3); text-align:left; font-size:12px; font-weight:500; }
+    .analogy td { padding:20px 12px; border-bottom:1px solid rgba(23,43,44,.24); vertical-align:top; line-height:1.4; }
+    .analogy td:first-child { width:20%; font-family:var(--serif); font-size:21px; } .analogy td:nth-child(2) { width:26%; color:#0b5251; font-weight:700; } .analogy td:last-child { color:#455b5b; }
+    .core-row td { background:rgba(255,255,255,.2); } .core-row td:first-child::before { content:"●"; margin-right:10px; color:var(--amber); font-size:12px; }
+    .aside-note { max-width:780px; margin:48px 0 0 auto; padding:24px 0 0 30px; border-top:1px solid rgba(23,43,44,.35); color:#365253; font-size:21px; } .aside-note strong { color:var(--ink); }
+    .failure { background:var(--paper); color:var(--ink); } .failure h2 { color:var(--ink); } .failure .section-lead { color:#4c6261; }
+    .storyline { position:relative; display:grid; grid-template-columns:repeat(4,1fr); gap:0; margin-top:72px; }
+    .storyline::before { content:""; position:absolute; top:29px; left:7%; right:7%; height:3px; background:linear-gradient(90deg,var(--amber) 48%,var(--red) 48% 72%,var(--teal) 72%); }
+    .beat { position:relative; padding:74px 24px 20px 0; } .beat::before { content:""; position:absolute; top:19px; left:0; width:20px; height:20px; border:8px solid var(--paper); border-radius:50%; background:var(--amber); box-shadow:0 0 0 2px var(--amber); }
+    .beat:nth-child(3)::before { background:var(--red); box-shadow:0 0 0 2px var(--red); } .beat:nth-child(4)::before { background:var(--teal); box-shadow:0 0 0 2px var(--teal); }
+    .beat small { color:#687b78; font-family:var(--sans); font-size:12px; } .beat h3 { margin:8px 0 12px; font:400 29px/1.05 var(--serif); } .beat p { margin:0; color:#4d6260; font-family:var(--sans); font-size:15px; line-height:1.55; }
+    .cold-sauna { margin-top:70px; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:28px; padding:38px; color:var(--paper); background:var(--spruce); }
+    .cold-sauna strong { color:var(--birch); font:400 31px var(--serif); } .cold-sauna p { max-width:480px; margin:8px 0 0; color:#b9ccc7; font-family:var(--sans); font-size:15px; }
+    .sauna-signals { display:flex; gap:9px; font-family:var(--sans); font-size:12px; } .sauna-signals span { padding:8px 10px; border-bottom:4px solid var(--teal); background:#17383b; } .sauna-signals .cold { border-color:var(--red); color:#ffc4bc; }
+    .loop { background:var(--spruce); } .loop-layout { display:grid; grid-template-columns:minmax(300px,.75fr) minmax(480px,1.25fr); gap:clamp(50px,8vw,110px); align-items:center; } .loop-copy p { color:#bfd0cc; }
+    .phoenix { position:relative; aspect-ratio:1; display:grid; place-items:center; border:1px solid rgba(88,199,188,.3); border-radius:50%; }
+    .phoenix::before,.phoenix::after { content:""; position:absolute; border:1px solid rgba(88,199,188,.22); border-radius:50%; } .phoenix::before { inset:12%; } .phoenix::after { inset:25%; }
+    .phoenix-center { z-index:2; display:grid; place-items:center; width:29%; aspect-ratio:1; border-radius:50%; color:var(--spruce); background:var(--amber); text-align:center; font:700 14px/1.2 var(--sans); }
+    .orbit-word { position:absolute; z-index:3; width:130px; color:var(--paper); font:16px/1.2 var(--sans); text-align:center; } .orbit-word small { display:block; margin-top:5px; color:var(--muted); font-size:11px; }
+    .o1 { top:3%; left:50%; transform:translateX(-50%); } .o2 { top:25%; right:-5%; } .o3 { right:0; bottom:20%; } .o4 { bottom:3%; left:50%; transform:translateX(-50%); } .o5 { bottom:20%; left:-2%; } .o6 { top:25%; left:-5%; }
+    .loop-arrow { position:absolute; inset:6%; border:3px solid transparent; border-top-color:var(--teal); border-right-color:var(--teal); border-radius:50%; transform:rotate(22deg); opacity:.7; }
+    .loop-arrow::after { content:""; position:absolute; top:26%; right:-8px; border:8px solid transparent; border-left-color:var(--teal); transform:rotate(34deg); }
+    .truth { color:var(--ink); background:var(--steam); } .truth h2 { color:var(--ink); } .truth-grid { display:grid; grid-template-columns:1fr 1fr; gap:2px; margin-top:65px; background:#bdc9c5; }
+    .measure { padding:clamp(30px,5vw,65px); background:var(--paper); } .measure span { color:#617371; font-family:var(--sans); font-size:14px; } .measure strong { display:block; margin:12px 0; font:400 clamp(66px,9vw,130px)/.8 var(--serif); letter-spacing:-.06em; }
+    .measure:first-child strong { color:#18766f; } .measure:last-child strong { color:var(--red); } .measure p { max-width:420px; margin:24px 0 0; color:#4d6260; font-family:var(--sans); font-size:15px; }
+    .findings { margin-top:2px; display:grid; grid-template-columns:1fr 1fr; gap:2px; background:#bdc9c5; } .finding { padding:30px; background:#e9e4d8; } .finding b { color:var(--red); font-family:var(--sans); font-size:13px; } .finding p { margin:9px 0 0; font-size:18px; line-height:1.45; }
+    details { margin-top:38px; border-top:1px solid #aab7b2; border-bottom:1px solid #aab7b2; } summary { padding:18px 0; cursor:pointer; color:#36504f; font-family:var(--sans); font-size:14px; }
+    .evidence-list { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; padding:10px 0 28px; } .evidence-list div { padding-left:15px; border-left:3px solid var(--teal); } .evidence-list strong { display:block; font:400 25px var(--serif); } .evidence-list span { color:#5d706e; font-family:var(--sans); font-size:12px; }
+    .expressions { background:var(--birch); color:var(--ink); } .expressions h2 { color:var(--ink); } .expressions .section-lead { color:#385253; } .anatomy .section-number,.expressions .section-number,.failure .section-number,.truth .section-number { color:#a84d24; } .bodies { display:grid; grid-template-columns:repeat(4,1fr); gap:18px; margin-top:65px; }
+    .body-card { min-height:270px; display:flex; flex-direction:column; justify-content:space-between; padding:26px; border:1px solid rgba(23,43,44,.32); } .body-card h3 { margin:0; font:400 27px var(--serif); }
+    .body-icon { display:grid; place-items:center; height:120px; } .body-icon i { display:block; width:74px; height:90px; background:var(--spruce-2); } .rust i { clip-path:polygon(50% 0,96% 27%,86% 82%,50% 100%,14% 82%,4% 27%); background:#b95635; } .java i { border-radius:50px; background:#c48d26; } .rails i { height:23px; box-shadow:0 32px #a33d4f,0 64px #a33d4f; background:#a33d4f; }
+    .score { display:flex; justify-content:space-between; align-items:baseline; padding-top:16px; border-top:1px solid rgba(23,43,44,.25); font-family:var(--sans); } .score s { color:#6f7b78; font-size:13px; } .score strong { color:#0b6a62; font-size:21px; }
+    .closing { min-height:88svh; display:grid; place-items:center; padding:90px 24px; text-align:center; background:radial-gradient(circle,#1a4746 0,var(--spruce) 62%); } .closing blockquote { max-width:980px; margin:0; color:var(--birch); font:400 clamp(38px,6vw,80px)/1.08 var(--serif); letter-spacing:-.04em; } .closing p { max-width:600px; margin:34px auto 0; color:#b7cbc6; font-family:var(--sans); }
+    .closing .lo-mark { width:30px; height:30px; margin:0 auto 40px; border-radius:50%; background:var(--amber); box-shadow:0 -17px 0 -7px rgba(242,163,58,.7),0 -31px 0 -10px rgba(242,163,58,.35); }
+    footer { display:flex; justify-content:space-between; gap:30px; padding:25px clamp(24px,6vw,90px); color:#8ca6a0; border-top:1px solid rgba(255,255,255,.1); font-family:var(--sans); font-size:12px; } footer a { color:var(--birch); }
+    @media (max-width:900px) { .hero { grid-template-columns:1fr; padding-top:130px; } .body-figure { width:min(100%,560px); margin-top:20px; } .hero h1 { font-size:clamp(72px,19vw,130px); } .loop-layout { grid-template-columns:1fr; } .phoenix { width:min(100%,600px); margin:20px auto 0; } .storyline { grid-template-columns:1fr 1fr; gap:30px 0; } .storyline::before { display:none; } .beat { padding-top:50px; } .beat::before { top:13px; } .bodies { grid-template-columns:1fr 1fr; } .analogy { min-width:760px; } .analogy-wrap { overflow-x:auto; } }
+    @media (max-width:620px) { body { font-size:16px; } .masthead span { display:none; } .hero { padding-inline:22px; } .hero .thesis { font-size:26px; } .body-label text { font-size:19px; } .body-label .quiet { font-size:14px; } .section { padding-inline:22px; } .section h2 { font-size:50px; } .section-lead { font-size:20px; } .storyline,.truth-grid,.findings,.bodies,.evidence-list { grid-template-columns:1fr; } .cold-sauna { grid-template-columns:1fr; padding:28px 22px; } .sauna-signals { flex-wrap:wrap; } .phoenix { transform:scale(.9); } .orbit-word { width:100px; font-size:14px; } .o2 { right:-8%; } .o3 { right:-3%; } .o5 { left:-3%; } .o6 { left:-8%; } .measure { padding:34px 24px; } .body-card { min-height:230px; } .analogy-wrap { overflow:visible; } .analogy { min-width:0; } .analogy thead { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); } .analogy tbody,.analogy tr,.analogy td { display:block; width:100%; } .analogy tr { padding:19px 0; border-bottom:1px solid rgba(23,43,44,.28); } .analogy td { padding:2px 0; border:0; } .analogy td:first-child { width:100%; margin-bottom:6px; font-size:23px; } .analogy td:nth-child(2) { width:100%; margin-bottom:7px; } .core-row td { background:transparent; } footer { flex-direction:column; } }
+    @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
+  </style>
+</head>
+<body>
+  <div class="reading-progress" aria-hidden="true"></div>
+  <header class="masthead"><a href="#top">The Next Body</a><span>A visual essay on the Phoenix architecture</span></header>
+  <main id="top">
+    <section class="hero">
+      <div class="hero-copy">
+        <h1>The Next<br />Body</h1>
+        <p class="thesis">An LLM is a brilliant brain. <strong>A harness gives it a body capable of learning the truth.</strong></p>
+        <p class="dek">Löyly is not the factory. It is one behavior the factory must express. Pi and ORC are the machinery that lets creative inference see, act, fail safely, be judged independently, and remember what happened.</p>
+        <a class="scroll-cue" href="#anatomy"><i></i> Follow the anatomy</a>
+      </div>
+      <figure class="body-figure" aria-label="A stylized body showing the LLM brain, harness, memory, senses and behavior">
+        <svg class="anatomy-svg" viewBox="0 0 680 720" role="img">
+          <title>Creative intelligence embodied by a software harness</title>
+          <path class="body-fill" d="M270 168Q340 130 410 168L432 235Q486 260 493 336L480 533Q470 594 408 615L272 615Q210 594 200 533L187 336Q194 260 248 235Z"/><rect class="glass" x="252" y="38" width="176" height="160" rx="70"/>
+          <path class="body-fill" d="M190 280Q135 292 104 355L52 491Q40 527 73 541Q106 555 125 520L196 399Z"/><path class="body-fill" d="M490 280Q545 292 576 355L628 491Q640 527 607 541Q574 555 555 520L484 399Z"/><path class="body-fill" d="M267 598L253 684Q248 710 278 713L323 713L326 605Z"/><path class="body-fill" d="M413 598L427 684Q432 710 402 713L357 713L354 605Z"/>
+          <path class="brain" d="M288 95Q277 64 304 55Q325 28 350 49Q380 29 397 58Q424 73 404 102Q413 136 380 141Q350 161 328 139Q291 143 288 112Z"/><circle class="brain-eyes" cx="328" cy="94" r="6"/><circle class="brain-eyes" cx="369" cy="94" r="6"/>
+          <path class="nerve" d="M350 145L350 520"/><path class="nerve fine" d="M350 240L248 310L118 482"/><path class="nerve fine" d="M350 240L432 310L562 482"/><path class="nerve fine" d="M350 516L290 674"/><path class="nerve fine" d="M350 516L390 674"/>
+          <rect class="memory" x="291" y="352" width="118" height="105" rx="34"/><circle cx="327" cy="397" r="8" fill="#f4f0e6"/><circle cx="373" cy="397" r="8" fill="#f4f0e6"/>
+          <path id="behavior-path" d="M350 145L350 237Q510 275 560 475Q500 550 350 520Q220 550 118 482Q175 285 350 237" fill="none" stroke="none"/><circle class="pulse" r="11"><animateMotion dur="7s" repeatCount="indefinite"><mpath href="#behavior-path"/></animateMotion></circle>
+          <g class="body-label"><line x1="280" y1="80" x2="154" y2="80"/><text x="20" y="74">Lumo</text><text class="quiet" x="20" y="94">creative brain · LLM</text></g><g class="body-label"><line x1="410" y1="245" x2="585" y2="245"/><text x="500" y="224">Runi</text><text class="quiet" x="500" y="244">body · Pi/ORC</text></g><g class="body-label"><line x1="410" y1="405" x2="585" y2="405"/><text x="500" y="383">Grain</text><text class="quiet" x="500" y="403">durable memory</text></g><g class="body-label"><line x1="118" y1="482" x2="20" y2="482"/><text x="20" y="458">Senses + hands</text><text class="quiet" x="20" y="478">tools and signals</text></g><g class="body-label"><line x1="390" y1="675" x2="585" y2="675"/><text x="500" y="652">Lo</text><text class="quiet" x="500" y="672">behavior in motion</text></g>
+        </svg>
+      </figure>
+    </section>
+    <section class="section anatomy" id="anatomy"><div class="section-inner">
+      <span class="section-number">01 · Anatomy</span><h2>A complete body, not a larger brain</h2><p class="section-lead">The architecture becomes easier to understand when every part has a biological job. The harness is the organism; Löyly is one learned behavior expressed through it.</p>
+      <div class="analogy-wrap"><table class="analogy"><thead><tr><th>Human biology</th><th>Phoenix architecture</th><th>What it contributes</th></tr></thead><tbody>
+        <tr class="core-row"><td>Brain</td><td>Lumo · the LLM</td><td>Imagines, reasons, composes and adapts. Powerful, but unable to touch or observe the world alone.</td></tr><tr class="core-row"><td>Nervous system</td><td>Pi/ORC harness</td><td>Turns intention into controlled action and carries evidence back to the brain.</td></tr><tr><td>Sense organs</td><td>Tool adapters and runtime signals</td><td>Let the system read files, run commands, observe processes and notice what actually happened.</td></tr><tr><td>Hands</td><td>Execution tools</td><td>Create candidates, assemble components, start systems and perform tests.</td></tr><tr><td>Spine and reflexes</td><td>Control loop and boundaries</td><td>Sequence action, enforce isolation and stop unsafe improvisation before thought becomes damage.</td></tr><tr><td>Long-term memory</td><td>Grain</td><td>Preserves the sealed cut, lineage, observations, measurements and failures beyond one session.</td></tr><tr><td>Immune system</td><td>Verifier and independent graders</td><td>Challenge what the creative brain produced. They cannot be persuaded by confidence.</td></tr><tr><td>Genome</td><td>Behavioral contract and C4 architecture</td><td>Defines what must remain true while allowing different implementations to grow.</td></tr><tr><td>Body</td><td>Generated Candidate</td><td>A temporary, runnable expression that can encounter reality and produce evidence.</td></tr><tr class="core-row"><td>Behavior</td><td>Lo · Löyly</td><td>The thing that matters: booking, refusing, releasing, warming and billing coherently.</td></tr><tr><td>Conscious intention</td><td>The human Operator</td><td>Chooses direction, accepts evidence and corrects intent. The human does not secretly patch the body.</td></tr><tr><td>Environment</td><td>Runtime and external world</td><td>Supplies the conditions in which claimed behavior either survives or fails.</td></tr>
+      </tbody></table></div><p class="aside-note"><strong>The key distinction:</strong> the harness is not another product. It is the machinery that lets many products—or many expressions of one product—be born, observed and improved honestly.</p>
+    </div></section>
+    <section class="section failure"><div class="section-inner">
+      <span class="section-number">02 · Why embodiment matters</span><h2>A beautiful answer can still leave the sauna cold</h2><p class="section-lead">Architecture is learned through consequence. One resident request crosses the whole body; every projection must agree.</p>
+      <div class="cold-sauna"><div><strong>Tuesday, 17:00</strong><p>A resident books a sauna. The request is accepted and a confirmation appears.</p></div><div class="sauna-signals"><span>Booking ✓</span><span class="cold">Heater ×</span><span>Billing ✓</span></div><div><strong>Lo feels the contradiction</strong><p>The booking board and billing desk moved. The heater did not. A plausible answer became a broken behavior.</p></div></div>
+      <div class="storyline" aria-label="Failure becoming useful evidence"><article class="beat"><small>Desire</small><h3>Lumo creates</h3><p>The brain imagines a complete implementation and wants to declare it done.</p></article><article class="beat"><small>Embodiment</small><h3>Runi builds</h3><p>The harness turns selected intention into a Candidate that can actually start.</p></article><article class="beat"><small>Pain</small><h3>Vera finds reality</h3><p>The first Candidate cannot verify: its test container cannot find <code>npm</code>.</p></article><article class="beat"><small>Transformation</small><h3>Grain remembers</h3><p>The failure is recorded, the Candidate joins its lineage, and a fresh session receives permitted evidence.</p></article></div>
+    </div></section>
+    <section class="section loop"><div class="section-inner loop-layout"><div class="loop-copy"><span class="section-number">03 · The Phoenix loop</span><h2>Failure changes the next body</h2><p>The Candidate is not secretly repaired after judgment. Evidence changes the direction, and the corrected direction produces a child generation. This preserves a clean causal chain from intent to implementation to truth.</p><p>Creativity remains free inside the boundary. Judgment remains independent outside it. Memory connects lives without contaminating them.</p></div><div class="phoenix" aria-label="The Phoenix learning loop"><div class="loop-arrow"></div><div class="phoenix-center">One<br/>behavior</div><div class="orbit-word o1">Direction<small>sealed intent</small></div><div class="orbit-word o2">Generate<small>fresh session</small></div><div class="orbit-word o3">Verify<small>can it live?</small></div><div class="orbit-word o4">Grade<small>did it behave?</small></div><div class="orbit-word o5">Remember<small>durable evidence</small></div><div class="orbit-word o6">Correct intent<small>not the verdict</small></div></div></div></section>
+    <section class="section truth"><div class="section-inner"><span class="section-number">04 · Two different truths</span><h2>Seeing everything is not the same as being right</h2><div class="truth-grid"><article class="measure"><span>Physiology</span><strong>8 / 8</strong><p>Every required runtime signal was present. The body could sense and report its own operation.</p></article><article class="measure"><span>Behavior</span><strong>9 / 11</strong><p>Two independently judged behaviors were still incomplete. Observability could reveal the problem, not erase it.</p></article></div><div class="findings"><article class="finding"><b>Finding 01-003</b><p>Confirmation lost required household and duration detail.</p></article><article class="finding"><b>Finding 01-011</b><p>Refusal lacked enough day-and-time information to be useful.</p></article></div><details><summary>Read the recorded regeneration evidence</summary><div class="evidence-list"><div><strong>Attempt 1</strong><span>Verification failed · npm not found</span></div><div><strong>Attempt 2</strong><span>Rebuilt cleanly · 13 application tests passed</span></div><div><strong>Independent grade</strong><span>9 of 11 behaviors accepted</span></div></div></details></div></section>
+    <section class="section expressions"><div class="section-inner"><span class="section-number">05 · Regeneration</span><h2>One behavior. Four expressions.</h2><p class="section-lead">The contract survives while implementation changes. TypeScript, Rust, Java and Rails are not four products; they are four bodies attempting to express the same Löyly behavior.</p><div class="bodies"><article class="body-card"><h3>TypeScript</h3><div class="body-icon"><i></i></div><div class="score"><s>10 / 11</s><strong>11 / 11</strong></div></article><article class="body-card"><h3>Rust</h3><div class="body-icon rust"><i></i></div><div class="score"><s>9 / 11</s><strong>11 / 11</strong></div></article><article class="body-card"><h3>Java</h3><div class="body-icon java"><i></i></div><div class="score"><s>9 / 11</s><strong>11 / 11</strong></div></article><article class="body-card"><h3>Rails</h3><div class="body-icon rails"><i></i></div><div class="score"><s>0 / 11</s><strong>11 / 11</strong></div></article></div></div></section>
+    <section class="closing"><div><div class="lo-mark" aria-hidden="true"></div><blockquote>Creativity begins in the brain. Dependability emerges from the whole body.</blockquote><p>The harness provides senses, hands, boundaries, independent judgment and a memory longer than one life. That is how an imaginative answer becomes trustworthy behavior.</p></div></section>
+  </main>
+  <footer><span>The Next Body · Phoenix architecture explained through human anatomy</span><a href="https://github.com/scope-impact/loyly/tree/spike/3d-agentic-software-factory">View the source</a></footer>
+  <script>
+    const progress=document.querySelector('.reading-progress');
+    const updateProgress=()=>{const height=document.documentElement.scrollHeight-innerHeight;progress.style.transform=`scaleX(${height>0?scrollY/height:0})`;};
+    addEventListener('scroll',updateProgress,{passive:true});updateProgress();
+    if(matchMedia('(prefers-reduced-motion: reduce)').matches)document.querySelector('.anatomy-svg')?.pauseAnimations();
+  </script>
+</body>
 </html>

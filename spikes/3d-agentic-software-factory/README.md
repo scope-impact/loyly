@@ -1,12 +1,10 @@
-# The Next Body — complete interactive animatic
+# The Next Body — single-page visual essay
 
-> **Throwaway prototype question:** Can a warm, character-led Three.js short make Phoenix architecture emotionally legible before the audience sees its technical detail?
+> **Prototype verdict:** the architecture becomes clearer as one authored post than as a world the reader must learn to navigate.
 
-The complete fifteen-beat story has procedural animatic characters, directed cameras, captions, chapter seeking, evidence inspection, and post-film exploration. Three treatments are switchable with `?variant=`:
+The published experience is one self-contained `index.html`. It explains Phoenix through human anatomy, one concrete Löyly failure, the learning loop, recorded evidence, and four regenerated language expressions.
 
-- `A` — **Cinema:** a quiet widescreen presentation with evidence hidden until requested.
-- `B` — **Living storybook:** the complete chapter journey stays visible and directly navigable.
-- `C` — **Inside Runi:** character and evidence share the frame as an anatomical cutaway.
+The earlier React/Three.js animatic remains in `src/` as prototype history, but it is not loaded by the page.
 
 This is an animatic, not final character art. Procedural Three.js characters establish staging, silhouette, emotion, and timing. Validated characters can later be replaced by rigged Blender GLBs without changing the story structure.
 
@@ -17,12 +15,11 @@ This is an animatic, not final character art. Procedural Three.js characters est
 - Löyly's Booking API, Booking Core, Event Store, Weekly Schedule, Heater Schedule and Billing Signals use distinct product forms.
 - The four-language montage preserves the TypeScript, Rust, Java, and Rails baseline/final audit.
 
-## Experience stack
+## Page stack
 
-- React Three Fiber renders the Three.js world.
-- Three `useFrame` animation supplies the throwaway procedural performances.
-- Drei supplies camera control, rounded forms, particles, and environmental lighting.
-- Ordinary React DOM keeps captions, playback, inspection, and accessibility crisp.
+- Semantic HTML, inline CSS, and one inline SVG anatomy illustration.
+- A tiny script updates reading progress and respects reduced-motion preferences.
+- No runtime dependencies, external fonts, WebGL, or downloaded assets.
 
 ## Run
 
@@ -32,10 +29,6 @@ npm install
 npm run spike
 ```
 
-Open <http://127.0.0.1:5173/?variant=A>.
-
-Use `?chapter=0` through `?chapter=14` to open a specific beat. Add `&progress=.5` to select a deterministic point inside that performance for review or screenshots. `Alt` + left/right arrow changes variants.
-
-Play, pause, scrub, or jump between chapters. **Inspect this moment** freezes playback and reveals the historical evidence behind the dramatic metaphor. The final scene unlocks orbit-based exploration without making navigation a prerequisite for understanding the story.
+Open <http://127.0.0.1:5173/loyly/> and scroll.
 
 The alternative library and factory-layout research remains in `animation-library-research.md` and `automotive-assembly-layout-research.md`.
