@@ -1,0 +1,156 @@
+@import "@fontsource/barlow-condensed/500.css";
+@import "@fontsource/barlow-condensed/600.css";
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+
+:root {
+  font-family: "IBM Plex Sans", sans-serif;
+  color: #f1f0e8;
+  background: #08111c;
+  font-synthesis: none;
+  --steel: #101c2c;
+  --steel-2: #17263a;
+  --steel-3: #263850;
+  --copper: #c76b3c;
+  --cyan: #52d6d2;
+  --paper: #f1f0e8;
+  --amber: #f2b84b;
+  --fault: #d95555;
+  --muted: #91a0ae;
+  --line: rgba(210, 224, 230, 0.18);
+  --panel: rgba(16, 28, 44, 0.95);
+}
+
+* { box-sizing: border-box; }
+html, body, #app { margin: 0; width: 100%; min-width: 320px; min-height: 100%; }
+body { min-height: 100vh; overflow: hidden; }
+button, input { font: inherit; }
+button { color: inherit; }
+button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; }
+
+.topbar {
+  height: 72px; padding: 0 24px; display: grid; grid-template-columns: 1fr auto 1fr;
+  align-items: center; border-bottom: 1px solid var(--line); background: #0c1725; position: relative; z-index: 5;
+}
+.brand { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 12px; width: fit-content; }
+.brand > span:last-child, .cycle-summary > span:last-child { display: flex; flex-direction: column; }
+.brand strong { font-family: "Barlow Condensed"; font-size: 23px; font-weight: 600; letter-spacing: .01em; }
+.brand small, .cycle-summary small, .score-block small { color: var(--muted); font-size: 11px; }
+.brand-mark { width: 34px; height: 34px; display: flex; align-items: end; gap: 3px; transform: skewY(-9deg); }
+.brand-mark i { width: 8px; background: var(--copper); border-radius: 1px; }
+.brand-mark i:nth-child(1) { height: 18px; }.brand-mark i:nth-child(2) { height: 27px; }.brand-mark i:nth-child(3) { height: 22px; background: var(--amber); }
+.cycle-summary { display: flex; align-items: center; gap: 10px; min-width: 180px; }
+.cycle-summary strong { font-family: "Barlow Condensed"; font-size: 18px; font-weight: 500; }
+.status-light { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); box-shadow: 0 0 0 5px rgba(145,160,174,.12); }
+.status-light.running { background: var(--cyan); box-shadow: 0 0 15px var(--cyan); }
+.status-light.failed { background: var(--fault); box-shadow: 0 0 15px var(--fault); }
+.status-light.passed { background: var(--amber); box-shadow: 0 0 15px var(--amber); }
+.score-block { justify-self: end; display: flex; align-items: baseline; gap: 4px; }
+.score-block small { margin-right: 8px; }.score-block strong { font: 600 27px "Barlow Condensed"; }.score-block span { color: var(--muted); }
+
+.game-shell { height: calc(100vh - 72px); display: grid; grid-template: minmax(0, 1fr) 210px / minmax(540px, 1fr) 330px; background: var(--steel); }
+.world { grid-area: 1 / 1; min-height: 0; position: relative; overflow: hidden; background: #0b1623; }
+#factory-canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+#factory-canvas:active { cursor: grabbing; }
+.world-title { position: absolute; top: 24px; left: 28px; max-width: 420px; pointer-events: none; text-shadow: 0 2px 15px #08111c; }
+.world-title p, .panel-heading p, .stage-focus small { margin: 0 0 3px; color: var(--amber); font: 500 14px "Barlow Condensed"; }
+.world-title h1 { margin: 0; font: 600 clamp(30px, 4vw, 56px)/.95 "Barlow Condensed"; max-width: 510px; }
+.world-hint { position: absolute; left: 28px; bottom: 20px; color: #b9c3c9; font-size: 11px; pointer-events: none; }
+.camera-reset { position: absolute; right: 18px; top: 18px; border: 1px solid var(--line); border-radius: 2px; background: rgba(8,17,28,.78); padding: 8px 11px; cursor: pointer; }
+
+.mission-panel { grid-area: 1 / 2; padding: 24px; min-height: 0; overflow-y: auto; background: var(--panel); border-left: 1px solid var(--line); }
+.panel-heading { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+.panel-heading h2 { margin: 0; font: 600 28px/1 "Barlow Condensed"; }
+.cycle-id { color: var(--cyan); font: 500 13px "Barlow Condensed"; }
+.mission-copy { margin: 18px 0; color: #bac4cc; font-size: 13px; line-height: 1.55; }
+.primary-actions { display: grid; grid-template-columns: 1fr auto auto; gap: 7px; }
+.primary-actions button, .decision button { min-height: 39px; border: 0; border-radius: 2px; padding: 0 13px; cursor: pointer; }
+.primary-actions button:disabled { cursor: not-allowed; opacity: .38; }
+.start-button { background: var(--copper); display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
+.start-button kbd { border: 1px solid rgba(255,255,255,.35); padding: 1px 5px; font: 11px inherit; }
+.quiet-button { background: var(--steel-3); }
+.speed-control { margin: 18px 0; display: grid; gap: 7px; }
+.speed-control label { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; }
+.speed-control label strong { color: var(--paper); }
+.speed-control input { accent-color: var(--copper); width: 100%; }
+.stage-focus { display: grid; grid-template-columns: 48px 1fr; gap: 13px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 16px 0; }
+.stage-number { font: 600 38px/.9 "Barlow Condensed"; color: var(--steel-3); }
+.stage-focus strong { display: block; font: 600 19px "Barlow Condensed"; }
+.stage-focus p { color: var(--muted); font-size: 11px; line-height: 1.45; margin: 5px 0 0; }
+.decision { margin-top: 16px; padding: 14px; background: rgba(217,85,85,.13); border-left: 3px solid var(--fault); }
+.decision strong { font: 600 18px "Barlow Condensed"; }.decision p { font-size: 11px; color: #d6b8b8; line-height: 1.45; }
+.decision div { display: flex; gap: 6px; }.decision button:first-child { background: var(--fault); }.decision button:last-child { background: var(--steel-3); }
+
+.pipeline-panel { grid-area: 2 / 1; min-width: 0; padding: 16px 24px 20px; border-top: 1px solid var(--line); background: #0d1928; }
+.section-heading { display: flex; align-items: baseline; justify-content: space-between; }
+.section-heading h2 { margin: 0; font: 600 18px "Barlow Condensed"; }.section-heading span { color: var(--muted); font-size: 10px; }
+.stage-rail { list-style: none; padding: 0; margin: 22px 0 0; display: grid; grid-template-columns: repeat(10, minmax(58px, 1fr)); }
+.stage-rail li { position: relative; min-width: 0; color: #718291; font: 500 11px/1.1 "Barlow Condensed"; padding-top: 22px; text-align: center; }
+.stage-rail li::before { content: ""; position: absolute; width: 11px; height: 11px; border-radius: 50%; border: 2px solid currentColor; top: 0; left: calc(50% - 6px); background: #0d1928; z-index: 1; }
+.stage-rail li::after { content: ""; position: absolute; height: 2px; background: #26384a; top: 6px; left: 0; width: 100%; }
+.stage-rail li:first-child::after { left: 50%; width: 50%; }.stage-rail li:last-child::after { width: 50%; }
+.stage-rail li.complete { color: var(--cyan); }.stage-rail li.active { color: var(--amber); }.stage-rail li.failed { color: var(--fault); }
+.stage-rail li.complete::before { background: var(--cyan); }.stage-rail li.active::before { background: var(--amber); box-shadow: 0 0 16px var(--amber); }
+
+.evidence-panel { grid-area: 2 / 2; min-height: 0; overflow: hidden; border-top: 1px solid var(--line); border-left: 1px solid var(--line); background: #08111c; display: flex; flex-direction: column; }
+.evidence-tabs { flex: 0 0 auto; display: flex; border-bottom: 1px solid var(--line); }
+.evidence-tabs button { flex: 1; padding: 10px 3px; font-size: 10px; background: none; border: 0; border-bottom: 2px solid transparent; cursor: pointer; color: var(--muted); }
+.evidence-tabs button[aria-selected="true"] { color: var(--paper); border-color: var(--copper); }
+.event-log, .evidence-list, .state-view { margin: 0; padding: 10px 14px 42px; min-height: 0; overflow: auto; font: 10px/1.45 "IBM Plex Sans"; }
+.event-row { display: grid; grid-template-columns: 49px 1fr; gap: 8px; padding: 5px 0; border-bottom: 1px solid rgba(210,224,230,.07); }
+.event-row time { color: #677889; }.event-row strong { color: #c9d1d5; font-weight: 500; }.event-row.new strong { color: var(--cyan); }
+.evidence-item { padding: 7px 0; border-bottom: 1px solid rgba(210,224,230,.08); }.evidence-item span { color: var(--cyan); margin-right: 7px; }.evidence-item small { display: block; color: var(--muted); margin-top: 2px; }
+.state-view { white-space: pre-wrap; color: #afc1c9; }
+
+.station-card { position: fixed; z-index: 10; left: 50%; top: 50%; width: min(370px, calc(100vw - 30px)); transform: translate(-50%,-50%); background: #e8e5d9; color: #152030; padding: 28px; box-shadow: 0 24px 80px #000; border-top: 7px solid var(--copper); }
+.station-card > button { position: absolute; right: 12px; top: 7px; background: none; border: 0; font-size: 25px; cursor: pointer; color: #152030; }
+.station-card > span { color: #8e3e24; font: 600 13px "Barlow Condensed"; }.station-card h2 { font: 600 31px "Barlow Condensed"; margin: 4px 0 10px; }.station-card p { font-size: 13px; line-height: 1.5; color: #49525c; }
+.station-card dl { margin: 18px 0 0; display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #b9b6ad; }.station-card dl div { padding-top: 10px; }.station-card dt { font-size: 10px; color: #6f7478; }.station-card dd { margin: 2px 0 0; font: 600 16px "Barlow Condensed"; }
+
+.prototype-switcher { position: fixed; z-index: 20; bottom: 13px; left: 50%; transform: translateX(-50%); display: grid; grid-template-columns: 36px minmax(150px, auto) 36px; align-items: center; background: #f1f0e8; color: #101c2c; border: 1px solid #fff; box-shadow: 0 6px 28px rgba(0,0,0,.45); }
+.prototype-switcher button { height: 39px; border: 0; background: #d9d8d0; color: #101c2c; cursor: pointer; font-size: 18px; }
+.prototype-switcher span { display: flex; flex-direction: column; text-align: center; padding: 4px 14px; }.prototype-switcher small { font-size: 8px; color: #66717a; }.prototype-switcher strong { font: 600 14px "Barlow Condensed"; }
+
+/* B: evidence observatory — the timeline and proof become primary. */
+body[data-variant="B"] .game-shell { grid-template: minmax(0, 1fr) 270px / 300px minmax(500px, 1fr); }
+body[data-variant="B"] .world { grid-area: 1 / 2; }
+body[data-variant="B"] .mission-panel { grid-area: 1 / 1; border-left: 0; border-right: 1px solid var(--line); }
+body[data-variant="B"] .pipeline-panel { grid-area: 2 / 1; padding: 15px; border-right: 1px solid var(--line); }
+body[data-variant="B"] .evidence-panel { grid-area: 2 / 2; border-left: 0; }
+body[data-variant="B"] .stage-rail { grid-template-columns: repeat(2, 1fr); margin-top: 8px; gap: 1px; }
+body[data-variant="B"] .stage-rail li { padding: 5px 5px 5px 20px; text-align: left; background: rgba(255,255,255,.025); }
+body[data-variant="B"] .stage-rail li::before { width: 8px; height: 8px; top: 7px; left: 6px; }
+body[data-variant="B"] .stage-rail li::after { display: none; }
+body[data-variant="B"] .world-title { top: auto; bottom: 26px; }
+body[data-variant="B"] .world-hint { left: auto; right: 20px; }
+body[data-variant="B"] .event-log, body[data-variant="B"] .evidence-list { columns: 2; column-gap: 30px; }
+
+/* C: command deck — dense control surfaces surround a top-down yard. */
+body[data-variant="C"] .game-shell { grid-template: 190px minmax(0, 1fr) / 370px minmax(430px, 1fr); }
+body[data-variant="C"] .world { grid-area: 2 / 2; }
+body[data-variant="C"] .mission-panel { grid-area: 1 / 1; padding: 15px 18px; border-left: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+body[data-variant="C"] .mission-copy, body[data-variant="C"] .speed-control { display: none; }
+body[data-variant="C"] .stage-focus { margin-top: 10px; padding: 9px 0; }
+body[data-variant="C"] .decision { position: fixed; top: 85px; left: 386px; z-index: 8; width: 310px; background: #3a1d24; }
+body[data-variant="C"] .pipeline-panel { grid-area: 1 / 2; border-top: 0; }
+body[data-variant="C"] .evidence-panel { grid-area: 2 / 1; border-left: 0; border-right: 1px solid var(--line); }
+body[data-variant="C"] .world-title { top: 20px; }.world-title p { color: var(--amber); }
+
+@media (max-width: 860px) {
+  body { overflow: auto; }
+  .topbar { grid-template-columns: 1fr auto; height: 64px; padding: 0 14px; }.cycle-summary { display: none; }
+  .score-block small { display: none; }
+  .game-shell, body[data-variant="B"] .game-shell, body[data-variant="C"] .game-shell { height: auto; min-height: calc(100vh - 64px); display: flex; flex-direction: column; }
+  .world, body[data-variant="B"] .world, body[data-variant="C"] .world { min-height: 460px; order: 1; }
+  .mission-panel, body[data-variant="B"] .mission-panel, body[data-variant="C"] .mission-panel { order: 2; min-height: auto; border: 0; border-top: 1px solid var(--line); padding: 20px; }
+  body[data-variant="C"] .mission-copy, body[data-variant="C"] .speed-control { display: grid; }
+  .pipeline-panel, body[data-variant="B"] .pipeline-panel, body[data-variant="C"] .pipeline-panel { order: 3; min-height: 190px; border: 0; border-top: 1px solid var(--line); }
+  .evidence-panel, body[data-variant="B"] .evidence-panel, body[data-variant="C"] .evidence-panel { order: 4; min-height: 330px; border: 0; border-top: 1px solid var(--line); }
+  .stage-rail, body[data-variant="B"] .stage-rail { grid-template-columns: repeat(5, 1fr); gap: 10px 0; }
+  body[data-variant="B"] .event-log, body[data-variant="B"] .evidence-list, body[data-variant="B"] .state-view { columns: auto; }
+  .world-title h1 { font-size: 38px; max-width: 330px; }.world-title { left: 18px; }.world-hint { display: none; }
+  body[data-variant="C"] .decision { position: static; width: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
