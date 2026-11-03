@@ -27,6 +27,21 @@ npm run test:e2e
 checks and tests the Clojure workflow. `npm run test:e2e` validates Gherkin coverage and
 then runs the end-to-end suite with Allure result generation.
 
+## OCI oracles
+
+The accepted instrument and product oracles are published to GHCR and runtime configuration
+pins their immutable descriptor digests. The `accepted` tags are lookup aliases only:
+
+```text
+ghcr.io/scope-impact/loyly/instrument-oracle:accepted
+ghcr.io/scope-impact/loyly/product-oracle:accepted
+```
+
+Authenticate ORAS to `ghcr.io` with `read:packages` access before running OCI-backed checks.
+Local OCI layouts under `config/instrument-oracles/` and `config/oracle-packs/` are generated,
+ignored caches. Set `PI_HARNESS_INSTRUMENT_ORACLE_REF` or
+`PI_HARNESS_PRODUCT_ORACLE_REF` to override a pinned registry reference for development.
+
 ## Run a regeneration from Pi
 
 Open Pi at the repository root. The checked-in [`.pi/settings.json`](../settings.json)

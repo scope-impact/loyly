@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "modelRoot": "model/{projectId}",
-  "productOracleRef": ".pi/harness/config/oracle-packs/{projectId}:accepted",
+  "productOracleRef": "ghcr.io/scope-impact/loyly/product-oracle@sha256:e328f56447a5eb888e958da29fb90a4e2500adf86463249f2d69738df4a021a6",
   "graderProducer": "{projectId}-black-box",
   "graderId": "{componentId}-v1",
   "itemIdPrefix": "@item-",

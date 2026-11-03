@@ -13,6 +13,17 @@
 
 (def golden-layer-type "application/vnd.loyly.allure-golden.v1+json")
 
+(defn- local-oci-layout-ref? [pack-ref]
+  (let [layout-path (-> pack-ref
+                        (str/replace #"@sha256:[0-9a-f]{64}$" "")
+                        (str/replace #":[^/]+$" ""))]
+    (.isFile (io/file layout-path "oci-layout"))))
+
+(defn- oras-ref-arguments [pack-ref]
+  (cond-> []
+    (local-oci-layout-ref? pack-ref) (conj "--oci-layout")
+    true (conj pack-ref)))
+
 (defn- run-oras [& arguments]
   (let [result (apply shell/sh "oras" arguments)]
     (when-not (zero? (:exit result))
@@ -190,10 +201,15 @@
 
 (defn resolve-pack [pack-ref]
   (let [descriptor (json/read-str
-                    (run-oras "manifest" "fetch" "--oci-layout" pack-ref "--descriptor")
+                    (apply run-oras
+                           (concat ["manifest" "fetch"]
+                                   (oras-ref-arguments pack-ref)
+                                   ["--descriptor"]))
                     :key-fn keyword)
         manifest (json/read-str
-                  (run-oras "manifest" "fetch" "--oci-layout" pack-ref)
+                  (apply run-oras
+                         (concat ["manifest" "fetch"]
+                                 (oras-ref-arguments pack-ref)))
                   :key-fn keyword)
         layers (:layers manifest)
         layer-types (mapv :mediaType layers)
@@ -211,7 +227,10 @@
                      (every? #(= golden-layer-type %) (drop 3 layer-types)))
         (throw (ex-info "instrument oracle must contain at least one Allure golden layer"
                         {:actual layer-types})))
-      (run-oras "pull" "--oci-layout" pack-ref "--output" (.getPath directory) "--no-tty")
+      (apply run-oras
+             (concat ["pull"]
+                     (oras-ref-arguments pack-ref)
+                     ["--output" (.getPath directory) "--no-tty"]))
       (let [[policy-layer instruments-layer fixtures-layer & golden-layers] layers
             read-layer #(json/read-str (slurp (layer-file directory %)) :key-fn keyword)]
         (validate!

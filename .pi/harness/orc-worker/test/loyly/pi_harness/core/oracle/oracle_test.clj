@@ -3,6 +3,7 @@
             [clojure.java.io :as io]
             [clojure.java.shell :as shell]
             [clojure.test :refer [deftest is]]
+            [loyly.pi-harness.core.oracle.oci-oracle :as oci-oracle]
             [loyly.pi-harness.core.oracle.oracle :as oracle]))
 
 (def required-model-files
@@ -76,6 +77,53 @@
 
 (def grader-layer
   ["grader/grader.sh" "application/vnd.loyly.oracle.grader-file.v1"])
+
+(defn- oracle-layer [title media-type]
+  {:mediaType media-type
+   :digest (str "sha256:" (apply str (repeat 64 "a")))
+   :size 1
+   :annotations {:org.opencontainers.image.title title}})
+
+(deftest registry-artifact-resolves-a-product-oracle
+  (let [pack-ref (str "ghcr.io/scope-impact/loyly/product-oracle@sha256:"
+                      (apply str (repeat 64 "b")))
+        layer-types (conj oracle-layer-types fixture-server-layer
+                          otel-capture-policy-layer grader-layer)
+        layers (mapv (fn [[title media-type]] (oracle-layer title media-type)) layer-types)
+        descriptor {:digest (str "sha256:" (apply str (repeat 64 "b")))}
+        manifest {:artifactType oci-oracle/artifact-type :layers layers}]
+    (with-redefs [shell/sh
+                  (fn [& arguments]
+                    (let [arguments (vec arguments)]
+                      (cond
+                        (some #{"--oci-layout"} arguments)
+                        {:exit 1 :out "" :err "registry reference used local OCI layout mode"}
+
+                        (= "--descriptor" (last arguments))
+                        {:exit 0 :out (json/write-str descriptor) :err ""}
+
+                        (= "manifest" (second arguments))
+                        {:exit 0 :out (json/write-str manifest) :err ""}
+
+                        (= "pull" (second arguments))
+                        (let [output-index (.indexOf arguments "--output")
+                              output (io/file (get arguments (inc output-index)))]
+                          (doseq [[title media-type] layer-types]
+                            (let [file (io/file output title)]
+                              (some-> file .getParentFile .mkdirs)
+                              (spit file
+                                    (if (contains? #{oci-oracle/fixture-server-type
+                                                     oci-oracle/grader-file-type}
+                                                   media-type)
+                                      "payload"
+                                      (json/write-str {:version 1})))))
+                          {:exit 0 :out "" :err ""})
+
+                        :else
+                        {:exit 1 :out "" :err (str "unexpected ORAS arguments " arguments)})))]
+      (let [pack (oci-oracle/resolve-pack pack-ref)]
+        (is (= (:digest descriptor) (:digest pack)))
+        (is (= (mapv first layer-types) (mapv :title (:layers pack))))))))
 
 (def test-fixture-server-source
   (str "import http from 'node:http';\n"

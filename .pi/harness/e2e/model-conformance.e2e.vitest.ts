@@ -102,9 +102,18 @@ test("ORC exposes the declared regeneration stage order", async () => {
   const context = scenarioContext();
   await scenarioLabels("execution-pipeline", "item-01-024", ["e2e"]);
 
-  await given("the Pi harness ORC worker is running", context);
-  await when("Pi requests the executable regeneration workflow contract", context);
-  await then("ORC exposes these stages in order:", context, [
+  await given("the Pi harness ORC worker is running", async () => {
+    assert.ok(worker, "the ORC worker must be started by the E2E harness");
+  });
+  await when("Pi requests the executable regeneration workflow contract", async () => {
+    context.contract = await worker.client.workflowContract();
+    await allure.attachment("workflow-contract.json", JSON.stringify(context.contract, null, 2), "application/json");
+  });
+  await then("ORC exposes these stages in order:", async (table) => {
+    const expectedStages = table?.map(([stage]) => stage);
+    assert.ok(expectedStages, "the modeled stage table is required");
+    assert.deepEqual(required(context.contract).stages, expectedStages);
+  }, [
     ["cut"],
     ["harness-calibration"],
     ["builder"],
@@ -135,10 +144,31 @@ test("Selection preview refuses an empty or ambiguous denominator", async () => 
   const context = scenarioContext();
   await scenarioLabels("operator-control-plane", "item-01-016", ["e2e"]);
 
-  await given("the requested slice has missing, duplicate, unstamped, or unknown items", context);
-  await when("the operator previews the selection", context);
-  await then("no selection contract is recorded", context);
-  await and("the refusal identifies the unresolved denominator", context);
+  await given("the requested slice has missing, duplicate, unstamped, or unknown items", async () => {
+    context.invalidSelections = await invalidSelectionRequests();
+  });
+  await when("the operator previews the selection", async () => {
+    context.selections = [];
+    context.outcome = [];
+    for (const request of assertRequired(context.invalidSelections, "invalid selection requests")) {
+      try {
+        context.selections.push(await worker.client.previewSelection(request.cut, request.slice, request.itemIds));
+      } catch (error) {
+        context.outcome.push(error as Error);
+      }
+    }
+  });
+  await then("no selection contract is recorded", async () => {
+    assert.deepEqual(context.selections, []);
+    assert.equal(context.outcome.length, context.invalidSelections?.length);
+  });
+  await and("the refusal identifies the unresolved denominator", async () => {
+    const messages = context.outcome.map((error: Error) => error.message);
+    assert.ok(messages.some((message: string) => /no spec\.feature/.test(message)));
+    assert.ok(messages.some((message: string) => /duplicate item identities/.test(message)));
+    assert.ok(messages.some((message: string) => /stable @item identity/.test(message)));
+    assert.ok(messages.some((message: string) => /requested item does not belong/.test(message)));
+  });
 });
 
 test.skip("Submission refuses an unsafe candidate scope", () => {});
@@ -147,19 +177,41 @@ test("Waiting for a known task returns its one terminal outcome", async () => {
   const context = scenarioContext();
   await scenarioLabels("operator-control-plane", "item-01-018", ["e2e"]);
 
-  await given("a cut or regeneration task receipt was returned", context);
-  await when("the operator waits for its task identity", context);
-  await then("the result is completed or failed with the ORC trace summary", context);
-  await and("waiting again returns the same terminal outcome", context);
+  await given("a cut or regeneration task receipt was returned", async () => {
+    context.cut = await preparedCut();
+    context.taskId = context.cut.receipt.taskId;
+  });
+  await when("the operator waits for its task identity", async () => {
+    context.outcome = await worker.client.wait(assertRequired(context.taskId, "task identity"));
+  });
+  await then("the result is completed or failed with the ORC trace summary", async () => {
+    assert.match(context.outcome?.status, /^(completed|failed)$/);
+    assert.match(context.outcome?.result?.traceId, /^[0-9a-f-]{36}$/);
+    assert.equal(typeof context.outcome?.result?.durationMs, "number");
+  });
+  await and("waiting again returns the same terminal outcome", async () => {
+    context.repeatedOutcome = await worker.client.wait(assertRequired(context.taskId, "task identity"));
+    assert.deepEqual(context.repeatedOutcome, context.outcome);
+  });
 });
 
 test("Waiting refuses an unknown task identity", async () => {
   const context = scenarioContext();
   await scenarioLabels("operator-control-plane", "item-01-019", ["e2e"]);
 
-  await given("no task receipt has the supplied identity", context);
-  await when("the operator waits for that identity", context);
-  await then("the request is refused without starting new work", context);
+  await given("no task receipt has the supplied identity", async () => {
+    context.taskId = Number.MAX_SAFE_INTEGER;
+  });
+  await when("the operator waits for that identity", async () => {
+    try {
+      await worker.client.wait(assertRequired(context.taskId, "task identity"));
+    } catch (error) {
+      context.error = error as Error;
+    }
+  });
+  await then("the request is refused without starting new work", async () => {
+    assert.match(assertRequired(context.error, "wait refusal").message, /unknown taskId/);
+  });
 });
 
 test.skip("A durable task remains observable after worker restart", () => {});
@@ -170,11 +222,58 @@ test("An operator observes a builder session read-only", async () => {
   const context = scenarioContext();
   await scenarioLabels("operator-control-plane", "item-01-038", ["e2e"]);
 
-  await given("ORC opened a separately identified builder session for one build attempt", context);
-  await when("an operator session opens that builder-session reference", context);
-  await then("it can inspect committed model turns, tool calls, workspace generation, and progress", context);
-  await but("observation cannot change the builder transcript or candidate", context);
-  await and("the builder cannot read the operator transcript or independent grader evidence", context);
+  await given("ORC opened a separately identified builder session for one build attempt", async () => {
+    const builderSessionRef = "e2e-builder-session-38";
+    const sessionRoot = path.join(e2eStateRoot, "builder-sessions");
+    const workspace = path.join(e2eStateRoot, "builder-workspace-38");
+    await mkdir(workspace, { recursive: true });
+    await writeFile(path.join(workspace, "generated.ts"), "export const generated = true;\n");
+    const session = SessionManager.create(workspace, sessionRoot, { id: builderSessionRef });
+    session.appendMessage({ role: "user", content: "build only the approved slice", timestamp: Date.now() });
+    session.appendMessage({
+      role: "assistant",
+      content: [{ type: "text", text: "implemented the approved slice" }],
+      api: "responses",
+      provider: "test",
+      model: "test",
+      usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+      stopReason: "stop",
+      timestamp: Date.now(),
+    });
+    await writeBuilderSessionState(sessionRoot, {
+      builderSessionRef,
+      sessionFile: session.getSessionFile(),
+      status: "completed",
+      toolCalls: 2,
+      workspaceGeneration: ["generated.ts"],
+      progress: { stage: "builder", attempt: 1 },
+    });
+    context.builderSessionRef = builderSessionRef;
+    context.builderSessionFilesBefore = [session.getSessionFile(), path.join(workspace, "generated.ts")]
+      .map((file) => ({ file: assertRequired(file, "builder session file"), content: readFileSync(assertRequired(file, "builder session file"), "utf8") }));
+  });
+  await when("an operator session opens that builder-session reference", async () => {
+    context.builderSessionView = await worker.client.builderSession(
+      assertRequired(context.builderSessionRef, "builder session reference"),
+    );
+  });
+  await then("it can inspect committed model turns, tool calls, workspace generation, and progress", async () => {
+    const view = assertRequired(context.builderSessionView, "builder session view");
+    assert.equal(view.entries.length, 2);
+    assert.equal(view.toolCalls, 2);
+    assert.deepEqual(view.workspaceGeneration, ["generated.ts"]);
+    assert.deepEqual(view.progress, { stage: "builder", attempt: 1 });
+    await allure.attachment("builder-session.json", JSON.stringify(view, null, 2), "application/json");
+  });
+  await but("observation cannot change the builder transcript or candidate", async () => {
+    for (const snapshot of assertRequired(context.builderSessionFilesBefore, "builder files")) {
+      assert.equal(readFileSync(snapshot.file, "utf8"), snapshot.content);
+    }
+  });
+  await and("the builder cannot read the operator transcript or independent grader evidence", async () => {
+    const transcript = JSON.stringify(assertRequired(context.builderSessionView, "builder session view").entries);
+    assert.doesNotMatch(transcript, /operator transcript|independent grader evidence/i);
+  });
 });
 test.skip("Intervention is explicit and provenance-recorded", () => {});
 test.skip("A builder transcript is restored with its matching workspace generation", () => {});
@@ -182,9 +281,17 @@ test("Prompt optimization requires training and validation examples", async () =
   const context = scenarioContext();
   await scenarioLabels("prompt-optimization", "item-01-021", ["e2e"]);
 
-  await given("either example set is missing or not a collection", context);
-  await when("the operator requests builder-prompt optimization", context);
-  await then("optimization is refused before an instruction candidate is evaluated", context);
+  await given("either example set is missing or not a collection", async () => {});
+  await when("the operator requests builder-prompt optimization", async () => {
+    try {
+      await worker.client.optimizePrompt([], []);
+    } catch (error) {
+      context.error = error as Error;
+    }
+  });
+  await then("optimization is refused before an instruction candidate is evaluated", async () => {
+    assert.match(assertRequired(context.error, "optimization refusal").message, /non-empty trainset and valset/);
+  });
 });
 
 test.skip("Every instruction candidate is scored by independent regeneration gates", () => {});
@@ -193,11 +300,31 @@ test("Preparing a cut returns immutable commit and tree identities", async () =>
   const context = scenarioContext();
   await scenarioLabels("regeneration-cycle", "item-01-001", ["e2e"]);
 
-  await given("the operator names a full source commit and an execution backend", context);
-  await when("the Pi harness prepares the regeneration cut", context);
-  await then("the prepared cut is rooted at exactly that source commit", context);
-  await and("its fenced tree identity is recorded", context);
-  await and("prior implementation and measurement paths are absent from the reachable cut history", context);
+  await given("the operator names a full source commit and an execution backend", async () => {
+    context.cut = await preparedCut();
+  });
+  await when("the Pi harness prepares the regeneration cut", async () => {
+    context.cut ??= await preparedCut();
+  });
+  await then("the prepared cut is rooted at exactly that source commit", async () => {
+    const cut = assertRequired(context.cut, "prepared cut");
+    assert.equal(cut["source-commit"], cut.sourceCommit);
+    assert.equal(cut.receipt.cutId, cut.sourceCommit);
+    assert.match(cut.cutId, /^[a-f0-9]{40}$/);
+  });
+  await and("its fenced tree identity is recorded", async () => {
+    assert.match(assertRequired(context.cut, "prepared cut").treeId, /^[a-f0-9]{40}$/);
+  });
+  await and("prior implementation and measurement paths are absent from the reachable cut history", async () => {
+    const cut = assertRequired(context.cut, "prepared cut");
+    const cutRoot = path.join(os.homedir(), ".pi/agent/loyly/cuts", cut.cutId);
+    const objects = execFileSync("git", ["-C", cutRoot, "rev-list", "--objects", "--all"], { encoding: "utf8" });
+    const policy = JSON.parse(readFileSync(path.join(projectRoot, ".pi/harness/config/cut-policy.json"), "utf8"));
+    for (const fencedPath of policy.fencedPaths as string[]) {
+      assert.equal(existsSync(path.join(cutRoot, fencedPath)), false);
+      assert.doesNotMatch(objects, new RegExp(` ${escapeRegex(fencedPath)}(?:/|$)`));
+    }
+  });
 });
 
 test.skip("The builder cannot modify or escape the cut", () => {});
@@ -206,31 +333,91 @@ test("Previewing the same slice produces the same selection identity", async () 
   const context = scenarioContext();
   await scenarioLabels("regeneration-cycle", "item-01-003", ["e2e"]);
 
-  await given("the same pinned cut, project, slice, and requested item subset", context);
-  await and("the selection has not already been approved", context);
-  await when("the selection is previewed more than once", context);
-  await then("each preview contains the same ordered item denominator", context);
-  await and("each preview has the same selection identity and digest", context);
-  await and("its status is awaiting approval", context);
+  await given("the same pinned cut, project, slice, and requested item subset", async () => {
+    context.cut = await preparedCut();
+  });
+  await and("the selection has not already been approved", async () => {});
+  await when("the selection is previewed more than once", async () => {
+    const cut = assertRequired(context.cut, "prepared cut");
+    context.selections = [
+      await worker.client.previewSelection(cut.cutId, "01-booking-core"),
+      await worker.client.previewSelection(cut.cutId, "01-booking-core"),
+    ];
+  });
+  await then("each preview contains the same ordered item denominator", async () => {
+    const [first, second] = assertRequired(context.selections, "selection previews");
+    assert.deepEqual(first.items.map(({ id }: any) => id), second.items.map(({ id }: any) => id));
+    assert.ok(first.items.length > 0);
+  });
+  await and("each preview has the same selection identity and digest", async () => {
+    const [first, second] = assertRequired(context.selections, "selection previews");
+    assert.equal(first.selectionId, second.selectionId);
+    assert.equal(first.selectionDigest, second.selectionDigest);
+  });
+  await and("its status is awaiting approval", async () => {
+    assert.equal(assertRequired(context.selections, "selection previews").at(-1).status, "awaiting-approval");
+  });
 });
 
 test("Approval refuses a digest other than the reviewed digest", async () => {
   const context = scenarioContext();
   await scenarioLabels("regeneration-cycle", "item-01-004", ["e2e"]);
 
-  await given("a selection contract is awaiting approval", context);
-  await when("approval names its selection identity with a different digest", context);
-  await then("approval is refused", context);
-  await and("the selection remains awaiting approval", context);
+  await given("a selection contract is awaiting approval", async () => {
+    const cut = await preparedCut();
+    context.cut = cut;
+    context.selections = [await worker.client.previewSelection(cut.cutId, "01-booking-core")];
+    assert.equal(context.selections[0].status, "awaiting-approval");
+  });
+  await when("approval names its selection identity with a different digest", async () => {
+    const selection = assertRequired(context.selections, "selection preview")[0];
+    try {
+      await worker.client.approveSelection(selection.selectionId, "0".repeat(64));
+    } catch (error) {
+      context.error = error as Error;
+    }
+  });
+  await then("approval is refused", async () => {
+    assert.match(assertRequired(context.error, "approval refusal").message, /digest/i);
+  });
+  await and("the selection remains awaiting approval", async () => {
+    const selection = assertRequired(context.selections, "selection preview")[0];
+    const current = await worker.client.previewSelection(
+      assertRequired(context.cut, "prepared cut").cutId,
+      "01-booking-core",
+    );
+    assert.equal(current.selectionId, selection.selectionId);
+    assert.equal(current.status, "awaiting-approval");
+  });
 });
 
 test("An unapproved selection cannot start a regeneration cycle", async () => {
   const context = scenarioContext();
   await scenarioLabels("regeneration-cycle", "item-01-005", ["e2e"]);
 
-  await given("a recorded selection has not been approved", context);
-  await when("the operator submits a regeneration cycle for that selection", context);
-  await then("submission is refused before a builder starts", context);
+  await given("a recorded selection has not been approved", async () => {
+    const cut = await preparedCut();
+    context.cut = cut;
+    context.selections = [await worker.client.previewSelection(cut.cutId, "01-booking-core")];
+    assert.equal(context.selections[0].status, "awaiting-approval");
+  });
+  await when("the operator submits a regeneration cycle for that selection", async () => {
+    const selection = assertRequired(context.selections, "selection preview")[0];
+    try {
+      await worker.client.submit({
+        requestId: `unapproved-${Date.now()}`,
+        selectionId: selection.selectionId,
+        scope: ["workspace"],
+        targetStack: "typescript",
+        executionBackend: "host",
+      });
+    } catch (error) {
+      context.error = error as Error;
+    }
+  });
+  await then("submission is refused before a builder starts", async () => {
+    assert.match(assertRequired(context.error, "submission refusal").message, /approved slice selection/);
+  });
 });
 
 test.skip("Repeating the same request identity returns the original receipt", () => {});
@@ -240,9 +427,16 @@ test("ORC exposes builder session identity in its executable contract", async ()
   const context = scenarioContext();
   await scenarioLabels("regeneration-cycle", "item-01-007", ["e2e"]);
 
-  await given("the Pi harness ORC worker is running", context);
-  await when("Pi requests the executable regeneration workflow contract", context);
-  await then('the builder result includes the field "builderSessionId"', context);
+  await given("the Pi harness ORC worker is running", async () => {
+    assert.ok(worker, "the ORC worker must be started by the E2E harness");
+  });
+  await when("Pi requests the executable regeneration workflow contract", async () => {
+    context.contract = await worker.client.workflowContract();
+    await allure.attachment("workflow-contract.json", JSON.stringify(context.contract, null, 2), "application/json");
+  });
+  await then('the builder result includes the field "builderSessionId"', async () => {
+    assert.ok(required(context.contract).builderResultFields.includes("builderSessionId"));
+  });
 });
 
 test.skip("Verification rejects an incomplete runnable application contract", () => {});
@@ -253,11 +447,26 @@ test("A final result requires every independent gate to pass", async () => {
   const context = scenarioContext();
   await scenarioLabels("regeneration-cycle", "item-01-011", ["e2e", "playback"]);
 
-  await given("the oracle, verifier, grader, and measurement have completed", context);
-  await when("the final result is derived", context);
-  await then("it does not pass when any independent gate failed", context);
-  await and("every approved item was graded", context);
-  await and("failed approved items remain in the denominator", context);
+  await given("the oracle, verifier, grader, and measurement have completed", async () => {
+    const completed = await fullCycle();
+    context.outcome = completed.outcome;
+    context.selection = completed.selection;
+  });
+  await when("the final result is derived", async () => {});
+  await then("it does not pass when any independent gate failed", async () => {
+    const outputs = context.outcome.result.outputs;
+    assert.equal(outputs["oracle-result"].passed, true);
+    assert.equal(outputs["verify-result"].passed, true);
+    assert.equal(outputs["result-result"].passed, false);
+  });
+  await and("every approved item was graded", async () => {
+    const measurement = context.outcome.result.outputs["cycle-result"];
+    assert.equal(measurement.total, context.selection.items.length);
+    assert.equal(measurement.passed + measurement.failed, measurement.total);
+  });
+  await and("failed approved items remain in the denominator", async () => {
+    assert.ok(context.outcome.result.outputs["cycle-result"].failed > 0);
+  });
 });
 
 test.skip("Recording the same evidence twice is idempotent", () => {});
@@ -271,9 +480,16 @@ test("ORC exposes artifact provenance in its executable contract", async () => {
   const context = scenarioContext();
   await scenarioLabels("runtime-evidence", "item-01-033", ["e2e"]);
 
-  await given("the Pi harness ORC worker is running", context);
-  await when("Pi requests the executable regeneration workflow contract", context);
-  await then('the observation includes the field "artifactDigests"', context);
+  await given("the Pi harness ORC worker is running", async () => {
+    assert.ok(worker, "the ORC worker must be started by the E2E harness");
+  });
+  await when("Pi requests the executable regeneration workflow contract", async () => {
+    context.contract = await worker.client.workflowContract();
+    await allure.attachment("workflow-contract.json", JSON.stringify(context.contract, null, 2), "application/json");
+  });
+  await then('the observation includes the field "artifactDigests"', async () => {
+    assert.ok(required(context.contract).observationFields.includes("artifactDigests"));
+  });
 });
 
 test.skip("Instrument conformance is independent of the behavioral grade", () => {});
@@ -283,84 +499,92 @@ test("OTel and Allure project the persisted invariant evaluation", async () => {
   const context = scenarioContext();
   await scenarioLabels("runtime-evidence", "item-01-034", ["e2e"]);
 
-  await given("an independent invariant evaluation and its evidence digest were persisted", context);
-  await when("an OTel result span and Allure report are emitted", context);
-  await then("both identify the persisted evaluation and evidence digest", context);
-  await and("both name the same candidate subject and oracle digests", context);
-  await and("neither projection can change the recorded verdict", context);
+  await given("an independent invariant evaluation and its evidence digest were persisted", async () => {
+    context.persistedEvaluation = {
+      evaluationId: "evaluation-e2e-item-01-034",
+      evidenceDigest: "evidence-digest-e2e-34",
+      verdict: "fail",
+    };
+  });
+  await when("an OTel result span and Allure report are emitted", async () => {
+    const projectionRoot = mkdtempSync(path.join(os.tmpdir(), "loyly-otel-e2e-"));
+    extractedPlaybackRoots.push(projectionRoot);
+    const evaluation = assertRequired(context.persistedEvaluation, "persisted evaluation");
+    const observation = {
+      "evaluation-id": evaluation.evaluationId,
+      "evidence-digest": evaluation.evidenceDigest,
+      role: "observed", builder: "openai-codex/e2e", "evidence-kind": "grader",
+      producer: "runtime-instrument-conformance", "container-id": "loyly",
+      "component-id": "01-booking-core", "item-id": "@item-01-034",
+      "cycle-id": "cycle-e2e-34", "cut-digest": "cut-e2e",
+      "subject-digest": "subject-e2e", "oracle-digest": "oracle-e2e",
+      room: "gondolin", scope: "impl", result: evaluation.verdict,
+      "reached?": true, evidence: "known failed invariant",
+    };
+    const expression = "(require '[clojure.data.json :as json] '[loyly.pi-harness.core.evidence.evidence-projection :as projection]) (projection/project! (System/getenv \"LOYLEY_E2E_PROJECTION_ROOT\") (json/read-str (System/getenv \"LOYLEY_E2E_EVALUATION\") :key-fn keyword))";
+    execFileSync("clojure", [
+      "-Sdeps", `{:paths [${JSON.stringify(path.join(projectRoot, ".pi/harness/orc-worker/src"))}]}`,
+      "-M:dev", "-e", expression,
+    ], {
+      cwd: path.join(projectRoot, "orc"),
+      env: { ...process.env, LOYLEY_E2E_PROJECTION_ROOT: projectionRoot, LOYLEY_E2E_EVALUATION: JSON.stringify(observation) },
+    });
+    const allureFile = readdirSync(path.join(projectionRoot, "allure-results")).find((file) => file.endsWith("-result.json"));
+    const otelFile = readdirSync(path.join(projectionRoot, "otel-results")).find((file) => file.endsWith(".otlp.json"));
+    context.evidenceProjections = {
+      allure: JSON.parse(readFileSync(path.join(projectionRoot, "allure-results", assertRequired(allureFile, "Allure result")), "utf8")),
+      otel: JSON.parse(readFileSync(path.join(projectionRoot, "otel-results", assertRequired(otelFile, "OTel result")), "utf8")),
+    };
+  });
+  await then("both identify the persisted evaluation and evidence digest", async () => {
+    const evaluation = assertRequired(context.persistedEvaluation, "persisted evaluation");
+    const projections = assertRequired(context.evidenceProjections, "evidence projections");
+    const labels = Object.fromEntries(projections.allure.labels.map(({ name, value }: any) => [name, value]));
+    const span = projections.otel.resourceSpans[0].scopeSpans[0].spans[0];
+    const attributes = Object.fromEntries(span.attributes.map(({ key, value }: any) => [key, value.stringValue]));
+    assert.equal(labels.evaluation_id, evaluation.evaluationId);
+    assert.equal(attributes["loyly.evaluation.id"], evaluation.evaluationId);
+    assert.equal(labels.evidence_digest, evaluation.evidenceDigest);
+    assert.equal(attributes["loyly.evidence.digest"], evaluation.evidenceDigest);
+  });
+  await and("both name the same candidate subject and oracle digests", async () => {
+    const projections = assertRequired(context.evidenceProjections, "evidence projections");
+    const labels = Object.fromEntries(projections.allure.labels.map(({ name, value }: any) => [name, value]));
+    const span = projections.otel.resourceSpans[0].scopeSpans[0].spans[0];
+    const attributes = Object.fromEntries(span.attributes.map(({ key, value }: any) => [key, value.stringValue]));
+    assert.equal(labels.subject_digest, "subject-e2e");
+    assert.equal(attributes["loyly.subject.digest"], labels.subject_digest);
+    assert.equal(labels.oracle_digest, "oracle-e2e");
+    assert.equal(attributes["loyly.oracle.digest"], labels.oracle_digest);
+  });
+  await and("neither projection can change the recorded verdict", async () => {
+    const evaluation = assertRequired(context.persistedEvaluation, "persisted evaluation");
+    const projections = assertRequired(context.evidenceProjections, "evidence projections");
+    const span = projections.otel.resourceSpans[0].scopeSpans[0].spans[0];
+    const attributes = Object.fromEntries(span.attributes.map(({ key, value }: any) => [key, value.stringValue]));
+    assert.equal(evaluation.verdict, "fail");
+    assert.equal(projections.allure.status, "failed");
+    assert.equal(attributes["loyly.evaluation.verdict"], "fail");
+  });
 });
 
 test("Each grading cycle isolates evidence from its pinned OTel capture policy", async () => {
   const context = scenarioContext();
   await scenarioLabels("runtime-evidence", "item-01-042", ["e2e", "gondolin"]);
 
-  await given("the pinned product-oracle OCI supplies a declarative OTel capture policy", context);
-  await when("an independent Gondolin grader room opens for one regeneration cycle", context);
-  await then("the candidate and OTel capture policy are mounted read-only", context);
-  await and("the candidate subject digest remains unchanged after observation", context);
-  await and("a fresh cycle evidence volume is the only writable grading mount", context);
-  await and("the grader image supplies OBI and the OTel eBPF profiler with tracefs and BPF FS mounted", context);
-  await and("native OTLP traces, metrics, and profiles are cycle-scoped diagnostic evidence", context);
-});
-
-function scenarioContext(): ScenarioContext {
-  return {};
-}
-
-async function scenarioLabels(feature: string, story: string, tags: string[]): Promise<void> {
-  await allure.feature(feature);
-  await allure.story(story);
-  await allure.tags(...tags);
-}
-
-type StepTable = string[][];
-
-function given(text: string, context: ScenarioContext, table?: StepTable): PromiseLike<void> {
-  return modelStep("Given", text, context, table);
-}
-
-function when(text: string, context: ScenarioContext, table?: StepTable): PromiseLike<void> {
-  return modelStep("When", text, context, table);
-}
-
-// This must remain module-private. Exporting `then` makes the ESM namespace a thenable,
-// so the module loader invokes it during collection before Allure's runtime is installed.
-function then(text: string, context: ScenarioContext, table?: StepTable): PromiseLike<void> {
-  return modelStep("Then", text, context, table);
-}
-
-function and(text: string, context: ScenarioContext, table?: StepTable): PromiseLike<void> {
-  return modelStep("And", text, context, table);
-}
-
-function but(text: string, context: ScenarioContext, table?: StepTable): PromiseLike<void> {
-  return modelStep("But", text, context, table);
-}
-
-function modelStep(
-  keyword: "Given" | "When" | "Then" | "And" | "But",
-  text: string,
-  context: ScenarioContext,
-  table?: StepTable,
-): PromiseLike<void> {
-  const dataTable = table === undefined
-    ? undefined
-    : { rows: table.map((row) => ({ cells: row.map((value) => ({ value })) })) };
-  return allure.step(`${keyword} ${text}`, () => executeStep(text, dataTable, context));
-}
-
-async function executeStep(
-  text: string,
-  dataTable: { rows: Array<{ cells: Array<{ value: string }> }> } | undefined,
-  context: ScenarioContext,
-): Promise<void> {
-  if (text === "the pinned product-oracle OCI supplies a declarative OTel capture policy") {
+  await given("the pinned product-oracle OCI supplies a declarative OTel capture policy", async () => {
     const root = mkdtempSync(path.join(os.tmpdir(), "loyly-grading-probe-e2e-"));
     extractedPlaybackRoots.push(root);
     const oracleRoot = path.join(root, "oracle");
+    const projectProfile = JSON.parse(readFileSync(
+      path.join(projectRoot, ".pi/harness/config/projects/loyly.json"),
+      "utf8",
+    ));
+    const productOracleRef = process.env.PI_HARNESS_PRODUCT_ORACLE_REF
+      ?? process.env.LOYLEY_PRODUCT_ORACLE_REF
+      ?? projectProfile.productOracleRef;
     execFileSync("oras", [
-      "pull", "--oci-layout",
-      path.join(projectRoot, ".pi/harness/config/oracle-packs/loyly:accepted"),
+      "pull", productOracleRef,
       "--output", oracleRoot, "--no-tty",
     ]);
     assert.ok(existsSync(path.join(oracleRoot, "runtime-observability", "capture-policy.json")));
@@ -370,9 +594,8 @@ async function executeStep(
       evidenceRoot: path.join(root, "evidence"),
       root,
     };
-    return;
-  }
-  if (text === "an independent Gondolin grader room opens for one regeneration cycle") {
+  });
+  await when("an independent Gondolin grader room opens for one regeneration cycle", async () => {
     const probe = assertRequired(context.gradingProbe, "grading probe");
     const cutsRoot = path.join(probe.root, "cuts");
     const outputRoot = path.join(probe.root, "output");
@@ -411,33 +634,28 @@ async function executeStep(
     } finally {
       await room.close();
     }
-    return;
-  }
-  if (text === "the candidate and OTel capture policy are mounted read-only") {
+  });
+  await then("the candidate and OTel capture policy are mounted read-only", async () => {
     const result = assertRequired(assertRequired(context.gradingProbe, "grading probe").result, "grading probe result");
     assert.equal(result.exitCode, 0, result.stderr);
-    return;
-  }
-  if (text === "the candidate subject digest remains unchanged after observation") {
+  });
+  await and("the candidate subject digest remains unchanged after observation", async () => {
     const probe = assertRequired(context.gradingProbe, "grading probe");
     const expected = assertRequired(probe.subjectDigest, "candidate subject digest");
     const cycleEvidenceRoot = path.join(probe.evidenceRoot, "cycles", probe.cycleId);
     assert.equal(readFileSync(path.join(cycleEvidenceRoot, "subject.before"), "utf8").trim(), expected);
     assert.equal(readFileSync(path.join(cycleEvidenceRoot, "subject.after"), "utf8").trim(), expected);
-    return;
-  }
-  if (text === "a fresh cycle evidence volume is the only writable grading mount") {
+  });
+  await and("a fresh cycle evidence volume is the only writable grading mount", async () => {
     const probe = assertRequired(context.gradingProbe, "grading probe");
     assert.ok(existsSync(path.join(probe.evidenceRoot, "cycles", probe.cycleId, "capture.ok")));
     assert.equal(existsSync(path.join(probe.evidenceRoot, "capture.ok")), false);
-    return;
-  }
-  if (text === "the grader image supplies OBI and the OTel eBPF profiler with tracefs and BPF FS mounted") {
+  });
+  await and("the grader image supplies OBI and the OTel eBPF profiler with tracefs and BPF FS mounted", async () => {
     const result = assertRequired(assertRequired(context.gradingProbe, "grading probe").result, "grading probe result");
     assert.equal(result.exitCode, 0, result.stderr);
-    return;
-  }
-  if (text === "native OTLP traces, metrics, and profiles are cycle-scoped diagnostic evidence") {
+  });
+  await and("native OTLP traces, metrics, and profiles are cycle-scoped diagnostic evidence", async () => {
     const policy = JSON.parse(readFileSync(path.join(
       assertRequired(context.gradingProbe, "grading probe").root,
       "oracle/runtime-observability/capture-policy.json",
@@ -446,380 +664,52 @@ async function executeStep(
     assert.equal(policy.format, "otlp-json");
     assert.equal(policy.purpose, "diagnostic");
     assert.equal(policy.authoritativeGrade, false);
-    return;
-  }
-  if (text === "an independent invariant evaluation and its evidence digest were persisted") {
-    context.persistedEvaluation = {
-      evaluationId: "evaluation-e2e-item-01-034",
-      evidenceDigest: "evidence-digest-e2e-34",
-      verdict: "fail",
-    };
-    return;
-  }
-  if (text === "an OTel result span and Allure report are emitted") {
-    const projectionRoot = mkdtempSync(path.join(os.tmpdir(), "loyly-otel-e2e-"));
-    extractedPlaybackRoots.push(projectionRoot);
-    const evaluation = assertRequired(context.persistedEvaluation, "persisted evaluation");
-    const observation = {
-      "evaluation-id": evaluation.evaluationId,
-      "evidence-digest": evaluation.evidenceDigest,
-      role: "observed", builder: "openai-codex/e2e", "evidence-kind": "grader",
-      producer: "runtime-instrument-conformance", "container-id": "loyly",
-      "component-id": "01-booking-core", "item-id": "@item-01-034",
-      "cycle-id": "cycle-e2e-34", "cut-digest": "cut-e2e",
-      "subject-digest": "subject-e2e", "oracle-digest": "oracle-e2e",
-      room: "gondolin", scope: "impl", result: evaluation.verdict,
-      "reached?": true, evidence: "known failed invariant",
-    };
-    const expression = "(require '[clojure.data.json :as json] '[loyly.pi-harness.core.evidence.evidence-projection :as projection]) (projection/project! (System/getenv \"LOYLEY_E2E_PROJECTION_ROOT\") (json/read-str (System/getenv \"LOYLEY_E2E_EVALUATION\") :key-fn keyword))";
-    execFileSync("clojure", [
-      "-Sdeps", `{:paths [${JSON.stringify(path.join(projectRoot, ".pi/harness/orc-worker/src"))}]}`,
-      "-M:dev", "-e", expression,
-    ], {
-      cwd: path.join(projectRoot, "orc"),
-      env: { ...process.env, LOYLEY_E2E_PROJECTION_ROOT: projectionRoot, LOYLEY_E2E_EVALUATION: JSON.stringify(observation) },
-    });
-    const allureFile = readdirSync(path.join(projectionRoot, "allure-results")).find((file) => file.endsWith("-result.json"));
-    const otelFile = readdirSync(path.join(projectionRoot, "otel-results")).find((file) => file.endsWith(".otlp.json"));
-    context.evidenceProjections = {
-      allure: JSON.parse(readFileSync(path.join(projectionRoot, "allure-results", assertRequired(allureFile, "Allure result")), "utf8")),
-      otel: JSON.parse(readFileSync(path.join(projectionRoot, "otel-results", assertRequired(otelFile, "OTel result")), "utf8")),
-    };
-    return;
-  }
-  if (text === "both identify the persisted evaluation and evidence digest") {
-    const evaluation = assertRequired(context.persistedEvaluation, "persisted evaluation");
-    const projections = assertRequired(context.evidenceProjections, "evidence projections");
-    const labels = Object.fromEntries(projections.allure.labels.map(({ name, value }: any) => [name, value]));
-    const span = projections.otel.resourceSpans[0].scopeSpans[0].spans[0];
-    const attributes = Object.fromEntries(span.attributes.map(({ key, value }: any) => [key, value.stringValue]));
-    assert.equal(labels.evaluation_id, evaluation.evaluationId);
-    assert.equal(attributes["loyly.evaluation.id"], evaluation.evaluationId);
-    assert.equal(labels.evidence_digest, evaluation.evidenceDigest);
-    assert.equal(attributes["loyly.evidence.digest"], evaluation.evidenceDigest);
-    return;
-  }
-  if (text === "both name the same candidate subject and oracle digests") {
-    const projections = assertRequired(context.evidenceProjections, "evidence projections");
-    const labels = Object.fromEntries(projections.allure.labels.map(({ name, value }: any) => [name, value]));
-    const span = projections.otel.resourceSpans[0].scopeSpans[0].spans[0];
-    const attributes = Object.fromEntries(span.attributes.map(({ key, value }: any) => [key, value.stringValue]));
-    assert.equal(labels.subject_digest, "subject-e2e");
-    assert.equal(attributes["loyly.subject.digest"], labels.subject_digest);
-    assert.equal(labels.oracle_digest, "oracle-e2e");
-    assert.equal(attributes["loyly.oracle.digest"], labels.oracle_digest);
-    return;
-  }
-  if (text === "neither projection can change the recorded verdict") {
-    const evaluation = assertRequired(context.persistedEvaluation, "persisted evaluation");
-    const projections = assertRequired(context.evidenceProjections, "evidence projections");
-    const span = projections.otel.resourceSpans[0].scopeSpans[0].spans[0];
-    const attributes = Object.fromEntries(span.attributes.map(({ key, value }: any) => [key, value.stringValue]));
-    assert.equal(evaluation.verdict, "fail");
-    assert.equal(projections.allure.status, "failed");
-    assert.equal(attributes["loyly.evaluation.verdict"], "fail");
-    return;
-  }
-  if (text === "ORC opened a separately identified builder session for one build attempt") {
-    const builderSessionRef = "e2e-builder-session-38";
-    const sessionRoot = path.join(e2eStateRoot, "builder-sessions");
-    const workspace = path.join(e2eStateRoot, "builder-workspace-38");
-    await mkdir(workspace, { recursive: true });
-    await writeFile(path.join(workspace, "generated.ts"), "export const generated = true;\n");
-    const session = SessionManager.create(workspace, sessionRoot, { id: builderSessionRef });
-    session.appendMessage({ role: "user", content: "build only the approved slice", timestamp: Date.now() });
-    session.appendMessage({
-      role: "assistant",
-      content: [{ type: "text", text: "implemented the approved slice" }],
-      api: "responses",
-      provider: "test",
-      model: "test",
-      usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
-      stopReason: "stop",
-      timestamp: Date.now(),
-    });
-    await writeBuilderSessionState(sessionRoot, {
-      builderSessionRef,
-      sessionFile: session.getSessionFile(),
-      status: "completed",
-      toolCalls: 2,
-      workspaceGeneration: ["generated.ts"],
-      progress: { stage: "builder", attempt: 1 },
-    });
-    context.builderSessionRef = builderSessionRef;
-    context.builderSessionFilesBefore = [session.getSessionFile(), path.join(workspace, "generated.ts")]
-      .map((file) => ({ file: assertRequired(file, "builder session file"), content: readFileSync(assertRequired(file, "builder session file"), "utf8") }));
-    return;
-  }
-  if (text === "an operator session opens that builder-session reference") {
-    context.builderSessionView = await worker.client.builderSession(
-      assertRequired(context.builderSessionRef, "builder session reference"),
-    );
-    return;
-  }
-  if (text === "it can inspect committed model turns, tool calls, workspace generation, and progress") {
-    const view = assertRequired(context.builderSessionView, "builder session view");
-    assert.equal(view.entries.length, 2);
-    assert.equal(view.toolCalls, 2);
-    assert.deepEqual(view.workspaceGeneration, ["generated.ts"]);
-    assert.deepEqual(view.progress, { stage: "builder", attempt: 1 });
-    await allure.attachment("builder-session.json", JSON.stringify(view, null, 2), "application/json");
-    return;
-  }
-  if (text === "observation cannot change the builder transcript or candidate") {
-    for (const snapshot of assertRequired(context.builderSessionFilesBefore, "builder files")) {
-      assert.equal(readFileSync(snapshot.file, "utf8"), snapshot.content);
-    }
-    return;
-  }
-  if (text === "the builder cannot read the operator transcript or independent grader evidence") {
-    const transcript = JSON.stringify(assertRequired(context.builderSessionView, "builder session view").entries);
-    assert.doesNotMatch(transcript, /operator transcript|independent grader evidence/i);
-    return;
-  }
-  if (text === "the Pi harness ORC worker is running") {
-    assert.ok(worker, "the ORC worker must be started by the E2E harness");
-    return;
-  }
-  if (text === "no task receipt has the supplied identity") {
-    context.taskId = Number.MAX_SAFE_INTEGER;
-    return;
-  }
-  if (text === "a cut or regeneration task receipt was returned") {
-    context.cut = await preparedCut();
-    context.taskId = context.cut.receipt.taskId;
-    return;
-  }
-  if (text === "the operator waits for its task identity") {
-    context.outcome = await worker.client.wait(assertRequired(context.taskId, "task identity"));
-    return;
-  }
-  if (text === "the result is completed or failed with the ORC trace summary") {
-    assert.match(context.outcome?.status, /^(completed|failed)$/);
-    assert.match(context.outcome?.result?.traceId, /^[0-9a-f-]{36}$/);
-    assert.equal(typeof context.outcome?.result?.durationMs, "number");
-    return;
-  }
-  if (text === "waiting again returns the same terminal outcome") {
-    context.repeatedOutcome = await worker.client.wait(assertRequired(context.taskId, "task identity"));
-    assert.deepEqual(context.repeatedOutcome, context.outcome);
-    return;
-  }
-  if (text === "the operator waits for that identity") {
-    try {
-      await worker.client.wait(assertRequired(context.taskId, "task identity"));
-    } catch (error) {
-      context.error = error as Error;
-    }
-    return;
-  }
-  if (text === "the request is refused without starting new work") {
-    assert.match(assertRequired(context.error, "wait refusal").message, /unknown taskId/);
-    return;
-  }
-  if (text === "either example set is missing or not a collection") {
-    return;
-  }
-  if (text === "the operator requests builder-prompt optimization") {
-    try {
-      await worker.client.optimizePrompt([], []);
-    } catch (error) {
-      context.error = error as Error;
-    }
-    return;
-  }
-  if (text === "optimization is refused before an instruction candidate is evaluated") {
-    assert.match(assertRequired(context.error, "optimization refusal").message, /non-empty trainset and valset/);
-    return;
-  }
-  if (text === "the operator names a full source commit and an execution backend") {
-    context.cut = await preparedCut();
-    return;
-  }
-  if (text === "the Pi harness prepares the regeneration cut") {
-    context.cut ??= await preparedCut();
-    return;
-  }
-  if (text === "the prepared cut is rooted at exactly that source commit") {
-    const cut = assertRequired(context.cut, "prepared cut");
-    assert.equal(cut["source-commit"], cut.sourceCommit);
-    assert.equal(cut.receipt.cutId, cut.sourceCommit);
-    assert.match(cut.cutId, /^[a-f0-9]{40}$/);
-    return;
-  }
-  if (text === "its fenced tree identity is recorded") {
-    assert.match(assertRequired(context.cut, "prepared cut").treeId, /^[a-f0-9]{40}$/);
-    return;
-  }
-  if (text === "prior implementation and measurement paths are absent from the reachable cut history") {
-    const cut = assertRequired(context.cut, "prepared cut");
-    const cutRoot = path.join(os.homedir(), ".pi/agent/loyly/cuts", cut.cutId);
-    const objects = execFileSync("git", ["-C", cutRoot, "rev-list", "--objects", "--all"], { encoding: "utf8" });
-    const policy = JSON.parse(readFileSync(path.join(projectRoot, ".pi/harness/config/cut-policy.json"), "utf8"));
-    for (const fencedPath of policy.fencedPaths as string[]) {
-      assert.equal(existsSync(path.join(cutRoot, fencedPath)), false);
-      assert.doesNotMatch(objects, new RegExp(` ${escapeRegex(fencedPath)}(?:/|$)`));
-    }
-    return;
-  }
-  if (text === "the same pinned cut, project, slice, and requested item subset") {
-    context.cut = await preparedCut();
-    return;
-  }
-  if (text === "the selection has not already been approved") {
-    return;
-  }
-  if (text === "the selection is previewed more than once") {
-    const cut = assertRequired(context.cut, "prepared cut");
-    context.selections = [
-      await worker.client.previewSelection(cut.cutId, "01-booking-core"),
-      await worker.client.previewSelection(cut.cutId, "01-booking-core"),
-    ];
-    return;
-  }
-  if (text === "each preview contains the same ordered item denominator") {
-    const [first, second] = assertRequired(context.selections, "selection previews");
-    assert.deepEqual(first.items.map(({ id }: any) => id), second.items.map(({ id }: any) => id));
-    assert.ok(first.items.length > 0);
-    return;
-  }
-  if (text === "each preview has the same selection identity and digest") {
-    const [first, second] = assertRequired(context.selections, "selection previews");
-    assert.equal(first.selectionId, second.selectionId);
-    assert.equal(first.selectionDigest, second.selectionDigest);
-    return;
-  }
-  if (text === "its status is awaiting approval") {
-    assert.equal(assertRequired(context.selections, "selection previews").at(-1).status, "awaiting-approval");
-    return;
-  }
-  if (text === "a selection contract is awaiting approval" || text === "a recorded selection has not been approved") {
-    const cut = await preparedCut();
-    context.cut = cut;
-    context.selections = [await worker.client.previewSelection(cut.cutId, "01-booking-core")];
-    assert.equal(context.selections[0].status, "awaiting-approval");
-    return;
-  }
-  if (text === "approval names its selection identity with a different digest") {
-    const selection = assertRequired(context.selections, "selection preview")[0];
-    try {
-      await worker.client.approveSelection(selection.selectionId, "0".repeat(64));
-    } catch (error) {
-      context.error = error as Error;
-    }
-    return;
-  }
-  if (text === "approval is refused") {
-    assert.match(assertRequired(context.error, "approval refusal").message, /digest/i);
-    return;
-  }
-  if (text === "the selection remains awaiting approval") {
-    const selection = assertRequired(context.selections, "selection preview")[0];
-    const current = await worker.client.previewSelection(
-      assertRequired(context.cut, "prepared cut").cutId,
-      "01-booking-core",
-    );
-    assert.equal(current.selectionId, selection.selectionId);
-    assert.equal(current.status, "awaiting-approval");
-    return;
-  }
-  if (text === "the operator submits a regeneration cycle for that selection") {
-    const selection = assertRequired(context.selections, "selection preview")[0];
-    try {
-      await worker.client.submit({
-        requestId: `unapproved-${Date.now()}`,
-        selectionId: selection.selectionId,
-        scope: ["workspace"],
-        targetStack: "typescript",
-        executionBackend: "host",
-      });
-    } catch (error) {
-      context.error = error as Error;
-    }
-    return;
-  }
-  if (text === "submission is refused before a builder starts") {
-    assert.match(assertRequired(context.error, "submission refusal").message, /approved slice selection/);
-    return;
-  }
-  if (text === "the requested slice has missing, duplicate, unstamped, or unknown items") {
-    context.invalidSelections = await invalidSelectionRequests();
-    return;
-  }
-  if (text === "the operator previews the selection") {
-    context.selections = [];
-    context.outcome = [];
-    for (const request of assertRequired(context.invalidSelections, "invalid selection requests")) {
-      try {
-        context.selections.push(await worker.client.previewSelection(request.cut, request.slice, request.itemIds));
-      } catch (error) {
-        context.outcome.push(error as Error);
-      }
-    }
-    return;
-  }
-  if (text === "no selection contract is recorded") {
-    assert.deepEqual(context.selections, []);
-    assert.equal(context.outcome.length, context.invalidSelections?.length);
-    return;
-  }
-  if (text === "the refusal identifies the unresolved denominator") {
-    const messages = context.outcome.map((error: Error) => error.message);
-    assert.ok(messages.some((message: string) => /no spec\.feature/.test(message)));
-    assert.ok(messages.some((message: string) => /duplicate item identities/.test(message)));
-    assert.ok(messages.some((message: string) => /stable @item identity/.test(message)));
-    assert.ok(messages.some((message: string) => /requested item does not belong/.test(message)));
-    return;
-  }
-  if (text === "the oracle, verifier, grader, and measurement have completed") {
-    const completed = await fullCycle();
-    context.outcome = completed.outcome;
-    context.selection = completed.selection;
-    return;
-  }
-  if (text === "the final result is derived") return;
-  if (text === "it does not pass when any independent gate failed") {
-    const outputs = context.outcome.result.outputs;
-    assert.equal(outputs["oracle-result"].passed, true);
-    assert.equal(outputs["verify-result"].passed, true);
-    assert.equal(outputs["result-result"].passed, false);
-    return;
-  }
-  if (text === "every approved item was graded") {
-    const measurement = context.outcome.result.outputs["cycle-result"];
-    assert.equal(measurement.total, context.selection.items.length);
-    assert.equal(measurement.passed + measurement.failed, measurement.total);
-    return;
-  }
-  if (text === "failed approved items remain in the denominator") {
-    assert.ok(context.outcome.result.outputs["cycle-result"].failed > 0);
-    return;
-  }
-  if (text === "Pi requests the executable regeneration workflow contract") {
-    context.contract = await worker.client.workflowContract();
-    await allure.attachment("workflow-contract.json", JSON.stringify(context.contract, null, 2), "application/json");
-    return;
-  }
-  if (text === "ORC exposes these stages in order:") {
-    const expectedStages = dataTable?.rows.map(({ cells }) => cells[0]?.value);
-    assert.ok(expectedStages, "the modeled stage table is required");
-    assert.deepEqual(required(context.contract).stages, expectedStages);
-    return;
-  }
+  });
+});
 
-  const builderField = text.match(/^the builder result includes the field "(.+)"$/)?.[1];
-  if (builderField) {
-    assert.ok(required(context.contract).builderResultFields.includes(builderField));
-    return;
-  }
-  const observationField = text.match(/^the observation includes the field "(.+)"$/)?.[1];
-  if (observationField) {
-    assert.ok(required(context.contract).observationFields.includes(observationField));
-    return;
-  }
-  throw new Error(`no Vitest E2E implementation for model step: ${text}`);
+function scenarioContext(): ScenarioContext {
+  return {};
 }
 
+async function scenarioLabels(feature: string, story: string, tags: string[]): Promise<void> {
+  await allure.feature(feature);
+  await allure.story(story);
+  await allure.tags(...tags);
+}
+
+type StepTable = string[][];
+type StepActual = (table?: StepTable) => void | Promise<void>;
+
+function given(text: string, actual: StepActual, table?: StepTable): PromiseLike<void> {
+  return modelStep("Given", text, actual, table);
+}
+
+function when(text: string, actual: StepActual, table?: StepTable): PromiseLike<void> {
+  return modelStep("When", text, actual, table);
+}
+
+// This must remain module-private. Exporting `then` makes the ESM namespace a thenable,
+// so the module loader invokes it during collection before Allure's runtime is installed.
+function then(text: string, actual: StepActual, table?: StepTable): PromiseLike<void> {
+  return modelStep("Then", text, actual, table);
+}
+
+function and(text: string, actual: StepActual, table?: StepTable): PromiseLike<void> {
+  return modelStep("And", text, actual, table);
+}
+
+function but(text: string, actual: StepActual, table?: StepTable): PromiseLike<void> {
+  return modelStep("But", text, actual, table);
+}
+
+function modelStep(
+  keyword: "Given" | "When" | "Then" | "And" | "But",
+  text: string,
+  actual: StepActual,
+  table?: StepTable,
+): PromiseLike<void> {
+  return allure.step(`${keyword} ${text}`, () => actual(table));
+}
 function required(contract: WorkflowContract | undefined): WorkflowContract {
   assert.notEqual(contract, undefined, "workflow contract is required");
   return contract as WorkflowContract;

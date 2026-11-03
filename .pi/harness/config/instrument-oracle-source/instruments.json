@@ -2,7 +2,7 @@
   "instruments": [
     {
       "id": "full-pi-harness",
-      "digest": "sha256:18f26039ddb4dfef4b0de14d6f91f35dbee6bdaaaef92bc17bc09f24b2d7cfd9",
+      "digest": "sha256:5df605e0e2865435912713eb11d801c31c7b0f21a777e4ec5ebc7774352128c7",
       "roots": [
         ".pi/harness/orc-worker/src",
         ".pi/harness/orc-worker/test",

@@ -7,8 +7,12 @@ import path from "node:path";
 import test from "node:test";
 
 const oracleRoot = await mkdtemp(path.join(os.tmpdir(), "loyly-accepted-oracle-test-"));
-const oraclePull = await runProgram("oras", ["pull", "--oci-layout",
-  path.resolve("config/oracle-packs/loyly:accepted"), "--output", oracleRoot, "--no-tty"]);
+const projectProfile = JSON.parse(await readFile("config/projects/loyly.json", "utf8"));
+const productOracleRef = process.env.PI_HARNESS_PRODUCT_ORACLE_REF
+  ?? process.env.LOYLEY_PRODUCT_ORACLE_REF
+  ?? projectProfile.productOracleRef;
+const oraclePull = await runProgram("oras", ["pull", productOracleRef,
+  "--output", oracleRoot, "--no-tty"]);
 if (oraclePull.exitCode !== 0) throw new Error(`could not extract accepted grader: ${oraclePull.stderr}`);
 test.after(() => rm(oracleRoot, { recursive: true, force: true }));
 

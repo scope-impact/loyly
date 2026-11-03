@@ -108,11 +108,17 @@
   (record-stage-progress! context "cut")
   (stage-result "cut" context))
 
+(defn instrument-oracle-ref []
+  (or (System/getenv "PI_HARNESS_INSTRUMENT_ORACLE_REF")
+      (System/getenv "LOYLEY_INSTRUMENT_ORACLE_REF")
+      (:instrumentOracleRef
+       (json/read-str
+        (slurp (str (project-root) "/.pi/harness/config/oracles.json"))
+        :key-fn keyword))))
+
 (defn calibrate-harness! []
   (let [root (project-root)
-        pack-ref (or (System/getenv "PI_HARNESS_INSTRUMENT_ORACLE_REF")
-                     (System/getenv "LOYLEY_INSTRUMENT_ORACLE_REF")
-                     (str root "/.pi/harness/config/instrument-oracles/pi-harness:accepted"))
+        pack-ref (instrument-oracle-ref)
         result (harness-calibration/calibrate! root pack-ref)
         suite-summary (into {}
                             (map (fn [[suite value]]
@@ -216,7 +222,12 @@
     (evaluate-cut (str cuts-root "/" cut) selection options))))
 
 (defn- rooted [root path]
-  (if (.isAbsolute (java.io.File. path)) path (str root "/" path)))
+  (let [registry-ref? (boolean
+                       (re-matches #"(?i)(?:localhost(?::[0-9]+)?|[a-z0-9][a-z0-9.-]*\.[a-z0-9.-]+(?::[0-9]+)?)/.+"
+                                   path))]
+    (if (or registry-ref? (.isAbsolute (java.io.File. path)))
+      path
+      (str root "/" path))))
 
 (defn product-oracle-options [selection]
   (let [root (project-root)

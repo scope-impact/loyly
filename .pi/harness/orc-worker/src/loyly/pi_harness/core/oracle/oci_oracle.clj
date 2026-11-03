@@ -23,6 +23,17 @@
    "application/vnd.loyly.oracle.fixture-server.v1+javascript"
    otel-capture-policy-type])
 
+(defn- local-oci-layout-ref? [pack-ref]
+  (let [layout-path (-> pack-ref
+                        (str/replace #"@sha256:[0-9a-f]{64}$" "")
+                        (str/replace #":[^/]+$" ""))]
+    (.isFile (io/file layout-path "oci-layout"))))
+
+(defn- oras-ref-arguments [pack-ref]
+  (cond-> []
+    (local-oci-layout-ref? pack-ref) (conj "--oci-layout")
+    true (conj pack-ref)))
+
 (defn- valid-layer-types? [actual-types]
   (and (= required-metadata-layer-types
           (subvec actual-types 0 (min (count actual-types)
@@ -47,10 +58,15 @@
 
 (defn resolve-pack [pack-ref]
   (let [descriptor (json/read-str
-                    (run-oras "manifest" "fetch" "--oci-layout" pack-ref "--descriptor")
+                    (apply run-oras
+                           (concat ["manifest" "fetch"]
+                                   (oras-ref-arguments pack-ref)
+                                   ["--descriptor"]))
                     :key-fn keyword)
         manifest (json/read-str
-                  (run-oras "manifest" "fetch" "--oci-layout" pack-ref)
+                  (apply run-oras
+                         (concat ["manifest" "fetch"]
+                                 (oras-ref-arguments pack-ref)))
                   :key-fn keyword)
         directory (.toFile (java.nio.file.Files/createTempDirectory
                             "loyly-oracle-pack-pull-"
@@ -66,7 +82,10 @@
                           {:expected-prefix required-metadata-layer-types
                            :grader-layer-type grader-file-type
                            :actual actual-types})))
-        (run-oras "pull" "--oci-layout" pack-ref "--output" (.getPath directory) "--no-tty")
+        (apply run-oras
+               (concat ["pull"]
+                       (oras-ref-arguments pack-ref)
+                       ["--output" (.getPath directory) "--no-tty"]))
         {:digest (:digest descriptor)
          :layers
          (mapv (fn [layer]

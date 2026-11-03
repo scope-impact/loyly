@@ -245,6 +245,7 @@
       (let [context (:context runtime)
             sheet-id (orc/build-workflow! context (worker/workflow))
             result (with-redefs [worker/project-root (constantly "/tmp")
+                                  worker/instrument-oracle-ref (constantly "instrument-oracle-test")
                                   harness-calibration/calibrate!
                                   (fn [& _] {:passed true
                                              :oracle-digest "instrument-oracle-test"
@@ -398,7 +399,8 @@
   (let [call (atom nil)
         result (with-redefs [worker/project-root (constantly "/repo")
                              worker/project-adapter
-                             (constantly {:productOracleRef ".pi/harness/config/oracle-packs/loyly:accepted"
+                             (constantly {:productOracleRef (str "ghcr.io/scope-impact/loyly/product-oracle@"
+                                                                 "sha256:e328f56447a5eb888e958da29fb90a4e2500adf86463249f2d69738df4a021a6")
                                           :graderProducer "loyly-black-box"
                                           :graderId "booking-core-v1"})
                              worker/run-oracle
@@ -415,7 +417,8 @@
                             :harness-calibration-result
                             {:instrument-oracle-digest "instrument-oracle"}}}))]
     (is (= "cut-1" (:cut @call)))
-    (is (= "/repo/.pi/harness/config/oracle-packs/loyly:accepted"
+    (is (= (str "ghcr.io/scope-impact/loyly/product-oracle@"
+                "sha256:e328f56447a5eb888e958da29fb90a4e2500adf86463249f2d69738df4a021a6")
            (get-in @call [:options :oracle-pack-ref])))
     (is (= "/repo/.pi/harness/.state/oracles"
            (get-in @call [:options :oracle-cache-root])))

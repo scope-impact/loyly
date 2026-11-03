@@ -7,7 +7,7 @@ allure-results/
 allure-report/
 coverage/
 
-# Generated harness assets and local OCI payload data (published artifacts live in GHCR)
+# Generated harness assets and local OCI layouts (published artifacts live in GHCR)
 config/assets/
-config/**/ingest/
-config/**/blobs/
+config/instrument-oracles/
+config/oracle-packs/
