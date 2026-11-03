@@ -48,13 +48,29 @@ const STAGE_DETAILS = {
 };
 
 const ROUTE = [
-  [-22, -10], [-16, -10], [-10, -10], [-4, -10], [2, -10], [8, -10],
-  [14, -4], [14, 6], [7, 10], [0, 10],
+  [-18, -8], [-10, -12], [0, -13], [10, -12], [18, -8],
+  [21, 2], [15, 10], [5, 14], [-7, 13], [-17, 8],
 ];
 
 const OPERATOR_ROUTE = [
-  [-22, -14], [-16, -14], [-10, -14], [-4, -14], [2, -14], [8, -14],
-  [18, -4], [18, 6], [7, 14], [0, 14],
+  [-20, -11], [-11, -16], [0, -17], [11, -16], [21, -11],
+  [25, 2], [18, 13], [6, 18], [-9, 17], [-21, 10],
+];
+
+const PHOENIX_PHASES = [
+  { name: "Intent", range: [0, 0], truth: "Sources and specification survive" },
+  { name: "Fence", range: [0, 1], truth: "Prior implementation is physically removed" },
+  { name: "Generate", range: [2, 4], truth: "Fresh candidates read the same contract" },
+  { name: "Ratify", range: [5, 7], truth: "Independent gates—not builders—decide" },
+  { name: "Measure", range: [8, 8], truth: "The delta measures specification quality" },
+  { name: "Learn", range: [9, 9], truth: "Evidence returns to the specification" },
+];
+
+const RUNTIME_FLEET = [
+  { name: "TypeScript / Node 22", before: 10, after: 11, color: "#72a9c4" },
+  { name: "Rust 1.91", before: 9, after: 11, color: "#d47542" },
+  { name: "Java 21", before: 9, after: 11, color: "#e8b84d" },
+  { name: "Rails 8 / Ruby", before: 0, after: 11, color: "#9c83bd" },
 ];
 
 const COMPONENTS = [
@@ -67,9 +83,9 @@ const COMPONENTS = [
 ];
 
 const VARIANTS = {
-  A: { name: "Walk the line", description: "Third-person exploration" },
-  B: { name: "Factory simulation", description: "Overhead operations view" },
-  C: { name: "Guided tour", description: "Station-by-station story" },
+  A: { name: "Walk the Phoenix loop", description: "Third-person regeneration cycle" },
+  B: { name: "Phoenix system map", description: "Overhead architecture view" },
+  C: { name: "Guided regeneration", description: "Phase-by-phase story" },
 };
 
 function parseContainerDiagram() {
@@ -223,6 +239,51 @@ function FactoryAgents({ stage }) {
   })}</>;
 }
 
+function ReturnSignal({ curve, index }) {
+  const ref = useRef();
+  useFrame(({ clock }) => {
+    if (!ref.current) return;
+    const point = curve.getPoint((clock.elapsedTime * .055 + index * .2) % 1);
+    ref.current.position.copy(point);
+  });
+  return <mesh ref={ref}><octahedronGeometry args={[.22, 0]} /><meshBasicMaterial color="#f2b84b" toneMapped={false} /></mesh>;
+}
+
+function PhoenixArchitecture({ stage }) {
+  const feedbackCurve = useMemo(() => new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-17, 3.2, 8), new THREE.Vector3(-25, 7, 6),
+    new THREE.Vector3(-26, 8, -2), new THREE.Vector3(-23, 5, -9), new THREE.Vector3(-18, 3.2, -8),
+  ]), []);
+  const feedbackPoints = useMemo(() => feedbackCurve.getPoints(48), [feedbackCurve]);
+  return <group>
+    <group position={[-24, 0, -1]}>
+      {[0, 1, 2, 3].map((level) => <mesh key={level} position={[0, .35 + level * .5, 0]} castShadow>
+        <boxGeometry args={[4.2 - level * .35, .34, 3.1 - level * .24]} />
+        <meshStandardMaterial color={level === 3 ? "#f2b84b" : "#294759"} metalness={.35} roughness={.62} emissive={level === 3 ? "#f2b84b" : "#000"} emissiveIntensity={.35} />
+      </mesh>)}
+      <Html position={[0, 3.1, 0]} center distanceFactor={13} className="phoenix-landmark-label"><span><small>WHAT SURVIVES</small><strong>Sources → Wiki → Plan → Spec</strong><em>Stack-neutral intent</em></span></Html>
+    </group>
+    <group position={[0, 0, 1]}>
+      {[0, 1, 2].map((level) => <mesh key={level} position={[0, .45 + level * .38, 0]}><cylinderGeometry args={[2.3 - level * .3, 2.3 - level * .3, .28, 32]} /><meshStandardMaterial color={level === 2 ? "#50d0cc" : "#19384b"} metalness={.72} emissive="#50d0cc" emissiveIntensity={level === 2 ? .5 : .08} /></mesh>)}
+      <Html position={[0, 2.6, 0]} center distanceFactor={13} className="phoenix-landmark-label grain"><span><small>DURABLE MEMORY</small><strong>Grain lineage</strong><em>facts · evidence · measurements</em></span></Html>
+    </group>
+    <group position={[0, 0, 5]}>
+      {RUNTIME_FLEET.map((runtime, index) => {
+        const x = (index - 1.5) * 4.1;
+        const born = stage >= 2;
+        return <group key={runtime.name} position={[x, .6, 0]}>
+          <mesh castShadow={born}><dodecahedronGeometry args={[1.05, 0]} /><meshStandardMaterial color={runtime.color} metalness={.52} roughness={.3} emissive={runtime.color} emissiveIntensity={born && stage >= 7 ? .38 : .08} transparent opacity={born ? 1 : .18} wireframe={!born} /></mesh>
+          <Html position={[0, 1.5, 0]} center distanceFactor={12} className={`runtime-candidate-label ${born ? "born" : "awaiting"}`}><span><small>{born ? "DISPOSABLE CANDIDATE" : "CLEAN ROOM READY"}</small><strong>{runtime.name}</strong><em>{born ? `${runtime.before}/11 → ${runtime.after}/11` : "awaiting regeneration"}</em></span></Html>
+        </group>;
+      })}
+      <Html position={[0, .2, 2.1]} center distanceFactor={13} className="fleet-proof-label"><span>SEPARATE FOUR-RUNTIME AUDIT · ONE CONTRACT · 44/44</span></Html>
+    </group>
+    <Line points={feedbackPoints} color="#f2b84b" lineWidth={2} transparent opacity={.7} />
+    {[0, 1, 2, 3, 4].map((index) => <ReturnSignal key={index} curve={feedbackCurve} index={index} />)}
+    <Html position={[-26, 9.2, -1]} center distanceFactor={14} className="feedback-label"><span><small>THE PHOENIX RETURN</small><strong>Delta becomes better intent</strong><em>Never patch only the code</em></span></Html>
+  </group>;
+}
+
 function FactoryShell() {
   return <>
     <RigidBody type="fixed" colliders={false}>
@@ -354,6 +415,7 @@ function World({ variant, replay, inspectStation, setNearest, onAutoInspect, ins
     <Suspense fallback={null}>
       <Physics gravity={[0, -18, 0]} timeStep="vary">
         <FactoryShell />
+        <PhoenixArchitecture stage={replay.stage} />
         <Conveyor />
         {stationData.map((station) => <Station key={`${station.id}-${station.index}`} station={station} active={station.index === replay.stage} complete={station.index < replay.stage} onSelect={inspectStation} />)}
         <ProductCarrier stage={replay.stage} />
@@ -374,10 +436,21 @@ function World({ variant, replay, inspectStation, setNearest, onAutoInspect, ins
 
 function Header({ replay }) {
   return <header className="experience-header">
-    <div className="experience-brand"><span className="factory-mark"><i /><i /><i /></span><span><strong>Regeneration Yard</strong><small>Immersive software factory</small></span></div>
+    <div className="experience-brand"><span className="factory-mark"><i /><i /><i /></span><span><strong>Phoenix Yard</strong><small>Specification becomes disposable systems</small></span></div>
     <div className="live-cycle"><i className={replay.playing ? "live" : ""} /><span><small>Recorded cycle</small><strong>{replay.playing ? "Factory running" : "Simulation paused"}</strong></span></div>
     <div className="cycle-score"><small>Independent result</small><strong>9</strong><span>/ 11</span></div>
   </header>;
+}
+
+function PhoenixLoopOverlay({ replay }) {
+  const active = PHOENIX_PHASES.findIndex((phase) => replay.stage >= phase.range[0] && replay.stage <= phase.range[1]);
+  return <section className="phoenix-loop-map">
+    <header><small>PHOENIX ARCHITECTURE</small><strong>Code burns. Learning returns.</strong></header>
+    <ol>{PHOENIX_PHASES.map((phase, index) => <li key={phase.name} className={index === active ? "active" : index < active ? "complete" : ""}>
+      <i>{index < active ? "✓" : index + 1}</i><span><strong>{phase.name}</strong><small>{phase.truth}</small></span>
+    </li>)}</ol>
+    <footer><span><b>Survives</b> intent · contract · evidence · lineage</span><span><b>Reborn</b> implementation · stack · runtime</span></footer>
+  </section>;
 }
 
 function Timeline({ replay }) {
@@ -535,6 +608,7 @@ function ExplorerOverlay({ replay, nearest, setSelected }) {
   };
   return <>
     <section className="explorer-objective"><small>Current objective · follow the amber beacon</small><strong>{STAGES[replay.stage].name}</strong><p>{STAGES[replay.stage].hint}</p></section>
+    <PhoenixLoopOverlay replay={replay} />
     <div className="controls-help"><span className={replay.playing ? "cycle-follow active" : "cycle-follow"}>Cycle follow <b>{replay.playing ? "ON" : "PAUSED"}</b></span><span><kbd>WASD</kbd> Take control</span><span><kbd>Shift</kbd> Run</span><span><kbd>Space</kbd> Jump</span></div>
     {nearest && <button className="interact-prompt" type="button" onPointerDown={() => setSelected(nearest)} onClick={() => setSelected(nearest)}><kbd>E</kbd><span>Inspect <strong>{nearest.name}</strong></span></button>}
     <div className="touch-controls">
@@ -547,10 +621,16 @@ function ExplorerOverlay({ replay, nearest, setSelected }) {
 
 function SimulationOverlay({ replay, setSelected }) {
   return <section className="simulation-deck">
-    <header><small>Factory simulation</small><h1>Agentic assembly line</h1><p>Select any station or orbit the world.</p></header>
-    <ol>{stationData.map((station) => <li key={`${station.id}-${station.index}`} className={station.index === replay.stage ? "active" : station.index < replay.stage ? "complete" : ""}>
-      <button type="button" onClick={() => setSelected(station)}><span>{station.index < replay.stage ? "✓" : station.index + 1}</span><div><strong>{station.name}</strong><small>{station.c4.name}</small></div></button>
-    </li>)}</ol>
+    <header><small>Phoenix architecture</small><h1>Regeneration loop</h1><p>One specification births disposable systems; evidence returns as learning.</p></header>
+    <ol>{PHOENIX_PHASES.map((phase, index) => {
+      const active = replay.stage >= phase.range[0] && replay.stage <= phase.range[1];
+      const complete = replay.stage > phase.range[1];
+      const station = stationData[active ? replay.stage : phase.range[0]];
+      return <li key={phase.name} className={active ? "active" : complete ? "complete" : ""}>
+        <button type="button" onClick={() => setSelected(station)}><span>{complete ? "✓" : index + 1}</span><div><strong>{phase.name}</strong><small>{phase.truth}</small></div></button>
+      </li>;
+    })}</ol>
+    <button className="current-station-button" type="button" onClick={() => setSelected(stationData[replay.stage])}><small>Inside this phase</small><strong>{STAGES[replay.stage].name}</strong><span>Inspect C4 station →</span></button>
   </section>;
 }
 

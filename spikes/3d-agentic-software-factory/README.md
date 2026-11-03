@@ -1,12 +1,23 @@
-# Regeneration Yard — immersive factory experience
+# Phoenix Yard — regenerative software architecture
 
-> **Throwaway prototype question:** Does moving through the factory as an operator make the Grain/Pi/Löyly model easier to understand than operating a dashboard?
+> **Throwaway prototype question:** Can an immersive world make Phoenix architecture legible as a destructive learning loop—not merely an assembly pipeline?
 
 Three variants of the same agentic factory are switchable with `?variant=` on the existing spike route:
 
-- `A` — **Walk the line.** A physics-driven third-person operator walks, runs and jumps through the factory. Entering a station's proximity exposes an inspection action.
-- `B` — **Factory simulation.** An overhead, orbitable operations world makes the whole material flow and ten stations visible at once.
-- `C` — **Guided tour.** The camera follows the active product and explains one station at a time.
+- `A` — **Walk the Phoenix loop.** A physics-driven operator follows intent through clean-room generation, ratification, measurement and learning.
+- `B` — **Phoenix system map.** An overhead view makes the six architectural phases, durable center and disposable runtime fleet visible together.
+- `C` — **Guided regeneration.** The camera follows the active product and explains one inner station at a time.
+
+The candidate conveyor is only the inner execution path. The larger architecture is spatially distinct:
+
+- a source/specification vault is what survives;
+- the prior implementation is absent from the fenced generation path;
+- four stack-specific candidates are born from one accepted contract;
+- independent gates produce evidence the candidates cannot author;
+- Grain retains lineage, observations and measurements at the durable center;
+- an elevated return carries the delta back to intent, while generated code does not return.
+
+The four-runtime proof comes from the repository's committed regeneration report: TypeScript `10→11`, Rust `9→11`, Java `9→11`, and Rails `0→11`, yielding `44/44` final fresh-VM verdicts without changing the product contract. It is shown as a separate completed audit, not conflated with the single historical `9/11` cycle replay.
 
 Use `?prototype=1` to expose the floating variant switcher in a production build. In development it is always visible. `Alt` + left/right arrow changes variants without taking the arrow keys away from operator movement.
 

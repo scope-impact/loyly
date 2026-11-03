@@ -58,6 +58,32 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--amber); out
 
 .explorer-objective { position: absolute; z-index: 8; top: 22px; left: 22px; width: 278px; padding: 15px 17px; background: rgba(7,17,27,.9); border-left: 4px solid var(--amber); backdrop-filter: blur(8px); }
 .explorer-objective small { color: var(--amber); font: 500 11px "Barlow Condensed"; }.explorer-objective strong { display: block; margin-top: 3px; font: 600 23px/1 "Barlow Condensed"; }.explorer-objective p { margin: 8px 0 0; color: #b7c2c9; font-size: 11px; line-height: 1.45; }
+.phoenix-loop-map { position: absolute; z-index: 8; top: 22px; right: 22px; width: 292px; padding: 15px; color: var(--paper); background: rgba(7,17,27,.91); border-top: 4px solid var(--copper); backdrop-filter: blur(10px); }
+.phoenix-loop-map header small, .phoenix-loop-map header strong { display: block; }
+.phoenix-loop-map header small { color: var(--copper); font: 600 9px "IBM Plex Sans"; letter-spacing: .1em; }
+.phoenix-loop-map header strong { margin-top: 3px; font: 600 19px "Barlow Condensed"; }
+.phoenix-loop-map ol { list-style: none; margin: 11px 0; padding: 0; }
+.phoenix-loop-map li { display: grid; grid-template-columns: 23px 1fr; gap: 8px; align-items: center; padding: 5px 0; color: #637986; border-top: 1px solid rgba(255,255,255,.08); }
+.phoenix-loop-map li i { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid currentColor; font: normal 600 8px "IBM Plex Sans"; }
+.phoenix-loop-map li span strong, .phoenix-loop-map li span small { display: block; }
+.phoenix-loop-map li span strong { color: #9badb7; font: 600 13px "Barlow Condensed"; }
+.phoenix-loop-map li span small { margin-top: 1px; font-size: 7px; }
+.phoenix-loop-map li.complete { color: var(--cyan); }
+.phoenix-loop-map li.active { color: var(--amber); }
+.phoenix-loop-map li.active span strong { color: var(--paper); }
+.phoenix-loop-map footer { display: grid; gap: 4px; padding-top: 9px; border-top: 1px solid var(--line); color: #8fa1ae; font-size: 7px; }
+.phoenix-loop-map footer b { color: var(--paper); }
+.phoenix-landmark-label span, .runtime-candidate-label span, .fleet-proof-label span, .feedback-label span { display: block; color: #f3f1e9; background: rgba(5,13,21,.92); border: 1px solid rgba(255,255,255,.2); text-align: center; }
+.phoenix-landmark-label span, .feedback-label span { min-width: 175px; padding: 7px 9px; }
+.phoenix-landmark-label small, .phoenix-landmark-label strong, .phoenix-landmark-label em, .feedback-label small, .feedback-label strong, .feedback-label em, .runtime-candidate-label small, .runtime-candidate-label strong, .runtime-candidate-label em { display: block; }
+.phoenix-landmark-label small, .feedback-label small, .runtime-candidate-label small { color: var(--amber); font-size: 5px; letter-spacing: .09em; }
+.phoenix-landmark-label strong, .feedback-label strong { margin-top: 2px; font: 600 12px "Barlow Condensed"; }
+.phoenix-landmark-label em, .feedback-label em, .runtime-candidate-label em { margin-top: 2px; color: #93a5ae; font: normal 6px "IBM Plex Sans"; }
+.phoenix-landmark-label.grain small { color: var(--cyan); }
+.runtime-candidate-label span { width: 110px; padding: 5px 6px; }
+.runtime-candidate-label strong { margin-top: 2px; font: 600 9px "Barlow Condensed"; }
+.runtime-candidate-label.awaiting span { opacity: .62; border-style: dashed; }
+.fleet-proof-label span { padding: 5px 8px; color: var(--cyan); border-color: rgba(80,208,204,.45); white-space: nowrap; font: 600 6px "IBM Plex Sans"; letter-spacing: .07em; }
 .controls-help { position: absolute; z-index: 8; left: 22px; bottom: 22px; display: flex; gap: 7px; }
 .controls-help span { padding: 6px 8px; color: #aebbc3; background: rgba(7,17,27,.82); font-size: 9px; }
 .controls-help .cycle-follow { color: #b6c2c9; border-left: 3px solid #667986; }
@@ -77,6 +103,11 @@ kbd { padding: 2px 5px; color: var(--paper); border: 1px solid #607687; backgrou
 .simulation-deck li button div { min-width: 0; }.simulation-deck li strong, .simulation-deck li small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .simulation-deck li strong { color: #b8c3ca; font: 600 14px "Barlow Condensed"; }.simulation-deck li small { margin-top: 2px; font-size: 8px; }
 .simulation-deck li.complete button { color: var(--cyan); }.simulation-deck li.active button { color: var(--amber); background: rgba(242,184,75,.08); }.simulation-deck li.active strong { color: var(--paper); }
+.current-station-button { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 11px 12px; color: var(--ink); border: 0; background: var(--amber); text-align: left; cursor: pointer; }
+.current-station-button small, .current-station-button strong { display: block; }
+.current-station-button small { grid-column: 1 / -1; font-size: 7px; text-transform: uppercase; letter-spacing: .08em; }
+.current-station-button strong { font: 600 16px "Barlow Condensed"; }
+.current-station-button span { align-self: center; font-size: 8px; }
 .variant-B .replay-line { left: auto; right: 18px; transform: none; width: min(430px, calc(100% - 356px)); }
 
 .tour-card { position: absolute; z-index: 8; right: 26px; top: 50%; transform: translateY(-50%); width: min(360px, calc(100% - 52px)); padding: 26px; color: #12202b; background: #eae7dd; box-shadow: 0 25px 80px rgba(0,0,0,.55); border-top: 8px solid var(--copper); }
@@ -174,6 +205,13 @@ kbd { padding: 2px 5px; color: var(--paper); border: 1px solid #607687; backgrou
   .world-shell { height: calc(100% - 58px); }
   .replay-line, .variant-B .replay-line, .variant-C .replay-line { top: auto; left: 12px; right: 12px; bottom: 12px; width: auto; transform: none; }
   .explorer-objective { top: 12px; left: 12px; width: min(270px, calc(100% - 24px)); padding: 11px 13px; }.explorer-objective strong { font-size: 20px; }.explorer-objective p { margin-top: 5px; font-size: 10px; }
+  .phoenix-loop-map { top: 122px; left: 12px; right: 12px; width: auto; padding: 8px 10px; border-top-width: 3px; }
+  .phoenix-loop-map header { display: none; }
+  .phoenix-loop-map ol { margin: 0; }
+  .phoenix-loop-map li { display: none; border: 0; padding: 0; }
+  .phoenix-loop-map li.active { display: grid; grid-template-columns: 21px 1fr; }
+  .phoenix-loop-map li span small { font-size: 7px; }
+  .phoenix-loop-map footer { display: none; }
   .controls-help { display: none; }
   .interact-prompt { display: none; }
   .component-tag { display: none; }
@@ -203,6 +241,7 @@ kbd { padding: 2px 5px; color: var(--paper); border: 1px solid #607687; backgrou
 
 @media (max-width: 800px) and (orientation: landscape) {
   .explorer-objective { width: 230px; }.explorer-objective p { display: none; }
+  .phoenix-loop-map { top: 82px; left: 12px; right: auto; width: 230px; }
   .simulation-deck { width: 225px; }.simulation-deck header p { display: none; }
   .tour-card { width: 300px; }.tour-card dl { display: none; }
   .station-cutaway { grid-template-columns: minmax(0, 1fr) min(340px, 46vw); grid-template-rows: 1fr; }
