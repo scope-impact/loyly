@@ -40,6 +40,8 @@ Open <http://127.0.0.1:5173/?variant=A&prototype=1>.
 
 Desktop controls: `WASD`/arrow keys to move, `Shift` to run, `Space` to jump and `E` to inspect a nearby station. Mobile uses an on-screen joystick, jump and inspect controls.
 
+Ecctrl 2.x accepts movement through its imperative controller API. `OperatorInput` bridges the Drei keyboard state and Ecctrl touch stores into that API; displaying controls alone does not connect them.
+
 ## Interpretation
 
 - **Pi/ORC is the assembly line:** it moves a bound product cut through build, repair and independent inspection.

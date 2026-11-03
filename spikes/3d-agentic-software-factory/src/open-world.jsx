@@ -3,10 +3,10 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Html, KeyboardControls, OrbitControls } from "@react-three/drei";
+import { Html, KeyboardControls, OrbitControls, useKeyboardControls } from "@react-three/drei";
 import { CuboidCollider, Physics, RigidBody } from "@react-three/rapier";
 import { Ecctrl } from "ecctrl";
-import { Joystick, useButtonStore } from "ecctrl/input";
+import { Joystick, useButtonStore, useJoystickStore } from "ecctrl/input";
 import * as THREE from "three";
 import architectureSource from "../../../.pi/architecture.md?raw";
 import { E2E_RECORDING } from "./e2e-replay.js";
@@ -217,6 +217,25 @@ function OperatorModel() {
   </group>;
 }
 
+function OperatorInput({ operatorRef }) {
+  const [, getKeyboard] = useKeyboardControls();
+  useFrame(() => {
+    const keyboard = getKeyboard();
+    const joystick = useJoystickStore.getState().joysticks.default ?? { x: 0, y: 0 };
+    const buttons = useButtonStore.getState().buttons;
+    operatorRef.current?.setMovement({
+      forward: keyboard.forward,
+      backward: keyboard.backward,
+      leftward: keyboard.leftward,
+      rightward: keyboard.rightward,
+      run: keyboard.run,
+      jump: keyboard.jump || Boolean(buttons.jump),
+      joystick: { x: joystick.x, y: joystick.y },
+    });
+  });
+  return null;
+}
+
 function FollowOperator({ operatorRef, onNearest }) {
   const { camera } = useThree();
   const lastNearest = useRef(null);
@@ -261,7 +280,7 @@ function GuidedCamera({ stage }) {
 function World({ variant, replay, selected, setSelected, setNearest }) {
   const operatorRef = useRef();
   const explorer = variant === "A";
-  return <Canvas shadows dpr={[1, 1.6]} camera={{ position: explorer ? [-15, 7, 0] : [30, 34, 34], fov: explorer ? 48 : 42 }} gl={{ antialias: true }}>
+  return <Canvas tabIndex={0} shadows dpr={[1, 1.6]} camera={{ position: explorer ? [-15, 7, 0] : [30, 34, 34], fov: explorer ? 48 : 42 }} gl={{ antialias: true }}>
     <color attach="background" args={["#07111b"]} />
     <fog attach="fog" args={["#07111b", 30, 82]} />
     <ambientLight intensity={.62} />
@@ -278,6 +297,7 @@ function World({ variant, replay, selected, setSelected, setNearest }) {
           <Ecctrl ref={operatorRef} position={[-25, 2, -12]} maxWalkVel={5} maxRunVel={8} jumpVel={5} floatHeight={.65} capsuleHalfHeight={.6} capsuleRadius={.38}>
             <OperatorModel />
           </Ecctrl>
+          <OperatorInput operatorRef={operatorRef} />
           <FollowOperator operatorRef={operatorRef} onNearest={setNearest} />
         </KeyboardControls>}
       </Physics>
@@ -319,7 +339,7 @@ function Inspector({ station, replay, onClose }) {
   </aside>;
 }
 
-function ExplorerOverlay({ replay, nearest, setSelected }) {
+function ExplorerOverlay({ replay, nearest, setSelected, navigationReady, onEnter }) {
   const setJump = (active) => useButtonStore.getState().setButtonActive("jump", active);
   const pulseJump = (event) => {
     if (event.detail !== 0) return;
@@ -328,6 +348,7 @@ function ExplorerOverlay({ replay, nearest, setSelected }) {
   };
   return <>
     <section className="explorer-objective"><small>Current objective · follow the amber beacon</small><strong>{STAGES[replay.stage].name}</strong><p>{STAGES[replay.stage].hint}</p></section>
+    {!navigationReady && <button className="navigation-start" type="button" onClick={onEnter}><small>Immersive navigation</small><strong>Enter factory floor</strong><span>Use WASD or arrow keys to move</span></button>}
     <div className="controls-help"><span><kbd>WASD</kbd> Move</span><span><kbd>Shift</kbd> Run</span><span><kbd>Space</kbd> Jump</span></div>
     {nearest && <button className="interact-prompt" type="button" onPointerDown={() => setSelected(nearest)} onClick={() => setSelected(nearest)}><kbd>E</kbd><span>Inspect <strong>{nearest.name}</strong></span></button>}
     <div className="touch-controls">
@@ -375,6 +396,7 @@ function App() {
   const [variant, setVariantState] = useState(VARIANTS[params.get("variant")] ? params.get("variant") : "A");
   const [selected, setSelected] = useState(null);
   const [nearest, setNearest] = useState(null);
+  const [navigationReady, setNavigationReady] = useState(false);
   const replay = useReplay();
   const showSwitcher = import.meta.env.DEV || params.get("prototype") === "1";
   const setVariant = (next) => {
@@ -385,12 +407,17 @@ function App() {
     setVariantState(next);
     setSelected(null);
   };
+  const enterNavigation = () => {
+    setNavigationReady(true);
+    window.requestAnimationFrame(() => document.querySelector(".world-shell canvas")?.focus());
+  };
   useEffect(() => {
     const handle = (event) => {
       if (event.key === "Escape" && selected) {
         setSelected(null);
         return;
       }
+      if (variant === "A" && ["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.code)) setNavigationReady(true);
       if (event.key.toLowerCase() === "e" && nearest && variant === "A") setSelected(nearest);
       if (!showSwitcher || event.target.matches("input, textarea, select, [contenteditable]")) return;
       if (event.altKey && event.key === "ArrowLeft") {
@@ -410,7 +437,7 @@ function App() {
     <section className="world-shell" aria-label={`${VARIANTS[variant].name} factory world`}>
       <World variant={variant} replay={replay} selected={selected} setSelected={setSelected} setNearest={setNearest} />
       <Timeline replay={replay} />
-      {variant === "A" && <ExplorerOverlay replay={replay} nearest={nearest} setSelected={setSelected} />}
+      {variant === "A" && <ExplorerOverlay replay={replay} nearest={nearest} setSelected={setSelected} navigationReady={navigationReady} onEnter={enterNavigation} />}
       {variant === "B" && <SimulationOverlay replay={replay} setSelected={setSelected} />}
       {variant === "C" && <TourOverlay replay={replay} setSelected={setSelected} />}
     </section>
