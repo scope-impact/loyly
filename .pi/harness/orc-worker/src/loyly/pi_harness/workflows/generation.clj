@@ -139,6 +139,14 @@
                                                [:verification-passed :boolean]
                                                [:grade-passed :boolean]
                                                [:instrument-conformance-passed :boolean]]]]]
+       :allure-result [:map
+                       [:stage :string]
+                       [:request-id :string]
+                       [:cut :string]
+                       [:scope [:vector :string]]
+                       [:execution-backend :string]
+                       [:result-count :int]
+                       [:paths [:vector :string]]]
        :oracle-proposal-result schemas/oracle-proposal-schema})
     (orc/sequence "generation"
       (orc/code "cut"
@@ -183,11 +191,18 @@
                 :builder-result :instrument-result :verify-result :repair-verification-result
                 :baseline-grade-result :instrument-conformance-result]
         :writes [:repair-evaluation-result])
+      (orc/code "materialize-allure"
+        :fn "loyly.pi-harness.core.worker/initial-allure-stage"
+        :reads [:request-id :orc-tick-id :selection :scope :execution-backend
+                :builder-result :instrument-result :repair-verification-result
+                :baseline-grade-result :instrument-conformance-result
+                :repair-evaluation-result]
+        :writes [:allure-result])
       (orc/code "propose-oracle"
         :fn "loyly.pi-harness.core.worker/propose-oracle-stage"
         :reads [:request-id :orc-tick-id :selection :scope :execution-backend :builder-result
                 :repair-verification-result :baseline-grade-result
-                :instrument-conformance-result :repair-evaluation-result]
+                :instrument-conformance-result :repair-evaluation-result :allure-result]
         :writes [:oracle-proposal-result]))))
 
 (defn contract []

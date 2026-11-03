@@ -393,7 +393,7 @@
         (is (= :success (:status result)) (pr-str result))
         (is (= ["cut" "harness-calibration" "builder" "instrument" "verify"
                 "repair-verification" "baseline-grade" "instrument-conformance"
-                "repair-evaluation" "propose-oracle"]
+                "repair-evaluation" "materialize-allure" "propose-oracle"]
                (:stages (generation-workflow/contract))))
         (is (= "proposed" (get-in outputs [:oracle-proposal-result :status])))
         (is (not (contains? outputs :generation-result)))

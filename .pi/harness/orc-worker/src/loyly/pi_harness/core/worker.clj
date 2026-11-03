@@ -565,21 +565,30 @@
     (spit (str directory "/" uuid "-result.json") (json/write-str allure))
     (str directory "/" uuid "-result.json")))
 
-(defn emit-grader-observations! [{:keys [inputs]} measurement]
+(defn emit-grader-observations!
+  ([context measurement]
+   (emit-grader-observations! context measurement {}))
+  ([{:keys [inputs]} measurement {:keys [producer grader-id evidence-kind]}]
   (let [results-root (evidence-results-root inputs)
         builder (effective-builder-result inputs)
         instrument (effective-instrument-result inputs)
+        baseline-grade (effective-baseline-grade-result inputs)
         base {:role "observed"
               :builder (:builder builder)
-              :evidence-kind "grader"
-              :producer (get-in inputs [:oracle-result :grader-producer])
-              :grader-id (get-in inputs [:oracle-result :grader-id])
+              :evidence-kind (or evidence-kind "grader")
+              :producer (or producer
+                            (get-in inputs [:oracle-result :grader-producer])
+                            (:grader-producer baseline-grade))
+              :grader-id (or grader-id
+                             (get-in inputs [:oracle-result :grader-id])
+                             (:judge-id baseline-grade))
               :container-id (get-in inputs [:selection :containerId])
               :component-id (get-in inputs [:selection :componentId])
               :cycle-id (:request-id inputs)
               :cut-digest (get-in inputs [:selection :cut])
               :subject-digest (:subject-digest instrument)
               :oracle-digest (or (get-in inputs [:oracle-result :oracle-digest])
+                                 (:normalized-evidence-digest baseline-grade)
                                  (System/getenv "LOYLEY_ORACLE_DIGEST")
                                  "unconfigured")
               :room (:execution-backend inputs)
@@ -591,7 +600,28 @@
                           :result verdict
                           :reached? graded?
                           :evidence evidence})))
-          (:items measurement))))
+          (:items measurement)))))
+
+(defn initial-allure-stage [{:keys [inputs] :as context}]
+  (record-stage-progress! context "materialize-allure")
+  (let [grade (effective-baseline-grade-result inputs)
+        conformance (effective-instrument-conformance-result inputs)
+        denominator (count (get-in inputs [:selection :items]))]
+    (when-not (and (:passed grade) (:passed conformance)
+                   (= denominator (get-in grade [:measurement :passed])))
+      (throw (ex-info "Allure results require a complete first-grade measurement"
+                      {:grade grade :instrument-conformance conformance})))
+    (let [grade-paths (emit-grader-observations! context (:measurement grade))
+          conformance-paths
+          (emit-grader-observations!
+           context {:items (:items conformance)}
+           {:producer "runtime-instrument-conformance"
+            :grader-id "runtime-evidence-contract"
+            :evidence-kind "instrument-conformance"})
+          paths (into grade-paths conformance-paths)]
+      (merge (stage-result "materialize-allure" context)
+             {:result-count (count paths)
+              :paths paths}))))
 
 (defn cycle-observation [inputs producer evidence-kind item]
   (let [instrument (effective-instrument-result inputs)
