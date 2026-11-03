@@ -8,7 +8,7 @@
     "krunfwVersion": "v5.2.1"
   },
   "oci": {
-    "image": "rust:1.91-alpine",
+    "image": "loyly-builder-rust:oci",
     "runtime": "docker",
     "platform": "linux/arm64",
     "pullPolicy": "never"

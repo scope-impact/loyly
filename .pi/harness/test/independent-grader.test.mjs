@@ -7,13 +7,14 @@ import path from "node:path";
 import test from "node:test";
 
 const oracleRoot = await mkdtemp(path.join(os.tmpdir(), "loyly-accepted-oracle-test-"));
-const projectProfile = JSON.parse(await readFile("config/projects/loyly.json", "utf8"));
 const productOracleRef = process.env.PI_HARNESS_PRODUCT_ORACLE_REF
-  ?? process.env.LOYLEY_PRODUCT_ORACLE_REF
-  ?? projectProfile.productOracleRef;
-const oraclePull = await runProgram("oras", ["pull", productOracleRef,
-  "--output", oracleRoot, "--no-tty"]);
-if (oraclePull.exitCode !== 0) throw new Error(`could not extract accepted grader: ${oraclePull.stderr}`);
+  ?? process.env.LOYLEY_PRODUCT_ORACLE_REF;
+if (productOracleRef) {
+  const oraclePull = await runProgram("oras", ["pull", productOracleRef,
+    "--output", oracleRoot, "--no-tty"]);
+  if (oraclePull.exitCode !== 0) throw new Error(`could not extract accepted grader: ${oraclePull.stderr}`);
+}
+const oracleTest = (name, fn) => test(name, { skip: !productOracleRef }, fn);
 test.after(() => rm(oracleRoot, { recursive: true, force: true }));
 
 const grader = path.join(oracleRoot, "grader", "booking-core-01-007.sh");
@@ -21,7 +22,7 @@ const releaseGrader = path.join(oracleRoot, "grader", "booking-core-01-008.sh");
 const instrumentGrader = path.join(oracleRoot, "grader", "runtime-conformance.py");
 const loylyInstrumentContract = path.resolve("../../model/loyly/runtime-evidence-contract.json");
 
-test("independent grader proves booking and all three derived views", async () => {
+oracleTest("independent grader proves booking and all three derived views", async () => {
   await withCandidate({ billing: true }, async (baseUrl) => {
     const result = await runGrader(baseUrl);
     assert.equal(result.exitCode, 0);
@@ -33,7 +34,7 @@ test("independent grader proves booking and all three derived views", async () =
   });
 });
 
-test("independent grader rejects a booking with no billing signal", async () => {
+oracleTest("independent grader rejects a booking with no billing signal", async () => {
   await withCandidate({ billing: false }, async (baseUrl) => {
     const result = await runGrader(baseUrl);
     assert.equal(result.exitCode, 1);
@@ -44,7 +45,7 @@ test("independent grader rejects a booking with no billing signal", async () => 
   });
 });
 
-test("release grader proves all three derived views forget the booking", async () => {
+oracleTest("release grader proves all three derived views forget the booking", async () => {
   await withCandidate({ billing: true }, async (baseUrl) => {
     const result = await runScript(releaseGrader, [baseUrl], {});
     assert.equal(result.exitCode, 0);
@@ -56,7 +57,7 @@ test("release grader proves all three derived views forget the booking", async (
   });
 });
 
-test("release grader accepts an explicitly available slot that no view still claims", async () => {
+oracleTest("release grader accepts an explicitly available slot that no view still claims", async () => {
   await withCandidate({ billing: true, retainAvailableSlot: true }, async (baseUrl) => {
     const result = await runScript(releaseGrader, [baseUrl], {});
     assert.equal(result.exitCode, 0, result.stderr);
@@ -64,7 +65,7 @@ test("release grader accepts an explicitly available slot that no view still cla
   });
 });
 
-test("black-box grader does not author the instrument verdict", async () => {
+oracleTest("black-box grader does not author the instrument verdict", async () => {
   await withCandidate({ billing: true }, async (baseUrl) => {
     const result = await runGrader(baseUrl, { telemetry: false });
     assert.equal(result.exitCode, 0);
@@ -73,7 +74,7 @@ test("black-box grader does not author the instrument verdict", async () => {
   });
 });
 
-test("instrument conformance is evaluated without rerunning black-box behavior", async () => {
+oracleTest("instrument conformance is evaluated without rerunning black-box behavior", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "loyly-instrument-only-test-"));
   const otelRoot = path.join(root, "otel");
   try {
@@ -91,7 +92,7 @@ test("instrument conformance is evaluated without rerunning black-box behavior",
   }
 });
 
-test("instrument conformance fails closed when runtime evidence is missing", async () => {
+oracleTest("instrument conformance fails closed when runtime evidence is missing", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "loyly-instrument-missing-test-"));
   try {
     const result = await runProgram("python3", [instrumentGrader, "--evidence-root", root,
@@ -103,7 +104,7 @@ test("instrument conformance fails closed when runtime evidence is missing", asy
   }
 });
 
-test("instrument conformance fails every selected item without a declared contract", async () => {
+oracleTest("instrument conformance fails every selected item without a declared contract", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "undeclared-instrument-item-test-"));
   try {
     const result = await runProgram("python3", [instrumentGrader, "--evidence-root", root,
@@ -119,7 +120,7 @@ test("instrument conformance fails every selected item without a declared contra
   }
 });
 
-test("a second Loyly slice is governed by its declared invariant", async () => {
+oracleTest("a second Loyly slice is governed by its declared invariant", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "loyly-second-contract-test-"));
   const evidenceRoot = path.join(root, "evidence");
   const contractPath = path.join(root, "contract.json");
@@ -166,7 +167,7 @@ test("a second Loyly slice is governed by its declared invariant", async () => {
   }
 });
 
-test("the same evaluator grades an unrelated project without domain-specific code", async () => {
+oracleTest("the same evaluator grades an unrelated project without domain-specific code", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "inventory-contract-test-"));
   const evidenceRoot = path.join(root, "evidence");
   const contractPath = path.join(root, "contract.json");

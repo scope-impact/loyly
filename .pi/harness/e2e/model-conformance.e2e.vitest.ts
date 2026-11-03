@@ -97,6 +97,15 @@ afterAll(async () => {
 // Keep scenario tests at module root: allure-vitest installs its runtime with root hooks.
 // Component ownership is projected through scenarioLabels instead of nested describe blocks.
 test.skip("A regeneration cycle follows the declared stage order", () => {});
+test.skip("A first regeneration starts without product or instrument oracles", () => {});
+test.skip("The first candidate is recorded without an independent verdict", () => {});
+test.skip("A builder that produces no candidate fails the first regeneration", () => {});
+test.skip("An ungraded candidate cannot pass the independent grade gate", () => {});
+test.skip("make bootstrap builds every harness and supported-stack runtime", () => {});
+test.skip("make bootstrap does not run Löyly application or oracle workflows", () => {});
+test.skip("An invalid runtime build fails the Makefile target", () => {});
+test.skip("Löyly resolves its Gondolin config and Dockerfile for each supported stack", () => {});
+test.skip("An unsupported or missing project stack Dockerfile is refused", () => {});
 
 test("ORC exposes the declared regeneration stage order", async () => {
   const context = scenarioContext();
@@ -576,13 +585,9 @@ test("Each grading cycle isolates evidence from its pinned OTel capture policy",
     const root = mkdtempSync(path.join(os.tmpdir(), "loyly-grading-probe-e2e-"));
     extractedPlaybackRoots.push(root);
     const oracleRoot = path.join(root, "oracle");
-    const projectProfile = JSON.parse(readFileSync(
-      path.join(projectRoot, ".pi/harness/config/projects/loyly.json"),
-      "utf8",
-    ));
     const productOracleRef = process.env.PI_HARNESS_PRODUCT_ORACLE_REF
-      ?? process.env.LOYLEY_PRODUCT_ORACLE_REF
-      ?? projectProfile.productOracleRef;
+      ?? process.env.LOYLEY_PRODUCT_ORACLE_REF;
+    assert.ok(productOracleRef, "set PI_HARNESS_PRODUCT_ORACLE_REF to run oracle-backed evidence E2E");
     execFileSync("oras", [
       "pull", productOracleRef,
       "--output", oracleRoot, "--no-tty",

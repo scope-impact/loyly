@@ -18,6 +18,18 @@ TypeScript is adapter code only. It may provide:
 TypeScript must not own workflow state, stage ordering, retries, scoring, or prompt
 construction.
 
+## Project configuration boundary
+
+Project-specific execution and build configuration lives at the repository root under
+`harness/<project-id>/` (for example, `harness/loyly/`). This is the canonical location for
+each project's VM configuration and supported-stack Dockerfiles; derive conventional paths
+from the project ID and stack instead of adding a per-project `harness.json`. Product truth
+and behavioral contracts stay under `model/<project-id>/`, and project-agnostic harness
+configuration stays under `.pi/harness/config/`. A product-oracle reference is optional and
+must not be fabricated for first-time ungraded generation; measured cycles require an accepted
+pinned oracle. Do not create a second project-config tree under `.pi/harness/config/projects/`
+or `projects/<project-id>/`.
+
 ## Domain model boundary
 
 Grain is the source of truth for Löyly's event-first application model; Allium is the source
@@ -66,9 +78,12 @@ Use strict Grain Event Model validation to reconcile declared topology with live
 - Author each new black-box grader revision in a fresh Pi/Codex session from the pinned
   observable contract. The authoring session must not read a candidate or a previous grader.
 - Calibrate the generated grader against carried and uncarried fixtures before accepting it.
-- Package the calibrated grader programs, shared evaluator, runtime-conformance evaluator,
-  fixture server, semantics, and digests in the product OCI oracle.
-- A regeneration cycle resolves its grader only from that pinned OCI oracle and mounts the
+- Keep grader implementation, shared evaluator, runtime-conformance evaluator, and grader
+  fixtures out of the product Git repository. They are private black-box oracle assets.
+- An independently managed oracle pipeline publishes calibrated grader assets and binds
+  them to a product OCI oracle. The harness publisher must not source, build, or package
+  grader code from this repository.
+- A regeneration cycle resolves its grader only from the pinned OCI oracle and mounts the
   extracted grader read-only in Gondolin. Never resolve graders from the project tree.
 - Reuse one accepted oracle digest across compared cycles. Generate from scratch when
   authoring a new oracle revision, not independently inside every measured cycle.

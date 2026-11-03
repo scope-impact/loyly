@@ -7,10 +7,25 @@ separate from the Pi harness that builds and measures a candidate.
 - `booking_core_event_model.clj` defines the Grain command, event, projection, and query topology.
 - `booking-core-measurement.allium` binds product events and projections to language-independent
   runtime observations used by an external grader.
-- `runtime-evidence-contract.json` is the project-owned input to the generic conformance
-  evaluator. Its current contract captures facts for `@item-01-007`; it carries candidate
-  facts and never a candidate verdict.
 - `spec.feature` provides the executable product acceptance contract.
+- `booking-core-measurement.allium` defines the product-owned evidence requirements. It is
+  the intended source of truth for evidence semantics, including correlation and candidate-
+  fact-only authority. The current evaluator still reads `runtime-evidence-contract.json`;
+  that JSON is a transitional adapter contract, not an independent source of truth, and
+  should be generated from Allium or removed when the evaluator consumes Allium directly.
+
+Keep product specification separate from harness/oracle implementation:
+
+- Evidence transport settings (ports, exporters, file formats) are harness runtime config,
+  not product truth. Derive required evidence signals from the measurement model where
+  practical; do not duplicate measurement rules in runtime config.
+- The generic conformance evaluator is harness code. Any machine-readable contract it needs
+  should be generated from the Allium measurement model, not maintained as a second spec.
+- Grader implementations, grader calibration fixtures, and grader verdict logic are private
+  black-box oracle assets. Do not commit them or put them in this product model tree. The
+  harness consumes a pinned independently published oracle.
+- Fixture servers are test infrastructure, not product behavior; keep them with the private
+  oracle/test harness that owns their lifecycle.
 
 The measurement binding may accept observations transported through Playwright HAR,
 OpenTelemetry, eBPF, or black-box queries. Those transports do not become product truth and

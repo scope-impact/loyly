@@ -231,10 +231,15 @@
 
 (defn product-oracle-options [selection]
   (let [root (project-root)
-        adapter (project-adapter selection)]
-    {:oracle-pack-ref (or (System/getenv "PI_HARNESS_PRODUCT_ORACLE_REF")
-                          (System/getenv "LOYLEY_PRODUCT_ORACLE_REF")
-                          (rooted root (:productOracleRef adapter)))
+        adapter (project-adapter selection)
+        oracle-ref (or (System/getenv "PI_HARNESS_PRODUCT_ORACLE_REF")
+                       (System/getenv "LOYLEY_PRODUCT_ORACLE_REF")
+                       (when-let [configured (:productOracleRef adapter)]
+                         (rooted root configured)))]
+    (when-not (and (string? oracle-ref) (not (str/blank? oracle-ref)))
+      (throw (ex-info "project has no pinned product oracle; an oracle-backed measured cycle cannot run"
+                      {:project-id (:projectId selection)})))
+    {:oracle-pack-ref oracle-ref
      :oracle-cache-root (str root "/.pi/harness/.state/oracles")
      :fixture-runner run-oracle-fixture-adapter}))
 

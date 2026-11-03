@@ -53,7 +53,7 @@ export function createCutPreparer(options: {
               "/output": new RealFSProvider(stagingRoot),
             },
           },
-          sandbox: { imagePath: path.resolve(path.dirname(new URL(import.meta.url).pathname), "../config/assets/cut") },
+          sandbox: { imagePath: path.resolve(path.dirname(new URL(import.meta.url).pathname), "../.state/assets/cut") },
         });
         result = await vm.exec(fenceCommand(sourceCommit, hidden), { signal });
       }

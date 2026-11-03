@@ -10,14 +10,19 @@ retired shell implementation is preserved in
 [`../../archive/legacy-harness/`](../../archive/legacy-harness/) as a parity reference,
 not as a runtime dependency.
 
-## Validate a checkout
+## Bootstrap and validate a checkout
 
-Requirements are Node.js/npm and the Clojure CLI. Real isolated or OCI-backed scenarios
-also require the platform supported by Gondolin and `oras` on `PATH`.
+From the repository root, `make -C harness bootstrap` installs the harness dependencies,
+builds the cut, instrument, grader, and TypeScript/Rust/Java/Rails OCI images, converts them
+to Gondolin assets, and verifies every asset under `.pi/harness/.state/assets/`. It requires
+Docker, Node.js/npm, and the platform supported by Gondolin. It does not build the Löyly app,
+publish oracles, or submit regeneration.
+
+For tests, the Clojure CLI is also required. Real OCI-backed scenarios require `oras` on
+`PATH`.
 
 ```bash
 cd .pi/harness
-npm ci
 npm test
 ./orc-worker/check.sh
 npm run test:e2e
@@ -38,9 +43,36 @@ ghcr.io/scope-impact/loyly/product-oracle:accepted
 ```
 
 Authenticate ORAS to `ghcr.io` with `read:packages` access before running OCI-backed checks.
-Local OCI layouts under `config/instrument-oracles/` and `config/oracle-packs/` are generated,
-ignored caches. Set `PI_HARNESS_INSTRUMENT_ORACLE_REF` or
-`PI_HARNESS_PRODUCT_ORACLE_REF` to override a pinned registry reference for development.
+Local OCI publishing layouts and generated Gondolin images live under `.state/`; the
+`config/` tree contains tracked declarations only. Set `PI_HARNESS_INSTRUMENT_ORACLE_REF`
+or `PI_HARNESS_PRODUCT_ORACLE_REF` to override a pinned registry reference for development.
+
+The product oracle is an independently managed, pinned black-box artifact. This repository
+must not build, package, or publish grader implementation or calibration. The harness
+publisher builds only the instrument oracle from harness sources. Instrument calibration
+goldens live under [`test/fixtures/instrument-oracle/`](test/fixtures/instrument-oracle/),
+while [`config/instrument-oracle.json`](config/instrument-oracle.json) declares the harness
+inputs whose aggregate digest is bound into that oracle. There are no checked-in generated
+OCI source or layout trees.
+
+Preview the instrument OCI layout without publishing:
+
+```bash
+npm run publish:oracles -- --no-push --output /tmp/loyly-oracles
+```
+
+Publish from a clean checkout:
+
+```bash
+npm run publish:oracles
+```
+
+Publishing tags the instrument artifact with the full Git commit and `accepted`, records the
+Git revision and repository URL as OCI annotations, verifies the remote descriptor digest, and
+updates only the instrument oracle reference. Product oracle publication and digest changes
+are managed independently. Generated Gondolin assets under `.state/assets` are disposable
+build outputs and are not instrument source files; the tracked build declarations and harness
+code are the instrument inputs.
 
 ## Run a regeneration from Pi
 

@@ -1,0 +1,66 @@
+-- Project runtime files are resolved by convention, not a duplicate profile JSON.
+-- Product truth remains in model/<project-id>; shared harness config remains in .pi/harness/config.
+
+enum ProjectRuntimeResolution { resolved | refused }
+
+entity ProjectRuntimeFiles {
+    project_identity: String
+    gondolin_vm_config: String
+    stack_dockerfiles: Map<String, String>
+}
+
+entity ResolvedProjectRuntime {
+    files: ProjectRuntimeFiles
+    target_stack: String
+    dockerfile: String
+    resolution: ProjectRuntimeResolution
+}
+
+rule ResolveProjectRuntime {
+    when: ProjectRuntimeRequested(project_identity, target_stack)
+    requires: project_identity != ""
+    let project_dir = "harness/" + project_identity
+    let vm_config = project_dir + "/gondolin.json"
+    let stack_dockerfiles = conventional_stack_dockerfiles(project_dir)
+    requires: file_exists(vm_config)
+    requires: exists stack_dockerfiles[target_stack]
+    requires: file_is_within_project_dir(stack_dockerfiles[target_stack], project_dir)
+    ensures: ProjectRuntimeFiles.created(
+        project_identity: project_identity,
+        gondolin_vm_config: vm_config,
+        stack_dockerfiles: stack_dockerfiles
+    )
+    ensures: ResolvedProjectRuntime.created(
+        files: last_created_project_runtime_files(project_identity),
+        target_stack: target_stack,
+        dockerfile: stack_dockerfiles[target_stack],
+        resolution: resolved
+    )
+}
+
+rule RefuseMissingProjectRuntime {
+    when: ProjectRuntimeRequested(project_identity, target_stack)
+    requires: project_identity != ""
+    requires: not file_exists("harness/" + project_identity + "/Dockerfile." + target_stack)
+    ensures: ProjectRuntimeResolutionRefused(project_identity, target_stack)
+}
+
+invariant ProjectRuntimeNeverFallsBackAcrossProjects {
+    for runtime in ResolvedProjectRuntimes:
+        runtime.dockerfile starts_with ("harness/" + runtime.files.project_identity + "/")
+}
+
+surface ProjectRuntimeConfiguration {
+    provides:
+        ProjectRuntimeRequested(project_identity, target_stack)
+        ProjectRuntimeResolutionRefused(project_identity, target_stack)
+
+    @guarantee ProjectLocalBuildInputs
+        -- VM config and supported-stack Dockerfiles resolve from harness/<project-id>/.
+
+    @guarantee NoProfileDuplication
+        -- Paths and stack filenames derive from project identity and the supported-stack registry.
+
+    @guarantee FailClosedStackResolution
+        -- Missing or unsupported stack inputs refuse resolution; another project is never substituted.
+}

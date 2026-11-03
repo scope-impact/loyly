@@ -4,9 +4,18 @@ import test from "node:test";
 
 const requiredDiagnosticPackages = ["perf", "bpftool", "strace"];
 const requiredOtelBinaries = ["obi", "otelcol-contrib", "otelcol-ebpf-profiler"];
+const projectFile = (name) => new URL(`../../../harness/loyly/${name}`, import.meta.url);
+
+test("Löyly VM config and supported stack Dockerfiles follow the project convention", async () => {
+  const config = JSON.parse(await readFile(projectFile("gondolin.json"), "utf8"));
+  assert.equal(config.arch, "aarch64");
+  for (const stack of ["typescript", "rust", "java", "rails"]) {
+    await readFile(projectFile(`Dockerfile.${stack}`), "utf8");
+  }
+});
 
 test("grader VM image bakes in the standard OTel eBPF stack", async () => {
-  const config = JSON.parse(await readFile(new URL("../config/build/grader.json", import.meta.url), "utf8"));
+  const config = JSON.parse(await readFile(projectFile("gondolin.json"), "utf8"));
 
   for (const packageName of requiredDiagnosticPackages) {
     assert.ok(
@@ -22,8 +31,8 @@ test("grader VM image bakes in the standard OTel eBPF stack", async () => {
 });
 
 test("grader OCI image carries the same OTel eBPF stack", async () => {
-  const dockerfile = await readFile(new URL("../config/build/Dockerfile.grader", import.meta.url), "utf8");
-  const installer = await readFile(new URL("../config/build/install-otel-ebpf.sh", import.meta.url), "utf8");
+  const dockerfile = await readFile(projectFile("Dockerfile"), "utf8");
+  const installer = await readFile(projectFile("install-otel-ebpf.sh"), "utf8");
 
   for (const packageName of requiredDiagnosticPackages) {
     assert.match(dockerfile, new RegExp(`\\b${packageName}\\b`));
@@ -34,8 +43,8 @@ test("grader OCI image carries the same OTel eBPF stack", async () => {
 });
 
 test("collector configurations emit native OTLP JSON into cycle evidence", async () => {
-  const collector = await readFile(new URL("../config/build/otel-collector.yaml", import.meta.url), "utf8");
-  const profiler = await readFile(new URL("../config/build/otel-profiler.yaml", import.meta.url), "utf8");
+  const collector = await readFile(projectFile("otel-collector.yaml"), "utf8");
+  const profiler = await readFile(projectFile("otel-profiler.yaml"), "utf8");
 
   assert.match(collector, /receivers:\s*[\s\S]*otlp:/);
   assert.match(collector, /\$\{env:OTEL_FILE_EXPORT_DIR\}\/traces\.jsonl/);
@@ -47,8 +56,8 @@ test("collector configurations emit native OTLP JSON into cycle evidence", async
 });
 
 test("grader VM mounts tracing filesystems during image init", async () => {
-  const init = await readFile(new URL("../config/build/grader-profile-init.sh", import.meta.url), "utf8");
+  const init = await readFile(projectFile("grader-profile-init.sh"), "utf8");
 
-  assert.match(init, /mount -t tracefs tracefs \/sys\/kernel\/tracing/);
-  assert.match(init, /mount -t bpf bpf \/sys\/fs\/bpf/);
+  assert.ok(init.includes("mount -t tracefs tracefs /sys/kernel/tracing"));
+  assert.ok(init.includes("mount -t bpf bpf /sys/fs/bpf"));
 });

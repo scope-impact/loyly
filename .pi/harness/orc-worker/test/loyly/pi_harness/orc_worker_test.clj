@@ -253,7 +253,7 @@
                                   worker/run-oracle (constantly {:passed true :oracle-digest "oracle-test"
                                                                  :grader-root "/oracle/grader"
                                                                  :artifacts [] :stdout "ok" :stderr ""})
-                                  worker/project-adapter (constantly {:productOracleRef ".pi/harness/config/oracle-packs/loyly:accepted"
+                                  worker/project-adapter (constantly {:productOracleRef "ghcr.io/scope-impact/loyly/product-oracle@sha256:e328f56447a5eb888e958da29fb90a4e2500adf86463249f2d69738df4a021a6"
                                                                       :graderProducer "loyly-black-box"
                                                                       :graderId "booking-core-v1"
                                                                       :runtimeEvidenceContract "model/loyly/runtime-evidence-contract.json"

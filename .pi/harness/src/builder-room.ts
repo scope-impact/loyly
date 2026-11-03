@@ -67,7 +67,7 @@ export async function openBuilderRoom(options: {
   });
   const createVm = options.createVm ?? (VM.create as unknown as typeof options.createVm);
   if (!createVm) throw new Error("Gondolin VM factory is unavailable");
-  const assetsRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../config/assets");
+  const assetsRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../.state/assets");
   const targetStack = options.targetStack ?? "typescript";
   const imageDirectory = builderImageDirectory(targetStack);
   const runtimeEnvironment = builderRuntimeEnvironment(targetStack);

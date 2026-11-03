@@ -15,7 +15,17 @@ implemented. Every scenario is classified as either `@e2e` or `@skip`. Scenarios
 Vitest's native `test.skip` and do not claim executable conformance. A tag gate rejects
 unclassified or doubly classified scenarios.
 
-- `regeneration-cycle.feature` defines the core regeneration-cycle acceptance behavior.
+- `harness-bootstrap.feature` and `harness-bootstrap.allium` specify the local
+  `harness/Makefile` bootstrap; it builds and verifies harness and supported-stack runtime assets without
+  requiring an oracle and does not regenerate the product.
+- `project-vm-config.feature` and `project-vm-config.allium` require project-specific VM
+  config and supported-stack Dockerfiles under root `harness/<project-id>/`, resolved by
+  convention without a per-project profile JSON; shared harness config remains under
+  `.pi/harness/config/`.
+- `cut-without-oracle.feature` and `cut-without-oracle.allium` define first regeneration
+  from an approved specification cut with no product or instrument oracle. It can produce
+  an explicitly ungraded candidate, but cannot pass a measured regeneration cycle.
+- `regeneration-cycle.feature` defines the core oracle-backed regeneration-cycle acceptance behavior.
 - `operator-control-plane.feature`, `prompt-optimization.feature`,
   `execution-pipeline.feature`, and `runtime-evidence.feature` own acceptance behavior for
   their corresponding model components.
@@ -26,11 +36,12 @@ unclassified or doubly classified scenarios.
 - `operator-control-plane.allium` defines session-agnostic preparation approval, durable ORC
   observation, builder-session inspection, and bounded outer-cycle continuation.
 - `runtime-evidence.allium` separates candidate telemetry, harness observations, independent invariant verdicts, and report projections.
-- `execution-pipeline.allium` gates candidate construction on descriptor-pinned product and
-  instrument OCI artifacts. The product oracle must match the approved Git commit, fenced tree,
-  selected denominator, and instrument-oracle descriptor before the builder starts; OCI tags are
-  lookup aliases only. The model also defines the bounded verification-repair boundary before
-  independent grading.
+- `execution-pipeline.allium` gates measured candidate construction on descriptor-pinned product
+  and instrument OCI artifacts. The product oracle must match the approved Git commit, fenced tree,
+  selected denominator, and instrument-oracle descriptor before the measured builder starts; OCI
+  tags are lookup aliases only. `cut-without-oracle.allium` is the explicit no-oracle path and
+  produces only an ungraded candidate. The pipeline also defines bounded verification repair
+  before grading.
 - `regeneration_event_model.clj` describes only the harness-owned Grain event topology.
 - `.pi/affordances.schema.json` defines the public Pi tool inputs; observable outcomes and
   refusals remain in the Allium and Gherkin contracts rather than a parallel YAML model.
@@ -96,7 +107,8 @@ The contract exposes gaps found while deriving it from the current implementatio
 6. Independent black-box behavior remains project-specific. Löyly has calibrated programs
    for all eleven booking-core items inside its accepted product OCI oracle; the project
    tree no longer supplies runtime grader files. Fresh-session grader authoring is not yet
-   an ORC workflow stage.
+   an ORC workflow stage. First regeneration from a cut without an oracle is specified in
+   `cut-without-oracle.feature` but not implemented as an executable workflow.
 7. GEPA candidate scoring is gated by full harness calibration and uses the product oracle,
    Compose verifier, and independent per-item black-box measurement. The selected instruction
    and its metric evidence are not yet durable harness records.

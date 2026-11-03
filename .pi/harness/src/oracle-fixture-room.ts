@@ -33,7 +33,7 @@ export async function openOracleFixtureRoom(options: {
     } },
     sandbox: {
       imagePath: process.env.PI_HARNESS_GRADER_IMAGE ?? process.env.LOYLEY_GRADER_IMAGE
-        ?? path.resolve(path.dirname(new URL(import.meta.url).pathname), "../config/assets/grader"),
+        ?? path.resolve(path.dirname(new URL(import.meta.url).pathname), "../.state/assets/grader"),
     },
   });
 

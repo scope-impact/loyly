@@ -6,8 +6,3 @@ node_modules/
 allure-results/
 allure-report/
 coverage/
-
-# Generated harness assets and local OCI layouts (published artifacts live in GHCR)
-config/assets/
-config/instrument-oracles/
-config/oracle-packs/
