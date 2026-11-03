@@ -537,16 +537,16 @@ function addRelationship(edge) {
 }
 
 function addC4Node(node) {
-  const color = c4Color(node); const height = 2.4 + (node.description.length % 5) * .34;
+  const color = c4Color(node); const height = 1.8 + (node.description.length % 5) * .24;
   const group = new THREE.Group(); group.position.copy(nodePositions.get(node.id)); group.userData.node = node;
   const material = new THREE.MeshStandardMaterial({ color, roughness: .5, metalness: .42, emissive: color, emissiveIntensity: .09 });
-  const base = new THREE.Mesh(new THREE.BoxGeometry(3.4, .34, 2.7), new THREE.MeshStandardMaterial({ color: 0x213347, roughness: .8 })); base.position.y = .17; base.receiveShadow = true; group.add(base);
+  const base = new THREE.Mesh(new THREE.BoxGeometry(2.5, .24, 1.95), new THREE.MeshStandardMaterial({ color: 0x213347, roughness: .8 })); base.position.y = .12; base.receiveShadow = true; group.add(base);
   const body = /data store/i.test(node.type)
-    ? new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, height, 24), material)
-    : new THREE.Mesh(new THREE.BoxGeometry(2.45, height, 1.8), material);
-  body.position.y = .34 + height / 2; body.castShadow = true; group.add(body);
-  const cap = new THREE.Mesh(new THREE.BoxGeometry(2.15, .1, 1.48), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2 })); cap.position.y = height + .38; group.add(cap);
-  const label = makeTextSprite([node.name, node.type], `#${new THREE.Color(color).getHexString()}`, .58); label.position.set(0, height + 1.25, 0); group.add(label);
+    ? new THREE.Mesh(new THREE.CylinderGeometry(.84, .84, height, 24), material)
+    : new THREE.Mesh(new THREE.BoxGeometry(1.75, height, 1.28), material);
+  body.position.y = .24 + height / 2; body.castShadow = true; group.add(body);
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(1.55, .08, 1.04), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2 })); cap.position.y = height + .28; group.add(cap);
+  const label = makeTextSprite([node.name, node.type], `#${new THREE.Color(color).getHexString()}`, .52); label.position.set(0, height + 1.02, 0); group.add(label);
   worldGroup.add(group); nodeMeshes.push(group);
 }
 
