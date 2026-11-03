@@ -84,6 +84,11 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 .start-button kbd { border: 1px solid rgba(255,255,255,.35); padding: 1px 5px; font: 11px inherit; }
 .quiet-button { background: var(--steel-3); }
 .speed-control { margin: 18px 0; display: grid; gap: 7px; }
+.replay-deck { margin: 12px 0 16px; padding: 10px 11px; display: grid; grid-template-columns: 1fr auto; gap: 8px 10px; background: rgba(82,214,210,.07); border: 1px solid rgba(82,214,210,.22); }
+.replay-deck > div { grid-column: 1 / 3; display: grid; grid-template-columns: 9px 1fr; align-items: center; gap: 0 7px; }
+.recorded-dot { grid-row: 1 / 3; width: 7px; height: 7px; border-radius: 50%; background: var(--fault); box-shadow: 0 0 9px var(--fault); }
+.replay-deck strong { font: 600 12px "Barlow Condensed"; }.replay-deck small { color: var(--muted); font-size: 8px; overflow: hidden; text-overflow: ellipsis; }
+.replay-deck input { width: 100%; accent-color: var(--cyan); }.replay-deck output { min-width: 70px; color: var(--cyan); font: 500 10px "IBM Plex Sans"; text-align: right; }
 .speed-control label { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; }
 .speed-control label strong { color: var(--paper); }
 .speed-control input { accent-color: var(--copper); width: 100%; }

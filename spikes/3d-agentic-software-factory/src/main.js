@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import architectureSource from "../../../.pi/architecture.md?raw";
+import { E2E_RECORDING } from "./e2e-replay.js";
 import "./style.css";
 
 // Three variants of the same playable factory, switchable via ?variant=.
@@ -75,6 +76,7 @@ const refs = {
   events: $("#events-view"), evidence: $("#evidence-view"), state: $("#state-view"), decision: $("#decision"),
   repair: $("#repair-cycle"), abort: $("#abort-cycle"), variantLabel: $("#variant-label"),
   viewKicker: $("#view-kicker"), viewTitle: $("#view-title"), stationCard: $("#station-card"), stack: $("#stack-select"),
+  replaySeek: $("#replay-seek"), replayClock: $("#replay-clock"), replaySource: $("#replay-source"),
 };
 
 refs.stack.innerHTML = Object.entries(TARGET_STACKS).map(([id, stack]) => `<option value="${id}">${stack.label} · ${stack.model}</option>`).join("");
@@ -89,6 +91,7 @@ let cameraFlight = null;
 let vehicleWaypoints = [];
 let lastVehicleStage = -1;
 let state = project(eventLog);
+let replay = { active: false, playing: false, cursor: 0, elapsed: 0, lastTick: performance.now() };
 
 function nowStamp() {
   return new Date().toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -112,6 +115,7 @@ function project(events) {
         break;
       case "StageEntered": next.activeStage = event.stageIndex; break;
       case "StageCompleted":
+        next.activeStage = event.stageIndex;
         if (!next.completed.includes(event.stageIndex)) next.completed.push(event.stageIndex);
         next.score = Math.min(100, next.score + event.points);
         next.evidence.push(event.evidence);
@@ -126,6 +130,18 @@ function project(events) {
       case "CyclePaused": next.paused = true; break;
       case "CycleResumed": next.paused = false; break;
       case "SpeedChanged": next.speed = event.speed; break;
+      case "IndependentVerdict":
+        next.activeStage = 7;
+        if (event.itemId === "01-011" && !next.completed.includes(7)) next.completed.push(7);
+        if (event.verdict === "pass") next.score = Math.min(100, next.score + 4);
+        next.evidence.push({ verdict: event.verdict, name: `Invariant ${event.itemId}`, digest: event.digest ?? "sealed fixture", authority: "independent_gondolin", detail: event.label });
+        break;
+      case "RuntimeSignalObserved":
+        next.activeStage = 8;
+        next.evidence.push({ verdict: "pass", name: event.label, digest: event.digest, authority: "runtime_signal", detail: event.operationId });
+        break;
+      case "CycleRecorded": next.activeStage = 9; next.completed.push(9); break;
+      case "CycleFailed": next.status = "failed"; next.paused = true; next.activeStage = 9; next.score = 82; break;
       case "CycleAborted": next.status = "failed"; next.paused = true; next.awaitingDecision = false; break;
       case "CyclePassed": next.status = "passed"; next.paused = true; next.activeStage = 9; next.score = 100; break;
     }
@@ -139,6 +155,43 @@ function startCycle() {
   stageElapsed = 0;
   append("CycleStarted", { cycleId, targetStack: refs.stack.value, product: "Löyly" });
   append("StageEntered", { stageIndex: 0, stage: STAGES[0].id });
+}
+
+function resetReplay() {
+  eventLog = [];
+  replay = { active: true, playing: true, cursor: 0, elapsed: 0, lastTick: performance.now() };
+  refs.stack.value = E2E_RECORDING.targetStack;
+  buildVehicle(E2E_RECORDING.targetStack);
+  refs.replaySeek.value = 0;
+  emitReplayUntil(0);
+  renderState();
+}
+
+function replayEvent(record) {
+  const stage = STAGES[record.stageIndex];
+  const common = { ...record, at: `+${(record.offset / 1000).toFixed(1)}s`, stage: stage?.id, evidence: record.type === "StageCompleted" ? { verdict: "pass", name: record.label, digest: record.digest ?? "sealed fixture", authority: "recorded_e2e" } : undefined };
+  if (record.type === "CycleStarted") append("CycleStarted", { ...common, cycleId: E2E_RECORDING.cycleId, targetStack: E2E_RECORDING.targetStack, product: "Löyly" });
+  else append(record.type, common);
+}
+
+function emitReplayUntil(targetMs) {
+  while (replay.cursor < E2E_RECORDING.timeline.length && E2E_RECORDING.timeline[replay.cursor].offset <= targetMs) {
+    replayEvent(E2E_RECORDING.timeline[replay.cursor]); replay.cursor += 1;
+  }
+  const duration = E2E_RECORDING.timeline.at(-1).offset;
+  replay.elapsed = Math.min(targetMs, duration);
+  refs.replaySeek.value = replay.elapsed;
+  refs.replayClock.textContent = `${(replay.elapsed / 1000).toFixed(1)} / ${(duration / 1000).toFixed(1)}s`;
+  if (replay.cursor >= E2E_RECORDING.timeline.length) replay.playing = false;
+}
+
+function seekReplay(targetMs) {
+  eventLog = [];
+  replay.cursor = 0;
+  replay.elapsed = 0;
+  emitReplayUntil(targetMs);
+  replay.lastTick = performance.now();
+  renderState();
 }
 
 function completeActiveStage() {
@@ -172,15 +225,15 @@ function shortDigest(seed, salt) {
 
 function renderState() {
   const stage = STAGES[state.activeStage];
-  refs.status.textContent = state.status === "ready" ? "Ready for a cut" : state.status === "decision" ? "Operator decision needed" : state.status === "passed" ? "Cycle independently passed" : state.status === "failed" ? "Cycle stopped" : state.paused ? "Cycle paused" : `${stage?.name ?? "Factory"} in progress`;
+  refs.status.textContent = state.status === "ready" ? "Ready for a cut" : state.status === "decision" ? "Operator decision needed" : state.status === "passed" ? "Cycle independently passed" : state.status === "failed" && replay.active ? "Recorded result · 9 passed / 2 failed" : state.status === "failed" ? "Cycle stopped" : state.paused ? "Cycle paused" : `${stage?.name ?? "Factory"} in progress`;
   refs.statusLight.className = `status-light ${state.status === "decision" ? "failed" : state.status}`;
   refs.score.textContent = state.score;
   refs.cycleName.textContent = state.cycleId ? "Booking core regeneration" : "No cycle loaded";
   refs.cycleId.textContent = state.cycleId ?? "—";
-  refs.start.querySelector("span").textContent = state.cycleId ? "Restart cycle" : "Start cycle";
+  refs.start.querySelector("span").textContent = replay.active ? (replay.playing ? "Replay from start" : "Replay recording") : "Replay E2E result";
   refs.pause.disabled = !state.cycleId || ["passed", "failed", "decision"].includes(state.status);
   refs.step.disabled = !state.cycleId || ["passed", "failed", "decision"].includes(state.status);
-  refs.pause.textContent = state.paused ? "Resume" : "Pause";
+  refs.pause.textContent = replay.active ? (replay.playing ? "Pause" : "Resume") : (state.paused ? "Resume" : "Pause");
   refs.stack.disabled = Boolean(state.cycleId) && !["passed", "failed"].includes(state.status);
   const stack = TARGET_STACKS[state.targetStack] ?? TARGET_STACKS.rust;
   refs.cycleName.textContent = state.cycleId ? stack.model : "No cycle loaded";
@@ -202,7 +255,7 @@ function renderState() {
     return `<li class="${className}" title="${item.description}">${item.name}</li>`;
   }).join("");
 
-  refs.events.innerHTML = eventLog.length ? [...eventLog].reverse().map((event, index) => `<div class="event-row ${index === 0 ? "new" : ""}"><time>${event.at}</time><strong>${event.type}<br><small>${event.stage ?? event.cycleId ?? event.measurement ?? "projection updated"}</small></strong></div>`).join("") : `<div class="event-row"><time>—</time><strong>No Grain facts yet<br><small>Start a cycle to append the first event.</small></strong></div>`;
+  refs.events.innerHTML = eventLog.length ? [...eventLog].reverse().map((event, index) => `<div class="event-row ${index === 0 ? "new" : ""}"><time>${event.at}</time><strong>${event.type}<br><small>${event.label ?? event.stage ?? event.cycleId ?? event.measurement ?? "projection updated"}</small></strong></div>`).join("") : `<div class="event-row"><time>—</time><strong>No recorded signal yet<br><small>Replay the sealed E2E result to energize the line.</small></strong></div>`;
   refs.evidence.innerHTML = state.evidence.length ? [...state.evidence].reverse().map((item) => `<div class="evidence-item"><span>${item.verdict.includes("pass") ? "✓" : "×"}</span>${item.name}<small>${item.digest} · ${item.authority}</small></div>`).join("") : `<div class="evidence-item">No evidence captured.<small>Candidate claims cannot determine an independent verdict.</small></div>`;
   refs.state.textContent = JSON.stringify({
     projection: state,
@@ -215,6 +268,7 @@ function renderState() {
       relations: activeDiagram.edges,
       highlightedElementIds: activeTargetIds(),
     } : null,
+    replay: replay.active ? { source: E2E_RECORDING.source, historical: true, elapsedMs: replay.elapsed, summary: E2E_RECORDING.summary, binding: E2E_RECORDING.binding } : null,
     eventCount: eventLog.length,
     activeEvent: eventLog.at(-1) ?? null,
   }, null, 2);
@@ -222,13 +276,26 @@ function renderState() {
   refreshStationInspector();
 }
 
-refs.start.addEventListener("click", startCycle);
-refs.pause.addEventListener("click", () => append(state.paused ? "CycleResumed" : "CyclePaused"));
-refs.step.addEventListener("click", completeActiveStage);
+refs.start.addEventListener("click", resetReplay);
+refs.pause.addEventListener("click", () => {
+  if (replay.active) { replay.playing = !replay.playing; replay.lastTick = performance.now(); renderState(); }
+  else append(state.paused ? "CycleResumed" : "CyclePaused");
+});
+refs.step.addEventListener("click", () => {
+  if (replay.active) {
+    replay.playing = false;
+    const next = E2E_RECORDING.timeline[replay.cursor];
+    if (next) seekReplay(next.offset);
+  } else completeActiveStage();
+});
 refs.speed.addEventListener("input", () => { refs.speedLabel.textContent = `${refs.speed.value}×`; append("SpeedChanged", { speed: Number(refs.speed.value) }); });
 refs.stack.addEventListener("change", () => { buildVehicle(refs.stack.value); state = project(eventLog); renderState(); });
 refs.repair.addEventListener("click", () => { append("RepairAuthorized", { failedStage: "verify", attempt: 2 }); append("StageEntered", { stageIndex: 6, stage: STAGES[6].id }); });
 refs.abort.addEventListener("click", () => append("CycleAborted", { reason: "operator_refused_repair" }));
+refs.replaySeek.max = E2E_RECORDING.timeline.at(-1).offset;
+refs.replaySource.textContent = E2E_RECORDING.cycleId;
+refs.replaySource.title = E2E_RECORDING.source;
+refs.replaySeek.addEventListener("input", () => { replay.active = true; replay.playing = false; seekReplay(Number(refs.replaySeek.value)); });
 
 document.querySelectorAll(".evidence-tabs button").forEach((button) => button.addEventListener("click", () => {
   document.querySelectorAll(".evidence-tabs button").forEach((item) => item.setAttribute("aria-selected", String(item === button)));
@@ -646,7 +713,13 @@ new ResizeObserver(resize).observe(canvas);
 
 function frame(now) {
   const delta = Math.min((now - lastFrame) / 1000, .1); lastFrame = now;
-  if (state.status === "running" && !state.paused) { stageElapsed += delta * state.speed; const duration = state.activeStage === 2 ? 4.3 : 2.8; if (stageElapsed >= duration) completeActiveStage(); }
+  if (replay.active && replay.playing) {
+    const replayDelta = Math.min(now - replay.lastTick, 100);
+    replay.lastTick = now;
+    emitReplayUntil(replay.elapsed + replayDelta * state.speed);
+  } else if (!replay.active && state.status === "running" && !state.paused) {
+    stageElapsed += delta * state.speed; const duration = state.activeStage === 2 ? 4.3 : 2.8; if (stageElapsed >= duration) completeActiveStage();
+  }
   if (productVehicle.visible) {
     if (!state.cycleId) { vehicleWaypoints = []; lastVehicleStage = -1; }
     if (state.cycleId && lastVehicleStage !== state.activeStage) {
@@ -689,7 +762,11 @@ document.addEventListener("keydown", (event) => {
   const editing = event.target.matches("input, textarea, [contenteditable]");
   if (!editing && event.key === "ArrowLeft") cycleVariant(-1);
   if (!editing && event.key === "ArrowRight") cycleVariant(1);
-  if (!editing && event.code === "Space") { event.preventDefault(); if (!state.cycleId || ["passed", "failed"].includes(state.status)) startCycle(); else if (!state.awaitingDecision) append(state.paused ? "CycleResumed" : "CyclePaused"); }
+  if (!editing && event.code === "Space") {
+    event.preventDefault();
+    if (!replay.active || replay.cursor >= E2E_RECORDING.timeline.length) resetReplay();
+    else { replay.playing = !replay.playing; replay.lastTick = performance.now(); renderState(); }
+  }
 });
 
 buildDiagram("containers");

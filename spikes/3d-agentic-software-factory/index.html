@@ -49,9 +49,14 @@
             <div class="product-badge"><span id="model-swatch"></span><strong id="model-name">Rust Rally</strong><small id="model-detail">Rust · compact performance build</small></div>
           </div>
           <div class="primary-actions">
-            <button class="start-button" id="start-cycle" type="button"><span>Start cycle</span><kbd>Space</kbd></button>
+            <button class="start-button" id="start-cycle" type="button"><span>Replay E2E result</span><kbd>Space</kbd></button>
             <button class="quiet-button" id="pause-cycle" type="button" disabled>Pause</button>
             <button class="quiet-button" id="step-cycle" type="button" disabled>Step</button>
+          </div>
+          <div class="replay-deck">
+            <div><span class="recorded-dot"></span><strong>Recorded factory signals</strong><small id="replay-source">loading fixture…</small></div>
+            <input id="replay-seek" type="range" min="0" max="18400" value="0" step="100" aria-label="Recorded E2E replay position" />
+            <output id="replay-clock">0.0 / 18.4s</output>
           </div>
           <div class="speed-control">
             <label for="speed">Factory speed <strong id="speed-label">1×</strong></label>

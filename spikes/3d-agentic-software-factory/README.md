@@ -21,6 +21,19 @@ vehicle path is a folded one-way line with side-fed infrastructure, overhead C4 
 gantries, end-of-line testing, an inspection-adjacent rework loop returning to test, and a
 finished-vehicle yard.
 
+## Recorded E2E replay
+
+The main control replays the repository's sealed `e2e-full-1793630744537.zip` fixture instead of
+inventing a successful demo run. The normalized timeline in `src/e2e-replay.js` preserves its two
+builder attempts, attempt-one container failure, repaired 13-test application run, eleven Gondolin
+item verdicts, eight correlated runtime signals, instrument-conformance result, source artifact
+paths, and terminal 9/11 product verdict. It is labelled as historical playback throughout the UI;
+it does not imply a fresh regeneration.
+
+Replay can be paused, stepped one recorded signal at a time, scrubbed, or accelerated. Scrubbing
+rebuilds the projection from the start, so station activity, vehicle position, evidence, score,
+and the full-state view remain deterministic.
+
 ## World analogy
 
 - **The Pi/ORC/Grain harness is the assembly line.** Its real C4 elements are the machinery,
@@ -49,9 +62,9 @@ Open <http://127.0.0.1:5173/?variant=A>.
 - `B` — Evidence observatory: provenance and runtime evidence first.
 - `C` — Command deck: dense stage control and intervention.
 
-Use the bottom switcher or the left/right arrow keys. Press Space to start a cycle. The first
-verification intentionally fails so the repair boundary is playable. Select a 3D element to see
-its C4 type, description, and source view.
+Use the bottom switcher or the left/right arrow keys. Press Space to replay or pause the recorded
+cycle. Its first attempt really failed, so the repair boundary remains visible without fabricating
+a fault. Select a 3D element to see its C4 type, description, and source view.
 
 Use the **C4 world** selector to move between the repository's System Context, Container, and ORC
 Worker Component views. Selecting a building or relationship shows the exact parsed C4 name, type,
