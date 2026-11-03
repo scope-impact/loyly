@@ -6,16 +6,16 @@ import "./style.css";
 
 // Three variants of the same playable factory, switchable via ?variant=.
 const STAGES = [
-  { id: "cut", name: "Pin product model", code: "ST–01 · cut", owner: "Gondolin", authority: "Isolation boundary", color: 0x74a5c2, description: "Seal the approved Löyly product specification and expose it read-only to the line." },
-  { id: "harness_calibration", name: "Calibrate tooling", code: "ST–02 · harness calibration", owner: "Pi harness", authority: "Pinned instrument oracle", color: 0xf2b84b, description: "Prove the assembly line and inspection tools before candidate construction can begin." },
-  { id: "builder", name: "Assemble components", code: "ST–03 · builder", owner: "Pi / Codex", authority: "Fresh builder intelligence", color: 0xc76b3c, description: "A fresh builder emits the first Löyly C4 containers in the selected implementation stack." },
-  { id: "instrument", name: "Wire runtime signals", code: "ST–04 · instrument", owner: "Harness observer", authority: "Diagnostic producer", color: 0x52d6d2, description: "Connect domain-event and projection telemetry without changing the candidate subject digest." },
-  { id: "oracle", name: "Bind product contract", code: "ST–05 · oracle", owner: "ORC", authority: "Workflow gate", color: 0x8d76b5, description: "Bind the assembled components to approved, digest-pinned inspection standards." },
-  { id: "verify", name: "Boot system", code: "ST–06 · verify", owner: "Verifier adapter", authority: "Application contract", color: 0xd9d2a7, description: "Boot and probe the assembled Löyly system against its detected target-stack contract." },
-  { id: "repair_verification", name: "Repair bay", code: "ST–07 · repair", owner: "Fresh Pi builder", authority: "Bounded attempt", color: 0xd95555, description: "A fresh builder uses read-only failure evidence for one bounded repair attempt." },
-  { id: "graders", name: "Independent inspection", code: "ST–08 · graders", owner: "Independent grader", authority: "Verdict authority", color: 0x75c18b, description: "Inspect Löyly behavior without accepting a quality verdict authored by its builder." },
-  { id: "instrument_conformance", name: "Check telemetry", code: "ST–09 · instrument conformance", owner: "Independent grader", authority: "Evidence completeness", color: 0x4d9fa4, description: "Incomplete or sampled required telemetry becomes inconclusive; it cannot silently pass." },
-  { id: "record_cycle", name: "Register product", code: "ST–10 · record cycle", owner: "Grain", authority: "Durable observation", color: 0x52d6d2, description: "Grain appends the build and inspection facts to durable product history without advancing ORC." },
+  { id: "cut", glyph: "▱", name: "Pin product model", code: "ST–01 · cut", owner: "Gondolin", authority: "Isolation boundary", color: 0x74a5c2, description: "Seal the approved Löyly product specification and expose it read-only to the line." },
+  { id: "harness_calibration", glyph: "◎", name: "Calibrate tooling", code: "ST–02 · harness calibration", owner: "Pi harness", authority: "Pinned instrument oracle", color: 0xf2b84b, description: "Prove the assembly line and inspection tools before candidate construction can begin." },
+  { id: "builder", glyph: "⚙", name: "Assemble components", code: "ST–03 · builder", owner: "Pi / Codex", authority: "Fresh builder intelligence", color: 0xc76b3c, description: "A fresh builder emits the first Löyly C4 containers in the selected implementation stack." },
+  { id: "instrument", glyph: "⌁", name: "Wire runtime signals", code: "ST–04 · instrument", owner: "Harness observer", authority: "Diagnostic producer", color: 0x52d6d2, description: "Connect domain-event and projection telemetry without changing the candidate subject digest." },
+  { id: "oracle", glyph: "⊣", name: "Bind product contract", code: "ST–05 · oracle", owner: "ORC", authority: "Workflow gate", color: 0x8d76b5, description: "Bind the assembled components to approved, digest-pinned inspection standards." },
+  { id: "verify", glyph: "⏻", name: "Boot system", code: "ST–06 · verify", owner: "Verifier adapter", authority: "Application contract", color: 0xd9d2a7, description: "Boot and probe the assembled Löyly system against its detected target-stack contract." },
+  { id: "repair_verification", glyph: "⚒", name: "Repair bay", code: "ST–07 · repair", owner: "Fresh Pi builder", authority: "Bounded attempt", color: 0xd95555, description: "A fresh builder uses read-only failure evidence for one bounded repair attempt." },
+  { id: "graders", glyph: "⌕", name: "Independent inspection", code: "ST–08 · graders", owner: "Independent grader", authority: "Verdict authority", color: 0x75c18b, description: "Inspect Löyly behavior without accepting a quality verdict authored by its builder." },
+  { id: "instrument_conformance", glyph: "≋", name: "Check telemetry", code: "ST–09 · instrument conformance", owner: "Independent grader", authority: "Evidence completeness", color: 0x4d9fa4, description: "Incomplete or sampled required telemetry becomes inconclusive; it cannot silently pass." },
+  { id: "record_cycle", glyph: "✓", name: "Register product", code: "ST–10 · record cycle", owner: "Grain", authority: "Durable observation", color: 0x52d6d2, description: "Grain appends the build and inspection facts to durable product history without advancing ORC." },
 ];
 
 const TARGET_STACKS = {
@@ -272,7 +272,7 @@ function renderState() {
 
   refs.stageRail.innerHTML = STAGES.map((item, index) => {
     const className = state.failed.includes(index) ? "failed" : state.completed.includes(index) ? "complete" : state.activeStage === index && state.cycleId ? "active" : "";
-    return `<li class="${className}" title="${item.description}">${item.name}</li>`;
+    return `<li class="${className}" data-icon="${item.glyph}" title="${item.description}">${item.name}</li>`;
   }).join("");
 
   refs.events.innerHTML = eventLog.length ? [...eventLog].reverse().map((event, index) => `<div class="event-row ${index === 0 ? "new" : ""}"><time>${event.at}</time><strong>${event.type}<br><small>${event.label ?? event.stage ?? event.cycleId ?? event.measurement ?? "projection updated"}</small></strong></div>`).join("") : `<div class="event-row"><time>—</time><strong>No recorded signal yet<br><small>Replay the sealed E2E result to energize the line.</small></strong></div>`;
@@ -556,7 +556,7 @@ function addAssemblyLine() {
     const padColor = index === 6 ? 0x542b34 : index >= 7 ? 0x24463f : 0x263b4c;
     const pad = new THREE.Mesh(new THREE.BoxGeometry(4, .12, 3.1), new THREE.MeshStandardMaterial({ color: padColor, roughness: .82, metalness: .1 }));
     pad.position.set(station.x, .02, station.z); pad.receiveShadow = true; worldGroup.add(pad);
-    const marker = makeTextSprite([`${String(index + 1).padStart(2, "0")}  ${station.short}`, stage.id.replaceAll("_", " ")], index === 6 ? "#d95555" : index >= 7 ? "#75c18b" : "#f2b84b", .46);
+    const marker = makeTextSprite([`${stage.glyph}  ${String(index + 1).padStart(2, "0")}  ${station.short}`, stage.id.replaceAll("_", " ")], index === 6 ? "#d95555" : index >= 7 ? "#75c18b" : "#f2b84b", .46);
     marker.position.set(station.x, .62, station.z + 1.72); worldGroup.add(marker);
   });
   // Service lanes keep infrastructure and inputs visually separate from product flow.
@@ -570,28 +570,113 @@ function addAssemblyLine() {
 function addFactoryFixtures() {
   const steel = new THREE.MeshStandardMaterial({ color: 0x6b7d89, roughness: .52, metalness: .65 });
   const safety = new THREE.MeshStandardMaterial({ color: 0xf2b84b, roughness: .5, metalness: .4 });
+  const stationMaterial = (stageIndex, intensity = .45) => {
+    const color = STAGES[stageIndex].color;
+    return new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: intensity, roughness: .42, metalness: .52 });
+  };
+  const fixtureGroup = (stageIndex, zOffset = -1) => {
+    const { x, z } = ASSEMBLY_ROUTE[stageIndex];
+    const group = new THREE.Group();
+    group.position.set(x, 0, z + zOffset);
+    group.userData.station = STAGES[stageIndex].id;
+    worldGroup.add(group);
+    return group;
+  };
+  const addFixtureMesh = (group, geometry, material, position, rotation = [0, 0, 0]) => {
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(...position); mesh.rotation.set(...rotation); mesh.castShadow = true; group.add(mesh);
+    return mesh;
+  };
   const addGantry = (stageIndex, color = 0x6b7d89) => {
     const { x, z } = ASSEMBLY_ROUTE[stageIndex]; const material = new THREE.MeshStandardMaterial({ color, roughness: .48, metalness: .65 });
     [-1.55, 1.55].forEach((offset) => { const post = new THREE.Mesh(new THREE.BoxGeometry(.16, 2.8, .16), material); post.position.set(x, 1.4, z + offset); worldGroup.add(post); });
     const top = new THREE.Mesh(new THREE.BoxGeometry(.18, .18, 3.25), material); top.position.set(x, 2.75, z); worldGroup.add(top);
   };
+  // Receiving: a physical drafting table carries the sealed product blueprint.
+  const blueprint = fixtureGroup(0);
+  addFixtureMesh(blueprint, new THREE.BoxGeometry(1.5, .12, .86), steel, [0, 1.18, 0], [-.16, 0, 0]);
+  addFixtureMesh(blueprint, new THREE.BoxGeometry(1.28, .025, .7), stationMaterial(0, .68), [0, 1.26, -.02], [-.16, 0, 0]);
+  [-.52, .52].forEach((x) => addFixtureMesh(blueprint, new THREE.BoxGeometry(.08, 1.1, .08), steel, [x, .58, 0]));
+  [-.35, 0, .35].forEach((x) => addFixtureMesh(blueprint, new THREE.BoxGeometry(.025, .018, .62), safety, [x, 1.29, -.03], [-.16, 0, 0]));
+
+  // Calibration: concentric target rings and crosshairs make tooling alignment visible.
+  const calibration = fixtureGroup(1);
+  const calibrationMaterial = stationMaterial(1, .72);
+  addFixtureMesh(calibration, new THREE.TorusGeometry(.63, .075, 10, 28), calibrationMaterial, [0, 1.63, 0]);
+  addFixtureMesh(calibration, new THREE.TorusGeometry(.29, .05, 10, 24), calibrationMaterial, [0, 1.63, .01]);
+  addFixtureMesh(calibration, new THREE.BoxGeometry(1.48, .035, .035), calibrationMaterial, [0, 1.63, .02]);
+  addFixtureMesh(calibration, new THREE.BoxGeometry(.035, 1.48, .035), calibrationMaterial, [0, 1.63, .02]);
+  addFixtureMesh(calibration, new THREE.CylinderGeometry(.07, .11, .8, 10), steel, [0, .62, 0]);
+
   // Component assembly: paired robot arms place software containers onto the carrier.
   [-1.45, 1.45].forEach((zOffset) => [-.85, .85].forEach((xOffset) => {
     const { x, z } = ASSEMBLY_ROUTE[2];
     const base = new THREE.Mesh(new THREE.CylinderGeometry(.2, .28, .42, 10), safety); base.position.set(x + xOffset, .22, z + zOffset); worldGroup.add(base);
     const arm = new THREE.Mesh(new THREE.BoxGeometry(.2, 1.2, .2), steel); arm.position.set(x + xOffset, .93, z + zOffset); arm.rotation.z = xOffset > 0 ? .42 : -.42; worldGroup.add(arm);
   }));
-  // Enclosed paint/instrument tunnel.
+  const assembly = fixtureGroup(2);
+  const assemblyMaterial = stationMaterial(2, .6);
+  addFixtureMesh(assembly, new THREE.TorusGeometry(.48, .13, 8, 16), assemblyMaterial, [0, 2.18, 0]);
+  Array.from({ length: 8 }, (_, index) => index * Math.PI / 4).forEach((angle) => {
+    addFixtureMesh(assembly, new THREE.BoxGeometry(.19, .34, .16), assemblyMaterial, [Math.cos(angle) * .7, 2.18 + Math.sin(angle) * .7, 0], [0, 0, angle]);
+  });
+
+  // Instrumentation: a translucent wiring cell surrounds a live signal antenna.
   const paint = ASSEMBLY_ROUTE[3];
   const tunnel = new THREE.Mesh(new THREE.BoxGeometry(4, 2.6, 2.8), new THREE.MeshStandardMaterial({ color: 0x52d6d2, transparent: true, opacity: .1, wireframe: true })); tunnel.position.set(paint.x, 1.35, paint.z); worldGroup.add(tunnel);
-  addGantry(4, 0x8d76b5); // marriage / standards gate
+  const signal = fixtureGroup(3);
+  const signalMaterial = stationMaterial(3, .78);
+  addFixtureMesh(signal, new THREE.CylinderGeometry(.055, .09, 1.55, 10), signalMaterial, [0, 1.02, 0]);
+  [.28, .55, .82].forEach((radius) => addFixtureMesh(signal, new THREE.TorusGeometry(radius, .035, 8, 28), signalMaterial, [0, 1.82, 0]));
+  addFixtureMesh(signal, new THREE.SphereGeometry(.11, 12, 8), signalMaterial, [0, 1.82, .03]);
+
+  // Standards gate: the shackle closes over the pinned contract at marriage.
+  addGantry(4, 0x8d76b5);
+  const contract = fixtureGroup(4);
+  const contractMaterial = stationMaterial(4, .56);
+  addFixtureMesh(contract, new THREE.TorusGeometry(.46, .1, 10, 24), contractMaterial, [0, 1.9, 0]);
+  addFixtureMesh(contract, new THREE.BoxGeometry(1.15, .82, .32), contractMaterial, [0, 1.42, .02]);
+  addFixtureMesh(contract, new THREE.CylinderGeometry(.08, .13, .32, 10), safety, [0, 1.42, -.19], [Math.PI / 2, 0, 0]);
+
   // End-of-line rollers and inspection/rework arches.
   const test = ASSEMBLY_ROUTE[5];
   [-.8, 0, .8].forEach((xOffset) => { const roller = new THREE.Mesh(new THREE.CylinderGeometry(.16, .16, 2.4, 12), steel); roller.rotation.x = Math.PI / 2; roller.position.set(test.x + xOffset, .24, test.z); worldGroup.add(roller); });
-  addGantry(6, 0xd95555); addGantry(7, 0x75c18b);
+  const boot = fixtureGroup(5);
+  const bootMaterial = stationMaterial(5, .45);
+  addFixtureMesh(boot, new THREE.TorusGeometry(.56, .1, 10, 28), bootMaterial, [0, 1.6, 0]);
+  addFixtureMesh(boot, new THREE.BoxGeometry(.13, .72, .15), bootMaterial, [0, 2.02, .02]);
+
+  addGantry(6, 0xd95555);
+  const repair = fixtureGroup(6);
+  const repairMaterial = stationMaterial(6, .62);
+  addFixtureMesh(repair, new THREE.BoxGeometry(.16, 1.48, .16), repairMaterial, [-.14, 1.45, 0], [0, 0, -.65]);
+  addFixtureMesh(repair, new THREE.BoxGeometry(.16, 1.48, .16), repairMaterial, [.14, 1.45, .03], [0, 0, .65]);
+  addFixtureMesh(repair, new THREE.BoxGeometry(.52, .15, .16), repairMaterial, [-.61, 1.9, 0], [0, 0, -.65]);
+  addFixtureMesh(repair, new THREE.CylinderGeometry(.2, .2, .16, 12), repairMaterial, [.62, 1.9, .03], [Math.PI / 2, 0, 0]);
+
+  addGantry(7, 0x75c18b);
+  const inspection = fixtureGroup(7);
+  const inspectionMaterial = stationMaterial(7, .58);
+  addFixtureMesh(inspection, new THREE.TorusGeometry(.55, .11, 10, 28), inspectionMaterial, [-.12, 1.75, 0], [0, 0, -.12]);
+  addFixtureMesh(inspection, new THREE.BoxGeometry(.16, .92, .16), inspectionMaterial, [.48, 1.12, 0], [0, 0, -.72]);
+
+  // Telemetry finishing: a mast broadcasts the evidence trace before registration.
+  const telemetry = fixtureGroup(8);
+  const telemetryMaterial = stationMaterial(8, .7);
+  addFixtureMesh(telemetry, new THREE.CylinderGeometry(.06, .12, 1.65, 10), telemetryMaterial, [0, 1, 0]);
+  addFixtureMesh(telemetry, new THREE.ConeGeometry(.16, .34, 10), telemetryMaterial, [0, 2, 0]);
+  [.36, .65].forEach((radius) => addFixtureMesh(telemetry, new THREE.TorusGeometry(radius, .04, 8, 24), telemetryMaterial, [0, 1.84, 0]));
+
   // Accepted-product yard markings.
   const yard = ASSEMBLY_ROUTE[9];
   [-1.2, 0, 1.2].forEach((offset) => { const stripe = new THREE.Mesh(new THREE.BoxGeometry(.08, .025, 2.6), new THREE.MeshStandardMaterial({ color: 0xf1f0e8 })); stripe.position.set(yard.x + offset, .11, yard.z); worldGroup.add(stripe); });
+  const registry = fixtureGroup(9);
+  const registryMaterial = stationMaterial(9, .62);
+  addFixtureMesh(registry, new THREE.CylinderGeometry(.34, .48, .55, 16), registryMaterial, [0, 1.66, 0]);
+  addFixtureMesh(registry, new THREE.BoxGeometry(.22, .72, .22), registryMaterial, [0, 2.22, 0]);
+  addFixtureMesh(registry, new THREE.TorusGeometry(.64, .08, 10, 28), registryMaterial, [0, 1.25, .01]);
+  addFixtureMesh(registry, new THREE.BoxGeometry(.52, .11, .11), safety, [-.14, 1.23, -.08], [0, 0, -.75]);
+  addFixtureMesh(registry, new THREE.BoxGeometry(1.0, .11, .11), safety, [.2, 1.38, -.08], [0, 0, .72]);
 }
 
 function buildDiagram(diagramId) {
