@@ -39,6 +39,11 @@ const ROUTE = [
   [14, -4], [14, 6], [7, 10], [0, 10],
 ];
 
+const OPERATOR_ROUTE = [
+  [-22, -14], [-16, -14], [-10, -14], [-4, -14], [2, -14], [8, -14],
+  [18, -4], [18, 6], [7, 14], [0, 14],
+];
+
 const COMPONENTS = [
   { name: "Booking API", stage: 2, color: "#72a9c4", shape: "api" },
   { name: "Booking core", stage: 2, color: "#d47542", shape: "gear" },
@@ -217,13 +222,40 @@ function OperatorModel() {
   </group>;
 }
 
-function OperatorInput({ operatorRef }) {
+function OperatorInput({ operatorRef, replay }) {
   const [, getKeyboard] = useKeyboardControls();
-  useFrame(() => {
+  const { camera } = useThree();
+  const direction = useMemo(() => new THREE.Vector3(), []);
+  const lastManualAt = useRef(-Infinity);
+  useFrame((state) => {
     const keyboard = getKeyboard();
     const joystick = useJoystickStore.getState().joysticks.default ?? { x: 0, y: 0 };
     const buttons = useButtonStore.getState().buttons;
-    operatorRef.current?.setMovement({
+    const manual = keyboard.forward || keyboard.backward || keyboard.leftward || keyboard.rightward || keyboard.jump || joystick.active || buttons.jump;
+    if (manual) lastManualAt.current = state.clock.elapsedTime;
+    const manualOverride = state.clock.elapsedTime - lastManualAt.current < 2.5;
+    const operator = operatorRef.current;
+    if (!operator) return;
+    if (!manualOverride && replay.playing) {
+      const [targetX, targetZ] = OPERATOR_ROUTE[replay.stage];
+      direction.set(targetX - operator.currPos.x, 0, targetZ - operator.currPos.z);
+      const distance = direction.length();
+      if (distance > .65) operator.setForwardDir(direction.normalize());
+      operator.setMovement({
+        forward: distance > .65,
+        backward: false,
+        leftward: false,
+        rightward: false,
+        run: distance > 7,
+        jump: false,
+        joystick: { x: 0, y: 0 },
+      });
+      return;
+    }
+    camera.getWorldDirection(direction);
+    direction.y = 0;
+    if (direction.lengthSq() > 0) operator.setForwardDir(direction.normalize());
+    operator.setMovement({
       forward: keyboard.forward,
       backward: keyboard.backward,
       leftward: keyboard.leftward,
@@ -294,10 +326,10 @@ function World({ variant, replay, selected, setSelected, setNearest }) {
         <ProductCarrier stage={replay.stage} />
         <FactoryAgents stage={replay.stage} />
         {explorer && <KeyboardControls map={keyboardMap}>
-          <Ecctrl ref={operatorRef} position={[-25, 2, -12]} maxWalkVel={5} maxRunVel={8} jumpVel={5} floatHeight={.65} capsuleHalfHeight={.6} capsuleRadius={.38}>
+          <Ecctrl ref={operatorRef} position={[OPERATOR_ROUTE[0][0], 2, OPERATOR_ROUTE[0][1]]} useCustomForward enableToggleRun={false} maxWalkVel={5} maxRunVel={8} jumpVel={5} floatHeight={.65} capsuleHalfHeight={.6} capsuleRadius={.38}>
             <OperatorModel />
           </Ecctrl>
-          <OperatorInput operatorRef={operatorRef} />
+          <OperatorInput operatorRef={operatorRef} replay={replay} />
           <FollowOperator operatorRef={operatorRef} onNearest={setNearest} />
         </KeyboardControls>}
       </Physics>
@@ -339,7 +371,7 @@ function Inspector({ station, replay, onClose }) {
   </aside>;
 }
 
-function ExplorerOverlay({ replay, nearest, setSelected, navigationReady, onEnter }) {
+function ExplorerOverlay({ replay, nearest, setSelected }) {
   const setJump = (active) => useButtonStore.getState().setButtonActive("jump", active);
   const pulseJump = (event) => {
     if (event.detail !== 0) return;
@@ -348,8 +380,7 @@ function ExplorerOverlay({ replay, nearest, setSelected, navigationReady, onEnte
   };
   return <>
     <section className="explorer-objective"><small>Current objective · follow the amber beacon</small><strong>{STAGES[replay.stage].name}</strong><p>{STAGES[replay.stage].hint}</p></section>
-    {!navigationReady && <button className="navigation-start" type="button" onClick={onEnter}><small>Immersive navigation</small><strong>Enter factory floor</strong><span>Use WASD or arrow keys to move</span></button>}
-    <div className="controls-help"><span><kbd>WASD</kbd> Move</span><span><kbd>Shift</kbd> Run</span><span><kbd>Space</kbd> Jump</span></div>
+    <div className="controls-help"><span className={replay.playing ? "cycle-follow active" : "cycle-follow"}>Cycle follow <b>{replay.playing ? "ON" : "PAUSED"}</b></span><span><kbd>WASD</kbd> Take control</span><span><kbd>Shift</kbd> Run</span><span><kbd>Space</kbd> Jump</span></div>
     {nearest && <button className="interact-prompt" type="button" onPointerDown={() => setSelected(nearest)} onClick={() => setSelected(nearest)}><kbd>E</kbd><span>Inspect <strong>{nearest.name}</strong></span></button>}
     <div className="touch-controls">
       <div className="touch-joystick" role="application" aria-label="Movement joystick"><Joystick /></div>
@@ -396,7 +427,6 @@ function App() {
   const [variant, setVariantState] = useState(VARIANTS[params.get("variant")] ? params.get("variant") : "A");
   const [selected, setSelected] = useState(null);
   const [nearest, setNearest] = useState(null);
-  const [navigationReady, setNavigationReady] = useState(false);
   const replay = useReplay();
   const showSwitcher = import.meta.env.DEV || params.get("prototype") === "1";
   const setVariant = (next) => {
@@ -407,17 +437,12 @@ function App() {
     setVariantState(next);
     setSelected(null);
   };
-  const enterNavigation = () => {
-    setNavigationReady(true);
-    window.requestAnimationFrame(() => document.querySelector(".world-shell canvas")?.focus());
-  };
   useEffect(() => {
     const handle = (event) => {
       if (event.key === "Escape" && selected) {
         setSelected(null);
         return;
       }
-      if (variant === "A" && ["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.code)) setNavigationReady(true);
       if (event.key.toLowerCase() === "e" && nearest && variant === "A") setSelected(nearest);
       if (!showSwitcher || event.target.matches("input, textarea, select, [contenteditable]")) return;
       if (event.altKey && event.key === "ArrowLeft") {
@@ -437,7 +462,7 @@ function App() {
     <section className="world-shell" aria-label={`${VARIANTS[variant].name} factory world`}>
       <World variant={variant} replay={replay} selected={selected} setSelected={setSelected} setNearest={setNearest} />
       <Timeline replay={replay} />
-      {variant === "A" && <ExplorerOverlay replay={replay} nearest={nearest} setSelected={setSelected} navigationReady={navigationReady} onEnter={enterNavigation} />}
+      {variant === "A" && <ExplorerOverlay replay={replay} nearest={nearest} setSelected={setSelected} />}
       {variant === "B" && <SimulationOverlay replay={replay} setSelected={setSelected} />}
       {variant === "C" && <TourOverlay replay={replay} setSelected={setSelected} />}
     </section>

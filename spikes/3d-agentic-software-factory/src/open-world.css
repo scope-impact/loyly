@@ -60,15 +60,13 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--amber); out
 .explorer-objective small { color: var(--amber); font: 500 11px "Barlow Condensed"; }.explorer-objective strong { display: block; margin-top: 3px; font: 600 23px/1 "Barlow Condensed"; }.explorer-objective p { margin: 8px 0 0; color: #b7c2c9; font-size: 11px; line-height: 1.45; }
 .controls-help { position: absolute; z-index: 8; left: 22px; bottom: 22px; display: flex; gap: 7px; }
 .controls-help span { padding: 6px 8px; color: #aebbc3; background: rgba(7,17,27,.82); font-size: 9px; }
+.controls-help .cycle-follow { color: #b6c2c9; border-left: 3px solid #667986; }
+.controls-help .cycle-follow.active { border-left-color: var(--cyan); }
+.cycle-follow b { color: var(--cyan); font-size: 8px; }
 kbd { padding: 2px 5px; color: var(--paper); border: 1px solid #607687; background: #1a2b39; font: 600 9px "IBM Plex Sans"; }
 .interact-prompt { position: absolute; z-index: 9; left: 50%; bottom: 84px; transform: translateX(-50%); min-width: 255px; min-height: 58px; display: flex; align-items: center; gap: 12px; padding: 8px 15px; color: var(--ink); background: var(--amber); border: 0; box-shadow: 0 10px 40px rgba(0,0,0,.55); cursor: pointer; text-align: left; }
 .interact-prompt kbd { color: var(--ink); border-color: rgba(7,17,27,.35); background: rgba(255,255,255,.38); font-size: 15px; }.interact-prompt span { display: flex; flex-direction: column; font-size: 9px; }.interact-prompt strong { font: 600 17px "Barlow Condensed"; }
 .touch-controls { display: none; }
-.navigation-start { position: absolute; z-index: 11; top: 50%; left: 50%; transform: translate(-50%,-50%); min-width: 250px; padding: 16px 20px; color: var(--ink); text-align: left; border: 0; border-left: 5px solid var(--copper); background: var(--paper); box-shadow: 0 18px 60px rgba(0,0,0,.6); cursor: pointer; }
-.navigation-start small, .navigation-start strong, .navigation-start span { display: block; }
-.navigation-start small { color: #9c3e23; font: 500 10px "Barlow Condensed"; text-transform: uppercase; letter-spacing: .08em; }
-.navigation-start strong { margin-top: 3px; font: 600 24px "Barlow Condensed"; }
-.navigation-start span { margin-top: 4px; color: #59636b; font-size: 10px; }
 
 .simulation-deck { position: absolute; z-index: 8; top: 18px; left: 18px; bottom: 18px; width: 300px; display: flex; flex-direction: column; padding: 18px; background: rgba(7,17,27,.92); border-top: 5px solid var(--cyan); backdrop-filter: blur(12px); overflow: hidden; }
 .simulation-deck header small { color: var(--cyan); font: 500 12px "Barlow Condensed"; }.simulation-deck h1 { margin: 3px 0 0; font: 600 31px/.95 "Barlow Condensed"; }.simulation-deck header p { margin: 7px 0 13px; color: var(--muted); font-size: 10px; }
@@ -108,7 +106,6 @@ kbd { padding: 2px 5px; color: var(--paper); border: 1px solid #607687; backgrou
   .replay-line, .variant-B .replay-line, .variant-C .replay-line { top: auto; left: 12px; right: 12px; bottom: 12px; width: auto; transform: none; }
   .explorer-objective { top: 12px; left: 12px; width: min(270px, calc(100% - 24px)); padding: 11px 13px; }.explorer-objective strong { font-size: 20px; }.explorer-objective p { margin-top: 5px; font-size: 10px; }
   .controls-help { display: none; }
-  .navigation-start { display: none; }
   .interact-prompt { display: none; }
   .component-tag { display: none; }
   .touch-controls { position: absolute; z-index: 12; inset: 0; display: block; pointer-events: none; }

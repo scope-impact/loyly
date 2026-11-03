@@ -38,7 +38,7 @@ npm run spike
 
 Open <http://127.0.0.1:5173/?variant=A&prototype=1>.
 
-Desktop controls: `WASD`/arrow keys to move, `Shift` to run, `Space` to jump and `E` to inspect a nearby station. Mobile uses an on-screen joystick, jump and inspect controls.
+While the recorded cycle plays, the operator automatically walks to the active assembly station. Desktop controls (`WASD`/arrow keys, `Shift`, `Space`) or the mobile joystick temporarily take over; cycle-follow resumes after a short idle period. Press `E` or use Inspect at a nearby station.
 
 Ecctrl 2.x accepts movement through its imperative controller API. `OperatorInput` bridges the Drei keyboard state and Ecctrl touch stores into that API; displaying controls alone does not connect them.
 
