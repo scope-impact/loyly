@@ -5,6 +5,13 @@ regeneration workflows, exposed through `.pi/harness/extension.ts` and executed 
 `.pi/harness/orc-worker/`. It is separate from `model/loyly`, which describes the
 product being regenerated.
 
+ORC is itself Grain-native. The Pi harness is therefore the `:loyly.pi-harness` Grain service
+area inside ORC's existing tenant-scoped runtime, not a second event system or an adapter around
+ORC. Every harness state change passes through a Grain command and registered event; every public
+read passes through a Grain query over a registered read model. Grain processors react to facts
+when asynchronous coordination is required. ORC `:sheet/*` events remain execution authority and
+are consumed directly by harness projections rather than copied into harness progress events.
+
 The C4 architecture and supporting runtime views derived from this contract are maintained in
 [`.pi/architecture.md`](../../.pi/architecture.md). That document identifies target versus
 current behavior explicitly; this model remains the observable source of truth.
@@ -49,15 +56,21 @@ unclassified or doubly classified scenarios.
   both exact descriptors. OCI tags are lookup aliases only. `initial-generation.allium` is the
   explicit no-oracle path and produces only an ungraded candidate. The pipeline also defines
   bounded verification repair before grading.
-- `regeneration_event_model.clj` describes only the harness-owned Grain event topology.
+- `regeneration_event_model.clj` mandates the harness-owned Grain service area. Its block names
+  use the `:loyly.pi-harness/*` namespace, its public commands, events, read models, queries, and
+  processors must reconcile with live registries, and every event has an explicit `defevent`
+  history contract. Startup and CI fail strict validation on missing, extra, or mismatched blocks.
 - `.pi/affordances.schema.json` defines the public Pi tool inputs; observable outcomes and
   refusals remain in the Allium and Gherkin contracts rather than a parallel YAML model.
 - `GLOSSARY.md` fixes the generation, source-cut, and regeneration vocabulary.
 - `docs/adr/0001-session-and-cycle-ownership.md` records why ORC owns the inner cycle while
   operator sessions own approval and outer continuation.
+- `docs/adr/0002-pi-harness-is-an-orc-grain-service-area.md` records why the harness shares
+  ORC's Grain runtime and projects ORC execution facts instead of duplicating them.
 
-ORC's own `:sheet/*` execution events remain governed by ORC. Löyly product events
-remain governed by `model/loyly`. This model does not duplicate either stream.
+ORC's own `:sheet/*` execution events remain governed by ORC but may feed Pi-harness read models
+and processors. Löyly product events remain governed by `model/loyly`. The three service areas
+share Grain infrastructure without duplicating one another's facts.
 
 ## Implementation namespace map
 
@@ -94,9 +107,10 @@ means “not yet translated into E2E,” not necessarily “underlying implement
 Executable-test evidence under `.pi/harness/allure-results/e2e/` is generated and not checked in;
 the complete skipped inventory remains visible in Vitest's run summary.
 
-ORC tick state remains workflow authority. Grain stores a durable observational stage/attempt
-projection for reconnecting clients, plus preparation approval, observations, and measurements;
-the projection cannot advance ORC and does not duplicate ORC execution events.
+ORC tick state remains workflow authority. The Pi-harness Grain service area projects durable
+stage/attempt views directly from ORC events for reconnecting clients and owns preparation
+approval, observations, and measurements. The projection cannot advance ORC and emits no mirror
+progress event.
 
 ## Known implementation limits and gaps
 
@@ -162,5 +176,12 @@ The contract exposes gaps found while deriving it from the current implementatio
     instrument-oracle descriptor. The target contract instead selects independently calibrated
     product graders by stable item identity plus full Gherkin scenario digest, then combines the
     independently pinned product and instrument descriptors only in cycle evidence.
+20. The current harness implementation uses `:loyly/*` runtime blocks, direct read helpers, and a
+    duplicate harness progress event. It lacks the declared cycle-preparation blocks, Grain
+    `defquery` handlers, registered `defevent` history contracts, the Grain Event Model runtime
+    package, and strict startup/model-conformance validation. ORC also does not yet register the
+    `:sheet` Event Model required to resolve the harness's cross-area command and event edges.
+    These dependencies must converge with the target `:loyly.pi-harness/*` service area before
+    the harness is Grain-conformant.
 
 These are reconciliation obligations, not alternative sources of truth.

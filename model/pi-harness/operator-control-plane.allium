@@ -96,6 +96,26 @@ entity DurableMeasurementReceipt {
     complete: Boolean
 }
 
+rule ValidateHarnessGrainServiceArea {
+    when: StartPiHarnessGrainServiceArea(runtime)
+    requires: runtime = orc_grain_runtime()
+    requires: registered_service_area_loaded(":loyly.pi-harness")
+    requires: strict_event_model_matches_live_registries(runtime, ":loyly.pi-harness")
+    requires: every_required_allium_trace_link_resolves(":loyly.pi-harness")
+    ensures: PiHarnessControlPlaneAvailable(runtime: runtime)
+}
+
+rule DispatchApprovedPreparationToOrc {
+    when: CyclePreparationApproved(preparation)
+    requires: preparation.status = approved
+    requires: not orc_tick_dispatched_for(preparation.identity)
+    ensures: OrcGrainCommandDispatched(
+        preparation_identity: preparation.identity,
+        command_identity: deterministic_orc_command_identity(preparation),
+        preparation_digest: preparation.digest
+    )
+}
+
 rule PrepareCutTask {
     when: PrepareRegenerationCut(operator_session, request_identity, request_digest, source_commit, backend)
     requires: full_source_commit(source_commit)
@@ -249,7 +269,7 @@ rule ReadDurableMeasurement {
 }
 
 rule ProjectCycleProgress {
-    when: OrcExecutionStateObserved(task, stage, status, builder_session_identity, durable_cursor)
+    when: OrcExecutionEventProjected(task, stage, status, builder_session_identity, durable_cursor)
     requires: task.kind = regeneration_cycle
     requires: task.trace_identity != null
     ensures: CycleProgressProjected(
@@ -260,6 +280,12 @@ rule ProjectCycleProgress {
         builder_session_identity: builder_session_identity,
         durable_cursor: durable_cursor
     )
+}
+
+invariant HarnessDoesNotDuplicateOrcExecutionFacts {
+    for progress in CycleProgressViews:
+        projection_source(progress) = authoritative_orc_sheet_events(progress.trace_identity) and
+        not exists HarnessProgressEvent{cycle_identity: progress.cycle_identity}
 }
 
 rule ReadCycleProgress {

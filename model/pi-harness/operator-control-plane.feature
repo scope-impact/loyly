@@ -2,6 +2,32 @@ Feature: Session-independent generation and regeneration control
   Public operations validate identities, expose durable task outcomes, bind reviewed
   selections, and allow authorized operator sessions to observe builder work.
 
+  Rule: The Pi harness is a strictly validated Grain service area inside ORC
+
+    @item-01-043 @skip
+    Scenario: Startup refuses a harness topology that differs from its Grain Event Model
+      Given ORC and the Pi harness have loaded their registered Grain service areas
+      When the shared Grain runtime starts the Pi harness
+      Then strict validation reconciles every harness command, event, read model, query, processor, schema, and edge
+      And missing, extra, or mismatched runtime blocks prevent startup
+      And CI also resolves every required Grain-to-Allium trace link
+
+    @item-01-044 @skip
+    Scenario: Public harness operations use Grain commands and queries
+      Given the Pi harness is running inside ORC's tenant-scoped Grain runtime
+      When an operator changes or reads harness state
+      Then every state change passes through a registered Grain command and event
+      And every public read passes through a registered Grain query over a read model
+      And no public operation appends a bare event or reads the event store directly
+
+    @item-01-045 @skip
+    Scenario: Harness progress is projected from authoritative ORC events
+      Given an approved cycle is executing through ORC
+      When ORC records tree and node execution events
+      Then the harness progress read model projects the current stage and builder-session reference
+      And reconnecting clients read that projection through a Grain query
+      And the harness emits no duplicate progress event
+
   Rule: Every public operation refuses malformed or conflicting identities
 
     @item-01-041 @skip

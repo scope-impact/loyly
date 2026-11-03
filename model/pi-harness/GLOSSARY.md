@@ -23,6 +23,17 @@ complete only when every behavior item appears exactly once and decomposing the 
 reproduces the same slice mappings.
 _Avoid_: File concatenation, OCI assembly, candidate build
 
+**Pi harness service area**:
+The `:loyly.pi-harness` Grain service area running inside ORC's existing Grain runtime. It owns
+durable regeneration-domain facts and projections but does not copy ORC's `:sheet/*` execution
+facts or the generated product's events.
+_Avoid_: Separate event system, ORC adapter, product service area
+
+**ORC execution projection**:
+A Pi-harness read model derived from authoritative ORC `:sheet/*` events for observation and
+reconnection. It cannot advance execution and introduces no duplicate progress event.
+_Avoid_: Harness progress event, workflow authority
+
 **Generation**:
 An explicitly requested creation of an ungraded candidate from an approved source cut. Existing
 candidate history does not change Generation into Regeneration. Generation has no parent
