@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { CSS2DObject, CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
 import architectureSource from "../../../.pi/architecture.md?raw";
 import { E2E_RECORDING } from "./e2e-replay.js";
 import "./style.css";
@@ -387,6 +388,10 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setClearColor(0x0b1623);
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.domElement.className = "factory-label-layer";
+labelRenderer.domElement.setAttribute("aria-hidden", "true");
+canvas.insertAdjacentElement("afterend", labelRenderer.domElement);
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x0b1623, 0.018);
@@ -515,14 +520,21 @@ function c4Color(node) {
 }
 
 function makeTextSprite(lines, accent = "#f1f0e8", scale = 1) {
-  const labelCanvas = document.createElement("canvas"); labelCanvas.width = 512; labelCanvas.height = 160;
-  const ctx = labelCanvas.getContext("2d"); ctx.clearRect(0, 0, 512, 160); ctx.textAlign = "center";
-  ctx.fillStyle = "rgba(8,17,28,.88)"; ctx.fillRect(6, 9, 500, 142);
-  ctx.strokeStyle = accent; ctx.lineWidth = 4; ctx.strokeRect(6, 9, 500, 142);
-  ctx.fillStyle = "#f1f0e8"; ctx.font = "600 34px sans-serif"; ctx.fillText(lines[0].slice(0, 30), 256, 67);
-  ctx.fillStyle = accent; ctx.font = "500 22px sans-serif"; ctx.fillText(lines[1].slice(0, 42), 256, 111);
-  const texture = new THREE.CanvasTexture(labelCanvas); texture.colorSpace = THREE.SRGBColorSpace;
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
+  const labelCanvas = document.createElement("canvas"); labelCanvas.width = 1024; labelCanvas.height = 320;
+  const ctx = labelCanvas.getContext("2d"); ctx.clearRect(0, 0, 1024, 320); ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(8,17,28,.96)"; ctx.fillRect(12, 18, 1000, 284);
+  ctx.strokeStyle = accent; ctx.lineWidth = 8; ctx.strokeRect(12, 18, 1000, 284);
+  ctx.lineJoin = "round"; ctx.strokeStyle = "rgba(0,0,0,.82)"; ctx.lineWidth = 10;
+  ctx.font = "600 68px sans-serif"; ctx.strokeText(lines[0].slice(0, 30), 512, 135);
+  ctx.fillStyle = "#ffffff"; ctx.fillText(lines[0].slice(0, 30), 512, 135);
+  ctx.font = "600 42px sans-serif"; ctx.strokeText(lines[1].slice(0, 42), 512, 228);
+  ctx.fillStyle = accent; ctx.fillText(lines[1].slice(0, 42), 512, 228);
+  const texture = new THREE.CanvasTexture(labelCanvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearMipmapLinearFilter; texture.magFilter = THREE.LinearFilter;
+  texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); texture.generateMipmaps = true;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false, alphaTest: .025, toneMapped: false }));
+  sprite.renderOrder = 20;
   sprite.scale.set(5.1 * scale, 1.6 * scale, 1); return sprite;
 }
 
@@ -546,7 +558,13 @@ function addC4Node(node) {
     : new THREE.Mesh(new THREE.BoxGeometry(1.75, height, 1.28), material);
   body.position.y = .24 + height / 2; body.castShadow = true; group.add(body);
   const cap = new THREE.Mesh(new THREE.BoxGeometry(1.55, .08, 1.04), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2 })); cap.position.y = height + .28; group.add(cap);
-  const label = makeTextSprite([node.name, node.type], `#${new THREE.Color(color).getHexString()}`, .52); label.position.set(0, height + 1.02, 0); group.add(label);
+  const labelElement = document.createElement("div");
+  labelElement.className = "c4-world-label";
+  labelElement.style.setProperty("--label-accent", `#${new THREE.Color(color).getHexString()}`);
+  const labelName = document.createElement("strong"); labelName.textContent = node.name;
+  const labelType = document.createElement("small"); labelType.textContent = node.type;
+  labelElement.append(labelName, labelType);
+  const label = new CSS2DObject(labelElement); label.position.set(0, height + 1.04, 0); group.add(label);
   worldGroup.add(group); nodeMeshes.push(group);
 }
 
@@ -952,7 +970,7 @@ canvas.addEventListener("keydown", (event) => {
 
 function resize() {
   const rect = canvas.getBoundingClientRect(); if (!rect.width || !rect.height) return;
-  renderer.setSize(rect.width, rect.height, false); camera.aspect = rect.width / rect.height; camera.updateProjectionMatrix();
+  renderer.setSize(rect.width, rect.height, false); labelRenderer.setSize(rect.width, rect.height); camera.aspect = rect.width / rect.height; camera.updateProjectionMatrix();
 }
 new ResizeObserver(resize).observe(canvas);
 
@@ -996,7 +1014,7 @@ function frame(now) {
       camera.position.copy(cameraFlight.position); controls.target.copy(cameraFlight.target); cameraFlight = null; controls.enabled = true;
     }
   }
-  controls.update(); renderer.render(scene, camera); requestAnimationFrame(frame);
+  controls.update(); renderer.render(scene, camera); labelRenderer.render(scene, camera); requestAnimationFrame(frame);
 }
 
 // Shareable prototype variants ------------------------------------------------
