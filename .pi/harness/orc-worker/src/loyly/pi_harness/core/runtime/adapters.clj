@@ -59,7 +59,8 @@
                  :cutsRoot cuts-root
                  :outputRoot output-root}
         result (successful-result! "builder adapter"
-                                   (json-process/invoke! script request))]
+                                   (json-process/invoke! script request
+                                                        {:working-directory project-root}))]
     {:output-root (:outputRoot result)
      :builder-session-id (:builderSessionId result)
      :builder (builder-id)}))
