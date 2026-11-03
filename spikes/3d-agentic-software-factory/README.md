@@ -34,7 +34,7 @@ npm run spike
 
 Open <http://127.0.0.1:5173/?variant=A>.
 
-Use `?chapter=0` through `?chapter=14` to open a specific beat for review or screenshots. `Alt` + left/right arrow changes variants.
+Use `?chapter=0` through `?chapter=14` to open a specific beat. Add `&progress=.5` to select a deterministic point inside that performance for review or screenshots. `Alt` + left/right arrow changes variants.
 
 Play, pause, scrub, or jump between chapters. **Inspect this moment** freezes playback and reveals the historical evidence behind the dramatic metaphor. The final scene unlocks orbit-based exploration without making navigation a prerequisite for understanding the story.
 

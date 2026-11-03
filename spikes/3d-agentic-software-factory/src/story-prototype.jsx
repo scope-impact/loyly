@@ -98,7 +98,7 @@ function Grain({ position = [0, 1.75, .5], scale = 1, awake = true }) {
   </group>;
 }
 
-function Runi({ position = [0, 0, 0], scale = 1, awake = true, kneel = false, showLumo = true, showGrain = true }) {
+function Runi({ position = [0, 0, 0], scale = 1, awake = true, kneel = false, showLumo = true, showGrain = true, gesture = "rest" }) {
   const ref = useRef();
   useFrame(({ clock }) => { if (ref.current) ref.current.rotation.y = Math.sin(clock.elapsedTime * .55) * .025; });
   return <group ref={ref} position={position} scale={scale} rotation={[kneel ? .08 : 0, 0, 0]}>
@@ -108,10 +108,13 @@ function Runi({ position = [0, 0, 0], scale = 1, awake = true, kneel = false, sh
       {showGrain && <Grain />}
       <RoundedBox args={[2.05, 1.55, 1.45]} radius={.5} smoothness={5} position={[0, 4.38, 0]}><meshPhysicalMaterial color="#1c3544" transmission={.32} transparent opacity={.86} roughness={.15} /></RoundedBox>
       {showLumo && <Lumo position={[0, 4.35, .05]} scale={.72} active={awake} />}
-      {[-1, 1].map((side) => <group key={side} position={[side * 1.55, 2.45, 0]} rotation={[0, 0, side * -.08]}>
+      {[-1, 1].map((side) => {
+        const point = gesture === "point" && side === 1;
+        const protect = gesture === "protect";
+        return <group key={side} position={[side * 1.55, 2.45, 0]} rotation={[point ? -1.1 : protect ? -.25 : 0, 0, point ? -.65 : side * (protect ? -.55 : -.08)]}>
         <mesh position={[0, -.65, 0]}><capsuleGeometry args={[.32, 1.35, 6, 12]} /><meshStandardMaterial color="#416979" metalness={.35} /></mesh>
         <mesh position={[0, -1.55, .12]} scale={[1.15, .7, 1.25]}><sphereGeometry args={[.42, 14, 10]} /><meshStandardMaterial color="#d9c29c" /></mesh>
-      </group>)}
+      </group>;})}
       {[-.72, .72].map((x) => <group key={x} position={[x, .65, 0]}>
         <mesh><capsuleGeometry args={[.38, 1.3, 6, 12]} /><meshStandardMaterial color="#294a59" metalness={.4} /></mesh>
         <mesh position={[0, -.95, .2]} scale={[1.25, .55, 1.8]}><sphereGeometry args={[.48, 14, 10]} /><meshStandardMaterial color="#172e3a" /></mesh>
@@ -156,7 +159,7 @@ function Drone({ position, verdict = "idle", index = 0, verifier = false }) {
   const ref = useRef();
   useFrame(({ clock }) => { if (ref.current) ref.current.position.y = position[1] + Math.sin(clock.elapsedTime * 2.2 + index) * .09; });
   const color = verdict === "pass" ? "#53c8bd" : verdict === "fail" ? "#f05b59" : "#d7e2e4";
-  return <group ref={ref} position={position}>
+  return <group ref={ref} position={position} scale={verifier ? 1 : .82 + (index % 4) * .07} rotation={[0, index * .2, (index % 3 - 1) * .08]}>
     <mesh><octahedronGeometry args={[verifier ? .52 : .38, 1]} /><meshStandardMaterial color="#e7ece9" metalness={.55} roughness={.25} /></mesh>
     <mesh position={[0, 0, .33]}><sphereGeometry args={[verifier ? .18 : .12, 12, 8]} /><meshBasicMaterial color={color} toneMapped={false} /></mesh>
     <mesh position={[-.55, 0, 0]} rotation={[0, 0, .22]}><boxGeometry args={[.7, .05, .22]} /><meshStandardMaterial color="#718897" /></mesh>
@@ -164,14 +167,71 @@ function Drone({ position, verdict = "idle", index = 0, verifier = false }) {
   </group>;
 }
 
-function Sauna({ working = false, cold = false }) {
+function Sauna({ working = false, cold = false, withLo = true }) {
   return <group>
     <mesh position={[0, -.15, 0]}><boxGeometry args={[14, .3, 10]} /><meshStandardMaterial color="#9f704c" /></mesh>
     {[-5.2, -3.8, 3.8, 5.2].map((x) => <mesh key={x} position={[x, .7, 2.6]}><boxGeometry args={[1.05, .22, 7]} /><meshStandardMaterial color="#d9c29c" roughness={.9} /></mesh>)}
-    <group position={[-3.8, .3, -1.8]}><ProductPart kind="calendar" color="#6ea7bf" /><Lo position={[0, 1.4, 0]} scale={.55} cold={cold} /></group>
+    <group position={[-3.8, .3, -1.8]}><ProductPart kind="calendar" color="#6ea7bf" />{withLo && <Lo position={[0, 1.4, 0]} scale={.55} cold={cold} />}</group>
     <group position={[0, .3, -1.8]}><ProductPart kind="heat" color={working ? "#f18a47" : "#61768a"} /><pointLight color="#ef7c39" intensity={working ? 28 : 0} distance={5} /></group>
     <group position={[3.8, .3, -1.8]}><ProductPart kind="billing" color="#53c8bd" /></group>
     {working && <Sparkles count={90} scale={[12, 7, 8]} size={5} speed={.18} color="#f7e0b3" opacity={.32} />}
+  </group>;
+}
+
+function ColdSaunaScene({ local }) {
+  let x;
+  if (local < .25) x = -5.2 + ease(local / .25) * 1.4;
+  else if (local < .5) x = -3.8 + ease((local - .25) / .25) * 3.8;
+  else if (local < .72) x = ease((local - .5) / .22) * 3.8;
+  else x = 3.8 - ease((local - .72) / .28) * 3.2;
+  const realizesFailure = local > .66;
+  return <group>
+    <Sauna cold withLo={false} />
+    <Lo position={[x, realizesFailure ? 1.15 : 1.75, -1.4]} scale={realizesFailure ? .7 : .9} cold={realizesFailure} />
+    <mesh position={[-3.8, 2.5, -1.8]} scale={local > .18 ? 1 : .01}><sphereGeometry args={[.16, 12, 8]} /><meshBasicMaterial color="#53c8bd" /></mesh>
+    <mesh position={[3.8, 2.5, -1.8]} scale={local > .52 ? 1 : .01}><sphereGeometry args={[.16, 12, 8]} /><meshBasicMaterial color="#53c8bd" /></mesh>
+    <mesh position={[0, 2.5, -1.8]} scale={realizesFailure ? 1 : .01}><sphereGeometry args={[.2, 12, 8]} /><meshBasicMaterial color="#f05b59" /></mesh>
+  </group>;
+}
+
+function SignalLine({ progress, from = [3, 2.2, 0], to = [-3.4, 4.2, 0] }) {
+  const start = new THREE.Vector3(...from);
+  const end = new THREE.Vector3(...to);
+  const point = start.clone().lerp(end, ease(progress));
+  return <group>
+    <Line points={[start, end]} color="#f05b59" transparent opacity={.35} lineWidth={2} />
+    <mesh position={point}><sphereGeometry args={[.2, 12, 8]} /><meshBasicMaterial color="#ff4f55" toneMapped={false} /></mesh>
+    <pointLight position={point} color="#ff4f55" intensity={18} distance={4} />
+  </group>;
+}
+
+function FailureScene({ local }) {
+  const failed = local > .48;
+  const signal = clamp((local - .58) / .24);
+  return <group>
+    <Workshop built={6} failure={failed} />
+    <Drone verifier position={[6.1, 4.2, 0]} verdict={failed ? "fail" : "idle"} />
+    {failed && <SignalLine progress={signal} />}
+  </group>;
+}
+
+function BehaviorDance({ local }) {
+  const travel = ease(clamp(local / .36));
+  const split = local > .32;
+  const reunited = local > .75;
+  return <group>
+    <Sauna working={local > .45} withLo={false} />
+    {!reunited && <Lo position={[-4 + travel * 4, 1.8, -1.1]} scale={.9} split={split} />}
+    {split && !reunited && <>
+      <Lo position={[-3.8, 1.65, -1.4]} scale={.48} />
+      <Lo position={[0, 1.7, -1.4]} scale={.48} />
+      <Lo position={[3.8, 1.65, -1.4]} scale={.48} />
+    </>}
+    {reunited && <Lo position={[0, 2.2, .4]} scale={1.15} />}
+    {local > .56 && <group position={[0, .3, 1.6]}>
+      <Lo position={[-1.2, 1, 0]} scale={.38} />
+      <Lo position={[1.2, 1, 0]} scale={.38} cold={local > .64 && local < .72} />
+    </group>}
   </group>;
 }
 
@@ -190,10 +250,10 @@ const PARTS = [
   ["calendar", "#53c8bd"], ["heat", "#f18a47"], ["billing", "#8bc56f"],
 ];
 
-function Workshop({ built = 0, failure = false, reborn = false }) {
+function Workshop({ built = 0, failure = false, reborn = false, gesture = "rest" }) {
   return <group>
     <mesh position={[0, -.2, 0]}><boxGeometry args={[18, .4, 13]} /><meshStandardMaterial color="#132b37" /></mesh>
-    <Runi position={[-3.4, 0, 0]} scale={.8} />
+    <Runi position={[-3.4, 0, 0]} scale={.8} gesture={gesture} />
     <Candidate position={[3, .15, 0]} scale={.82} anxious={failure} alive={!failure} />
     {PARTS.map(([kind, color], index) => {
       const angle = index / PARTS.length * Math.PI * 2;
@@ -205,11 +265,15 @@ function Workshop({ built = 0, failure = false, reborn = false }) {
   </group>;
 }
 
-function Archive({ dissolve = false }) {
+function Archive({ dissolve = false, recording = false }) {
   return <group>
     <mesh position={[0, -.2, 0]}><cylinderGeometry args={[8, 8, .4, 48]} /><meshStandardMaterial color="#0b3137" /></mesh>
-    <Runi position={[-3.8, 0, 0]} scale={.78} kneel />
+    <Runi position={[-3.8, 0, 0]} scale={.78} kneel gesture="protect" />
     <Candidate position={[2.7, .2, 0]} scale={.85} anxious={!dissolve} translucent={dissolve} />
+    {recording && <group position={[-3.7, 1.7, 1.6]} rotation={[-.2, 0, 0]}>
+      <RoundedBox args={[1.5, .95, .12]} radius={.08} smoothness={2}><meshStandardMaterial color="#d9c29c" emissive="#53c8bd" emissiveIntensity={.25} /></RoundedBox>
+      {[0, 1, 2].map((line) => <mesh key={line} position={[0, .22 - line * .22, .08]}><boxGeometry args={[1.05 - line * .16, .045, .02]} /><meshBasicMaterial color={line === 0 ? "#f05b59" : "#287d78"} /></mesh>)}
+    </group>}
     {Array.from({ length: 5 }, (_, index) => <group key={index} position={[-6 + index * 3, .4, -4.4]}><Candidate scale={.28} translucent /><Sparkles count={10} scale={1.8} color="#53c8bd" /></group>)}
     <Sparkles count={80} scale={[15, 8, 10]} size={2.8} speed={.12} color="#53c8bd" opacity={.45} />
   </group>;
@@ -220,6 +284,7 @@ function GraderFormation({ physiology = false }) {
     <mesh position={[0, -.2, 0]}><cylinderGeometry args={[9, 9, .35, 48]} /><meshStandardMaterial color="#dce3df" /></mesh>
     <Candidate position={[0, .1, 0]} scale={.75} anxious />
     <Lumo position={[-4.8, 3, 0]} scale={.8} mood="hurt" />
+    <mesh position={[-2.7, 2.5, 0]}><boxGeometry args={[.05, 5.2, 8.8]} /><meshPhysicalMaterial color="#d8f4f4" transmission={.6} transparent opacity={.22} roughness={.05} /></mesh>
     {Array.from({ length: 11 }, (_, index) => {
       const angle = Math.PI * .12 + index / 10 * Math.PI * 1.76;
       const fail = index === 2 || index === 10;
@@ -229,37 +294,72 @@ function GraderFormation({ physiology = false }) {
   </group>;
 }
 
+function LanguageBody({ color, index, x }) {
+  const shapes = [
+    <RoundedBox key="ts" args={[2.2, 2.7, 1.5]} radius={.28} smoothness={4} position={[0, 2, 0]}><meshStandardMaterial color={color} /></RoundedBox>,
+    <mesh key="rust" position={[0, 2, 0]}><dodecahedronGeometry args={[1.45, 0]} /><meshStandardMaterial color={color} metalness={.3} /></mesh>,
+    <mesh key="java" position={[0, 2, 0]}><capsuleGeometry args={[.95, 1.4, 8, 18]} /><meshStandardMaterial color={color} /></mesh>,
+    <group key="rails">{[0, 1, 2].map((tier) => <RoundedBox key={tier} args={[2.35 - tier * .35, .72, 1.5]} radius={.25} smoothness={4} position={[0, 1.2 + tier * .72, 0]}><meshStandardMaterial color={color} /></RoundedBox>)}</group>,
+  ];
+  return <group position={[x, 0, 0]}>
+    {shapes[index]}
+    <group position={[0, 2.25, .78]}><Eye x={-.3} /><Eye x={.3} /></group>
+    <Lo position={[0, 4.2, 0]} scale={.48} />
+    <mesh position={[0, .2, .15]} scale={[1.4, .5, 1.6]}><sphereGeometry args={[.55, 14, 8]} /><meshStandardMaterial color="#273943" /></mesh>
+  </group>;
+}
+
 function LanguageBodies() {
   const bodies = [
     ["#6ea7bf", -6], ["#d57545", -2], ["#e8b84d", 2], ["#b45b63", 6],
   ];
   return <group>
     <mesh position={[0, -.2, 0]}><boxGeometry args={[19, .4, 12]} /><meshStandardMaterial color="#172a34" /></mesh>
-    {bodies.map(([color, x], index) => <group key={color} position={[x, 0, 0]} scale={[.72 + index * .05, .72, .72]}>
-      <Runi showLumo={false} showGrain={false} />
-      <mesh position={[0, 4.35, .5]}><sphereGeometry args={[.55, 16, 12]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={.8} /></mesh>
-      <Lo position={[0, 5.5, 0]} scale={.5} />
-    </group>)}
+    {bodies.map(([color, x], index) => <LanguageBody key={color} color={color} index={index} x={x} />)}
+  </group>;
+}
+
+function FinalNestedScene() {
+  return <group>
+    <mesh position={[0, -.2, 0]}><cylinderGeometry args={[8, 8, .35, 48]} /><meshStandardMaterial color="#5c3726" /></mesh>
+    <Runi position={[0, 0, -2]} scale={.95} gesture="protect" />
+    <group position={[0, 1.25, .9]} scale={.72}>
+      <Candidate translucent alive={false} />
+      <group position={[0, 1.5, .2]} scale={.28}>
+        <mesh position={[0, -.15, 0]}><boxGeometry args={[5, .2, 3.2]} /><meshStandardMaterial color="#a87850" /></mesh>
+        <ProductPart kind="calendar" color="#6ea7bf" position={[-1.3, 0, 0]} />
+        <ProductPart kind="heat" color="#f18a47" position={[0, 0, 0]} />
+        <ProductPart kind="billing" color="#53c8bd" position={[1.3, 0, 0]} />
+        <Lo position={[0, 1.2, 0]} scale={.7} />
+      </group>
+    </group>
+    <Sparkles count={90} scale={[13, 8, 9]} size={4} speed={.15} color="#f7d79f" opacity={.42} />
   </group>;
 }
 
 function StoryStage({ chapterIndex, local, variant, explore }) {
   const reveal = ease(local);
-  if (chapterIndex === 0) return <Sauna cold />;
+  if (chapterIndex === 0) return <ColdSaunaScene local={local} />;
   if (chapterIndex === 1) return <group><Lumo position={[0, 2.7, 0]} scale={1.25} /><Float speed={1.4} floatIntensity={1.2}>{Array.from({ length: 9 }, (_, i) => <mesh key={i} position={[Math.sin(i * 2) * 3.5, 1 + (i % 4), Math.cos(i) * 2]} rotation={[i, i * .4, 0]}><tetrahedronGeometry args={[.35 + (i % 3) * .15]} /><meshBasicMaterial color="#a98bff" wireframe /></mesh>)}</Float></group>;
   if (chapterIndex === 2) return <Runi position={[0, 0, 0]} scale={1.05} awake={local > .18} />;
-  if (chapterIndex === 3) return <group><Runi position={[-2.2, 0, 0]} scale={.9} /><mesh position={[2.7, 3.1, 0]} rotation={[0, 0, -.1]}><boxGeometry args={[1.4, 2.2, .28]} /><meshStandardMaterial color="#f2a93b" emissive="#f2a93b" emissiveIntensity={1.2} /></mesh><Candidate position={[5.5, .2, -2]} scale={.45} translucent /></group>;
-  if (chapterIndex === 4) return <Workshop built={Math.ceil(reveal * 6)} />;
-  if (chapterIndex === 5) return <group><Workshop built={6} failure={local > .48} /><Drone verifier position={[6.1, 4.2, 0]} verdict={local > .48 ? "fail" : "idle"} /></group>;
-  if (chapterIndex === 6) return <Archive dissolve={local > .56} />;
-  if (chapterIndex === 7) return <Workshop built={6} reborn />;
-  if (chapterIndex === 8) return <group><Sauna working /><Lo position={[-4 + reveal * 8, 1.9, 0]} scale={.9} split={local > .45} /></group>;
+  if (chapterIndex === 3) return <group>
+    <Runi position={[-2.2, 0, 0]} scale={.9} gesture="protect" />
+    <mesh position={[2.7, 3.1, 0]} rotation={[0, 0, -.1]}><boxGeometry args={[1.4, 2.2, .28]} /><meshStandardMaterial color="#f2a93b" emissive="#f2a93b" emissiveIntensity={1.2} /></mesh>
+    {PARTS.slice(0, 5).map(([kind, color], index) => <ProductPart key={kind} kind={kind} color={color} position={[1.1 + (index % 3) * 1.6, 5.4 - Math.floor(index / 3) * 1.4, -1]} />)}
+    <mesh position={[4.4, 2.3, -1.2]}><boxGeometry args={[.08, 4.8, 4.8]} /><meshPhysicalMaterial color="#dff8f8" transmission={.7} transparent opacity={.25} /></mesh>
+    <Candidate position={[5.2 + reveal * 3.5, .2, -2]} scale={.45} translucent />
+  </group>;
+  if (chapterIndex === 4) return <Workshop built={Math.ceil(reveal * 6)} gesture="protect" />;
+  if (chapterIndex === 5) return <FailureScene local={local} />;
+  if (chapterIndex === 6) return <Archive dissolve={local > .56} recording />;
+  if (chapterIndex === 7) return <Workshop built={6} reborn gesture="protect" />;
+  if (chapterIndex === 8) return <BehaviorDance local={local} />;
   if (chapterIndex === 9) return <GraderFormation />;
   if (chapterIndex === 10) return <GraderFormation physiology />;
-  if (chapterIndex === 11) return <Archive dissolve />;
-  if (chapterIndex === 12) return <group><Runi position={[-2.8, 0, 0]} scale={.9} kneel /><Lumo position={[2.6, 2.8, 0]} scale={1.05} mood="hurt" />{[-2.2, 0, 2.2].map((x, index) => <mesh key={x} position={[x + 2.4, .35, -3]}><cylinderGeometry args={[.7, .7, .22, 24]} /><meshStandardMaterial color={index === 1 ? "#f2a93b" : "#536b77"} emissive={index === 1 ? "#f2a93b" : "#000"} emissiveIntensity={.8} /></mesh>)}</group>;
+  if (chapterIndex === 11) return <Archive dissolve recording />;
+  if (chapterIndex === 12) return <group><Runi position={[-2.8, 0, 0]} scale={.9} kneel gesture="point" /><Lumo position={[2.6, 2.8, 0]} scale={1.05} mood="hurt" />{[-2.2, 0, 2.2].map((x, index) => <group key={x} position={[x + 2.4, .35, -3]}><mesh><cylinderGeometry args={[.7, .7, .22, 24]} /><meshStandardMaterial color={index === 1 ? "#f2a93b" : "#536b77"} emissive={index === 1 ? "#f2a93b" : "#000"} emissiveIntensity={.8} /></mesh>{index === 1 && <Line points={[[0,.2,0],[0,2.3,1],[1.2,3.2,1]]} color="#f2a93b" lineWidth={3} />}</group>)}</group>;
   if (chapterIndex === 13) return <LanguageBodies />;
-  return <group><Sauna working /><group position={[0, .4, -4]} scale={.42}><Runi /></group><Lo position={[0, 2, 0]} scale={1.1} /></group>;
+  return <FinalNestedScene />;
 }
 
 const cameraShots = [
@@ -340,14 +440,31 @@ function ChapterRail({ active, setTime }) {
   return <ol className="chapter-rail">{CHAPTERS.map((chapter, index) => <li key={chapter.id} className={index === active ? "active" : index < active ? "past" : ""}><button onClick={() => setTime(chapterStarts[index] + .01)}><span>{index + 1}</span><em>{chapter.title}</em></button></li>)}</ol>;
 }
 
+function BeatOverlay({ index, local }) {
+  if (index === 0) return <div className="diegetic-status sauna-status" aria-hidden="true"><span className={local > .18 ? "ok" : ""}>Booking</span><span className={local > .66 ? "bad" : ""}>Heater</span><span className={local > .52 ? "ok" : ""}>Billing</span></div>;
+  if (index === 3) return <div className="sealed-direction" aria-hidden="true"><strong>Resident stories</strong><span>11 accepted behaviors</span><span>C4 architecture</span><span>Scope + stack</span><em>Previous answers do not enter</em></div>;
+  if (index === 5) return <>
+    <div className="done-sign" style={{ opacity: local < .58 ? 1 : 0, transform: `translate(-50%, ${Math.min(0, -180 + local * 500)}px) rotate(${-3 + local * 4}deg)` }}>DONE!</div>
+    {local > .48 && <div className="toolbox-callout"><strong>npm</strong><span>toolbox empty</span></div>}
+  </>;
+  if (index === 6) return <div className="attempt-card"><span>Attempt 1</span><strong>Verification failed</strong><em>npm not found</em><small>recorded—not secretly patched</small></div>;
+  if (index === 9) return <div className="verdict-board"><strong>9</strong><span>green</span><strong className="red">2</strong><span>red</span><em>Lumo cannot reach the graders</em></div>;
+  if (index === 10) return <div className="truth-cards"><article><span>Physiology</span><strong>8 / 8</strong><em>complete</em></article><article><span>Behavior</span><strong>9 / 11</strong><em>incomplete</em></article></div>;
+  if (index === 12) return <div className="choice-labels"><span>Stop</span><span>Correct intent</span><span>Begin a child generation</span></div>;
+  if (index === 13) return <div className="language-verdicts">{[["TypeScript","10/11"],["Rust","9/11"],["Java","9/11"],["Rails","0/11"]].map(([name, score]) => <article key={name}><span>{name}</span><strong>{local > .55 ? "11/11" : score}</strong><em>{local > .55 ? "fresh regrade" : "baseline"}</em></article>)}</div>;
+  if (index === 14) return <div className="final-nesting"><span>Runi · embodied harness</span><span>Candidate · generated body</span><span>Sauna · expressed behavior</span></div>;
+  return null;
+}
+
 function App() {
   const initialParams = useMemo(() => new URLSearchParams(location.search), []);
   const initialChapter = clamp(Number(initialParams.get("chapter") ?? 0), 0, CHAPTERS.length - 1);
+  const initialProgress = clamp(Number(initialParams.get("progress") ?? .01));
   const [variant, setVariant] = useState(() => initialParams.get("variant")?.toUpperCase() in VARIANTS ? initialParams.get("variant").toUpperCase() : "A");
   const [inspect, setInspect] = useState(false);
   const [explore, setExplore] = useState(false);
   const [started, setStarted] = useState(initialParams.has("chapter"));
-  const film = useFilmClock(chapterStarts[initialChapter] + (initialParams.has("chapter") ? .01 : 0));
+  const film = useFilmClock(chapterStarts[initialChapter] + (initialParams.has("chapter") ? CHAPTERS[initialChapter].duration * initialProgress : 0));
   const { index, chapter, local } = chapterAt(film.time);
   useEffect(() => { const listener = () => setVariant(new URLSearchParams(location.search).get("variant")?.toUpperCase() in VARIANTS ? new URLSearchParams(location.search).get("variant").toUpperCase() : "A"); addEventListener("popstate", listener); return () => removeEventListener("popstate", listener); }, []);
   useEffect(() => { if (inspect) film.setPlaying(false); }, [inspect]);
@@ -363,6 +480,7 @@ function App() {
       {variant === "B" && <ChapterRail active={index} setTime={(time) => { film.setTime(time); setStarted(true); }} />}
       {variant === "C" && <><div className="anatomy-legend" aria-hidden="true"><span className="brain">Lumo<i /></span><span className="spine">Direction<i /></span><span className="memory">Grain<i /></span><span className="senses">Evidence<i /></span></div><aside className="cutaway-pulse"><small>Inside this moment</small><strong>{chapter.title}</strong><p>{chapter.evidence}</p><dl><div><dt>Physiology</dt><dd>{index >= 10 ? "8 / 8" : "observing"}</dd></div><div><dt>Behavior</dt><dd>{index >= 9 ? "9 / 11" : "forming"}</dd></div></dl></aside></>}
       {started && <>
+        <BeatOverlay index={index} local={local} />
         <header className="story-header"><div><strong>The Next Body</strong><span>{String(index + 1).padStart(2, "0")} / {CHAPTERS.length}</span></div><button onClick={() => setInspect(true)}>Inspect this moment</button></header>
         <section className="caption" aria-live="polite"><p>{chapter.caption}</p><span>{chapter.title}</span></section>
         <div className="transport">
