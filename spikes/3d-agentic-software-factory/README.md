@@ -64,9 +64,11 @@ Open <http://127.0.0.1:5173/?variant=A>. The 2D map is the responsive default. U
 - `B` — Evidence observatory: provenance and runtime evidence first.
 - `C` — Command deck: dense stage control and intervention.
 
-Use the bottom switcher or the left/right arrow keys. Press Space to replay or pause the recorded
-cycle. Its first attempt really failed, so the repair boundary remains visible without fabricating
-a fault. Select any 2D or 3D element to see its C4 type, description, and source view.
+The alternative layout experiments are intentionally hidden from the primary journey. Add
+`&prototype=1` to expose their bottom switcher and left/right keyboard controls. Press Space to
+replay or pause the recorded cycle. Its first attempt really failed, so the repair boundary remains
+visible without fabricating a fault. Select any 2D or 3D element to see its C4 type, description,
+and source view.
 
 Use the **C4 world** selector to move between the repository's System Context, Container, and ORC
 Worker Component views. Selecting a building or relationship shows the exact parsed C4 name, type,

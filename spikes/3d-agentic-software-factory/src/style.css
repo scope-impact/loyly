@@ -88,8 +88,10 @@ button, select, input[type="range"] { min-height: 44px; }
 .map-heading span { display: block; margin-top: 5px; color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .06em; }
 .c4-map { position: absolute; inset: 88px 12px 28px; width: calc(100% - 24px); height: calc(100% - 116px); overflow: visible; }
 #map-arrow path { fill: #446174; }
-.map-edge { fill: none; stroke: #385366; stroke-width: 2; opacity: .7; cursor: pointer; pointer-events: stroke; transition: stroke .16s, opacity .16s; }
+.map-edge { fill: none; stroke: #385366; stroke-width: 2; opacity: .16; cursor: pointer; pointer-events: stroke; transition: stroke .16s, opacity .16s; }
 .map-edge:hover, .map-edge:focus { stroke: var(--amber); opacity: 1; outline: none; }
+.map-edge.related { stroke: var(--cyan); opacity: .82; }
+.map-edge.active { stroke: var(--amber); stroke-width: 3; opacity: 1; filter: url(#map-glow); }
 .map-node { --node-color: #74a5c2; cursor: pointer; color: var(--node-color); outline: none; }
 .map-node-plate { fill: #111f30; stroke: #3b5367; stroke-width: 1.5; vector-effect: non-scaling-stroke; transition: fill .18s, stroke .18s, filter .18s; }
 .map-node-rail, .map-node-signal { fill: var(--node-color); }
@@ -114,6 +116,15 @@ button, select, input[type="range"] { min-height: 44px; }
 .world-mode-floor .view-mode-switch { top: 70px; }
 
 .mission-panel { grid-area: 1 / 2; padding: 20px 22px 28px; min-height: 0; overflow-y: auto; overflow-anchor: none; background: var(--panel); border-left: 1px solid var(--line); scrollbar-color: var(--steel-3) transparent; }
+.operator-journey { list-style: none; margin: 0 0 18px; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--line); }
+.operator-journey li { position: relative; min-width: 0; padding: 0 4px 11px; color: #718392; }
+.operator-journey li::after { content: ""; position: absolute; left: 4px; right: 4px; bottom: -1px; height: 3px; background: transparent; }
+.operator-journey span { display: grid; place-items: center; width: 20px; height: 20px; margin-bottom: 5px; border: 1px solid currentColor; font: 600 10px "IBM Plex Sans"; }
+.operator-journey strong, .operator-journey small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.operator-journey strong { color: #a9b5be; font: 600 12px "Barlow Condensed"; }.operator-journey small { margin-top: 1px; font-size: 7px; }
+.operator-journey li.complete { color: var(--cyan); }.operator-journey li.complete::after { background: var(--cyan); }
+.operator-journey li.active { color: var(--amber); }.operator-journey li.active::after { background: var(--amber); }.operator-journey li.active span { color: #101c2c; border-color: var(--amber); background: var(--amber); }
+.operator-journey li.active strong { color: var(--paper); }
 .panel-heading { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
 .panel-heading h2 { margin: 0; font: 600 28px/1 "Barlow Condensed"; }
 .cycle-id { color: var(--cyan); font: 500 13px "Barlow Condensed"; }
@@ -137,6 +148,8 @@ button, select, input[type="range"] { min-height: 44px; }
 .start-button { min-width: 0; background: var(--copper); display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 600; white-space: nowrap; }
 .start-button kbd { border: 1px solid rgba(255,255,255,.35); padding: 1px 5px; font: 11px inherit; }
 .quiet-button { background: var(--steel-3); }
+body:not(.cycle-active) .primary-actions .quiet-button, body:not(.cycle-active) .replay-deck, body:not(.cycle-active) .speed-control, body:not(.cycle-active) .stage-focus { display: none; }
+body:not(.cycle-active) .primary-actions { grid-template-columns: 1fr; }
 .speed-control { margin: 12px 0 15px; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 10px; }
 .replay-deck { margin: 10px 0 0; padding: 9px 10px; display: grid; grid-template-columns: 1fr auto; gap: 7px 9px; background: rgba(82,214,210,.055); border-left: 2px solid rgba(82,214,210,.55); }
 .replay-deck > div { grid-column: 1 / 3; display: grid; grid-template-columns: 9px 1fr; align-items: center; gap: 0 7px; }
@@ -189,7 +202,8 @@ button, select, input[type="range"] { min-height: 44px; }
 .station-live ul { list-style: none; margin: 0; padding: 7px 0 0; border-top: 1px solid rgba(255,255,255,.13); }.station-live li { margin: 4px 0; color: #d7dcdf; font-size: 9px; }.station-live li span { color: var(--amber); }
 .station-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 12px; }.station-actions button { min-height: 44px; padding: 7px; border: 0; cursor: pointer; background: #c76b3c; color: white; }.station-actions button:last-child { background: #263850; }
 
-.prototype-switcher { position: fixed; z-index: 20; right: 18px; bottom: 13px; display: grid; grid-template-columns: 44px minmax(150px, auto) 44px; align-items: center; background: #f1f0e8; color: #101c2c; border: 1px solid #fff; box-shadow: 0 6px 28px rgba(0,0,0,.45); }
+.prototype-switcher { position: fixed; z-index: 20; right: 18px; bottom: 13px; display: none; grid-template-columns: 44px minmax(150px, auto) 44px; align-items: center; background: #f1f0e8; color: #101c2c; border: 1px solid #fff; box-shadow: 0 6px 28px rgba(0,0,0,.45); }
+.show-prototypes .prototype-switcher { display: grid; }
 .prototype-switcher button { width: 44px; height: 44px; border: 0; background: #d9d8d0; color: #101c2c; cursor: pointer; font-size: 18px; }
 .prototype-switcher span { display: flex; flex-direction: column; text-align: center; padding: 4px 14px; }.prototype-switcher small { font-size: 8px; color: #66717a; }.prototype-switcher strong { font: 600 14px "Barlow Condensed"; }
 
@@ -295,7 +309,7 @@ body[data-variant="C"] .world-hint { left: 28px; right: auto; bottom: 112px; }
   .cycle-summary > span:last-child { display: none; }
   .score-block { gap: 2px; }.score-block strong { font-size: 22px; }.score-block span { display: none; }
   .game-shell, body[data-variant="B"] .game-shell, body[data-variant="C"] .game-shell { min-height: calc(100vh - 60px); }
-  .world, body[data-variant="B"] .world, body[data-variant="C"] .world { flex-basis: min(68svh, 510px); min-height: 400px; }
+  .world, body[data-variant="B"] .world, body[data-variant="C"] .world { flex-basis: min(56svh, 440px); min-height: 380px; }
   .c4-world-label { min-width: 70px; max-width: 104px; padding: 3px 5px; }
   .c4-world-label strong { font-size: 10px; }
   .c4-world-label small { display: none; }
@@ -309,6 +323,8 @@ body[data-variant="C"] .world-hint { left: 28px; right: auto; bottom: 112px; }
   .architecture-toolbar, body[data-variant="B"] .architecture-toolbar, body[data-variant="C"] .architecture-toolbar { left: 12px; bottom: 12px; width: calc(100% - 24px); grid-template-columns: 55px minmax(0, 1fr); padding: 7px 9px; }
   .architecture-toolbar select { width: 100%; }
   .mission-panel, body[data-variant="B"] .mission-panel, body[data-variant="C"] .mission-panel { padding: 18px 16px; }
+  body:not(.cycle-active) .product-badge, body:not(.cycle-active) .component-strip { display: none; }
+  body:not(.cycle-active) .product-order { padding-bottom: 8px; }
   .panel-heading h2 { font-size: 25px; }
   .mission-copy { font-size: 11px; }
   body[data-variant="B"] .mission-copy { display: block; }

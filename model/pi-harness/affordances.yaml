@@ -124,6 +124,11 @@ screens:
       heading: Container view
       buttons: [2D map, 3D floor, Replay run, Pause, Step]
     regions:
+      GuidedJourney:
+        role: list
+        label: How to read the factory
+        shows: [choose product phase, build components phase, inspect evidence phase, record result phase, current phase]
+        live: polite
       ArchitectureMap:
         role: img
         label: Repository architecture
@@ -193,6 +198,7 @@ conformance:
   - changing view diagram camera or replay position never starts advances repairs or grades an ORC cycle
   - a recorded replay is visibly identified as historical and cannot be confused with a live cycle
   - selecting a C4 element exposes its type source view cycle participation and relationships
+  - exactly one guided journey phase is current and every earlier phase is marked complete
   - opening a station in three dimensions preserves the selected element and its station feed
   - active completed and failed states are distinguishable by text or shape as well as colour
   - on a narrow viewport the page does not overflow horizontally and the architecture map remains pannable

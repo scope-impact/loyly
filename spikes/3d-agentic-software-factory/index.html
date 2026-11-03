@@ -63,11 +63,17 @@
         </section>
 
         <aside class="mission-panel" aria-label="Cycle controls">
+          <ol class="operator-journey" aria-label="How to read the factory">
+            <li data-journey="order" aria-current="step"><span>1</span><strong>Choose</strong><small>Product</small></li>
+            <li data-journey="build"><span>2</span><strong>Build</strong><small>Components</small></li>
+            <li data-journey="inspect"><span>3</span><strong>Inspect</strong><small>Evidence</small></li>
+            <li data-journey="record"><span>4</span><strong>Record</strong><small>Result</small></li>
+          </ol>
           <div class="panel-heading">
-            <div><p>Product order</p><h2 id="cycle-name">No cycle loaded</h2></div>
+            <div><p id="cycle-kicker">Start here</p><h2 id="cycle-name">Choose a product</h2></div>
             <span class="cycle-id" id="cycle-id">—</span>
           </div>
-          <p class="mission-copy" id="mission-copy">The harness is the assembly line. Löyly is the C4 product assembled on it. Choose an implementation stack, then watch its component containers emerge and bind into one system.</p>
+          <p class="mission-copy" id="mission-copy">Choose a stack, then replay one recorded build. The map will show which station is working and why.</p>
           <div class="product-order">
             <label for="stack-select"><span>Implementation stack</span><small>Bound to every product container</small></label>
             <select id="stack-select"></select>
@@ -75,7 +81,7 @@
             <ol class="component-strip" id="component-strip" aria-label="Löyly product components"></ol>
           </div>
           <div class="primary-actions">
-            <button class="start-button" id="start-cycle" type="button"><span>Replay run</span><kbd>Space</kbd></button>
+            <button class="start-button" id="start-cycle" type="button"><span>Replay recorded build</span><kbd>Space</kbd></button>
             <button class="quiet-button" id="pause-cycle" type="button" disabled>Pause</button>
             <button class="quiet-button" id="step-cycle" type="button" disabled>Step</button>
           </div>

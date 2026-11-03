@@ -80,7 +80,7 @@ const ASSEMBLY_ROUTE = [
 const $ = (selector) => document.querySelector(selector);
 const refs = {
   status: $("#factory-status"), statusLight: $("#status-light"), score: $("#score"),
-  cycleName: $("#cycle-name"), cycleId: $("#cycle-id"), start: $("#start-cycle"),
+  cycleName: $("#cycle-name"), cycleKicker: $("#cycle-kicker"), cycleId: $("#cycle-id"), start: $("#start-cycle"),
   pause: $("#pause-cycle"), step: $("#step-cycle"), speed: $("#speed"), speedLabel: $("#speed-label"),
   stageFocus: $("#stage-focus"), stageRail: $("#stage-rail"), progress: $("#pipeline-progress"),
   events: $("#events-view"), evidence: $("#evidence-view"), state: $("#state-view"), decision: $("#decision"),
@@ -97,6 +97,7 @@ let stageElapsed = 0;
 let lastFrame = performance.now();
 let activeVariant = "A";
 let worldMode = "map";
+const showPrototypes = new URLSearchParams(location.search).get("prototype") === "1";
 let selectedNode = null;
 let focusedNode = null;
 let cameraFlight = null;
@@ -244,10 +245,17 @@ function renderState() {
   refs.status.textContent = state.status === "ready" ? "Ready for a cut" : replay.active && !replay.playing && replay.cursor < E2E_RECORDING.timeline.length ? "Replay paused" : state.status === "decision" && replay.active ? "Recorded fault · repair follows" : state.status === "decision" ? "Operator decision needed" : state.status === "passed" ? "Cycle independently passed" : state.status === "failed" && replay.active ? "Recorded result · 9 passed / 2 failed" : state.status === "failed" ? "Cycle stopped" : state.paused ? "Cycle paused" : `${stage?.name ?? "Factory"} in progress`;
   refs.statusLight.className = `status-light ${state.status === "decision" ? "failed" : state.status}`;
   refs.score.textContent = state.score;
-  refs.cycleName.textContent = state.cycleId ? "Booking core regeneration" : "No cycle loaded";
+  const journeyIndex = !state.cycleId ? 0 : state.activeStage <= 4 ? 1 : state.activeStage <= 8 ? 2 : 3;
+  document.querySelectorAll(".operator-journey li").forEach((item, index) => {
+    item.classList.toggle("active", index === journeyIndex);
+    item.classList.toggle("complete", index < journeyIndex);
+    if (index === journeyIndex) item.setAttribute("aria-current", "step"); else item.removeAttribute("aria-current");
+  });
+  refs.cycleKicker.textContent = !state.cycleId ? "Start here" : state.status === "passed" || state.status === "failed" ? "Recorded result" : "Now on the line";
+  refs.cycleName.textContent = !state.cycleId ? "Choose a product" : state.status === "passed" ? "Build recorded" : state.status === "failed" ? "Inspection found faults" : stage?.name ?? "Replay in progress";
   refs.cycleId.textContent = state.cycleId ? `…${state.cycleId.slice(-6)}` : "—";
   refs.cycleId.title = state.cycleId ?? "No cycle loaded";
-  refs.start.querySelector("span").textContent = replay.active ? "Restart" : "Replay run";
+  refs.start.querySelector("span").textContent = replay.active ? "Restart replay" : "Replay recorded build";
   refs.pause.disabled = replay.active ? replay.cursor >= E2E_RECORDING.timeline.length : !state.cycleId || ["passed", "failed", "decision"].includes(state.status);
   refs.step.disabled = replay.active ? replay.cursor >= E2E_RECORDING.timeline.length : !state.cycleId || ["passed", "failed", "decision"].includes(state.status);
   refs.pause.textContent = replay.active ? (replay.playing ? "Pause" : "Resume") : (state.paused ? "Resume" : "Pause");
@@ -255,7 +263,6 @@ function renderState() {
   refs.focusProduct.disabled = !state.cycleId;
   refs.missionCopy.hidden = Boolean(state.cycleId);
   const stack = TARGET_STACKS[state.targetStack] ?? TARGET_STACKS.rust;
-  refs.cycleName.textContent = state.cycleId ? stack.model : "No cycle loaded";
   $("#model-name").textContent = stack.model;
   $("#model-detail").textContent = `${stack.label} · ${stack.detail}`;
   $("#model-swatch").style.background = `#${stack.color.toString(16).padStart(6, "0")}`;
@@ -588,6 +595,8 @@ function render2DMap() {
       "marker-end": "url(#map-arrow)", tabindex: "0", role: "button", "aria-label": `${edge.from} ${edge.label} ${edge.to}`,
     });
     path.dataset.edgeIndex = String(index);
+    path.dataset.edgeFrom = edge.from;
+    path.dataset.edgeTo = edge.to;
     path.addEventListener("click", () => showRelationship(edge));
     path.addEventListener("keydown", (event) => { if (["Enter", " "].includes(event.key)) { event.preventDefault(); showRelationship(edge); } });
     mapEdgeLayer.append(path);
@@ -620,16 +629,26 @@ function render2DMap() {
     mapNodeLayer.append(group);
   });
   $("#map-title").textContent = activeDiagram.label;
-  $("#map-status").textContent = `${activeDiagram.nodes.length} elements · ${activeDiagram.edges.length} relations · live E2E overlay`;
+  $("#map-status").textContent = `${activeDiagram.nodes.length} stations · select one or replay the build`;
   update2DMapState();
 }
 
 function update2DMapState() {
   if (!mapNodeLayer || !activeDiagram) return;
+  const targets = new Set(activeTargetIds());
+  $("#map-status").textContent = state.cycleId
+    ? `Step ${Math.max(1, state.activeStage + 1)} of ${STAGES.length} · ${STAGES[state.activeStage]?.name ?? "recorded build"}`
+    : `${activeDiagram.nodes.length} stations · select one or replay the build`;
   mapNodeLayer.querySelectorAll(".map-node").forEach((group) => {
     group.classList.remove("active", "complete", "failed", "selected");
     group.classList.add(mapNodeStatus(group.dataset.nodeId));
     group.classList.toggle("selected", selectedNode?.id === group.dataset.nodeId);
+  });
+  mapEdgeLayer.querySelectorAll(".map-edge").forEach((path) => {
+    const related = selectedNode && [path.dataset.edgeFrom, path.dataset.edgeTo].includes(selectedNode.id);
+    const active = targets.has(path.dataset.edgeFrom) && targets.has(path.dataset.edgeTo);
+    path.classList.toggle("related", Boolean(related));
+    path.classList.toggle("active", active);
   });
 }
 
@@ -1231,8 +1250,8 @@ document.addEventListener("keydown", (event) => {
     if (!refs.stationCard.hidden) closeStationCard();
     else if (followProduct) setCamera(VARIANTS[activeVariant].camera);
   }
-  if (!editing && event.key === "ArrowLeft") cycleVariant(-1);
-  if (!editing && event.key === "ArrowRight") cycleVariant(1);
+  if (showPrototypes && !editing && event.key === "ArrowLeft") cycleVariant(-1);
+  if (showPrototypes && !editing && event.key === "ArrowRight") cycleVariant(1);
   if (!editing && event.code === "Space") {
     event.preventDefault();
     if (!replay.active || replay.cursor >= E2E_RECORDING.timeline.length) resetReplay();
@@ -1241,6 +1260,7 @@ document.addEventListener("keydown", (event) => {
 });
 
 buildDiagram("containers");
+document.body.classList.toggle("show-prototypes", showPrototypes);
 setVariant(new URLSearchParams(location.search).get("variant") ?? "A", false);
 setWorldMode(new URLSearchParams(location.search).get("view") ?? "map", false);
 renderState();
