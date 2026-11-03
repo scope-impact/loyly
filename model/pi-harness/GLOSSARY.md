@@ -168,7 +168,7 @@ Evidence from one named producer about one approved item in one cycle.
 _Avoid_: Score, log line
 
 **Cycle measurement**:
-The immutable reduction of the approved denominator and grader verdicts, including explicit failures for unreached items.
+The immutable reduction of the approved denominator and oracle-comparison verdicts, including explicit failures for unreached items.
 _Avoid_: Test report, average score
 
 **Cycle progress view**:
@@ -216,7 +216,7 @@ _Avoid_: Grader result, candidate test claim
 **Verification repair**:
 The bounded ORC-owned loop that may give a fresh builder the previous candidate and the failed
 verification evidence read-only, then re-instrument and re-verify the repaired candidate. It
-permits at most three verification attempts and never exposes grader evidence to the builder.
+permits at most three verification attempts and never exposes baseline-grade or oracle-comparison evidence to the builder.
 _Avoid_: Grader feedback, unlimited retry, in-place host edit
 
 **Instrumentation record**:
@@ -236,7 +236,7 @@ One producer's correlated observation about a candidate execution, including its
 _Avoid_: Proof, verdict, log file
 
 **Independent invariant evaluation**:
-A grader-owned comparison of complete runtime signals against a named product invariant.
+An independent-validator-owned comparison of complete runtime signals against a named product invariant.
 _Avoid_: Candidate assertion, telemetry status
 
 **Collection completeness**:
@@ -245,7 +245,7 @@ _Avoid_: Test coverage, confidence score
 
 **Runtime probe package**:
 The digest-bound probe plan, evidence schema, and language-agnostic probe programs supplied by
-the pinned product-oracle OCI artifact and mounted read-only for independent grading.
+the pinned instrument-oracle OCI artifact and mounted read-only for independent validation.
 _Avoid_: Profiler installation, candidate telemetry
 
 **Cycle evidence volume**:

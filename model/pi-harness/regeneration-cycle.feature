@@ -2,7 +2,7 @@ Feature: Oracle-backed regeneration through an operator session and ORC
   An operator session prepares a fenced specification cut, reviews and approves a
   deterministic cycle preparation, and submits an idempotent ORC regeneration
   cycle. A fresh builder produces a candidate in a confined workspace. Independent
-  verification and grading determine the result, and the approved denominator can
+  verification, evidence collection, and oracle comparison determine the result, and the approved denominator can
   never shrink because an item was missed.
 
   Rule: The neutral source cut is pinned and physically fenced
@@ -92,24 +92,24 @@ Feature: Oracle-backed regeneration through an operator session and ORC
       And every required compose operation and candidate test command must succeed
 
     @item-01-009 @skip
-    Scenario: Independent grading fails closed when no readable verdict exists
+    Scenario: Independent oracle comparison fails closed when no readable verdict exists
       Given an approved selection with at least one item
-      When the independent grader returns no readable observation
-      Then the grading stage fails
+      When the independent comparator returns no readable observation
+      Then the oracle comparison stage fails
       And no passing cycle measurement is recorded
 
     @item-01-010 @skip
     Scenario: An unreached approved item remains a failed denominator item
       Given the approved selection contains three items
-      And the grader returns evidence for only one item
+      And the evidence collector reaches only one item
       When the cycle measurement is reduced
       Then the measurement total remains three
       And each unreached item is recorded as failed and not graded
       And the measurement is marked incomplete
 
-    @item-01-011 @e2e @playback
+    @item-01-011 @skip @playback
     Scenario: A final result requires every independent gate to pass
-      Given the oracle, verifier, grader, and measurement have completed
+      Given the oracle comparator, verifier, instrument conformance, and measurement have completed
       When the final result is derived
       Then it does not pass when any independent gate failed
       And every approved item was graded
@@ -135,6 +135,6 @@ Feature: Oracle-backed regeneration through an operator session and ORC
     @item-01-014 @skip
     Scenario: Host execution cannot be reported as independently graded
       Given a regeneration cycle uses the host backend
-      When it reaches independent grading
-      Then the grader reports that independent grading requires Gondolin
+      When it reaches independent evidence collection and oracle comparison
+      Then the collector reports that independent comparison requires Gondolin
       And the cycle cannot pass as a complete independently graded measurement

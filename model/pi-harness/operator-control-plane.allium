@@ -10,6 +10,7 @@ enum PreparationStatus { awaiting_approval | approved }
 enum ExecutionProfile { host_development | gondolin_isolated | automatic }
 enum BuilderSessionStatus { opening | active | paused | completed | failed }
 enum InterventionKind { pause | steer | fork }
+enum ControlOracleProposalStatus { proposed | approved | published }
 
 value RequestDigest { value: String }
 value SelectionDigest { value: String }
@@ -94,6 +95,18 @@ entity DurableMeasurementReceipt {
     passed: Integer
     failed: Integer
     complete: Boolean
+}
+
+entity ControlOracleProposal {
+    identity: String
+    digest: String
+    status: ControlOracleProposalStatus
+
+    transitions status {
+        proposed -> approved
+        approved -> published
+        terminal: published
+    }
 }
 
 rule ValidateHarnessGrainServiceArea {
@@ -201,6 +214,14 @@ rule ApproveCyclePreparation {
     requires: preparation.status = awaiting_approval
     requires: supplied_digest = preparation.digest
     ensures: preparation.status = approved
+}
+
+rule ApproveExactOracleProposal {
+    when: ApproveOracleProposal(operator_session, proposal, supplied_digest)
+    requires: proposal.status = proposed
+    requires: supplied_digest = proposal.digest
+    ensures: proposal.status = approved
+    ensures: ImmutableProductOraclePublicationRequested(proposal: proposal)
 }
 
 rule SubmitCycleTask {
@@ -396,6 +417,7 @@ surface RegenerationControlPlane {
                                  candidate_scope, target_stack, execution_profile,
                                  cut_digest, oracle_digest, diagram_digest, max_outer_cycles)
         ApprovePreparedCycle(operator_session, preparation, supplied_digest)
+        ApproveOracleProposal(operator_session, proposal, supplied_digest)
         SubmitRegenerationCycle(operator_session, request_identity, request_digest,
                                 preparation, parent_cycle_identity)
         WaitRegenerationTask(operator_session, task)

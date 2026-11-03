@@ -11,7 +11,7 @@ enum ExecutionProfile { host_development | gondolin_isolated | automatic }
 enum CycleStatus { submitted | running | passed | failed }
 enum BuilderSessionStatus { opening | active | paused | completed | failed }
 enum Verdict { pass | fail | inconclusive }
-enum ProducerAuthority { candidate | harness_observer | independent_grader }
+enum ProducerAuthority { candidate | harness_observer | independent_validator }
 enum EvidencePurpose { assertion | diagnostic | calibration }
 
 value Digest { value: String }
@@ -128,6 +128,13 @@ entity CycleMeasurement {
     failed: Integer
     complete: Boolean
     item_results: List<ItemObservation>
+}
+
+entity CollectedProductEvidence {
+    cycle: RegenerationCycle
+    subject_digest: Digest
+    evidence_digest: Digest
+    complete: Boolean
 }
 
 rule PrepareCut {
@@ -267,7 +274,7 @@ rule CalibrateHarnessAndBuildCandidate {
     requires: product_oracle_resolved_by_descriptor_digest(cycle)
     requires: product_oracle_contains_selected_items_exactly_once(cycle)
     requires: cycle.preparation.selection.items.all(item =>
-        product_oracle_has_calibrated_entry(
+        product_oracle_has_approved_expected_evidence(
             cycle, item.identity, item.scenario_digest))
     requires: harness_source_digest = discovered_complete_harness_source_digest(cycle)
     requires: normalized_carried_golden_passed(instrument_oracle_digest)
@@ -315,12 +322,26 @@ rule CandidateVerified {
     when: CandidateApplicationVerified(cycle)
     requires: cycle.status = running
     requires: cycle.candidate_digest != null
-    ensures: GradeCandidateIndependently(cycle: cycle)
+    ensures: CollectProductEvidence(cycle: cycle)
 }
 
-rule CandidateGraded {
-    when: IndependentVerdictsReturned(cycle, observations)
+rule CollectCandidateEvidence {
+    when: ProductEvidenceCollected(cycle, subject_digest, evidence_digest, complete)
     requires: cycle.status = running
+    requires: cycle.candidate_digest = subject_digest
+    ensures: CollectedProductEvidence.created(
+        cycle: cycle,
+        subject_digest: subject_digest,
+        evidence_digest: evidence_digest,
+        complete: complete
+    )
+    ensures: CompareCollectedEvidenceWithOracle(cycle: cycle)
+}
+
+rule CompareCandidateEvidenceWithOracle {
+    when: OracleComparisonVerdictsReturned(cycle, observations)
+    requires: cycle.status = running
+    requires: exists CollectedProductEvidence{cycle: cycle, complete: true}
     requires: observations.count > 0
     requires: observations.all(o => o.item in cycle.preparation.selection.items)
     ensures:
@@ -329,7 +350,7 @@ rule CandidateGraded {
                 cycle: cycle,
                 item: observation.item,
                 producer: observation.producer,
-                authority: independent_grader,
+                authority: independent_validator,
                 evidence_purpose: assertion,
                 verdict: observation.verdict,
                 reached: true,
@@ -403,7 +424,7 @@ invariant MeasurementKeepsApprovedDenominator {
 
 invariant BuilderSessionCannotSeeIndependentGrade {
     for builder_session in BuilderSessions:
-        not builder_session_can_read_independent_grade(builder_session)
+        not builder_session_can_read_oracle_comparison_evidence(builder_session)
 }
 
 invariant PassingCycleHasCompleteEvidence {
@@ -434,10 +455,10 @@ surface RegenerationHarness {
     @guarantee CalibratedBuilder
         -- No builder starts until the pinned OCI instrument oracle covers the complete harness,
         -- matches its source digest, and passes carried and uncarried normalized Allure goldens;
-        -- independently, the product oracle supplies one digest-matched calibrated grader per item.
+        -- independently, the product oracle supplies digest-matched approved expected evidence per item.
 
     @guarantee IndependentMeasurement
-        -- The builder cannot author the oracle, verifier, grader, or final measurement used to pass its cycle.
+        -- The builder cannot author the oracle, verifier, evidence collector, comparator, or final measurement used to pass its cycle.
 
     @guarantee InconclusiveDoesNotPass
         -- Missing or incomplete required runtime evidence remains in the denominator

@@ -72,7 +72,7 @@ rule ProposeInstructionCandidate {
 rule MeasureInstructionCandidate {
     when: IndependentRegenerationMetricReturned(candidate, score, evidence)
     requires: candidate.status = proposed
-    requires: evidence_includes_fresh_builder_oracle_verifier_and_grader(evidence)
+    requires: evidence_includes_fresh_builder_verifier_collection_and_oracle_comparison(evidence)
     ensures: candidate.status = measured
     ensures: candidate.independent_score = score
     ensures: candidate.metric_evidence = evidence
@@ -118,5 +118,5 @@ surface BuilderPromptOptimization {
         -- ORC generates, evaluates, selects, and activates the instruction; adapters only transport it.
 
     @guarantee IndependentOptimizationMetric
-        -- A builder cannot provide or alter the oracle, verifier, or grader evidence used to score its instruction.
+        -- A builder cannot provide or alter the verifier, collected evidence, oracle, or comparison used to score its instruction.
 }

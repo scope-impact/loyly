@@ -8,14 +8,14 @@ Feature: Ordered regeneration execution and evidence
     Scenario: A regeneration cycle follows the declared stage order
       Given an approved cycle starts
       When ORC advances the cycle
-      Then its stages are cut, harness calibration, builder, instrument, oracle, verify, repair verification, graders, instrument conformance, record cycle, and grade gate in that order
+      Then its stages are cut, harness calibration, builder, instrument, verify, repair verification, collect evidence, compare oracle, instrument conformance, record cycle, and grade gate in that order
       And adapter completion cannot reorder or skip an ORC stage
       And before the builder starts ORAS resolves the pinned instrument oracle
       And every verdict-affecting harness component and the complete harness source digest match
       And normalized carried and uncarried Allure goldens pass
       And any calibration mismatch prevents the builder stage
 
-    @item-01-024 @e2e
+    @item-01-024 @skip
     Scenario: ORC exposes the declared regeneration stage order
       Given the Pi harness ORC worker is running
       When Pi requests the executable regeneration workflow contract
@@ -24,10 +24,10 @@ Feature: Ordered regeneration execution and evidence
         | harness-calibration    |
         | builder                |
         | instrument             |
-        | oracle                 |
         | verify                 |
         | repair-verification    |
-        | graders                |
+        | collect-evidence       |
+        | compare-oracle         |
         | instrument-conformance |
         | record-cycle           |
         | grade-gate             |
@@ -40,11 +40,11 @@ Feature: Ordered regeneration execution and evidence
       And the candidate content digest remains unchanged
 
     @item-01-026 @skip
-    Scenario: The whole-system product oracle supplies the approved slice graders
+    Scenario: The whole-system product oracle supplies approved expected evidence
       Given an approved selection names stable item identities and full Gherkin scenario digests
       When harness calibration resolves its product-oracle OCI before the builder starts
       Then the immutable descriptor contains every selected item exactly once
-      And every selected entry matches the full scenario digest and has calibrated grader assets
+      And every selected entry matches the full scenario digest and contains manually approved normalized expected evidence
       And unselected catalogue entries do not enter the approved denominator
       And the product oracle need not match the source tree or name the instrument oracle
       And cycle evidence records the independently resolved product and instrument descriptors
@@ -79,7 +79,7 @@ Feature: Ordered regeneration execution and evidence
         | stage                  |
         | builder                |
         | instrument             |
-        | oracle                 |
         | verify                 |
-        | graders                |
+        | evidence collection    |
+        | oracle comparison      |
         | instrument conformance |

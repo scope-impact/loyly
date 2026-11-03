@@ -15,7 +15,7 @@ Feature: Independently measured builder-instruction optimization
       Given valid training and validation examples
       When ORC evaluates an instruction candidate
       Then a fresh builder produces a candidate application
-      And the oracle, verifier, and independent grader produce its metric
+      And the verifier, independent evidence collector, and oracle comparator produce its metric
       And the builder cannot supply or alter that metric
 
     @item-01-023 @skip

@@ -8,7 +8,7 @@ enum EvidenceVerdict { pass | fail | inconclusive }
 enum ProducerAuthority {
     candidate |
     harness_observer |
-    independent_grader
+    independent_validator
 }
 
 enum EvidencePurpose { assertion | diagnostic | calibration }
@@ -59,7 +59,7 @@ entity IndependentInvariantEvaluation {
 }
 
 entity OtelCapturePolicy {
-    oracle_digest: RuntimeDigest
+    instrument_oracle_digest: RuntimeDigest
     policy_digest: RuntimeDigest
     mount_path: String
     read_only: Boolean
@@ -114,7 +114,7 @@ rule EvaluateCompleteInvariant {
         item_identity: item_identity,
         invariant_identity: invariant_identity,
         producer: producer,
-        authority: independent_grader,
+        authority: independent_validator,
         input_signals: signals,
         subject_digest: subject_digest,
         verdict: verdict,
@@ -134,7 +134,7 @@ rule MarkIncompleteInvariantInconclusive {
         item_identity: item_identity,
         invariant_identity: invariant_identity,
         producer: producer,
-        authority: independent_grader,
+        authority: independent_validator,
         input_signals: signals,
         subject_digest: subject_digest,
         verdict: inconclusive,
@@ -151,14 +151,14 @@ rule ProjectRuntimeEvidence {
     )
 }
 
-rule OpenIndependentGradingRoom {
-    when: IndependentGradingRequested(cycle_identity, capture_policy, evidence_volume)
+rule OpenIndependentValidationRoom {
+    when: IndependentValidationRequested(cycle_identity, capture_policy, evidence_volume)
     requires: capture_policy.read_only
     requires: capture_policy.mount_path = "/observability"
     requires: evidence_volume.cycle_identity = cycle_identity
     requires: evidence_volume.mount_path = "/evidence"
     requires: evidence_volume.writable
-    ensures: IndependentGradingRoomOpened(
+    ensures: IndependentValidationRoomOpened(
         cycle_identity: cycle_identity,
         capture_policy: capture_policy,
         evidence_volume: evidence_volume
@@ -167,7 +167,7 @@ rule OpenIndependentGradingRoom {
 
 invariant CandidateCannotAuthorIndependentVerdict {
     for evaluation in IndependentInvariantEvaluations:
-        evaluation.authority = independent_grader
+        evaluation.authority = independent_validator
 }
 
 invariant PassingEvaluationRequiresCompleteCollection {
@@ -189,7 +189,7 @@ invariant EvidenceProjectionIsNotAuthority {
         projected_verdict(evaluation.identity) = evaluation.verdict
 }
 
-invariant GradingEvidenceIsCycleIsolated {
+invariant ValidationEvidenceIsCycleIsolated {
     for volume in CycleEvidenceVolumes:
         volume.identity = cycle_evidence_volume_identity(volume.cycle_identity)
 }
@@ -207,7 +207,7 @@ surface RuntimeEvidenceMeasurement {
         IndependentInvariantInputsIncomplete(cycle_identity, item_identity, invariant_identity,
                                              producer, subject_digest, signals, evidence_digest)
         RuntimeEvidenceReportRequested(evaluation)
-        IndependentGradingRequested(cycle_identity, probe_package, evidence_volume)
+        IndependentValidationRequested(cycle_identity, capture_policy, evidence_volume)
 
     @guarantee IndependentVerdictAuthority
         -- Candidate telemetry may supply correlated facts but cannot author the
@@ -221,6 +221,6 @@ surface RuntimeEvidenceMeasurement {
         -- Reports reproduce a persisted evidence digest and never become verdict authority.
 
     @guarantee IsolatedCycleEvidence
-        -- Independent grading writes only to one cycle-owned evidence volume; the
-        -- candidate and OCI-supplied declarative capture policy remain read-only.
+        -- Independent validation writes only to one cycle-owned evidence volume; the
+        -- candidate and instrument-OCI-supplied declarative capture policy remain read-only.
 }

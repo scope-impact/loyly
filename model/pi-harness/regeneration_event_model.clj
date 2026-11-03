@@ -58,9 +58,31 @@
      :reads #{:loyly.pi-harness/component-candidates}
      :produces #{:loyly.pi-harness/generated-candidate-recorded}
      :grain/allium [{:spec "model/pi-harness/initial-generation.allium"
-                     :kind :rule :name "RecordInitialGenerationCandidate"}
-                    {:spec "model/pi-harness/initial-generation.allium"
-                     :kind :rule :name "RecordMeasuredRegenerationCandidate"}]}
+                     :kind :rule :name "RecordPublishedOracleAndCandidate"}]}
+
+    :loyly.pi-harness/record-oracle-proposal
+    {:description "Record normalized evidence proposed by a complete passing first grade."
+     :schema [:map [:proposal :map]]
+     :reads #{:loyly.pi-harness/oracle-proposals}
+     :produces #{:loyly.pi-harness/oracle-proposal-recorded}
+     :grain/allium [{:spec "model/pi-harness/initial-generation.allium"
+                     :kind :rule :name "ProposeOracleFromSuccessfulFirstGrade"}]}
+
+    :loyly.pi-harness/approve-oracle-proposal
+    {:description "Manually approve only the exact digest of a recorded oracle proposal."
+     :schema [:map [:proposal-id :string] [:proposal-digest :string] [:approved-by :string]]
+     :reads #{:loyly.pi-harness/oracle-proposals}
+     :produces #{:loyly.pi-harness/oracle-proposal-approved}
+     :grain/allium [{:spec "model/pi-harness/initial-generation.allium"
+                     :kind :rule :name "ApproveExactOracleProposal"}]}
+
+    :loyly.pi-harness/record-accepted-product-oracle
+    {:description "Record independently published immutable oracle evidence and its descriptor digest."
+     :schema [:map [:accepted-oracle :map]]
+     :reads #{:loyly.pi-harness/oracle-proposals}
+     :produces #{:loyly.pi-harness/product-oracle-accepted}
+     :grain/allium [{:spec "model/pi-harness/initial-generation.allium"
+                     :kind :rule :name "RecordPublishedOracleAndCandidate"}]}
 
     :loyly.pi-harness/record-observation
     {:description "Record one evidence-backed item observation."
@@ -68,7 +90,7 @@
      :reads #{:loyly.pi-harness/cycle-observations}
      :produces #{:loyly.pi-harness/observation-recorded}
      :grain/allium [{:spec "model/pi-harness/regeneration-cycle.allium"
-                     :kind :rule :name "CandidateGraded"}]}
+                     :kind :rule :name "CompareCandidateEvidenceWithOracle"}]}
 
     :loyly.pi-harness/record-cycle-measurement
     {:description "Record the strict reduction of one approved denominator."
@@ -150,7 +172,36 @@
               [:cut :string]
               [:output-root :string]
               [:subject-digest :string]
-              [:disposition [:enum "ungraded" "measured"]]]}
+              [:disposition [:enum "baseline-measured" "oracle-measured"]]
+              [:oracle-descriptor-digest :string]]}
+
+    :loyly.pi-harness/oracle-proposal-recorded
+    {:description "A complete first-grade evidence proposal awaits exact manual approval."
+     :schema [:map
+              [:proposal-id :string]
+              [:proposal-digest :string]
+              [:generation-id :string]
+              [:selection-id :string]
+              [:selection-digest :string]
+              [:subject-digest :string]
+              [:normalized-evidence-digest :string]
+              [:status [:enum "proposed" "approved" "published"]]]}
+
+    :loyly.pi-harness/oracle-proposal-approved
+    {:description "An operator manually approved the exact recorded proposal digest."
+     :schema [:map
+              [:proposal-id :string]
+              [:proposal-digest :string]
+              [:approved-by :string]]}
+
+    :loyly.pi-harness/product-oracle-accepted
+    {:description "The approved evidence was published as an immutable product oracle."
+     :schema [:map
+              [:proposal-id :string]
+              [:proposal-digest :string]
+              [:descriptor-digest :string]
+              [:approved-by :string]
+              [:published-at :string]]}
 
     :loyly.pi-harness/observation-recorded
     {:description "One identified producer recorded a purpose-scoped claim for one cycle item."
@@ -163,7 +214,7 @@
               [:item-id :string]
               [:subject-digest :string]
               [:producer :string]
-              [:producer-authority [:enum "candidate" "harness-observer" "independent-grader"]]
+              [:producer-authority [:enum "candidate" "harness-observer" "independent-validator"]]
               [:evidence-purpose [:enum "assertion" "diagnostic" "calibration"]]
               [:claim-type :string]
               [:evaluation-id :string]
@@ -215,6 +266,13 @@
     :loyly.pi-harness/component-candidates
     {:description "Generated candidate lineage ordered by project component for operation routing."
      :consumes #{:loyly.pi-harness/generated-candidate-recorded}
+     :version 1}
+
+    :loyly.pi-harness/oracle-proposals
+    {:description "First-grade oracle proposals with exact approval and publication status."
+     :consumes #{:loyly.pi-harness/oracle-proposal-recorded
+                 :loyly.pi-harness/oracle-proposal-approved
+                 :loyly.pi-harness/product-oracle-accepted}
      :version 1}
 
     :loyly.pi-harness/approved-slice-operation-routes
@@ -273,6 +331,11 @@
     {:description "Return candidate lineage for one project component."
      :schema [:map [:project-id :string] [:container-id :string] [:component-id :string]]
      :reads #{:loyly.pi-harness/component-candidates}}
+
+    :loyly.pi-harness/oracle-proposal
+    {:description "Return one oracle proposal with approval and publication status."
+     :schema [:map [:proposal-id :string]]
+     :reads #{:loyly.pi-harness/oracle-proposals}}
 
     :loyly.pi-harness/approved-slice-operation-route
     {:description "Return ORC's durably selected operation for one request."

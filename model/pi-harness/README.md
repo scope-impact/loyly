@@ -135,14 +135,14 @@ The contract exposes gaps found while deriving it from the current implementatio
    abandoned leaf frontiers on startup.
 4. The activated optimized instruction is held in worker memory rather than durable state.
 5. Refused, skipped, timed-out, and errored stages currently collapse into failure.
-6. Independent black-box behavior remains project-specific. Löyly has calibrated programs
-   for all eleven booking-core items inside its accepted product OCI oracle; the project
-   tree no longer supplies runtime grader files. Fresh-session grader authoring is not yet
-   an ORC workflow stage. Initial generation runs the bounded verifier-repair inner loop;
-   its verified candidate remains ungraded until a separate measured regeneration runs.
-7. GEPA candidate scoring is gated by full harness calibration and uses the product oracle,
-   Compose verifier, and independent per-item black-box measurement. The selected instruction
-   and its metric evidence are not yet durable harness records.
+6. Independent black-box behavior remains project-specific. The target contract makes the
+   first generation grade all approved items after verification, propose its normalized
+   evidence, and pause for exact manual approval before publishing the first immutable product
+   oracle. The current runtime still treats its accepted product OCI as executable grader
+   material and does not yet implement proposal, approval, or evidence-oracle publication.
+7. GEPA candidate scoring is gated by full harness calibration and uses independent verification,
+   fresh evidence collection, and comparison with the accepted product oracle. The selected
+   instruction and its metric evidence are not yet durable harness records.
 8. Full source-commit and candidate-scope validation occurs inside asynchronous cut
    or builder execution, after a task receipt has been created, rather than at submission.
 9. Gondolin provides the declared builder isolation. The host backend executes through
@@ -161,7 +161,7 @@ The contract exposes gaps found while deriving it from the current implementatio
     language independence. The host backend remains non-ratifying and is not isolation-equivalent.
 13. Verification repair is bounded to three attempts. Each repair uses a fresh builder seeded
     with the previous candidate and a read-only verification evidence root. Runtime instrument
-    conformance runs after behavioral grading and does not yet participate in this repair loop.
+    conformance runs after oracle comparison and does not yet participate in this repair loop.
 14. Approval currently binds only the slice selection. It does not yet bind a complete cycle
     preparation containing scope, target stack, execution profile, pinned inputs, diagram, and
     outer-cycle budget.
@@ -177,8 +177,8 @@ The contract exposes gaps found while deriving it from the current implementatio
 18. Parent-cycle lineage and bounded continuation heuristics are not yet recorded when an
     operator session decides to begin another complete cycle.
 19. Product-oracle preflight still compares repository commit/tree metadata and cross-binds the
-    instrument-oracle descriptor. The target contract instead selects independently calibrated
-    product graders by stable item identity plus full Gherkin scenario digest, then combines the
+    instrument-oracle descriptor. The target contract instead selects manually approved expected
+    evidence by stable item identity plus full Gherkin scenario digest, then combines the
     independently pinned product and instrument descriptors only in cycle evidence.
 20. The current harness implementation uses `:loyly/*` runtime blocks, direct read helpers, and a
     duplicate harness progress event. It lacks the declared cycle-preparation blocks, Grain
