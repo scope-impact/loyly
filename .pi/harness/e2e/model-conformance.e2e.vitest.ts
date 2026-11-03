@@ -98,9 +98,12 @@ afterAll(async () => {
 // Component ownership is projected through scenarioLabels instead of nested describe blocks.
 test.skip("A regeneration cycle follows the declared stage order", () => {});
 test.skip("ORC runs explicitly requested generation without consulting candidate history", () => {});
-test.skip("A successful initial generation records candidate provenance without a verdict", () => {});
+test.skip("A successful first grade proposes evidence for oracle promotion", () => {});
+test.skip("Manual approval promotes exactly the reviewed oracle evidence", () => {});
+test.skip("Failed or incomplete first grading cannot produce an oracle", () => {});
+test.skip("Initial generation keeps repairing until verification passes", () => {});
 test.skip("Initial generation fails when the builder produces no candidate", () => {});
-test.skip("An ungraded generation result cannot pass the regeneration grade gate", () => {});
+test.skip("Unapproved generation evidence cannot become an oracle or measured candidate", () => {});
 test.skip("An explicitly requested regeneration uses the named persisted component candidate", () => {});
 test.skip("make bootstrap builds every harness and supported-stack runtime", () => {});
 test.skip("make bootstrap does not run Löyly application or oracle workflows", () => {});

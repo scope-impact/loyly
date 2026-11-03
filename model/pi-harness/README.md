@@ -29,9 +29,12 @@ unclassified or doubly classified scenarios.
   config and supported-stack Dockerfiles under root `harness/<project-id>/`, resolved by
   convention without a per-project profile JSON; shared harness config remains under
   `.pi/harness/config/`.
-- `initial-generation.feature` and `initial-generation.allium` define explicitly requested,
-  independently verified Generation from an implementation-free source cut. Existing candidate history
-  does not change its mode; it has no parent candidate and records only an ungraded candidate.
+- `initial-generation.feature` and `initial-generation.allium` define explicitly requested
+  Generation from an implementation-free source cut. Existing candidate history does not change
+  its mode and it has no parent candidate. After independent verification, Generation grades the
+  full approved denominator through the public seam, proposes normalized successful evidence as
+  the first product oracle, waits for exact manual approval, and records a baseline-measured
+  candidate only after immutable oracle publication.
 - `regeneration-cycle.feature` defines the separate, oracle-backed measured regeneration workflow.
 - `operator-control-plane.feature`, `prompt-optimization.feature`,
   `execution-pipeline.feature`, and `runtime-evidence.feature` own acceptance behavior for
@@ -48,14 +51,15 @@ unclassified or doubly classified scenarios.
   propose an existing slice and item subset from operator intent, but deterministic resolution
   against the cut and explicit operator approval remain authoritative.
 - `runtime-evidence.allium` separates candidate telemetry, harness observations, independent invariant verdicts, and report projections.
-- `execution-pipeline.allium` gates measured candidate construction on independently descriptor-
-  pinned product and instrument OCI artifacts. The whole-system product oracle is a catalogue:
-  every selected stable Gherkin item identity must occur exactly once with the matching full
-  scenario digest and calibrated grader. Extra catalogue items do not enter the denominator.
-  Neither oracle is bound to the source tree or to the other oracle; the cycle evidence records
-  both exact descriptors. OCI tags are lookup aliases only. `initial-generation.allium` is the
-  explicit no-oracle path and produces only an ungraded candidate. The pipeline also defines
-  bounded verification repair before grading.
+- `execution-pipeline.allium` gates later comparison cycles on independently descriptor-pinned
+  product and instrument OCI artifacts. The whole-system product oracle is a catalogue of
+  manually approved normalized evidence: every selected stable Gherkin item identity occurs
+  exactly once with the matching full scenario digest. Extra catalogue items do not enter the
+  denominator. Neither oracle is bound to the source tree or to the other oracle; cycle evidence
+  records both exact descriptors, and OCI tags are lookup aliases only. `initial-generation.allium`
+  is the no-existing-product-oracle path: it baseline-grades first, pauses for exact operator
+  approval, and publishes the initial immutable evidence oracle. The pipeline also defines
+  bounded verification repair before any grade evidence is collected.
 - `regeneration_event_model.clj` mandates the harness-owned Grain service area. Its block names
   use the `:loyly.pi-harness/*` namespace, its public commands, events, read models, queries, and
   processors must reconcile with live registries, and every event has an explicit `defevent`

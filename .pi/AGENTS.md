@@ -25,9 +25,11 @@ Project-specific execution and build configuration lives at the repository root 
 each project's VM configuration and supported-stack Dockerfiles; derive conventional paths
 from the project ID and stack instead of adding a per-project `harness.json`. Product truth
 and behavioral contracts stay under `model/<project-id>/`, and project-agnostic harness
-configuration stays under `.pi/harness/config/`. A product-oracle reference is optional and
-must not be fabricated for first-time ungraded generation; measured cycles require an accepted
-pinned oracle. Do not create a second project-config tree under `.pi/harness/config/projects/`
+configuration stays under `.pi/harness/config/`. A product-oracle reference is optional before
+first generation and must not be fabricated. First generation independently grades the complete
+approved denominator and may propose its normalized successful evidence; only exact manual
+approval and immutable publication create the accepted pin used by later comparison cycles.
+Do not create a second project-config tree under `.pi/harness/config/projects/`
 or `projects/<project-id>/`.
 
 ## Domain model boundary
@@ -73,20 +75,22 @@ Use strict Grain Event Model validation to reconcile declared topology with live
   independently checked during verification; unknown or mismatched stacks fail closed.
 - Generated output is persisted only from an ORC stage.
 
-## Grader lifecycle
+## Oracle evidence lifecycle
 
-- Author each new black-box grader revision in a fresh Pi/Codex session from the pinned
-  observable contract. The authoring session must not read a candidate or a previous grader.
-- Calibrate the generated grader against carried and uncarried fixtures before accepting it.
-- Keep grader implementation, shared evaluator, runtime-conformance evaluator, and grader
-  fixtures out of the product Git repository. They are private black-box oracle assets.
-- An independently managed oracle pipeline publishes calibrated grader assets and binds
-  them to a product OCI oracle. The harness publisher must not source, build, or package
-  grader code from this repository.
-- A regeneration cycle resolves its grader only from the pinned OCI oracle and mounts the
-  extracted grader read-only in Gondolin. Never resolve graders from the project tree.
-- Reuse one accepted oracle digest across compared cycles. Generate from scratch when
-  authoring a new oracle revision, not independently inside every measured cycle.
+- The first black-box grade is authored by an independent judge from the pinned observable
+  contract and drives only the candidate's public seam. It must not read candidate source,
+  builder transcripts, prior measurements, or verifier implementation.
+- A complete passing first grade produces a normalized evidence proposal, not an accepted
+  oracle. Failed, missing, inconclusive, or non-conformant evidence cannot be promoted.
+- Promotion requires the operator to approve the exact proposal digest. An independently
+  managed publisher then creates the immutable product OCI oracle and returns its descriptor.
+- Keep raw judge sessions, normalization machinery, validators, calibration fixtures, and
+  oracle publication assets out of the product Git repository.
+- Later regeneration collects fresh evidence and compares it with the pinned promoted oracle.
+  The oracle contains approved expected evidence; probes and validators are measurement
+  machinery and are not themselves the oracle.
+- Reuse one accepted oracle digest across compared cycles. A red comparison never silently
+  records a new golden; changed expected behavior requires a new approved promotion.
 
 ## Migration rule
 

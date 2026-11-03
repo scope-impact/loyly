@@ -1,7 +1,7 @@
 # Pi harness regeneration context
 
-The Pi harness separates first-time generation of an ungraded candidate from
-oracle-backed regeneration and measurement.
+The Pi harness separates first-time baseline measurement and oracle promotion from
+later oracle-comparison regeneration.
 
 ## Language
 
@@ -35,10 +35,29 @@ reconnection. It cannot advance execution and introduces no duplicate progress e
 _Avoid_: Harness progress event, workflow authority
 
 **Generation**:
-An explicitly requested creation of an ungraded candidate from an approved source cut. Existing
+An explicitly requested creation of a baseline candidate from an approved source cut. Existing
 candidate history does not change Generation into Regeneration. Generation has no parent
-candidate and invokes no oracle-backed measurement.
-_Avoid_: Regeneration, measured run
+candidate or accepted product oracle: after verification it independently grades the complete
+approved denominator and proposes the normalized successful evidence as the first oracle.
+_Avoid_: Regeneration, ungraded build
+
+**Baseline grade**:
+The first complete independent black-box measurement of a generated candidate against the
+approved scenarios through the public seam. It produces proposed oracle evidence, not an
+accepted oracle, and it cannot feed a builder or verification-repair session.
+_Avoid_: Candidate tests, promoted oracle
+
+**Oracle proposal**:
+The normalized evidence from one completely passing baseline grade, bound to the selection,
+scenario digests, candidate subject, judge, denominator, and its own stable digest. It remains
+non-authoritative until an operator approves that exact digest.
+_Avoid_: Mutable golden, accepted oracle
+
+**Oracle promotion**:
+The manual approval and independent publication of one exact oracle proposal as an immutable
+OCI descriptor. A stale or different proposal digest cannot be approved, and failed, missing,
+or inconclusive baseline evidence cannot be promoted.
+_Avoid_: Automatic recording, re-grading
 
 **Selection contract**:
 The exact project, composed slice identity, item identities and scenario digests, and cut identity
@@ -108,7 +127,8 @@ _Avoid_: Observation, invisible edit
 
 **Candidate**:
 The generated application output bound to one generation or regeneration operation, its cut,
-selection, builder session, and subject digest. A generation candidate is ungraded.
+selection, builder session, and subject digest. A generation candidate becomes durable lineage
+only after its complete baseline evidence is manually promoted to an accepted oracle.
 _Avoid_: Implementation, answer, workspace
 
 **Instrument oracle**:
@@ -122,12 +142,12 @@ component, matches the checked-in harness source, and passes its calibration fix
 _Avoid_: Candidate verification, generated test suite
 
 **Oracle**:
-A whole-system catalogue of independently executable product graders and calibration assets,
-published as an immutable OCI descriptor. Each entry is keyed by stable Gherkin item identity
-and full scenario digest. A measured cycle selects the entries required by its approved
-selection and records the exact descriptor digest; the oracle is not bound to a source tree or
-to an instrument oracle.
-_Avoid_: Grader, verifier
+A whole-system catalogue of manually approved normalized expected evidence, published as an
+immutable OCI descriptor. Each entry is keyed by stable Gherkin item identity and full scenario
+digest. The first generation proposes it from a complete independent baseline grade; later
+cycles collect fresh evidence and compare it with the selected entries. The oracle is not a
+grader, source tree, candidate verdict, or instrument oracle.
+_Avoid_: Grader, verifier, raw transcript
 
 **Oracle binding**:
 The cycle-owned record of the approved item identities and scenario digests, selected product-
@@ -183,8 +203,9 @@ One proposed builder instruction evaluated during prompt optimization.
 _Avoid_: Candidate application, generated implementation
 
 **Execution stage**:
-One ordered, ORC-owned transition. Initial generation contains cut, builder, and record-candidate;
-regeneration contains cut, calibration, builder, instrumentation, independent gates, and result.
+One ordered, ORC-owned transition. Initial generation builds, verifies, baseline-grades, proposes
+an oracle, waits for exact manual approval, publishes it, and only then records the candidate;
+regeneration performs fresh evidence collection and comparison against that accepted oracle.
 _Avoid_: Tool call, adapter process
 
 **Verification attempt**:
