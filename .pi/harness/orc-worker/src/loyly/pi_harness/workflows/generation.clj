@@ -114,6 +114,31 @@
                                        [:items [:vector schemas/item-result-schema]]
                                        [:observations [:vector schemas/observation-schema]]
                                        [:evidence :string]]
+       :repair-evaluation-result [:map
+                                  [:stage :string]
+                                  [:request-id :string]
+                                  [:cut :string]
+                                  [:scope [:vector :string]]
+                                  [:execution-backend :string]
+                                  [:passed :boolean]
+                                  [:rounds :int]
+                                  [:builder [:map
+                                             [:output-root :string]
+                                             [:subject-digest :string]]]
+                                  [:instrument [:map
+                                                [:evidence-root :string]
+                                                [:subject-digest :string]]]
+                                  [:verify [:map [:passed :boolean]]]
+                                  [:baseline-grade [:map [:passed :boolean]]]
+                                  [:instrument-conformance [:map [:passed :boolean]]]
+                                  [:attempts [:vector
+                                              [:map
+                                               [:round :int]
+                                               [:subject-digest :string]
+                                               [:evidence-root :string]
+                                               [:verification-passed :boolean]
+                                               [:grade-passed :boolean]
+                                               [:instrument-conformance-passed :boolean]]]]]
        :oracle-proposal-result schemas/oracle-proposal-schema})
     (orc/sequence "generation"
       (orc/code "cut"
@@ -152,11 +177,17 @@
         :reads [:request-id :orc-tick-id :selection :scope :execution-backend :builder-result
                 :instrument-result :baseline-grade-result :repair-verification-result]
         :writes [:instrument-conformance-result])
+      (orc/code "repair-evaluation"
+        :fn "loyly.pi-harness.core.worker/repair-evaluation-stage"
+        :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend
+                :builder-result :instrument-result :verify-result :repair-verification-result
+                :baseline-grade-result :instrument-conformance-result]
+        :writes [:repair-evaluation-result])
       (orc/code "propose-oracle"
         :fn "loyly.pi-harness.core.worker/propose-oracle-stage"
         :reads [:request-id :orc-tick-id :selection :scope :execution-backend :builder-result
                 :repair-verification-result :baseline-grade-result
-                :instrument-conformance-result]
+                :instrument-conformance-result :repair-evaluation-result]
         :writes [:oracle-proposal-result]))))
 
 (defn contract []

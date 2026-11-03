@@ -80,16 +80,27 @@
    nil))
 
 (defn effective-builder-result [inputs]
-  (or (get-in inputs [:repair-verification-result :builder])
+  (or (get-in inputs [:repair-evaluation-result :builder])
+      (get-in inputs [:repair-verification-result :builder])
       (:builder-result inputs)))
 
 (defn effective-instrument-result [inputs]
-  (or (get-in inputs [:repair-verification-result :instrument])
+  (or (get-in inputs [:repair-evaluation-result :instrument])
+      (get-in inputs [:repair-verification-result :instrument])
       (:instrument-result inputs)))
 
 (defn effective-verify-result [inputs]
-  (or (get-in inputs [:repair-verification-result :verify])
+  (or (get-in inputs [:repair-evaluation-result :verify])
+      (get-in inputs [:repair-verification-result :verify])
       (:verify-result inputs)))
+
+(defn effective-baseline-grade-result [inputs]
+  (or (get-in inputs [:repair-evaluation-result :baseline-grade])
+      (:baseline-grade-result inputs)))
+
+(defn effective-instrument-conformance-result [inputs]
+  (or (get-in inputs [:repair-evaluation-result :instrument-conformance])
+      (:instrument-conformance-result inputs)))
 
 (defn effective-grading-context [inputs]
   (or (:oracle-result inputs)
@@ -892,8 +903,8 @@
 
 (defn propose-oracle-stage [{:keys [inputs] :as context}]
   (record-stage-progress! context "propose-oracle")
-  (let [grade (:baseline-grade-result inputs)
-        conformance (:instrument-conformance-result inputs)
+  (let [grade (effective-baseline-grade-result inputs)
+        conformance (effective-instrument-conformance-result inputs)
         selection (:selection inputs)
         builder (effective-builder-result inputs)
         denominator (count (:items selection))]
@@ -986,6 +997,100 @@
            {:observations observations
             :evidence (json/write-str {:command command
                                        :evaluation interpreted})})))
+
+(def max-evaluation-rounds 3)
+
+(defn- evaluation-passed? [verification grade conformance]
+  (and (:passed verification) (:passed grade) (:passed conformance)))
+
+(defn repair-evaluation-stage [{:keys [inputs] :as context}]
+  (record-stage-progress! context "repair-evaluation")
+  (loop [round 1
+         builder (effective-builder-result inputs)
+         instrument (effective-instrument-result inputs)
+         verification (effective-verify-result inputs)
+         grade (:baseline-grade-result inputs)
+         conformance (:instrument-conformance-result inputs)
+         attempts []]
+    (let [passed (evaluation-passed? verification grade conformance)
+          attempt {:round round
+                   :subject-digest (:subject-digest builder)
+                   :evidence-root (:evidence-root instrument)
+                   :verification-passed (boolean (:passed verification))
+                   :grade-passed (boolean (:passed grade))
+                   :instrument-conformance-passed (boolean (:passed conformance))}
+          attempts (conj attempts attempt)]
+      (if (or passed (>= round max-evaluation-rounds))
+        (merge (stage-result "repair-evaluation" context)
+               {:passed (boolean passed)
+                :rounds round
+                :builder builder
+                :instrument instrument
+                :verify verification
+                :baseline-grade grade
+                :instrument-conformance conformance
+                :attempts attempts})
+        (let [next-round (inc round)
+              repair-id (format "%s-evaluation-repair-%02d" (:request-id inputs) next-round)
+              builder-session-ref (str (random-uuid))
+              _ (record-stage-progress! context "builder" next-round
+                                        builder-session-ref "running")
+              raw-builder (run-builder-adapter
+                           {:request-id repair-id
+                            :cut (get-in inputs [:selection :cut])
+                            :scope (:scope inputs)
+                            :selection (:selection inputs)
+                            :target-stack (:target-stack inputs)
+                            :execution-backend (:execution-backend inputs)
+                            :initial-workspace-root (:output-root builder)
+                            :verification-evidence-root (:evidence-root instrument)
+                            :round next-round
+                            :builder-session-ref builder-session-ref
+                            :builder-sessions-root (builder-sessions-root)
+                            :attempt next-round})
+              repaired-builder (merge
+                                (stage-result "builder" {:inputs (assoc inputs :request-id repair-id)})
+                                raw-builder
+                                {:builder (or (:builder raw-builder) (builder-id))
+                                 :subject-digest (subject/digest (:output-root raw-builder))})
+              repaired-inputs (-> inputs
+                                  (assoc :request-id repair-id
+                                         :repair-verification-result
+                                         {:builder repaired-builder
+                                          :instrument instrument
+                                          :verify verification})
+                                  (dissoc :repair-evaluation-result))
+              repaired-context {:inputs repaired-inputs
+                                :tick-id (:tick-id context)
+                                :cycle-id (:request-id inputs)}
+              repaired-instrument (instrument-stage repaired-context)
+              evaluation-inputs (assoc repaired-inputs
+                                       :repair-verification-result
+                                       {:builder repaired-builder
+                                        :instrument repaired-instrument
+                                        :verify verification})
+              repaired-verification (verify-stage
+                                     (assoc repaired-context :inputs evaluation-inputs))
+              evaluation-inputs (assoc evaluation-inputs
+                                       :repair-verification-result
+                                       {:builder repaired-builder
+                                        :instrument repaired-instrument
+                                        :verify repaired-verification})
+              repaired-grade (when (:passed repaired-verification)
+                               (baseline-grade-stage
+                                (assoc repaired-context :inputs evaluation-inputs)))
+              conformance-inputs (assoc evaluation-inputs
+                                        :baseline-grade-result repaired-grade)
+              repaired-conformance (when (:passed repaired-grade)
+                                     (instrument-conformance-stage
+                                      (assoc repaired-context :inputs conformance-inputs)))]
+          (recur next-round
+                 repaired-builder
+                 repaired-instrument
+                 repaired-verification
+                 (or repaired-grade {:passed false})
+                 (or repaired-conformance {:passed false})
+                 attempts))))))
 
 (defn record-cycle-stage [{:keys [inputs] :as stage-context}]
   (record-stage-progress! stage-context "record-cycle")

@@ -393,7 +393,7 @@
         (is (= :success (:status result)) (pr-str result))
         (is (= ["cut" "harness-calibration" "builder" "instrument" "verify"
                 "repair-verification" "baseline-grade" "instrument-conformance"
-                "propose-oracle"]
+                "repair-evaluation" "propose-oracle"]
                (:stages (generation-workflow/contract))))
         (is (= "proposed" (get-in outputs [:oracle-proposal-result :status])))
         (is (not (contains? outputs :generation-result)))
@@ -610,6 +610,41 @@
                        (fn [_] (reset! called? true) {})]
            (worker/graders-stage context))))
     (is (false? @called?))))
+
+(deftest failed-instrument-conformance-reenters-the-builder-loop
+  (let [builder-call (atom nil)
+        context {:inputs {:request-id "generation-conformance-repair"
+                          :selection approved-selection
+                          :scope ["impl"]
+                          :target-stack "typescript"
+                          :execution-backend "gondolin"
+                          :builder-result {:output-root "/state/candidate"
+                                           :subject-digest "subject-one"}
+                          :instrument-result {:evidence-root "/state/candidate.evidence"
+                                              :subject-digest "subject-one"}
+                          :verify-result {:passed true}
+                          :baseline-grade-result {:passed true}
+                          :instrument-conformance-result {:passed false}}}
+        result (with-redefs [worker/run-builder-adapter
+                             (fn [request]
+                               (reset! builder-call request)
+                               {:output-root "/state/candidate-evaluation-repair-02"
+                                :builder "openai-codex/test"})
+                             subject/digest (constantly "subject-two")
+                             worker/instrument-stage
+                             (fn [_] {:evidence-root "/state/candidate-evaluation-repair-02.evidence"
+                                      :subject-digest "subject-two"})
+                             worker/verify-stage (fn [_] {:passed true})
+                             worker/baseline-grade-stage (fn [_] {:passed true})
+                             worker/instrument-conformance-stage (fn [_] {:passed true})]
+                 (worker/repair-evaluation-stage context))]
+    (is (true? (:passed result)))
+    (is (= 2 (:rounds result)))
+    (is (= "/state/candidate" (:initial-workspace-root @builder-call)))
+    (is (= "/state/candidate.evidence" (:verification-evidence-root @builder-call)))
+    (is (= 2 (:round @builder-call)))
+    (is (= "subject-two" (get-in result [:builder :subject-digest])))
+    (is (true? (get-in result [:instrument-conformance :passed])))))
 
 (deftest oracle-stage-requires-the-accepted-project-oci-pack
   (let [call (atom nil)
