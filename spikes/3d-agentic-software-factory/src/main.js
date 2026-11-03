@@ -549,22 +549,24 @@ function addRelationship(edge) {
 }
 
 function addC4Node(node) {
-  const color = c4Color(node); const height = 1.8 + (node.description.length % 5) * .24;
+  const color = c4Color(node); const nodeScale = activeDiagram.id === "components" ? .65 : 1;
+  const height = (1.8 + (node.description.length % 5) * .24) * nodeScale;
   const group = new THREE.Group(); group.position.copy(nodePositions.get(node.id)); group.userData.node = node;
   const material = new THREE.MeshStandardMaterial({ color, roughness: .5, metalness: .42, emissive: color, emissiveIntensity: .09 });
-  const base = new THREE.Mesh(new THREE.BoxGeometry(2.5, .24, 1.95), new THREE.MeshStandardMaterial({ color: 0x213347, roughness: .8 })); base.position.y = .12; base.receiveShadow = true; group.add(base);
+  const base = new THREE.Mesh(new THREE.BoxGeometry(2.5 * nodeScale, .24 * nodeScale, 1.95 * nodeScale), new THREE.MeshStandardMaterial({ color: 0x213347, roughness: .8 })); base.position.y = .12 * nodeScale; base.receiveShadow = true; group.add(base);
   const body = /data store/i.test(node.type)
-    ? new THREE.Mesh(new THREE.CylinderGeometry(.84, .84, height, 24), material)
-    : new THREE.Mesh(new THREE.BoxGeometry(1.75, height, 1.28), material);
-  body.position.y = .24 + height / 2; body.castShadow = true; group.add(body);
-  const cap = new THREE.Mesh(new THREE.BoxGeometry(1.55, .08, 1.04), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2 })); cap.position.y = height + .28; group.add(cap);
+    ? new THREE.Mesh(new THREE.CylinderGeometry(.84 * nodeScale, .84 * nodeScale, height, 24), material)
+    : new THREE.Mesh(new THREE.BoxGeometry(1.75 * nodeScale, height, 1.28 * nodeScale), material);
+  body.position.y = .24 * nodeScale + height / 2; body.castShadow = true; group.add(body);
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(1.55 * nodeScale, .08 * nodeScale, 1.04 * nodeScale), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2 })); cap.position.y = height + .28 * nodeScale; group.add(cap);
   const labelElement = document.createElement("div");
   labelElement.className = "c4-world-label";
+  labelElement.classList.toggle("component-level", activeDiagram.id === "components");
   labelElement.style.setProperty("--label-accent", `#${new THREE.Color(color).getHexString()}`);
   const labelName = document.createElement("strong"); labelName.textContent = node.name;
   const labelType = document.createElement("small"); labelType.textContent = node.type;
   labelElement.append(labelName, labelType);
-  const label = new CSS2DObject(labelElement); label.position.set(0, height + 1.04, 0); group.add(label);
+  const label = new CSS2DObject(labelElement); label.position.set(0, height + (activeDiagram.id === "components" ? .72 : 1.04), 0); group.add(label);
   worldGroup.add(group); nodeMeshes.push(group);
 }
 
@@ -727,7 +729,13 @@ function buildDiagram(diagramId) {
   selectedNode = null; focusedNode = null; cameraFlight = null;
   controls.enabled = true;
   while (worldGroup.children.length) {
-    const child = worldGroup.children.pop(); child.traverse((object) => { object.geometry?.dispose(); if (Array.isArray(object.material)) object.material.forEach((material) => material.dispose()); else object.material?.dispose(); });
+    const child = worldGroup.children.at(-1);
+    child.traverse((object) => {
+      if (object.isCSS2DObject) object.element.remove();
+      object.geometry?.dispose();
+      if (Array.isArray(object.material)) object.material.forEach((material) => material.dispose()); else object.material?.dispose();
+    });
+    worldGroup.remove(child);
   }
   nodeMeshes = []; edgeMeshes = []; nodePositions = layoutDiagram(activeDiagram);
   const floor = new THREE.Mesh(new THREE.BoxGeometry(48, .4, 29), new THREE.MeshStandardMaterial({ color: 0x172332, roughness: .9, metalness: .12 })); floor.position.y = -.25; floor.receiveShadow = true; worldGroup.add(floor);
