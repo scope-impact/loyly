@@ -96,10 +96,12 @@ let eventLog = [];
 let stageElapsed = 0;
 let lastFrame = performance.now();
 let activeVariant = "A";
+let worldMode = "map";
 let selectedNode = null;
 let focusedNode = null;
 let cameraFlight = null;
 let followProduct = false;
+let nextLabelLayoutAt = 0;
 let productWaypoints = [];
 let lastProductStage = -1;
 let state = project(eventLog);
@@ -296,6 +298,7 @@ function renderState() {
     activeEvent: eventLog.at(-1) ?? null,
   }, null, 2);
   updateSceneFromState();
+  update2DMapState();
   refreshStationInspector();
 }
 
@@ -519,6 +522,117 @@ function c4Color(node) {
   return node.group === "system" || /software system/i.test(node.type) ? 0x52d6d2 : 0x74a5c2;
 }
 
+const SVG_NS = "http://www.w3.org/2000/svg";
+const mapNodeLayer = $("#map-nodes");
+const mapEdgeLayer = $("#map-edges");
+
+function svgElement(name, attributes = {}) {
+  const element = document.createElementNS(SVG_NS, name);
+  Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, value));
+  return element;
+}
+
+function mapGlyph(node) {
+  if (/person/i.test(node.type)) return "◎";
+  if (/data store/i.test(node.type)) return "▤";
+  if (/external/i.test(node.type)) return "↗";
+  if (/component/i.test(node.type)) return "⚙";
+  if (/software system/i.test(node.type)) return "◈";
+  return "▣";
+}
+
+function mapNodeStatus(nodeId) {
+  if (!state.cycleId) return "idle";
+  const stages = (STAGE_TARGETS[activeDiagram.id] ?? []).reduce((indexes, ids, index) => ids.includes(nodeId) ? [...indexes, index] : indexes, []);
+  if (state.failed.some((index) => stages.includes(index))) return "failed";
+  if (activeTargetIds().includes(nodeId) && !["passed", "failed"].includes(state.status)) return "active";
+  if (stages.some((index) => state.completed.includes(index)) || state.status === "passed" && stages.length) return "complete";
+  return "idle";
+}
+
+function render2DMap() {
+  if (!activeDiagram) return;
+  mapNodeLayer.replaceChildren();
+  mapEdgeLayer.replaceChildren();
+  const positions = layoutDiagram(activeDiagram);
+  const values = [...positions.values()];
+  const minX = Math.min(...values.map((position) => position.x));
+  const maxX = Math.max(...values.map((position) => position.x));
+  const minZ = Math.min(...values.map((position) => position.z));
+  const maxZ = Math.max(...values.map((position) => position.z));
+  const mapPoints = new Map(activeDiagram.nodes.map((node) => {
+    const position = positions.get(node.id);
+    return [node.id, {
+      x: 115 + ((position.x - minX) / Math.max(1, maxX - minX)) * 970,
+      y: 225 + ((position.z - minZ) / Math.max(1, maxZ - minZ)) * 330,
+    }];
+  }));
+  for (let pass = 0; pass < 5; pass += 1) {
+    const points = [...mapPoints.values()];
+    for (let left = 0; left < points.length; left += 1) for (let right = left + 1; right < points.length; right += 1) {
+      const a = points[left]; const b = points[right];
+      if (Math.abs(a.y - b.y) > 58 || Math.abs(a.x - b.x) >= 166) continue;
+      const push = (166 - Math.abs(a.x - b.x)) / 2 + 2;
+      if (a.x <= b.x) { a.x -= push; b.x += push; } else { a.x += push; b.x -= push; }
+      a.x = Math.max(88, Math.min(1112, a.x)); b.x = Math.max(88, Math.min(1112, b.x));
+    }
+  }
+  const point = (id) => mapPoints.get(id);
+
+  activeDiagram.edges.forEach((edge, index) => {
+    const from = point(edge.from); const to = point(edge.to);
+    const direction = to.x >= from.x ? 1 : -1;
+    const bend = Math.min(95, Math.abs(to.x - from.x) * .22 + 26) * direction;
+    const path = svgElement("path", {
+      class: "map-edge", d: `M ${from.x} ${from.y} C ${from.x + bend} ${from.y}, ${to.x - bend} ${to.y}, ${to.x} ${to.y}`,
+      "marker-end": "url(#map-arrow)", tabindex: "0", role: "button", "aria-label": `${edge.from} ${edge.label} ${edge.to}`,
+    });
+    path.dataset.edgeIndex = String(index);
+    path.addEventListener("click", () => showRelationship(edge));
+    path.addEventListener("keydown", (event) => { if (["Enter", " "].includes(event.key)) { event.preventDefault(); showRelationship(edge); } });
+    mapEdgeLayer.append(path);
+  });
+
+  const compact = activeDiagram.id === "components";
+  activeDiagram.nodes.forEach((node) => {
+    const { x, y } = point(node.id);
+    const width = compact ? 144 : 168; const height = compact ? 52 : 62;
+    const color = `#${new THREE.Color(c4Color(node)).getHexString()}`;
+    const group = svgElement("g", { class: "map-node", transform: `translate(${x} ${y})`, tabindex: "0", role: "button", "aria-label": `${node.name}, ${node.type}` });
+    group.dataset.nodeId = node.id;
+    group.style.setProperty("--node-color", color);
+    const plate = svgElement(/data store/i.test(node.type) ? "path" : "rect", /data store/i.test(node.type)
+      ? { class: "map-node-plate", d: `M ${-width / 2} ${-height / 2 + 7} Q 0 ${-height / 2 - 5} ${width / 2} ${-height / 2 + 7} L ${width / 2} ${height / 2 - 7} Q 0 ${height / 2 + 5} ${-width / 2} ${height / 2 - 7} Z` }
+      : { class: "map-node-plate", x: -width / 2, y: -height / 2, width, height, rx: "3" });
+    group.append(plate);
+    const rail = svgElement("rect", { class: "map-node-rail", x: -width / 2, y: -height / 2, width: "6", height, rx: "2" });
+    group.append(rail);
+    const glyph = svgElement("text", { class: "map-node-glyph", x: -width / 2 + 23, y: compact ? 6 : 7, "text-anchor": "middle" });
+    glyph.textContent = mapGlyph(node); group.append(glyph);
+    const title = svgElement("text", { class: "map-node-title", x: -width / 2 + 43, y: compact ? -2 : -5 });
+    title.textContent = node.name.length > (compact ? 19 : 23) ? `${node.name.slice(0, compact ? 18 : 22)}…` : node.name; group.append(title);
+    const type = svgElement("text", { class: "map-node-type", x: -width / 2 + 43, y: compact ? 14 : 15 });
+    type.textContent = node.type.replace("Software System", "System").slice(0, 27); group.append(type);
+    const signal = svgElement("circle", { class: "map-node-signal", cx: width / 2 - 12, cy: -height / 2 + 12, r: "4" });
+    group.append(signal);
+    group.addEventListener("click", () => showArchitectureElement(node));
+    group.addEventListener("keydown", (event) => { if (["Enter", " "].includes(event.key)) { event.preventDefault(); showArchitectureElement(node); } });
+    mapNodeLayer.append(group);
+  });
+  $("#map-title").textContent = activeDiagram.label;
+  $("#map-status").textContent = `${activeDiagram.nodes.length} elements · ${activeDiagram.edges.length} relations · live E2E overlay`;
+  update2DMapState();
+}
+
+function update2DMapState() {
+  if (!mapNodeLayer || !activeDiagram) return;
+  mapNodeLayer.querySelectorAll(".map-node").forEach((group) => {
+    group.classList.remove("active", "complete", "failed", "selected");
+    group.classList.add(mapNodeStatus(group.dataset.nodeId));
+    group.classList.toggle("selected", selectedNode?.id === group.dataset.nodeId);
+  });
+}
+
 function makeTextSprite(lines, accent = "#f1f0e8", scale = 1) {
   const labelCanvas = document.createElement("canvas"); labelCanvas.width = 1024; labelCanvas.height = 320;
   const ctx = labelCanvas.getContext("2d"); ctx.clearRect(0, 0, 1024, 320); ctx.textAlign = "center";
@@ -567,6 +681,7 @@ function addC4Node(node) {
   const labelType = document.createElement("small"); labelType.textContent = node.type;
   labelElement.append(labelName, labelType);
   const label = new CSS2DObject(labelElement); label.position.set(0, height + (activeDiagram.id === "components" ? .72 : 1.04), 0); group.add(label);
+  group.userData.worldLabel = label;
   worldGroup.add(group); nodeMeshes.push(group);
 }
 
@@ -746,10 +861,11 @@ function buildDiagram(diagramId) {
   if (!state.cycleId) productAssembly.position.set(-22, 2.5, -6.5);
   $("#diagram-count").textContent = `${activeDiagram.nodes.length} elements · ${activeDiagram.edges.length} relations`;
   $("#diagram-source").textContent = `Source: .pi/architecture.md:${activeDiagram.sourceLine}`;
+  render2DMap();
   updateSceneFromState();
 }
 
-diagramSelect.addEventListener("change", () => { buildDiagram(diagramSelect.value); renderState(); setCamera(VARIANTS[activeVariant].camera); });
+diagramSelect.addEventListener("change", () => { buildDiagram(diagramSelect.value); renderState(); if (worldMode === "floor") setCamera(VARIANTS[activeVariant].camera); });
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
@@ -778,6 +894,7 @@ canvas.addEventListener("dblclick", (event) => {
 
 function showArchitectureElement(node) {
   selectedNode = node;
+  update2DMapState();
   $("#station-code").textContent = node.id; $("#station-name").textContent = node.name;
   $("#station-description").textContent = node.description || "This element is named in the repository C4 source without an additional description.";
   $("#station-owner").textContent = node.type; $("#station-authority").textContent = activeDiagram.label; refs.stationCard.hidden = false;
@@ -789,6 +906,7 @@ function showArchitectureElement(node) {
 
 function showRelationship(edge) {
   selectedNode = null;
+  update2DMapState();
   $("#station-code").textContent = `${edge.from} → ${edge.to}`; $("#station-name").textContent = edge.label;
   $("#station-description").textContent = "Relationship loaded from the selected Mermaid C4 view in .pi/architecture.md.";
   $("#station-owner").textContent = "C4 relationship"; $("#station-authority").textContent = activeDiagram.label; refs.stationCard.hidden = false;
@@ -798,6 +916,7 @@ function showRelationship(edge) {
 
 function showProductAssembly() {
   selectedNode = null;
+  update2DMapState();
   const stack = TARGET_STACKS[state.targetStack] ?? TARGET_STACKS.rust;
   $("#station-code").textContent = "Löyly product"; $("#station-name").textContent = stack.model;
   $("#station-description").textContent = `The generated Löyly system boundary contains ${PRODUCT_COMPONENTS.length} C4-shaped product modules implemented in ${stack.label}. Components emerge as the recorded build advances.`;
@@ -870,11 +989,18 @@ function returnToOverview() {
   setCamera(VARIANTS[activeVariant].camera);
 }
 
-$("#focus-station").addEventListener("click", () => { if (selectedNode) focusOnStation(selectedNode); });
+$("#focus-station").addEventListener("click", () => {
+  if (!selectedNode) return;
+  if (worldMode === "map") {
+    setWorldMode("floor");
+    requestAnimationFrame(() => focusOnStation(selectedNode));
+  } else focusOnStation(selectedNode);
+});
 $("#overview-station").addEventListener("click", returnToOverview);
 function closeStationCard() {
   if (focusedNode) returnToOverview();
-  refs.stationCard.hidden = true; selectedNode = null; canvas.focus({ preventScroll: true });
+  refs.stationCard.hidden = true; selectedNode = null; update2DMapState();
+  (worldMode === "map" ? $("#c4-map") : canvas).focus({ preventScroll: true });
 }
 $("#close-station").addEventListener("click", closeStationCard);
 
@@ -955,6 +1081,20 @@ function animateStationFixtures(now) {
   });
 }
 
+function setWorldMode(mode, updateUrl = true) {
+  worldMode = mode === "floor" ? "floor" : "map";
+  document.body.classList.toggle("world-mode-map", worldMode === "map");
+  document.body.classList.toggle("world-mode-floor", worldMode === "floor");
+  document.querySelectorAll("[data-world-mode]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.worldMode === worldMode)));
+  $("#focus-station").textContent = worldMode === "map" ? "Open 3D station" : "Zoom into station";
+  if (updateUrl) {
+    const url = new URL(location.href); url.searchParams.set("view", worldMode); history.replaceState({}, "", url);
+  }
+  if (worldMode === "floor") requestAnimationFrame(() => { resize(); setCamera(VARIANTS[activeVariant].camera); });
+}
+
+document.querySelectorAll("[data-world-mode]").forEach((button) => button.addEventListener("click", () => setWorldMode(button.dataset.worldMode)));
+
 function setCamera(mode) {
   followProduct = false; refs.focusProduct.classList.remove("active"); refs.focusProduct.textContent = "Follow product"; controls.enabled = true;
   const compact = canvas.clientWidth <= 560;
@@ -979,8 +1119,49 @@ canvas.addEventListener("keydown", (event) => {
 function resize() {
   const rect = canvas.getBoundingClientRect(); if (!rect.width || !rect.height) return;
   renderer.setSize(rect.width, rect.height, false); labelRenderer.setSize(rect.width, rect.height); camera.aspect = rect.width / rect.height; camera.updateProjectionMatrix();
+  nextLabelLayoutAt = 0;
 }
 new ResizeObserver(resize).observe(canvas);
+
+const projectedLabelPosition = new THREE.Vector3();
+function updateWorldLabelVisibility(now) {
+  if (now < nextLabelLayoutAt) return;
+  nextLabelLayoutAt = now + 90;
+  const canvasRect = canvas.getBoundingClientRect();
+  if (!canvasRect.width || !canvasRect.height) return;
+  const isMobile = canvasRect.width <= 560;
+  const isComponentView = activeDiagram.id === "components";
+  const labelWidth = isComponentView ? (isMobile ? 82 : 102) : (isMobile ? 104 : 140);
+  const labelHeight = isComponentView ? 18 : (isMobile ? 24 : 34);
+  const maxVisible = isMobile ? (isComponentView ? 6 : 7) : (isComponentView ? 9 : 12);
+  const overlays = [$(".architecture-toolbar"), $(".world-title"), $(".camera-actions")].map((element) => {
+    const rect = element.getBoundingClientRect();
+    return { left: rect.left - canvasRect.left, right: rect.right - canvasRect.left, top: rect.top - canvasRect.top, bottom: rect.bottom - canvasRect.top };
+  });
+  const candidates = nodeMeshes.map((group) => {
+    const label = group.userData.worldLabel;
+    label.getWorldPosition(projectedLabelPosition);
+    const distance = camera.position.distanceTo(projectedLabelPosition);
+    const projected = projectedLabelPosition.clone().project(camera);
+    return {
+      group, label, distance, projected,
+      x: (projected.x * .5 + .5) * canvasRect.width,
+      y: (-projected.y * .5 + .5) * canvasRect.height,
+      pinned: selectedNode?.id === group.userData.node.id,
+    };
+  }).sort((a, b) => Number(b.pinned) - Number(a.pinned) || a.distance - b.distance);
+  const occupied = [];
+  const overlaps = (a, b, gap = 5) => a.left < b.right + gap && a.right + gap > b.left && a.top < b.bottom + gap && a.bottom + gap > b.top;
+  candidates.forEach((candidate) => {
+    const box = { left: candidate.x - labelWidth / 2, right: candidate.x + labelWidth / 2, top: candidate.y - labelHeight / 2, bottom: candidate.y + labelHeight / 2 };
+    const onScreen = candidate.projected.z > -1 && candidate.projected.z < 1 && box.right > 5 && box.left < canvasRect.width - 5 && box.bottom > 5 && box.top < canvasRect.height - 5;
+    const blocked = overlays.some((overlay) => overlaps(box, overlay, 3));
+    const colliding = occupied.some((other) => overlaps(box, other));
+    const visible = candidate.pinned || (onScreen && !blocked && !colliding && occupied.length < maxVisible);
+    candidate.label.visible = visible;
+    if (visible) occupied.push(box);
+  });
+}
 
 function frame(now) {
   const delta = Math.min((now - lastFrame) / 1000, .1); lastFrame = now;
@@ -1022,7 +1203,10 @@ function frame(now) {
       camera.position.copy(cameraFlight.position); controls.target.copy(cameraFlight.target); cameraFlight = null; controls.enabled = true;
     }
   }
-  controls.update(); renderer.render(scene, camera); labelRenderer.render(scene, camera); requestAnimationFrame(frame);
+  if (worldMode === "floor") {
+    controls.update(); updateWorldLabelVisibility(now); renderer.render(scene, camera); labelRenderer.render(scene, camera);
+  }
+  requestAnimationFrame(frame);
 }
 
 // Shareable prototype variants ------------------------------------------------
@@ -1032,7 +1216,7 @@ function setVariant(key, updateUrl = true) {
   document.body.dataset.variant = activeVariant;
   refs.variantLabel.textContent = variant.label; refs.viewKicker.textContent = variant.kicker; refs.viewTitle.textContent = variant.title;
   if (updateUrl) { const url = new URL(location.href); url.searchParams.set("variant", activeVariant); history.replaceState({}, "", url); }
-  requestAnimationFrame(() => { resize(); setCamera(variant.camera); });
+  if (worldMode === "floor") requestAnimationFrame(() => { resize(); setCamera(variant.camera); });
 }
 
 function cycleVariant(direction) {
@@ -1058,5 +1242,6 @@ document.addEventListener("keydown", (event) => {
 
 buildDiagram("containers");
 setVariant(new URLSearchParams(location.search).get("variant") ?? "A", false);
+setWorldMode(new URLSearchParams(location.search).get("view") ?? "map", false);
 renderState();
 requestAnimationFrame(frame);

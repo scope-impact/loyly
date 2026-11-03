@@ -4,9 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#101c2c" />
-    <title>Regeneration Yard — 3D factory spike</title>
+    <title>Regeneration Yard — live software factory</title>
   </head>
-  <body>
+  <body class="world-mode-map">
     <div id="app">
       <header class="topbar">
         <a class="brand" href="?variant=A" aria-label="Regeneration Yard home">
@@ -21,19 +21,41 @@
       </header>
 
       <main class="game-shell">
-        <section class="world" aria-label="Interactive 3D factory floor">
+        <section class="world" aria-label="Interactive software factory">
           <canvas id="factory-canvas" tabindex="0" aria-label="Interactive 3D factory floor" aria-describedby="world-hint"></canvas>
+          <section class="control-room" id="control-room" aria-labelledby="map-title">
+            <div class="map-heading">
+              <p>Repository architecture</p>
+              <h1 id="map-title">Container view</h1>
+              <span id="map-status">Live E2E overlay · select a station</span>
+            </div>
+            <svg id="c4-map" class="c4-map" viewBox="0 0 1200 660" role="img" aria-labelledby="map-title map-description">
+              <desc id="map-description">A live two-dimensional C4 architecture map loaded from the repository.</desc>
+              <defs>
+                <marker id="map-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z"></path></marker>
+                <filter id="map-glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5" result="blur"></feGaussianBlur><feMerge><feMergeNode in="blur"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge></filter>
+              </defs>
+              <g id="map-edges"></g>
+              <g id="map-nodes"></g>
+            </svg>
+            <div class="map-legend" aria-label="Map legend"><span><i class="legend-live"></i>Working</span><span><i class="legend-done"></i>Cleared</span><span><i class="legend-fault"></i>Fault</span></div>
+            <p class="map-hint">Select a C4 element · swipe map →</p>
+          </section>
           <div class="architecture-toolbar">
             <label for="diagram-select">C4 world</label>
             <select id="diagram-select"></select>
             <span id="diagram-count">0 elements · 0 relations</span>
             <span id="diagram-source">Source: .pi/architecture.md</span>
           </div>
+          <div class="view-mode-switch" role="group" aria-label="Factory view">
+            <button type="button" data-world-mode="map" aria-pressed="true">2D map</button>
+            <button type="button" data-world-mode="floor" aria-pressed="false">3D floor</button>
+          </div>
           <div class="world-title">
             <p id="view-kicker">Harness assembly line</p>
             <h1 id="view-title">Assemble Löyly from C4 components</h1>
           </div>
-          <div class="world-hint" id="world-hint">Drag to orbit · Scroll to zoom · Select to inspect · Double-click to enter a station</div>
+          <div class="world-hint" id="world-hint">Drag to orbit · Scroll to zoom · Labels reveal with detail · Select to inspect</div>
           <div class="camera-actions">
             <button id="focus-product" type="button">Follow product</button>
             <button id="camera-reset" type="button">Overview</button>

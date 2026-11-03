@@ -77,6 +77,42 @@ button, select, input[type="range"] { min-height: 44px; }
 .architecture-toolbar span { grid-column: 2; color: var(--muted); font-size: 9px; }
 #diagram-source { color: #a7d9da; }
 
+.view-mode-switch { position: absolute; z-index: 6; top: 18px; right: 18px; display: grid; grid-template-columns: 1fr 1fr; padding: 3px; background: rgba(8,17,28,.94); border: 1px solid var(--line); box-shadow: 0 8px 28px rgba(0,0,0,.35); }
+.view-mode-switch button { min-width: 84px; min-height: 38px; padding: 7px 12px; border: 0; background: transparent; color: var(--muted); cursor: pointer; font: 600 12px "Barlow Condensed"; letter-spacing: .02em; }
+.view-mode-switch button[aria-pressed="true"] { color: #07131e; background: var(--cyan); }
+.control-room { position: absolute; z-index: 1; inset: 0; overflow: hidden; background-color: #0a1623; background-image: linear-gradient(rgba(82,214,210,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(82,214,210,.035) 1px, transparent 1px), linear-gradient(rgba(82,214,210,.018) 1px, transparent 1px), linear-gradient(90deg, rgba(82,214,210,.018) 1px, transparent 1px); background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px; }
+.control-room::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at 52% 48%, rgba(24,66,78,.24), transparent 56%), linear-gradient(180deg, rgba(8,17,28,.16), rgba(8,17,28,.58)); }
+.map-heading { position: absolute; z-index: 2; left: 28px; top: 106px; pointer-events: none; }
+.map-heading p { margin: 0 0 2px; color: var(--amber); font: 500 13px "Barlow Condensed"; text-transform: uppercase; letter-spacing: .08em; }
+.map-heading h1 { margin: 0; font: 600 clamp(28px, 3vw, 42px)/1 "Barlow Condensed"; }
+.map-heading span { display: block; margin-top: 5px; color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .06em; }
+.c4-map { position: absolute; inset: 88px 12px 28px; width: calc(100% - 24px); height: calc(100% - 116px); overflow: visible; }
+#map-arrow path { fill: #446174; }
+.map-edge { fill: none; stroke: #385366; stroke-width: 2; opacity: .7; cursor: pointer; pointer-events: stroke; transition: stroke .16s, opacity .16s; }
+.map-edge:hover, .map-edge:focus { stroke: var(--amber); opacity: 1; outline: none; }
+.map-node { --node-color: #74a5c2; cursor: pointer; color: var(--node-color); outline: none; }
+.map-node-plate { fill: #111f30; stroke: #3b5367; stroke-width: 1.5; vector-effect: non-scaling-stroke; transition: fill .18s, stroke .18s, filter .18s; }
+.map-node-rail, .map-node-signal { fill: var(--node-color); }
+.map-node-glyph { fill: var(--node-color); font: 600 23px "IBM Plex Sans"; }
+.map-node-title { fill: #f1f0e8; font: 600 15px "Barlow Condensed"; letter-spacing: .01em; }
+.map-node-type { fill: #91a0ae; font: 500 8px "IBM Plex Sans"; text-transform: uppercase; letter-spacing: .04em; }
+.map-node-signal { opacity: .28; }
+.map-node:hover .map-node-plate, .map-node:focus .map-node-plate, .map-node.selected .map-node-plate { fill: #192c40; stroke: var(--node-color); stroke-width: 2.5; }
+.map-node.active .map-node-plate { stroke: var(--amber); filter: url(#map-glow); }
+.map-node.active .map-node-signal { fill: var(--amber); opacity: 1; animation: signal-pulse 1.2s ease-in-out infinite; }
+.map-node.complete .map-node-signal { fill: var(--cyan); opacity: 1; }
+.map-node.failed .map-node-plate { stroke: var(--fault); }
+.map-node.failed .map-node-signal { fill: var(--fault); opacity: 1; filter: url(#map-glow); }
+@keyframes signal-pulse { 50% { opacity: .36; } }
+.map-legend { position: absolute; z-index: 2; left: 28px; bottom: 18px; display: flex; gap: 15px; color: #aab6bf; font-size: 9px; text-transform: uppercase; letter-spacing: .04em; }
+.map-legend span { display: flex; align-items: center; gap: 5px; }
+.map-legend i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.map-legend .legend-live { background: var(--amber); box-shadow: 0 0 8px var(--amber); }.map-legend .legend-done { background: var(--cyan); }.map-legend .legend-fault { background: var(--fault); }
+.map-hint { position: absolute; z-index: 2; right: 22px; bottom: 16px; margin: 0; color: #91a0ae; font-size: 9px; }
+.world-mode-map #factory-canvas, .world-mode-map .factory-label-layer, .world-mode-map .world-title, .world-mode-map .world-hint, .world-mode-map .camera-actions { visibility: hidden; pointer-events: none; }
+.world-mode-floor .control-room { display: none; }
+.world-mode-floor .view-mode-switch { top: 70px; }
+
 .mission-panel { grid-area: 1 / 2; padding: 20px 22px 28px; min-height: 0; overflow-y: auto; overflow-anchor: none; background: var(--panel); border-left: 1px solid var(--line); scrollbar-color: var(--steel-3) transparent; }
 .panel-heading { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
 .panel-heading h2 { margin: 0; font: 600 28px/1 "Barlow Condensed"; }
@@ -245,6 +281,11 @@ body[data-variant="C"] .world-hint { left: 28px; right: auto; bottom: 112px; }
   .architecture-toolbar { top: auto; left: 18px; bottom: 18px; max-width: calc(100% - 36px); }
   .camera-actions { top: 14px; right: 14px; }
   body[data-variant="C"] .decision { position: static; width: auto; }
+  .world-mode-map .architecture-toolbar, .world-mode-map[data-variant="B"] .architecture-toolbar, .world-mode-map[data-variant="C"] .architecture-toolbar { top: 14px; bottom: auto; left: 16px; }
+  .view-mode-switch { top: 14px; right: 14px; }
+  .world-mode-floor .view-mode-switch { top: 64px; }
+  .map-heading { top: 102px; left: 18px; }
+  .c4-map { inset: 78px 6px 24px; width: calc(100% - 12px); height: calc(100% - 102px); }
 }
 
 @media (max-width: 560px) {
@@ -290,6 +331,18 @@ body[data-variant="C"] .world-hint { left: 28px; right: auto; bottom: 112px; }
   .station-card h2 { font-size: 28px; }
   .station-card.focused .station-actions { grid-template-columns: 1fr 1fr; }
   .event-log, .evidence-list, .state-view { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+  .control-room { overflow-x: auto; overflow-y: hidden; scrollbar-color: var(--steel-3) transparent; }
+  .world-mode-map .architecture-toolbar, .world-mode-map[data-variant="B"] .architecture-toolbar, .world-mode-map[data-variant="C"] .architecture-toolbar { top: 58px; left: 10px; bottom: auto; width: 285px; grid-template-columns: 52px minmax(0, 1fr); padding: 5px 8px; }
+  .world-mode-map .architecture-toolbar span { display: none; }
+  .view-mode-switch { top: 9px; right: 10px; }
+  .view-mode-switch button { min-width: 67px; min-height: 38px; padding-inline: 8px; }
+  .world-mode-floor .view-mode-switch { top: 9px; }
+  .map-heading { top: 114px; left: 12px; position: sticky; width: 270px; }
+  .map-heading h1 { font-size: 27px; }.map-heading span { display: none; }
+  .c4-map { top: 112px; left: 0; right: auto; bottom: auto; width: 760px; height: calc(100% - 128px); min-height: 300px; }
+  .map-legend { left: 12px; bottom: 9px; gap: 10px; position: sticky; width: max-content; }
+  .map-hint { left: 300px; right: auto; bottom: 8px; width: 300px; }
+  .world-mode-map .prototype-switcher { position: fixed; top: auto; left: auto; right: 8px; bottom: 8px; }
 }
 
 @media (max-width: 860px) and (max-height: 520px) and (orientation: landscape) {

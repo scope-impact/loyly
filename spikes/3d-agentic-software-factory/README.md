@@ -1,6 +1,6 @@
-# Regeneration Yard — throwaway 3D prototype
+# Regeneration Yard — hybrid 2D/3D prototype
 
-> **Prototype question:** What should an agentic software factory feel like as a 3D game when
+> **Prototype question:** What should an agentic software factory feel like as a live control room when
 > Grain owns durable facts and the Pi harness owns the regeneration cycle?
 
 This is deliberately throwaway code on `spike/3d-agentic-software-factory`. It is a visual and
@@ -8,11 +8,11 @@ interaction model, not a production harness client. The simulation replays all g
 in-memory event log and uses the committed Pi pipeline vocabulary. No command reaches the real
 harness.
 
-The 3D world is not a hand-authored approximation of the architecture. Vite imports
+The default 2D control-room map and optional 3D world are not hand-authored approximations of the architecture. Vite imports
 `.pi/architecture.md` as source, and the prototype parses the repository's actual Mermaid C4
-blocks at runtime. Nodes become buildings or data-store cylinders, C4 relationships become
-labeled routes, and the selected regeneration stage highlights the responsible architecture
-elements.
+blocks at runtime. In 2D, nodes become compact control plates and relationships stay visible as a
+schematic; in 3D, the same nodes become buildings or data-store cylinders. Recorded regeneration
+signals highlight the responsible architecture elements in both views.
 
 The physical footprint is grounded in first-party descriptions of Toyota, BMW,
 Mercedes-Benz, and Ford production rather than the C4 graph's automatic topology. See
@@ -57,7 +57,8 @@ npm install
 npm run spike
 ```
 
-Open <http://127.0.0.1:5173/?variant=A>.
+Open <http://127.0.0.1:5173/?variant=A>. The 2D map is the responsive default. Use the persistent
+**2D map / 3D floor** switch or add `&view=floor` to a shareable URL.
 
 - `A` — Factory floor: spatial process and operator action.
 - `B` — Evidence observatory: provenance and runtime evidence first.
@@ -65,15 +66,15 @@ Open <http://127.0.0.1:5173/?variant=A>.
 
 Use the bottom switcher or the left/right arrow keys. Press Space to replay or pause the recorded
 cycle. Its first attempt really failed, so the repair boundary remains visible without fabricating
-a fault. Select a 3D element to see its C4 type, description, and source view.
+a fault. Select any 2D or 3D element to see its C4 type, description, and source view.
 
 Use the **C4 world** selector to move between the repository's System Context, Container, and ORC
 Worker Component views. Selecting a building or relationship shows the exact parsed C4 name, type,
 description, and diagram. The full-state tab includes the active source line, parsed elements,
 relations, and stage-highlighted element IDs.
 
-Select a station and choose **Zoom into station**, or double-click it, to enter a close inspection
-view. Its live feed shows whether the station is processing the current Löyly model, waiting on an
+Select a map station and choose **Open 3D station** (or select **Zoom into station** on the floor)
+to enter a close inspection view. Its live feed shows whether the station is processing the current Löyly model, waiting on an
 operator repair decision, queued for a later stage, or complete. The feed also lists the station's
 actual incoming and outgoing C4 relationships. **Return to overview** flies back to the full line.
 
