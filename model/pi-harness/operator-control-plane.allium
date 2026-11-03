@@ -14,13 +14,14 @@ enum InterventionKind { pause | steer | fork }
 value RequestDigest { value: String }
 value SelectionDigest { value: String }
 value PreparationDigest { value: String }
+value SelectedItemContract { identity: String, scenario_digest: String }
 
 entity ControlSelection {
     identity: String
     digest: SelectionDigest
     status: ControlSelectionStatus
     cut_identity: String
-    item_identities: List<String>
+    items: List<SelectedItemContract>
 
     transitions status {
         awaiting_approval -> approved
@@ -113,6 +114,7 @@ rule PrepareCutTask {
 
 rule PreviewControlSelection {
     when: PreviewSliceSelection(operator_session, cut_identity, slice_identity, requested_items)
+    requires: slice_identity in valid_system_composition(cut_identity)
     let resolved_items = resolve_items_once(cut_identity, slice_identity, requested_items)
     requires: resolved_items.count > 0
     ensures: ControlSelection.created(
@@ -120,7 +122,25 @@ rule PreviewControlSelection {
         digest: deterministic_selection_digest(cut_identity, slice_identity, resolved_items),
         status: awaiting_approval,
         cut_identity: cut_identity,
-        item_identities: resolved_items
+        items: resolved_items
+    )
+}
+
+rule ProposeControlSelectionFromIntent {
+    when: ProposeSliceSelection(operator_session, cut_identity, operator_intent)
+    let proposed_scope = llm_propose_existing_slice_and_items(cut_identity, operator_intent)
+    requires: proposed_scope.belongs_to(valid_system_composition(cut_identity))
+    let resolved_items = resolve_items_once(
+        cut_identity, proposed_scope.slice_identity, proposed_scope.item_identities)
+    requires: resolved_items.count > 0
+    ensures: ControlSelection.created(
+        identity: deterministic_selection_identity(
+            cut_identity, proposed_scope.slice_identity, resolved_items),
+        digest: deterministic_selection_digest(
+            cut_identity, proposed_scope.slice_identity, resolved_items),
+        status: awaiting_approval,
+        cut_identity: cut_identity,
+        items: resolved_items
     )
 }
 
@@ -167,7 +187,7 @@ rule SubmitCycleTask {
     when: SubmitRegenerationCycle(operator_session, request_identity, request_digest,
                                   preparation, parent_cycle_identity)
     requires: preparation.status = approved
-    requires: preparation.selection.item_identities.count > 0
+    requires: preparation.selection.items.count > 0
     requires: not exists HarnessTask{request_identity: request_identity}
     ensures: HarnessTask.created(
         identity: next_task_identity(),
@@ -343,6 +363,7 @@ surface RegenerationControlPlane {
 
     provides:
         PrepareRegenerationCut(operator_session, request_identity, request_digest, source_commit, backend)
+        ProposeSliceSelection(operator_session, cut_identity, operator_intent)
         PreviewSliceSelection(operator_session, cut_identity, slice_identity, requested_items)
         ApproveSliceSelection(operator_session, selection, supplied_digest)
         PrepareRegenerationCycle(operator_session, preparation_identity, selection,

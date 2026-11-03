@@ -11,6 +11,18 @@ is neutral input to a generation or regeneration workflow; preparing it is not i
 operation.
 _Avoid_: Regeneration cut, checkout, clone, workspace
 
+**Slice**:
+A named, coherent set of observable behavior contracts represented by Gherkin scenarios with
+stable item identities. A slice does not contain or select an oracle.
+_Avoid_: Model directory, grader bundle, implementation component
+
+**System composition**:
+The deterministic, cut-bound system view reconstructed by mapping every Gherkin behavior item
+to its slice, component, and container, then reducing those mappings into one hierarchy. It is
+complete only when every behavior item appears exactly once and decomposing the hierarchy
+reproduces the same slice mappings.
+_Avoid_: File concatenation, OCI assembly, candidate build
+
 **Generation**:
 An explicitly requested creation of an ungraded candidate from an approved source cut. Existing
 candidate history does not change Generation into Regeneration. Generation has no parent
@@ -18,12 +30,25 @@ candidate and invokes no oracle-backed measurement.
 _Avoid_: Regeneration, measured run
 
 **Selection contract**:
-The exact project, slice, item denominator, and cut identity reviewed before ORC routes the approved slice to generation or regeneration.
+The exact project, composed slice identity, item identities and scenario digests, and cut identity
+reviewed before ORC routes the approved slice to generation or regeneration.
 _Avoid_: Filter, task list, scope file
+
+**Slice proposal**:
+A non-authoritative LLM suggestion of an existing slice and item subset derived from operator
+intent. ORC resolves every proposed identity against the source cut before presenting a selection
+contract; the proposal cannot approve itself or invent specification items.
+_Avoid_: Approved selection, generated specification
 
 **Approved selection**:
 A selection contract whose exact digest has been explicitly accepted.
 _Avoid_: Confirmed prompt, chosen tests
+
+**Scenario digest**:
+The digest of one complete normalized Gherkin scenario contract, including its Rule and Scenario
+names, Given/When/Then steps and arguments, and Examples. It changes when the observable behavior
+changes even if the separately keyed stable item identity is retained.
+_Avoid_: File hash, model-tree digest, item identity
 
 **Approved-slice operation route**:
 The Generate or Regenerate operation explicitly requested with an approved slice and pinned by
@@ -86,10 +111,18 @@ component, matches the checked-in harness source, and passes its calibration fix
 _Avoid_: Candidate verification, generated test suite
 
 **Oracle**:
-The immutable OCI descriptor digest for the executable product contract built from an exact Git
-commit and tree, bound to the calibrated instrument-oracle digest. A Git-commit OCI tag is a
-lookup alias only; the regeneration cycle pins the descriptor digest.
+A whole-system catalogue of independently executable product graders and calibration assets,
+published as an immutable OCI descriptor. Each entry is keyed by stable Gherkin item identity
+and full scenario digest. A measured cycle selects the entries required by its approved
+selection and records the exact descriptor digest; the oracle is not bound to a source tree or
+to an instrument oracle.
 _Avoid_: Grader, verifier
+
+**Oracle binding**:
+The cycle-owned record of the approved item identities and scenario digests, selected product-
+oracle descriptor, and independently selected instrument-oracle descriptor. Combining them in
+cycle evidence does not make either OCI artifact depend on the other.
+_Avoid_: Slice, oracle catalogue
 
 **Verifier**:
 An independent check that the candidate satisfies the runnable application contract.

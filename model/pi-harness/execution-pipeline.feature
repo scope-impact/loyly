@@ -40,14 +40,15 @@ Feature: Ordered regeneration execution and evidence
       And the candidate content digest remains unchanged
 
     @item-01-026 @skip
-    Scenario: The product-oracle OCI is bound to the approved Git revision
-      Given an approved selection names a full Git commit and fenced tree identity
+    Scenario: The whole-system product oracle supplies the approved slice graders
+      Given an approved selection names stable item identities and full Gherkin scenario digests
       When harness calibration resolves its product-oracle OCI before the builder starts
-      Then the artifact records the same source commit and tree identity
-      And it contains every selected item exactly once
-      And it names the accepted instrument-oracle descriptor digest
-      And its Git-commit tag is only a lookup alias for the immutable OCI descriptor digest
-      And any commit, tree, item, or instrument mismatch prevents the builder from starting
+      Then the immutable descriptor contains every selected item exactly once
+      And every selected entry matches the full scenario digest and has calibrated grader assets
+      And unselected catalogue entries do not enter the approved denominator
+      And the product oracle need not match the source tree or name the instrument oracle
+      And cycle evidence records the independently resolved product and instrument descriptors
+      And any missing, duplicate, or scenario-digest-mismatched selected item prevents the builder from starting
 
   Rule: Independent rooms and evidence preserve provenance
 

@@ -23,6 +23,14 @@ Feature: Oracle-backed regeneration through an operator session and ORC
       And writes outside the declared candidate scope are denied
       And network access, judge material, host credentials, and host session resources are unavailable
 
+    @item-01-042 @skip
+    Scenario: Slice mappings reconstruct the complete cut-bound system view
+      Given a prepared cut contains Gherkin behavior items grouped into slices, components, and containers
+      When the harness maps each item and reduces those mappings into a system view
+      Then every behavior item appears exactly once in the reconstructed hierarchy
+      And decomposing that hierarchy reproduces the same slice mappings
+      And any missing, duplicate, or conflicting mapping makes the composition invalid
+
   Rule: Selection is deterministic and approval binds the reviewed identity
 
     @item-01-003 @e2e

@@ -14,6 +14,19 @@ separate from the Pi harness that builds and measures a candidate.
   that JSON is a transitional adapter contract, not an independent source of truth, and
   should be generated from Allium or removed when the evaluator consumes Allium directly.
 
+Stable `@item-*` identities in `spec.feature` select behavior from the whole-system product
+oracle. Compatibility also requires the digest of the complete normalized Gherkin scenario
+(Rule and Scenario names, steps, and Examples); an item identity alone is not a behavior
+version. A measured slice therefore selects oracle entries without binding the oracle to every
+file in this model directory.
+
+Allium and the Grain event-model EDN remain richer design and composition views, traceable to
+the Gherkin behavior they support. Refactoring those views without changing observable behavior
+does not invalidate a product-oracle entry. If either view changes observable behavior, the
+corresponding Gherkin scenario must change and therefore receives a new scenario digest. If the
+views introduce observable behavior that has no Gherkin item, preflight reports specification
+drift and refuses measured grading rather than silently expanding the slice.
+
 Keep product specification separate from harness/oracle implementation:
 
 - Evidence transport settings (ports, exporters, file formats) are harness runtime config,

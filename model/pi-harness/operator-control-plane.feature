@@ -4,6 +4,15 @@ Feature: Session-independent generation and regeneration control
 
   Rule: Every public operation refuses malformed or conflicting identities
 
+    @item-01-041 @skip
+    Scenario: An LLM proposes a reviewable slice but cannot approve it
+      Given an operator describes the behavior to regenerate against a prepared cut
+      When the operator asks the LLM to propose a slice
+      Then every proposed slice and item identity is resolved from that cut
+      And invented, missing, duplicate, or ambiguous identities are refused
+      And the resolved selection is recorded as awaiting approval
+      And no generation or regeneration starts until the operator approves its exact digest
+
     @item-01-015 @skip
     Scenario: Cut preparation refuses an invalid or colliding identity
       Given a cut request does not name a full source commit or supported backend

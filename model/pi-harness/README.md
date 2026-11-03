@@ -33,15 +33,22 @@ unclassified or doubly classified scenarios.
   reconciled with the model without a parallel coverage catalogue. Two instrument-conformance
   scenarios still lack identities and remain an explicit traceability gap.
 - `regeneration-cycle.allium` defines the core invariants.
+- Cut composition maps every stable Gherkin behavior item to a slice, component, and container;
+  reducing those mappings must reconstruct the complete system view, and decomposition must
+  recover the same mappings without omissions or duplicates.
 - `operator-control-plane.allium` defines session-agnostic preparation approval, durable ORC
-  observation, builder-session inspection, and bounded outer-cycle continuation.
+  observation, builder-session inspection, and bounded outer-cycle continuation. An LLM may
+  propose an existing slice and item subset from operator intent, but deterministic resolution
+  against the cut and explicit operator approval remain authoritative.
 - `runtime-evidence.allium` separates candidate telemetry, harness observations, independent invariant verdicts, and report projections.
-- `execution-pipeline.allium` gates measured candidate construction on descriptor-pinned product
-  and instrument OCI artifacts. The product oracle must match the approved Git commit, fenced tree,
-  selected denominator, and instrument-oracle descriptor before the measured builder starts; OCI
-  tags are lookup aliases only. `initial-generation.allium` is the explicit no-oracle path and
-  produces only an ungraded candidate. The pipeline also defines bounded verification repair
-  before grading.
+- `execution-pipeline.allium` gates measured candidate construction on independently descriptor-
+  pinned product and instrument OCI artifacts. The whole-system product oracle is a catalogue:
+  every selected stable Gherkin item identity must occur exactly once with the matching full
+  scenario digest and calibrated grader. Extra catalogue items do not enter the denominator.
+  Neither oracle is bound to the source tree or to the other oracle; the cycle evidence records
+  both exact descriptors. OCI tags are lookup aliases only. `initial-generation.allium` is the
+  explicit no-oracle path and produces only an ungraded candidate. The pipeline also defines
+  bounded verification repair before grading.
 - `regeneration_event_model.clj` describes only the harness-owned Grain event topology.
 - `.pi/affordances.schema.json` defines the public Pi tool inputs; observable outcomes and
   refusals remain in the Allium and Gherkin contracts rather than a parallel YAML model.
@@ -97,8 +104,10 @@ The contract exposes gaps found while deriving it from the current implementatio
 
 1. A host-backed cycle can be submitted, but independent grading currently requires Gondolin,
    so only Gondolin can produce a passing complete measurement.
-2. Selection preview currently reads `docs/plan/<slice>/spec.feature` rather than the complete
-   project model contract used by the oracle.
+2. Selection preview currently reads `docs/plan/<slice>/spec.feature`, accepts an explicitly
+   named slice, and hashes the project model inventory. It does not yet propose a slice from
+   operator intent or resolve stable item identities and full scenario digests directly from the
+   canonical product Gherkin contract.
 3. The target contract requires approved-slice submission to persist the explicitly requested
    Generate or Regenerate operation by request ID before starting work. Generate forbids a parent;
    Regenerate requires a named persisted parent. The current implementation still infers the mode
@@ -149,5 +158,9 @@ The contract exposes gaps found while deriving it from the current implementatio
     transcript without the VM-visible filesystem it changed would be invalid.
 18. Parent-cycle lineage and bounded continuation heuristics are not yet recorded when an
     operator session decides to begin another complete cycle.
+19. Product-oracle preflight still compares repository commit/tree metadata and cross-binds the
+    instrument-oracle descriptor. The target contract instead selects independently calibrated
+    product graders by stable item identity plus full Gherkin scenario digest, then combines the
+    independently pinned product and instrument descriptors only in cycle evidence.
 
 These are reconciliation obligations, not alternative sources of truth.
