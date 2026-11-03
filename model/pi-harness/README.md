@@ -5,6 +5,10 @@ currently exposed through `.pi/harness/extension.ts` and executed by ORC under
 `.pi/harness/orc-worker/`. It is separate from `model/loyly`, which describes the
 product being regenerated.
 
+The C4 architecture and supporting runtime views derived from this contract are maintained in
+[`.pi/architecture.md`](../../.pi/architecture.md). That document identifies target versus
+current behavior explicitly; this model remains the observable source of truth.
+
 The target contract must not be read as a claim that every behavior is already
 implemented. Every scenario is classified as either `@e2e` or `@skip`. Scenarios tagged
 `@e2e` are executable conformance checks; scenarios tagged `@skip` are registered with
@@ -15,15 +19,18 @@ unclassified or doubly classified scenarios.
 - `operator-control-plane.feature`, `prompt-optimization.feature`,
   `execution-pipeline.feature`, and `runtime-evidence.feature` own acceptance behavior for
   their corresponding model components.
-- Every acceptance scenario retains a stable `@item-*` identity so Allure results can be
-  reconciled with the model without a parallel coverage catalogue.
+- Tagged acceptance scenarios retain stable `@item-*` identities so Allure results can be
+  reconciled with the model without a parallel coverage catalogue. Two instrument-conformance
+  scenarios still lack identities and remain an explicit traceability gap.
 - `regeneration-cycle.allium` defines the core invariants.
 - `operator-control-plane.allium` defines session-agnostic preparation approval, durable ORC
   observation, builder-session inspection, and bounded outer-cycle continuation.
 - `runtime-evidence.allium` separates candidate telemetry, harness observations, independent invariant verdicts, and report projections.
-- `execution-pipeline.allium` gates candidate construction on a pinned OCI full-harness
-  calibration, composes that instrument digest with the product-contract digest, and defines
-  the bounded verification-repair boundary before independent grading.
+- `execution-pipeline.allium` gates candidate construction on descriptor-pinned product and
+  instrument OCI artifacts. The product oracle must match the approved Git commit, fenced tree,
+  selected denominator, and instrument-oracle descriptor before the builder starts; OCI tags are
+  lookup aliases only. The model also defines the bounded verification-repair boundary before
+  independent grading.
 - `regeneration_event_model.clj` describes only the harness-owned Grain event topology.
 - `.pi/affordances.schema.json` defines the public Pi tool inputs; observable outcomes and
   refusals remain in the Allium and Gherkin contracts rather than a parallel YAML model.
@@ -69,8 +76,9 @@ means “not yet translated into E2E,” not necessarily “underlying implement
 Executable-test evidence under `.pi/harness/allure-results/e2e/` is generated and not checked in;
 the complete skipped inventory remains visible in Vitest's run summary.
 
-ORC stage progress remains ORC-owned; Grain stores durable preparation approval, observations,
-and measurements without duplicating ORC execution events.
+ORC tick state remains workflow authority. Grain stores a durable observational stage/attempt
+projection for reconnecting clients, plus preparation approval, observations, and measurements;
+the projection cannot advance ORC and does not duplicate ORC execution events.
 
 ## Known implementation limits and gaps
 
@@ -101,8 +109,9 @@ The contract exposes gaps found while deriving it from the current implementatio
 11. Standalone runtime conformance is selected from each pinned project's JSONL contract;
     the evaluator contains no project, item, event, projection, or field identities. Live
     Löyly evidence covers `@item-01-007` and `@item-01-008`. General producer authority, collection
-    completeness, OBI capture, semantic OTLP conventions, `inconclusive` outcomes, and
-    invariant-result projection remain unimplemented.
+    completeness, OBI capture, semantic runtime-signal OTLP conventions, and `inconclusive`
+    outcomes remain unimplemented. Persisted invariant results are projected as OTLP JSON
+    spans alongside Allure with the same evaluation identity and evidence-manifest digest.
 12. Supported target stacks are now independently bound to language-specific Gondolin builder
     rooms and checked against the candidate. Rust, Java, Ruby on Rails, and the Node family fail
     closed on a stack mismatch; this is a finite supported-stack registry, not universal
@@ -113,10 +122,13 @@ The contract exposes gaps found while deriving it from the current implementatio
 14. Approval currently binds only the slice selection. It does not yet bind a complete cycle
     preparation containing scope, target stack, execution profile, pinned inputs, diagram, and
     outer-cycle budget.
-15. The control RPC exposes reconnect-safe overall execution status from ORC's durable tick
-    projection, but not yet the current node/stage or builder-session reference.
-16. Builder sessions are fresh and isolated but currently in memory, disposed after the stage,
-    and unavailable for durable inspection, attachment, or forking.
+15. The control RPC reconciles ORC's authoritative durable tick status with a harness-owned
+    durable stage/attempt projection and opaque builder-session reference. The Pi extension can
+    query this state after reconnect; push notification subscription and an automatic live UI
+    remain unimplemented.
+16. Builder sessions are fresh, isolated, and persisted as append-only Pi transcripts. The
+    read-only RPC exposes committed entries, tool-call count, generated top-level workspace
+    entries, status, and attempt progress. Steering, attachment, and forking remain unimplemented.
 17. Builder transcripts are not yet bound to durable workspace generations. Restoring an agent
     transcript without the VM-visible filesystem it changed would be invalid.
 18. Parent-cycle lineage and bounded continuation heuristics are not yet recorded when an
