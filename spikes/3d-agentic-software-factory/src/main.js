@@ -6,29 +6,38 @@ import "./style.css";
 
 // Three variants of the same playable factory, switchable via ?variant=.
 const STAGES = [
-  { id: "cut", name: "Pin blueprint", code: "ST–01 · cut", owner: "Gondolin", authority: "Isolation boundary", color: 0x74a5c2, description: "Seal the approved Löyly specification—the vehicle blueprint—and expose it read-only to the line." },
+  { id: "cut", name: "Pin product model", code: "ST–01 · cut", owner: "Gondolin", authority: "Isolation boundary", color: 0x74a5c2, description: "Seal the approved Löyly product specification and expose it read-only to the line." },
   { id: "harness_calibration", name: "Calibrate tooling", code: "ST–02 · harness calibration", owner: "Pi harness", authority: "Pinned instrument oracle", color: 0xf2b84b, description: "Prove the assembly line and inspection tools before candidate construction can begin." },
-  { id: "builder", name: "Build vehicle", code: "ST–03 · builder", owner: "Pi / Codex", authority: "Fresh builder intelligence", color: 0xc76b3c, description: "A fresh builder manufactures the selected language model from the same Löyly blueprint." },
-  { id: "instrument", name: "Fit sensors", code: "ST–04 · instrument", owner: "Harness observer", authority: "Diagnostic producer", color: 0x52d6d2, description: "Fit runtime sensors without changing the candidate vehicle's subject digest." },
-  { id: "oracle", name: "Lock standard", code: "ST–05 · oracle", owner: "ORC", authority: "Workflow gate", color: 0x8d76b5, description: "Bind the vehicle to approved, digest-pinned inspection standards." },
-  { id: "verify", name: "Road test", code: "ST–06 · verify", owner: "Verifier adapter", authority: "Application contract", color: 0xd9d2a7, description: "Boot and probe the vehicle against its independently detected target-stack contract." },
+  { id: "builder", name: "Assemble components", code: "ST–03 · builder", owner: "Pi / Codex", authority: "Fresh builder intelligence", color: 0xc76b3c, description: "A fresh builder emits the first Löyly C4 containers in the selected implementation stack." },
+  { id: "instrument", name: "Wire runtime signals", code: "ST–04 · instrument", owner: "Harness observer", authority: "Diagnostic producer", color: 0x52d6d2, description: "Connect domain-event and projection telemetry without changing the candidate subject digest." },
+  { id: "oracle", name: "Bind product contract", code: "ST–05 · oracle", owner: "ORC", authority: "Workflow gate", color: 0x8d76b5, description: "Bind the assembled components to approved, digest-pinned inspection standards." },
+  { id: "verify", name: "Boot system", code: "ST–06 · verify", owner: "Verifier adapter", authority: "Application contract", color: 0xd9d2a7, description: "Boot and probe the assembled Löyly system against its detected target-stack contract." },
   { id: "repair_verification", name: "Repair bay", code: "ST–07 · repair", owner: "Fresh Pi builder", authority: "Bounded attempt", color: 0xd95555, description: "A fresh builder uses read-only failure evidence for one bounded repair attempt." },
   { id: "graders", name: "Independent inspection", code: "ST–08 · graders", owner: "Independent grader", authority: "Verdict authority", color: 0x75c18b, description: "Inspect Löyly behavior without accepting a quality verdict authored by its builder." },
   { id: "instrument_conformance", name: "Check telemetry", code: "ST–09 · instrument conformance", owner: "Independent grader", authority: "Evidence completeness", color: 0x4d9fa4, description: "Incomplete or sampled required telemetry becomes inconclusive; it cannot silently pass." },
-  { id: "record_cycle", name: "Register vehicle", code: "ST–10 · record cycle", owner: "Grain", authority: "Durable observation", color: 0x52d6d2, description: "Grain appends the build and inspection facts to durable vehicle history without advancing ORC." },
+  { id: "record_cycle", name: "Register product", code: "ST–10 · record cycle", owner: "Grain", authority: "Durable observation", color: 0x52d6d2, description: "Grain appends the build and inspection facts to durable product history without advancing ORC." },
 ];
 
 const TARGET_STACKS = {
-  rust: { label: "Rust", model: "Löyly Rally", detail: "compact performance build", color: 0xc76b3c, shape: "coupe" },
-  java: { label: "Java", model: "Löyly Touring", detail: "long-running estate model", color: 0x4d9fa4, shape: "wagon" },
-  rails: { label: "Ruby on Rails", model: "Löyly Coach", detail: "productive workshop van", color: 0xd95555, shape: "van" },
-  node: { label: "Node family", model: "Löyly Modular", detail: "adaptable urban hatchback", color: 0x75c18b, shape: "hatch" },
+  rust: { label: "Rust", model: "Löyly / Rust", detail: "native service containers", color: 0xc76b3c },
+  java: { label: "Java", model: "Löyly / Java", detail: "JVM service containers", color: 0x4d9fa4 },
+  rails: { label: "Ruby on Rails", model: "Löyly / Rails", detail: "Rails application containers", color: 0xd95555 },
+  node: { label: "Node family", model: "Löyly / Node", detail: "Node service containers", color: 0x75c18b },
 };
 
+const PRODUCT_COMPONENTS = [
+  { id: "api", name: "Booking API", type: "Container", stage: 2, x: -1.05, z: -.6, color: 0x74a5c2 },
+  { id: "booking", name: "Booking core", type: "Component", stage: 2, x: 0, z: -.6, color: 0xc76b3c },
+  { id: "events", name: "Event store", type: "Data store", stage: 3, x: 1.05, z: -.6, color: 0xf2b84b },
+  { id: "weekly", name: "Weekly schedule", type: "Projection", stage: 3, x: -1.05, z: .68, color: 0x52d6d2 },
+  { id: "heater", name: "Heater schedule", type: "Projection", stage: 4, x: 0, z: .68, color: 0x8d76b5 },
+  { id: "billing", name: "Billing signals", type: "Projection", stage: 4, x: 1.05, z: .68, color: 0x75c18b },
+];
+
 const VARIANTS = {
-  A: { label: "A · Assembly line", kicker: "Harness assembly line", title: "Build Löyly in any supported stack", camera: "isometric" },
-  B: { label: "B · Inspection hall", kicker: "Independent inspection hall", title: "Every vehicle leaves a trace", camera: "perspective" },
-  C: { label: "C · Line control", kicker: "Assembly line control", title: "Intervene at the boundary", camera: "top" },
+  A: { label: "A · Assembly line", kicker: "Harness assembly line", title: "Assemble Löyly from C4 components", camera: "isometric" },
+  B: { label: "B · Inspection hall", kicker: "Independent inspection hall", title: "Every component leaves a trace", camera: "perspective" },
+  C: { label: "C · Line control", kicker: "Assembly line control", title: "Track every product container", camera: "top" },
 };
 
 const DIAGRAM_SPECS = [
@@ -64,7 +73,7 @@ const ASSEMBLY_ROUTE = [
   { x: 10.5, z: -2, short: "Rework bay" },
   { x: 10.5, z: 5.5, short: "Independent inspection" },
   { x: 5, z: 5.5, short: "Telemetry + finish" },
-  { x: -.5, z: 5.5, short: "Finished vehicle yard" },
+  { x: -.5, z: 5.5, short: "Accepted product yard" },
 ];
 
 const $ = (selector) => document.querySelector(selector);
@@ -88,8 +97,8 @@ let activeVariant = "A";
 let selectedNode = null;
 let focusedNode = null;
 let cameraFlight = null;
-let vehicleWaypoints = [];
-let lastVehicleStage = -1;
+let productWaypoints = [];
+let lastProductStage = -1;
 let state = project(eventLog);
 let replay = { active: false, playing: false, cursor: 0, elapsed: 0, lastTick: performance.now() };
 
@@ -161,7 +170,7 @@ function resetReplay() {
   eventLog = [];
   replay = { active: true, playing: true, cursor: 0, elapsed: 0, lastTick: performance.now() };
   refs.stack.value = E2E_RECORDING.targetStack;
-  buildVehicle(E2E_RECORDING.targetStack);
+  buildProductAssembly(E2E_RECORDING.targetStack);
   refs.replaySeek.value = 0;
   emitReplayUntil(0);
   renderState();
@@ -259,7 +268,7 @@ function renderState() {
   refs.evidence.innerHTML = state.evidence.length ? [...state.evidence].reverse().map((item) => `<div class="evidence-item"><span>${item.verdict.includes("pass") ? "✓" : "×"}</span>${item.name}<small>${item.digest} · ${item.authority}</small></div>`).join("") : `<div class="evidence-item">No evidence captured.<small>Candidate claims cannot determine an independent verdict.</small></div>`;
   refs.state.textContent = JSON.stringify({
     projection: state,
-    productOrder: { product: "Löyly", vehicleModel: stack.model, targetStack: stack.label, contract: "model/loyly" },
+    productOrder: { product: "Löyly", systemBoundary: stack.model, targetStack: stack.label, containers: PRODUCT_COMPONENTS.map(({ id, name, type, stage }) => ({ id, name, type, emergesAtStage: stage })), contract: "model/loyly" },
     architecture: activeDiagram ? {
       source: ".pi/architecture.md",
       diagram: activeDiagram.label,
@@ -289,7 +298,7 @@ refs.step.addEventListener("click", () => {
   } else completeActiveStage();
 });
 refs.speed.addEventListener("input", () => { refs.speedLabel.textContent = `${refs.speed.value}×`; append("SpeedChanged", { speed: Number(refs.speed.value) }); });
-refs.stack.addEventListener("change", () => { buildVehicle(refs.stack.value); state = project(eventLog); renderState(); });
+refs.stack.addEventListener("change", () => { buildProductAssembly(refs.stack.value); state = project(eventLog); renderState(); });
 refs.repair.addEventListener("click", () => { append("RepairAuthorized", { failedStage: "verify", attempt: 2 }); append("StageEntered", { stageIndex: 6, stage: STAGES[6].id }); });
 refs.abort.addEventListener("click", () => append("CycleAborted", { reason: "operator_refused_repair" }));
 refs.replaySeek.max = E2E_RECORDING.timeline.at(-1).offset;
@@ -370,40 +379,39 @@ let nodeMeshes = [];
 let edgeMeshes = [];
 let nodePositions = new Map();
 
-const productVehicle = new THREE.Group();
-productVehicle.userData.product = true;
-productVehicle.scale.setScalar(1.1); scene.add(productVehicle);
+const productAssembly = new THREE.Group();
+productAssembly.userData.product = true;
+productAssembly.scale.setScalar(1.9); scene.add(productAssembly);
+let productModules = [];
 
-function buildVehicle(stackId) {
+function buildProductAssembly(stackId) {
   const stack = TARGET_STACKS[stackId] ?? TARGET_STACKS.rust;
-  while (productVehicle.children.length) {
-    const child = productVehicle.children.pop(); child.traverse((object) => { object.geometry?.dispose(); object.material?.dispose?.(); });
+  while (productAssembly.children.length) {
+    const child = productAssembly.children.pop(); child.traverse((object) => { object.geometry?.dispose(); object.material?.dispose?.(); });
   }
-  const paint = new THREE.MeshStandardMaterial({ color: stack.color, roughness: .32, metalness: .62 });
-  const glass = new THREE.MeshStandardMaterial({ color: 0x9ac1c9, roughness: .15, metalness: .25, transparent: true, opacity: .78 });
-  const tire = new THREE.MeshStandardMaterial({ color: 0x0b0e12, roughness: .88 });
-  const specs = {
-    coupe: { length: 2.75, bodyH: .42, cabin: [1.25, .43, 1.04], cabinX: -.12 },
-    wagon: { length: 3.15, bodyH: .5, cabin: [2.05, .67, 1.08], cabinX: -.2 },
-    van: { length: 3.0, bodyH: .62, cabin: [2.2, 1.14, 1.12], cabinX: -.15 },
-    hatch: { length: 2.55, bodyH: .5, cabin: [1.55, .73, 1.08], cabinX: -.18 },
-  }[stack.shape];
-  const chassis = new THREE.Mesh(new THREE.BoxGeometry(specs.length, specs.bodyH, 1.35), paint); chassis.position.y = .58; chassis.castShadow = true; productVehicle.add(chassis);
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(...specs.cabin), glass); cabin.position.set(specs.cabinX, .58 + specs.bodyH / 2 + specs.cabin[1] / 2, 0); cabin.castShadow = true; productVehicle.add(cabin);
-  const bumper = new THREE.Mesh(new THREE.BoxGeometry(.18, .2, 1.18), new THREE.MeshStandardMaterial({ color: 0xd9d2a7, metalness: .85, roughness: .2 })); bumper.position.set(specs.length / 2 + .07, .5, 0); productVehicle.add(bumper);
-  [-1, 1].forEach((xSide) => [-1, 1].forEach((zSide) => {
-    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(.32, .32, .2, 18), tire); wheel.rotation.x = Math.PI / 2; wheel.position.set(xSide * specs.length * .32, .34, zSide * .72); wheel.castShadow = true; productVehicle.add(wheel);
-  }));
-  if (stack.shape === "coupe") { chassis.rotation.z = -.025; }
-  if (stack.shape === "van") {
-    const sideDoor = new THREE.Mesh(new THREE.BoxGeometry(.04, .72, .76), new THREE.MeshStandardMaterial({ color: 0xf1f0e8, roughness: .5 })); sideDoor.position.set(.15, 1.2, -.69); productVehicle.add(sideDoor);
-  }
-  if (stack.shape === "hatch") {
-    [-.52, 0, .52].forEach((x) => { const module = new THREE.Mesh(new THREE.BoxGeometry(.38, .18, .82), paint); module.position.set(x, 1.53, 0); productVehicle.add(module); });
-  }
-  const productLabel = makeTextSprite([stack.model, `${stack.label} target stack`], `#${stack.color.toString(16).padStart(6, "0")}`, .66); productLabel.position.set(0, 2.35, 0); productVehicle.add(productLabel);
+  productModules = [];
+  const carrier = new THREE.Mesh(new THREE.BoxGeometry(3.9, .22, 2.7), new THREE.MeshStandardMaterial({ color: 0x24384a, roughness: .55, metalness: .72 }));
+  carrier.position.y = .18; carrier.castShadow = true; productAssembly.add(carrier);
+  [-1.7, 1.7].forEach((x) => { const latch = new THREE.Mesh(new THREE.BoxGeometry(.14, .2, 2.85), new THREE.MeshStandardMaterial({ color: stack.color, emissive: stack.color, emissiveIntensity: .55 })); latch.position.set(x, .36, 0); productAssembly.add(latch); });
+  const boundary = new THREE.Mesh(new THREE.BoxGeometry(3.55, 1.38, 2.25), new THREE.MeshStandardMaterial({ color: stack.color, transparent: true, opacity: .12, wireframe: true }));
+  boundary.position.y = 1.03; productAssembly.add(boundary);
+  PRODUCT_COMPONENTS.forEach((component, index) => {
+    const module = new THREE.Group();
+    module.userData.component = component; module.userData.targetY = .78; module.userData.revealed = false;
+    module.position.set(component.x, 4.2 + index * .18, component.z); module.scale.setScalar(.001);
+    const bodyMaterial = new THREE.MeshStandardMaterial({ color: component.color, roughness: .42, metalness: .48, emissive: component.color, emissiveIntensity: .2 });
+    const body = component.type === "Data store"
+      ? new THREE.Mesh(new THREE.CylinderGeometry(.43, .43, .62, 18), bodyMaterial)
+      : new THREE.Mesh(new THREE.BoxGeometry(.88, .62, .82), bodyMaterial);
+    body.position.y = .31; body.castShadow = true; module.add(body);
+    const stackBand = new THREE.Mesh(new THREE.BoxGeometry(.72, .08, .7), new THREE.MeshStandardMaterial({ color: stack.color, emissive: stack.color, emissiveIntensity: 1.2 }));
+    stackBand.position.y = .66; module.add(stackBand);
+    const label = makeTextSprite([component.name, component.type], `#${new THREE.Color(component.color).getHexString()}`, .23); label.position.set(0, 1.08, 0); module.add(label);
+    productAssembly.add(module); productModules.push(module);
+  });
+  const productLabel = makeTextSprite(["Löyly system boundary", `${stack.label} · 6 product modules`], `#${stack.color.toString(16).padStart(6, "0")}`, .6); productLabel.position.set(0, 2.35, 0); productAssembly.add(productLabel);
 }
-buildVehicle("rust");
+buildProductAssembly("rust");
 const agents = [0x52d6d2, 0xc76b3c, 0xf1f0e8].map((color) => {
   const agent = new THREE.Group();
   const torso = new THREE.Mesh(new THREE.BoxGeometry(.48, .53, .36), new THREE.MeshStandardMaterial({ color, roughness: .4, metalness: .5 })); torso.position.y = .43; torso.castShadow = true; agent.add(torso);
@@ -516,7 +524,7 @@ function addFactoryFixtures() {
     [-1.55, 1.55].forEach((offset) => { const post = new THREE.Mesh(new THREE.BoxGeometry(.16, 2.8, .16), material); post.position.set(x, 1.4, z + offset); worldGroup.add(post); });
     const top = new THREE.Mesh(new THREE.BoxGeometry(.18, .18, 3.25), material); top.position.set(x, 2.75, z); worldGroup.add(top);
   };
-  // Body shop: paired robot arms around the vehicle path.
+  // Component assembly: paired robot arms place software containers onto the carrier.
   [-1.45, 1.45].forEach((zOffset) => [-.85, .85].forEach((xOffset) => {
     const { x, z } = ASSEMBLY_ROUTE[2];
     const base = new THREE.Mesh(new THREE.CylinderGeometry(.2, .28, .42, 10), safety); base.position.set(x + xOffset, .22, z + zOffset); worldGroup.add(base);
@@ -530,7 +538,7 @@ function addFactoryFixtures() {
   const test = ASSEMBLY_ROUTE[5];
   [-.8, 0, .8].forEach((xOffset) => { const roller = new THREE.Mesh(new THREE.CylinderGeometry(.16, .16, 2.4, 12), steel); roller.rotation.x = Math.PI / 2; roller.position.set(test.x + xOffset, .24, test.z); worldGroup.add(roller); });
   addGantry(6, 0xd95555); addGantry(7, 0x75c18b);
-  // Finished-vehicle yard markings.
+  // Accepted-product yard markings.
   const yard = ASSEMBLY_ROUTE[9];
   [-1.2, 0, 1.2].forEach((offset) => { const stripe = new THREE.Mesh(new THREE.BoxGeometry(.08, .025, 2.6), new THREE.MeshStandardMaterial({ color: 0xf1f0e8 })); stripe.position.set(yard.x + offset, .11, yard.z); worldGroup.add(stripe); });
 }
@@ -551,7 +559,7 @@ function buildDiagram(diagramId) {
   addAssemblyLine();
   activeDiagram.edges.forEach(addRelationship);
   activeDiagram.nodes.forEach(addC4Node);
-  if (!state.cycleId) productVehicle.position.set(-22, .08, -6.5);
+  if (!state.cycleId) productAssembly.position.set(-22, 2.5, -6.5);
   $("#diagram-count").textContent = `${activeDiagram.nodes.length} elements · ${activeDiagram.edges.length} relations`;
   $("#diagram-source").textContent = `Source: .pi/architecture.md:${activeDiagram.sourceLine}`;
   updateSceneFromState();
@@ -564,7 +572,7 @@ const pointer = new THREE.Vector2();
 function pickWorldObject(event) {
   const rect = canvas.getBoundingClientRect(); pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1; pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
-  const hit = raycaster.intersectObjects([...nodeMeshes, ...edgeMeshes, productVehicle], true)[0];
+  const hit = raycaster.intersectObjects([...nodeMeshes, ...edgeMeshes, productAssembly], true)[0];
   if (!hit) return null;
   let target = hit.object;
   while (target.parent && !target.userData.node && !target.userData.edge && !target.userData.product) target = target.parent;
@@ -576,7 +584,7 @@ canvas.addEventListener("click", (event) => {
   if (!target) return;
   if (target.userData.node) showArchitectureElement(target.userData.node);
   if (target.userData.edge) showRelationship(target.userData.edge);
-  if (target.userData.product) showProductVehicle();
+  if (target.userData.product) showProductAssembly();
 });
 
 canvas.addEventListener("dblclick", (event) => {
@@ -602,13 +610,18 @@ function showRelationship(edge) {
   $("#station-live").hidden = true; $("#focus-station").hidden = true; $("#overview-station").hidden = !focusedNode;
 }
 
-function showProductVehicle() {
+function showProductAssembly() {
   selectedNode = null;
   const stack = TARGET_STACKS[state.targetStack] ?? TARGET_STACKS.rust;
   $("#station-code").textContent = "Löyly product"; $("#station-name").textContent = stack.model;
-  $("#station-description").textContent = `The generated Löyly application, manufactured as the ${stack.label} target-stack model from the same pinned product specification.`;
-  $("#station-owner").textContent = "Candidate application"; $("#station-authority").textContent = "Vehicle moving through the harness"; refs.stationCard.hidden = false;
-  $("#station-live").hidden = true; $("#focus-station").hidden = true; $("#overview-station").hidden = !focusedNode;
+  $("#station-description").textContent = `The generated Löyly system boundary contains ${PRODUCT_COMPONENTS.length} C4-shaped product modules implemented in ${stack.label}. Components emerge as the recorded build advances.`;
+  $("#station-owner").textContent = "Candidate system"; $("#station-authority").textContent = "Product assembly moving through the harness"; refs.stationCard.hidden = false;
+  const assembled = PRODUCT_COMPONENTS.filter((component) => Boolean(state.cycleId) && (state.activeStage >= component.stage || state.completed.includes(component.stage))).length;
+  $("#station-live").hidden = false; $("#station-live-light").className = assembled ? "active" : "";
+  $("#station-live-status").textContent = `${assembled} / ${PRODUCT_COMPONENTS.length} components assembled`;
+  $("#station-live-detail").textContent = assembled ? `${stack.label} containers share one Löyly product boundary and behavioral contract.` : "Replay the recorded cycle to emit product containers onto the carrier.";
+  $("#station-connections").innerHTML = PRODUCT_COMPONENTS.map((component) => `<li><span>${component.type}</span> ${component.name} · ${state.activeStage >= component.stage || state.completed.includes(component.stage) ? "assembled" : `waiting for ${STAGES[component.stage].name}`}</li>`).join("");
+  $("#focus-station").hidden = true; $("#overview-station").hidden = !focusedNode;
 }
 
 function refreshStationInspector() {
@@ -621,14 +634,14 @@ function refreshStationInspector() {
   const lastIndex = [...stageIndexes].reverse().find((index) => index < state.activeStage);
   const liveLight = $("#station-live-light"); liveLight.className = hasFailed ? "failed" : isActive ? "active" : "";
   if (hasFailed) {
-    $("#station-live-status").textContent = `Fault found on ${stack.model}`;
+    $("#station-live-status").textContent = `Fault found in ${stack.model}`;
     $("#station-live-detail").textContent = `${STAGES[state.activeStage].name} stopped here. The line is waiting for an operator repair decision.`;
   } else if (isActive) {
     $("#station-live-status").textContent = `Processing ${stack.model}`;
     $("#station-live-detail").textContent = `${STAGES[state.activeStage].name} · attempt ${state.attempt}. Grain event ${eventLog.at(-1)?.type ?? "pending"} is the latest observed fact.`;
   } else if (!state.cycleId) {
     $("#station-live-status").textContent = "Standing by";
-    $("#station-live-detail").textContent = stageIndexes.length ? `This station participates in ${stageIndexes.map((index) => STAGES[index].name).join(", ")}. Start a product order to see live work.` : "This supporting station is available to the harness but is not assigned a modeled pipeline stage.";
+    $("#station-live-detail").textContent = stageIndexes.length ? `This station participates in ${stageIndexes.map((index) => STAGES[index].name).join(", ")}. Replay a product order to see live work.` : "This supporting station is available to the harness but is not assigned a modeled pipeline stage.";
   } else if (nextIndex !== undefined) {
     $("#station-live-status").textContent = `Queued for ${STAGES[nextIndex].name}`;
     $("#station-live-detail").textContent = `${stack.model} is currently at ${STAGES[state.activeStage]?.name ?? "the loading bay"}.`;
@@ -637,7 +650,7 @@ function refreshStationInspector() {
     $("#station-live-detail").textContent = `${stack.model} has cleared this station for the current cycle.`;
   } else {
     $("#station-live-status").textContent = "Supporting the line";
-    $("#station-live-detail").textContent = "This C4 element has no direct vehicle operation in the current stage mapping.";
+    $("#station-live-detail").textContent = "This C4 element has no direct product-assembly operation in the current stage mapping.";
   }
   const connections = activeDiagram.edges.filter((edge) => edge.from === selectedNode.id || edge.to === selectedNode.id);
   $("#station-connections").innerHTML = connections.slice(0, 5).map((edge) => {
@@ -682,7 +695,11 @@ function activeTargetIds() {
 function updateSceneFromState() {
   if (!activeDiagram) return;
   const targets = new Set(activeTargetIds());
-  productVehicle.visible = true;
+  productAssembly.visible = true;
+  productModules.forEach((module) => {
+    const component = module.userData.component;
+    module.userData.revealed = Boolean(state.cycleId) && (state.activeStage >= component.stage || state.completed.includes(component.stage));
+  });
   nodeMeshes.forEach((group) => {
     const active = targets.has(group.userData.node.id);
     group.scale.setScalar(active ? 1.1 : 1);
@@ -720,16 +737,23 @@ function frame(now) {
   } else if (!replay.active && state.status === "running" && !state.paused) {
     stageElapsed += delta * state.speed; const duration = state.activeStage === 2 ? 4.3 : 2.8; if (stageElapsed >= duration) completeActiveStage();
   }
-  if (productVehicle.visible) {
-    if (!state.cycleId) { vehicleWaypoints = []; lastVehicleStage = -1; }
-    if (state.cycleId && lastVehicleStage !== state.activeStage) {
+  if (productAssembly.visible) {
+    if (!state.cycleId) { productWaypoints = []; lastProductStage = -1; }
+    if (state.cycleId && lastProductStage !== state.activeStage) {
       const stagePoint = (index) => new THREE.Vector3(ASSEMBLY_ROUTE[index].x, 0, ASSEMBLY_ROUTE[index].z);
-      vehicleWaypoints = lastVehicleStage === 6 && state.activeStage === 7 ? [stagePoint(5), stagePoint(7)] : [stagePoint(Math.max(0, state.activeStage))];
-      lastVehicleStage = state.activeStage;
+      productWaypoints = lastProductStage === 6 && state.activeStage === 7 ? [stagePoint(5), stagePoint(7)] : [stagePoint(Math.max(0, state.activeStage))];
+      lastProductStage = state.activeStage;
     }
-    const destination = state.cycleId ? (vehicleWaypoints[0] ?? new THREE.Vector3(ASSEMBLY_ROUTE[Math.max(0, state.activeStage)].x, 0, ASSEMBLY_ROUTE[Math.max(0, state.activeStage)].z)) : new THREE.Vector3(-22, 0, -6.5);
-    productVehicle.position.lerp(new THREE.Vector3(destination.x, .08 + Math.sin(now * .003) * .025, destination.z), .045 * Math.max(1, state.speed));
-    if (state.cycleId && productVehicle.position.distanceTo(new THREE.Vector3(destination.x, .08, destination.z)) < .45) vehicleWaypoints.shift();
+    const destination = state.cycleId ? (productWaypoints[0] ?? new THREE.Vector3(ASSEMBLY_ROUTE[Math.max(0, state.activeStage)].x, 0, ASSEMBLY_ROUTE[Math.max(0, state.activeStage)].z)) : new THREE.Vector3(-22, 0, -6.5);
+    productAssembly.position.lerp(new THREE.Vector3(destination.x, 2.5 + Math.sin(now * .003) * .035, destination.z), .045 * Math.max(1, state.speed));
+    if (state.cycleId && productAssembly.position.distanceTo(new THREE.Vector3(destination.x, 2.5, destination.z)) < .45) productWaypoints.shift();
+    productModules.forEach((module, index) => {
+      const scale = module.userData.revealed ? 1 : .001;
+      const targetY = module.userData.revealed ? module.userData.targetY : 4.2 + index * .18;
+      module.scale.lerp(new THREE.Vector3(scale, scale, scale), .11);
+      module.position.y += (targetY - module.position.y) * .1;
+      module.rotation.y = module.userData.revealed ? Math.sin(now * .0015 + index) * .025 : 0;
+    });
   }
   agents.forEach((agent, index) => { if (agent.userData.target) agent.position.lerp(agent.userData.target, .018 + index * .003); agent.rotation.y = Math.sin(now * .001 + index) * .16; });
   if (cameraFlight) {

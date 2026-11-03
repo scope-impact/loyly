@@ -31,7 +31,7 @@
           </div>
           <div class="world-title">
             <p id="view-kicker">Harness assembly line</p>
-            <h1 id="view-title">Build Löyly in any supported stack</h1>
+            <h1 id="view-title">Assemble Löyly from C4 components</h1>
           </div>
           <div class="world-hint">Drag to orbit · Scroll to zoom · Select to inspect · Double-click to enter a station</div>
           <button class="camera-reset" id="camera-reset" type="button">Reset camera</button>
@@ -42,11 +42,11 @@
             <div><p>Product order</p><h2 id="cycle-name">No cycle loaded</h2></div>
             <span class="cycle-id" id="cycle-id">—</span>
           </div>
-          <p class="mission-copy" id="mission-copy">The harness is the assembly line. Löyly is the vehicle. Choose a target stack—the model to manufacture—then prove it against the same product specification.</p>
+          <p class="mission-copy" id="mission-copy">The harness is the assembly line. Löyly is the C4 product assembled on it. Choose an implementation stack, then watch its component containers emerge and bind into one system.</p>
           <div class="product-order">
-            <label for="stack-select"><span>Vehicle model</span><small>Target stack bound to this cycle</small></label>
+            <label for="stack-select"><span>Implementation stack</span><small>Bound to every product container</small></label>
             <select id="stack-select"></select>
-            <div class="product-badge"><span id="model-swatch"></span><strong id="model-name">Rust Rally</strong><small id="model-detail">Rust · compact performance build</small></div>
+            <div class="product-badge"><span id="model-swatch"></span><strong id="model-name">Löyly / Rust</strong><small id="model-detail">Rust · native service containers</small></div>
           </div>
           <div class="primary-actions">
             <button class="start-button" id="start-cycle" type="button"><span>Replay E2E result</span><kbd>Space</kbd></button>
@@ -99,7 +99,7 @@
         <section class="station-live" id="station-live">
           <div><span id="station-live-light"></span><small>Live station feed</small></div>
           <strong id="station-live-status">Standing by</strong>
-          <p id="station-live-detail">No vehicle is currently assigned to this station.</p>
+          <p id="station-live-detail">No product assembly is currently assigned to this station.</p>
           <ul id="station-connections"></ul>
         </section>
         <div class="station-actions">

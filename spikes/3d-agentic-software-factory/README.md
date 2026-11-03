@@ -17,9 +17,9 @@ elements.
 The physical footprint is grounded in first-party descriptions of Toyota, BMW,
 Mercedes-Benz, and Ford production rather than the C4 graph's automatic topology. See
 [`automotive-assembly-layout-research.md`](automotive-assembly-layout-research.md). The dominant
-vehicle path is a folded one-way line with side-fed infrastructure, overhead C4 data/utility
+product-carrier path is a folded one-way line with side-fed infrastructure, overhead C4 data/utility
 gantries, end-of-line testing, an inspection-adjacent rework loop returning to test, and a
-finished-vehicle yard.
+accepted-product yard.
 
 ## Recorded E2E replay
 
@@ -31,21 +31,22 @@ paths, and terminal 9/11 product verdict. It is labelled as historical playback 
 it does not imply a fresh regeneration.
 
 Replay can be paused, stepped one recorded signal at a time, scrubbed, or accelerated. Scrubbing
-rebuilds the projection from the start, so station activity, vehicle position, evidence, score,
+rebuilds the projection from the start, so station activity, product position, evidence, score,
 and the full-state view remain deterministic.
 
 ## World analogy
 
 - **The Pi/ORC/Grain harness is the assembly line.** Its real C4 elements are the machinery,
   inspection stations, stores, and routes.
-- **Löyly is the vehicle.** The moving 3D vehicle is the generated candidate application, not the
-  harness itself.
-- **A target language is a vehicle model.** Rust Rally, Java Touring, Rails Coach, and Node
-  Modular have distinct 3D silhouettes but are manufactured from the same pinned Löyly product
-  specification and judged against the same behavioral contract.
-- **Grain is the vehicle history.** It records durable build, observation, and measurement facts;
+- **Löyly is the assembled C4 product.** A moving steel carrier begins empty. Booking API,
+  Booking Core, Event Store, Weekly Schedule, Heater Schedule, and Billing Signals containers
+  descend onto it as the build reaches their stages.
+- **A target language is an implementation profile.** Rust, Java, Rails, and Node use the same C4
+  product boundary and behavioral contract; the stack changes the container build, not the product
+  architecture.
+- **Grain is the product history.** It records durable build, observation, and measurement facts;
   it does not move the assembly line forward.
-- **Independent graders are vehicle inspection.** Builder claims and fitted telemetry cannot
+- **Independent graders are product inspection.** Builder claims and fitted telemetry cannot
   author the final quality verdict.
 
 ## Run
