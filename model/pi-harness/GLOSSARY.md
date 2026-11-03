@@ -95,6 +95,26 @@ A reconstructable, non-authoritative view of the current ORC stage and associate
 session, derived from durable execution state and live notifications.
 _Avoid_: Workflow state, event store
 
+**Factory control room**:
+The operator-facing two-dimensional projection that combines repository C4 structure with a
+cycle progress view while remaining outside workflow authority.
+_Avoid_: Workflow dashboard, ORC state
+
+**Factory floor**:
+An optional spatial projection of the same C4 identities and cycle progress shown by the factory
+control room.
+_Avoid_: Separate simulation, 3D workflow
+
+**Station inspection**:
+A focused projection of one C4 element, its relationships, and its participation in the current
+or recorded cycle.
+_Avoid_: Builder session, execution stage
+
+**Recorded cycle replay**:
+A deterministic reconstruction of projections from sealed historical signals that cannot start,
+advance, repair, or grade a regeneration cycle.
+_Avoid_: Live cycle, workflow retry
+
 **Cycle continuation decision**:
 The operator session's bounded decision, after a terminal measurement, to stop, request
 correction, or prepare a distinct child regeneration cycle.

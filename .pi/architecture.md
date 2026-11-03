@@ -552,6 +552,7 @@ groups, and stable `@item-*` identities remain the measurement keys.
 - Grader isolation: [`harness/src/grader-room.ts`](harness/src/grader-room.ts)
 - Cut fence: [`harness/src/cut.ts`](harness/src/cut.ts)
 - Observable model: [`model/pi-harness/README.md`](../model/pi-harness/README.md)
+- Operator UX affordance: [`model/pi-harness/affordances.yaml`](../model/pi-harness/affordances.yaml)
 - Session and cycle ownership decision: [`ADR 0001`](../model/pi-harness/docs/adr/0001-session-and-cycle-ownership.md)
 
 ## Assumptions and open questions

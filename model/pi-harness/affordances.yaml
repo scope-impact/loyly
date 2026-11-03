@@ -1,0 +1,209 @@
+# Pi harness operator UX: a non-authoritative projection over repository C4 and cycle facts.
+# The control room and factory floor are two renderings of the same projection. Neither may
+# start, advance, repair, or grade an ORC cycle merely by changing the view.
+slice: pi-harness-operator-ux
+version: 1
+
+audience:
+  operator: prepares, observes, and evaluates regeneration work without becoming workflow authority
+
+actions:
+  ChooseArchitectureView:
+    intent: Choose the repository C4 abstraction shown by the factory
+    submit: Show
+    audience: [operator]
+    readOnly: true
+    input:
+      architectureView: {component: select, type: architectureView, required: true, label: C4 world}
+    effect: {kind: projection, target: repository architecture, preservesAuthority: true}
+
+  InspectC4Element:
+    intent: Inspect one C4 element, its repository description, relationships, and cycle participation
+    submit: Inspect
+    audience: [operator]
+    readOnly: true
+    input:
+      elementIdentity: {component: selectable-node, type: string, required: true, label: Architecture element}
+    effect: {kind: projection, target: station inspection, preservesAuthority: true}
+
+  OpenFactoryFloor:
+    intent: Render the selected C4 view as a spatial assembly floor
+    submit: Open 3D floor
+    audience: [operator]
+    readOnly: true
+    input: {}
+    effect: {kind: navigation, target: FactoryFloor, preservesAuthority: true}
+
+  ReturnControlRoom:
+    intent: Return from spatial or focused inspection to the complete two-dimensional architecture map
+    submit: 2D map
+    audience: [operator]
+    readOnly: true
+    input: {}
+    effect: {kind: navigation, target: ControlRoom, preservesAuthority: true}
+
+  FocusStation:
+    intent: Move the factory-floor camera to the selected C4 station while keeping its live feed visible
+    submit: Open 3D station
+    audience: [operator]
+    readOnly: true
+    input:
+      elementIdentity: {component: selectable-node, type: string, required: true, label: Architecture element}
+    effect: {kind: navigation, target: focused station, preservesAuthority: true}
+
+  ConfigureProductOrder:
+    intent: Choose the implementation stack used to render the next Löyly product order
+    submit: Select stack
+    audience: [operator]
+    input:
+      targetStack: {component: select, type: targetStack, required: true, label: Implementation stack}
+    effect: {kind: projection, target: product order, preservesAuthority: true}
+
+  ReplayRecordedCycle:
+    intent: Replay a sealed historical E2E recording through the factory projection
+    submit: Replay run
+    audience: [operator]
+    readOnly: true
+    input: {}
+    effect: {kind: playback, target: recorded cycle, preservesAuthority: true}
+
+  PauseRecordedCycle:
+    intent: Pause or resume playback without changing the recorded cycle
+    submit: Pause
+    audience: [operator]
+    readOnly: true
+    input: {}
+    effect: {kind: playback, target: playback clock, preservesAuthority: true}
+
+  StepRecordedSignal:
+    intent: Advance playback to the next recorded signal
+    submit: Step
+    audience: [operator]
+    readOnly: true
+    input: {}
+    effect: {kind: playback, target: next recorded signal, preservesAuthority: true}
+
+  SeekRecordedCycle:
+    intent: Rebuild the replay projection at a selected point in the sealed recording
+    submit: Seek
+    audience: [operator]
+    readOnly: true
+    input:
+      elapsedMilliseconds: {component: slider, type: replayPosition, required: true, label: Recorded E2E replay position}
+    effect: {kind: playback, target: recorded cycle position, preservesAuthority: true}
+
+  ReadCycleProgress:
+    intent: Reconcile the current stage from ORC durable state without advancing the workflow
+    submit: Refresh status
+    audience: [operator]
+    readOnly: true
+    input:
+      tickIdentity: {component: textbox, type: string, required: true, label: ORC tick identity}
+    tool: {name: get_regeneration_cycle_status}
+
+  InspectBuilderSession:
+    intent: Read committed builder turns, tool calls, workspace generation, and progress
+    submit: Inspect builder
+    audience: [operator]
+    readOnly: true
+    input:
+      builderSessionReference: {component: textbox, type: string, required: true, label: Builder session reference}
+    tool: {name: inspect_builder_session}
+
+types:
+  architectureView: {enum: [context, containers, components]}
+  targetStack: {enum: [rust, java, rails, node]}
+  replayPosition: {type: integer, minimum: 0}
+
+screens:
+  ControlRoom:
+    path: /
+    offers: [ChooseArchitectureView, InspectC4Element, OpenFactoryFloor, ConfigureProductOrder, ReplayRecordedCycle, PauseRecordedCycle, StepRecordedSignal, SeekRecordedCycle, ReadCycleProgress, InspectBuilderSession]
+    links: {3D floor: FactoryFloor}
+    must:
+      heading: Container view
+      buttons: [2D map, 3D floor, Replay run, Pause, Step]
+    regions:
+      ArchitectureMap:
+        role: img
+        label: Repository architecture
+        shows: [selected C4 view, C4 element identities, C4 relationships, active stage, completed stages, failed stages]
+        offers: [ChooseArchitectureView, InspectC4Element, OpenFactoryFloor]
+        live: polite
+      ProductOrder:
+        role: region
+        label: Product order
+        shows: [Löyly system boundary, target stack, product components]
+        offers: [ConfigureProductOrder, ReplayRecordedCycle, PauseRecordedCycle, StepRecordedSignal, SeekRecordedCycle]
+      AssemblyLine:
+        role: region
+        label: Assembly line
+        shows: [ordered execution stages, active stage, completed stage count, failed stage]
+        live: polite
+      Evidence:
+        role: region
+        label: Evidence and event log
+        shows: [recorded signals, evidence projections, full projected state]
+        live: polite
+    seen: the two-dimensional C4 map is the default and remains legible before any replay starts
+
+  FactoryFloor:
+    path: /floor
+    reachedFrom: ControlRoom
+    offers: [ChooseArchitectureView, InspectC4Element, FocusStation, ReturnControlRoom, ReplayRecordedCycle, PauseRecordedCycle, StepRecordedSignal, SeekRecordedCycle]
+    links: {2D map: ControlRoom}
+    must:
+      heading: Assemble Löyly from C4 components
+      buttons: [2D map, 3D floor, Follow product, Overview]
+    regions:
+      SpatialFactory:
+        role: application
+        label: Interactive 3D factory floor
+        shows: [same selected C4 view, same C4 element identities, same stage state, product carrier, assembly stations]
+        offers: [InspectC4Element, FocusStation, ReturnControlRoom]
+        live: polite
+    seen: meaningful station and product icons remain distinguishable without relying on text labels alone
+
+  StationInspection:
+    path: /station/{elementIdentity}
+    reachedFrom: ControlRoom
+    offers: [FocusStation, ReturnControlRoom, InspectBuilderSession]
+    links: {Return to overview: ControlRoom, Open 3D station: FactoryFloor}
+    must:
+      heading: Architecture element
+      buttons: [Open 3D station, Return to overview]
+    regions:
+      StationFeed:
+        role: status
+        label: Live station feed
+        shows: [element type, C4 view, cycle participation, current station state, incoming relationships, outgoing relationships]
+        offers: [FocusStation, InspectBuilderSession]
+        live: polite
+
+ui:
+  action: control
+  submit: button
+  outcome: status
+  refusal: alert
+
+conformance:
+  - the ControlRoom opens in the two-dimensional map unless a shareable view choice explicitly requests the FactoryFloor
+  - every C4 identity and relationship comes from the selected diagram in .pi/architecture.md
+  - the ControlRoom and FactoryFloor show the same selected diagram and projected cycle state
+  - changing view diagram camera or replay position never starts advances repairs or grades an ORC cycle
+  - a recorded replay is visibly identified as historical and cannot be confused with a live cycle
+  - selecting a C4 element exposes its type source view cycle participation and relationships
+  - opening a station in three dimensions preserves the selected element and its station feed
+  - active completed and failed states are distinguishable by text or shape as well as colour
+  - on a narrow viewport the page does not overflow horizontally and the architecture map remains pannable
+  - every interactive control has an accessible name and a touch target of at least 44 by 44 CSS pixels
+
+steps:
+  "the operator chooses the {string} C4 view": ChooseArchitectureView
+  "the operator inspects C4 element {string}": InspectC4Element
+  "the operator opens the 3D factory floor": OpenFactoryFloor
+  "the operator focuses station {string}": FocusStation
+  "the operator replays the sealed E2E cycle": ReplayRecordedCycle
+  "the operator advances to the next recorded signal": StepRecordedSignal
+  "the operator reads ORC progress for tick {string}": ReadCycleProgress
+  "the operator inspects builder session {string}": InspectBuilderSession

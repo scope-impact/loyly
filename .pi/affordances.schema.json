@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://loyly.example/schema/affordances.schema.json",
-  "title": "Löyly affordance contract",
-  "description": "Framework-neutral UX, agent-tool, and test-step contract.",
+  "title": "Affordance contract",
+  "description": "Framework-neutral human UX, agent-tool, local-projection, and test-step contract.",
   "type": "object",
   "required": ["slice", "version", "audience", "actions", "types", "screens", "ui", "conformance", "steps"],
   "additionalProperties": false,
@@ -43,7 +43,7 @@
   "$defs": {
     "action": {
       "type": "object",
-      "required": ["intent", "submit", "audience", "input", "call", "tool"],
+      "required": ["intent", "submit", "audience", "input"],
       "additionalProperties": false,
       "properties": {
         "intent": { "type": "string", "minLength": 1 },
@@ -68,8 +68,14 @@
           "additionalProperties": { "$ref": "#/$defs/rejection" }
         },
         "call": { "$ref": "#/$defs/call" },
-        "tool": { "$ref": "#/$defs/tool" }
-      }
+        "tool": { "$ref": "#/$defs/tool" },
+        "effect": { "$ref": "#/$defs/effect" }
+      },
+      "anyOf": [
+        { "required": ["call"] },
+        { "required": ["tool"] },
+        { "required": ["effect"] }
+      ]
     },
     "input": {
       "type": "object",
@@ -124,6 +130,16 @@
       "additionalProperties": false,
       "properties": { "name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" } }
     },
+    "effect": {
+      "type": "object",
+      "required": ["kind", "target"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["projection", "navigation", "playback"] },
+        "target": { "type": "string", "minLength": 1 },
+        "preservesAuthority": { "type": "boolean" }
+      }
+    },
     "screen": {
       "type": "object",
       "required": ["path", "offers"],
@@ -132,6 +148,10 @@
         "path": { "type": "string", "pattern": "^/" },
         "offers": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
         "links": { "type": "object", "additionalProperties": { "type": "string" } },
+        "regions": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/region" }
+        },
         "reachedFrom": { "type": "string" },
         "must": {
           "type": "object",
@@ -142,6 +162,27 @@
           }
         },
         "seen": { "type": "string" }
+      }
+    },
+    "region": {
+      "type": "object",
+      "required": ["role", "label", "shows"],
+      "additionalProperties": false,
+      "properties": {
+        "role": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "shows": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "offers": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "live": { "enum": ["off", "polite", "assertive"] }
       }
     },
     "ui": {

@@ -113,7 +113,7 @@ conformance:
   - a refusal offers the actions its rejection names, filled in
   - every control is realised by its abstract component, as the active binding recognises it, and colours are tokens only
   - an outcome and a refusal are shown as an alert (role alert) inside the action's card
-  - the API paths in each action's call are the app's: the forms and the tools make exactly those calls
+  - "the API paths in each action's call are the app's: the forms and the tools make exactly those calls"
 
 steps:
   "{actor} configures {string} open on {weekdays} with slots {strings}": ConfigureDays

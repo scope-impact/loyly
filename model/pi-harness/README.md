@@ -19,6 +19,8 @@ unclassified or doubly classified scenarios.
 - `operator-control-plane.feature`, `prompt-optimization.feature`,
   `execution-pipeline.feature`, and `runtime-evidence.feature` own acceptance behavior for
   their corresponding model components.
+- `affordances.yaml` models the operator UX shared by the default 2D factory control room,
+  optional 3D factory floor, station inspection, and sealed cycle replay.
 - Tagged acceptance scenarios retain stable `@item-*` identities so Allure results can be
   reconciled with the model without a parallel coverage catalogue. Two instrument-conformance
   scenarios still lack identities and remain an explicit traceability gap.
@@ -32,8 +34,9 @@ unclassified or doubly classified scenarios.
   lookup aliases only. The model also defines the bounded verification-repair boundary before
   independent grading.
 - `regeneration_event_model.clj` describes only the harness-owned Grain event topology.
-- `.pi/affordances.schema.json` defines the public Pi tool inputs; observable outcomes and
-  refusals remain in the Allium and Gherkin contracts rather than a parallel YAML model.
+- `.pi/affordances.schema.json` defines the shared product and Pi UX grammar, including native
+  tools, HTTP calls, local projection effects, and named screen regions. Observable workflow
+  outcomes and refusals remain in the Allium and Gherkin contracts rather than a parallel model.
 - `GLOSSARY.md` fixes the regeneration vocabulary.
 - `docs/adr/0001-session-and-cycle-ownership.md` records why ORC owns the inner cycle while
   operator sessions own approval and outer continuation.
