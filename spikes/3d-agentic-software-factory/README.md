@@ -14,6 +14,13 @@ blocks at runtime. Nodes become buildings or data-store cylinders, C4 relationsh
 labeled routes, and the selected regeneration stage highlights the responsible architecture
 elements.
 
+The physical footprint is grounded in first-party descriptions of Toyota, BMW,
+Mercedes-Benz, and Ford production rather than the C4 graph's automatic topology. See
+[`automotive-assembly-layout-research.md`](automotive-assembly-layout-research.md). The dominant
+vehicle path is a folded one-way line with side-fed infrastructure, overhead C4 data/utility
+gantries, end-of-line testing, an inspection-adjacent rework loop returning to test, and a
+finished-vehicle yard.
+
 ## World analogy
 
 - **The Pi/ORC/Grain harness is the assembly line.** Its real C4 elements are the machinery,

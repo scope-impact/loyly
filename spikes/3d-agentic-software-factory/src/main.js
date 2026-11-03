@@ -51,6 +51,21 @@ const STAGE_TARGETS = {
   ],
 };
 
+// U-shaped automotive line: inbound fabrication runs west-to-east, end-of-line
+// inspection returns east-to-west, and the repair bay sits on a visible rework spur.
+const ASSEMBLY_ROUTE = [
+  { x: -18, z: -6.5, short: "Receiving / blueprint" },
+  { x: -13.5, z: -6.5, short: "Tooling setup" },
+  { x: -9, z: -6.5, short: "Body shop / build" },
+  { x: -4.5, z: -6.5, short: "Paint + sensor fit" },
+  { x: 0, z: -6.5, short: "Marriage / standards" },
+  { x: 5, z: -6.5, short: "End-line road test" },
+  { x: 10.5, z: -2, short: "Rework bay" },
+  { x: 10.5, z: 5.5, short: "Independent inspection" },
+  { x: 5, z: 5.5, short: "Telemetry + finish" },
+  { x: -.5, z: 5.5, short: "Finished vehicle yard" },
+];
+
 const $ = (selector) => document.querySelector(selector);
 const refs = {
   status: $("#factory-status"), statusLight: $("#status-light"), score: $("#score"),
@@ -71,6 +86,8 @@ let activeVariant = "A";
 let selectedNode = null;
 let focusedNode = null;
 let cameraFlight = null;
+let vehicleWaypoints = [];
+let lastVehicleStage = -1;
 let state = project(eventLog);
 
 function nowStamp() {
@@ -329,28 +346,23 @@ const agents = [0x52d6d2, 0xc76b3c, 0xf1f0e8].map((color) => {
 
 function layoutDiagram(diagram) {
   const positions = new Map();
-  if (diagram.id === "context") {
-    const center = diagram.nodes.find((node) => node.id === "harness");
-    if (center) positions.set(center.id, new THREE.Vector3(0, 0, 0));
-    const outer = diagram.nodes.filter((node) => node !== center);
-    outer.forEach((node, index) => {
-      const angle = (index / outer.length) * Math.PI * 2 - Math.PI / 2;
-      positions.set(node.id, new THREE.Vector3(Math.cos(angle) * 13, 0, Math.sin(angle) * 8));
-    });
-  } else if (diagram.id === "components") {
-    const fixed = {
-      rpc: [-12, -5], selection: [-12, 2], worker: [-6, -1], workflows: [0, 6], build: [0, 3], oracle: [0, 0], grading: [0, -3], evidence: [0, -6], runtime: [7, 4], grainmodel: [7, -4], orc: [13, 5], grain: [13, -5],
-    };
-    diagram.nodes.forEach((node, index) => { const pos = fixed[node.id] ?? [((index % 4) - 1.5) * 6, (Math.floor(index / 4) - 1) * 5]; positions.set(node.id, new THREE.Vector3(pos[0], 0, pos[1])); });
-  } else {
-    const internal = diagram.nodes.filter((node) => node.group === "system");
-    const external = diagram.nodes.filter((node) => node.group !== "system");
-    internal.forEach((node, index) => positions.set(node.id, new THREE.Vector3((index % 4 - 1.5) * 5.1, 0, (Math.floor(index / 4) - .5) * 5.2)));
-    external.forEach((node, index) => {
-      const angle = (index / external.length) * Math.PI * 2 - Math.PI / 2;
-      positions.set(node.id, new THREE.Vector3(Math.cos(angle) * 16, 0, Math.sin(angle) * 10.5));
-    });
-  }
+  const factoryMaps = {
+    context: {
+      source: [-18, -6.5], registry: [-13.5, -10.5], models: [-9, -10.5], harness: [-1, 0], gondolin: [1, -11], compose: [5, -10.5], candidate: [10.5, 5.5], operator: [-17, 10], pi: [-11.5, 10],
+    },
+    containers: {
+      cutworker: [-18, -6.5], cuts: [-16.5, -2.5], git: [-20, -11], registry: [-13.5, -10.5], builder: [-9, -6.5], llm: [-9, -11], outputs: [-4.5, -2.5], worker: [0, -2], grader: [7.5, 1.5], docker: [5, -10.5], subject: [10.5, 5.5], events: [-.5, 9.5], projections: [4, 9.5], gondolin: [0, -11], extension: [-11.5, 10], pi: [-17, 10],
+    },
+    components: {
+      rpc: [-17, 10], selection: [-18, -6.5], worker: [0, -2], workflows: [0, 1.5], build: [-9, -6.5], oracle: [0, -6.5], grading: [10.5, 5.5], evidence: [5, 5.5], runtime: [0, -11], grainmodel: [-.5, 5.5], orc: [-6, 10], grain: [4, 10],
+    },
+  };
+  const fixed = factoryMaps[diagram.id] ?? {};
+  diagram.nodes.forEach((node, index) => {
+    const fallback = [-18 + (index % 8) * 5, index % 2 ? -11 : 10];
+    const pos = fixed[node.id] ?? fallback;
+    positions.set(node.id, new THREE.Vector3(pos[0], 0, pos[1]));
+  });
   return positions;
 }
 
@@ -377,12 +389,11 @@ function makeTextSprite(lines, accent = "#f1f0e8", scale = 1) {
 function addRelationship(edge) {
   const from = nodePositions.get(edge.from); const to = nodePositions.get(edge.to);
   if (!from || !to) return;
-  const middle = from.clone().lerp(to, .5); middle.y = 1.05 + Math.min(2.5, from.distanceTo(to) * .08);
-  const curve = new THREE.QuadraticBezierCurve3(from.clone().setY(.34), middle, to.clone().setY(.34));
+  const middle = from.clone().lerp(to, .5); middle.y = 7 + Math.min(2.2, from.distanceTo(to) * .05);
+  const curve = new THREE.QuadraticBezierCurve3(from.clone().setY(3.6), middle, to.clone().setY(3.6));
   const material = new THREE.MeshStandardMaterial({ color: 0x3d6071, emissive: 0x183442, emissiveIntensity: .5, roughness: .45, metalness: .5 });
   const route = new THREE.Mesh(new THREE.TubeGeometry(curve, 18, .075, 6, false), material);
   route.userData.edge = edge; route.userData.baseColor = 0x3d6071; worldGroup.add(route); edgeMeshes.push(route);
-  const label = makeTextSprite([edge.label, `${edge.from} → ${edge.to}`], "#91a0ae", .62); label.position.copy(middle).add(new THREE.Vector3(0, .48, 0)); worldGroup.add(label);
 }
 
 function addC4Node(node) {
@@ -395,8 +406,66 @@ function addC4Node(node) {
     : new THREE.Mesh(new THREE.BoxGeometry(2.45, height, 1.8), material);
   body.position.y = .34 + height / 2; body.castShadow = true; group.add(body);
   const cap = new THREE.Mesh(new THREE.BoxGeometry(2.15, .1, 1.48), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2 })); cap.position.y = height + .38; group.add(cap);
-  const label = makeTextSprite([node.name, node.type], `#${new THREE.Color(color).getHexString()}`, .75); label.position.set(0, height + 1.5, 0); group.add(label);
+  const label = makeTextSprite([node.name, node.type], `#${new THREE.Color(color).getHexString()}`, .58); label.position.set(0, height + 1.25, 0); group.add(label);
   worldGroup.add(group); nodeMeshes.push(group);
+}
+
+function addFactoryBeam(from, to, color = 0xc76b3c) {
+  const midpoint = from.clone().add(to).multiplyScalar(.5);
+  const length = from.distanceTo(to);
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(length, .16, .66), new THREE.MeshStandardMaterial({ color, roughness: .58, metalness: .48 }));
+  beam.position.copy(midpoint); beam.position.y = .18; beam.rotation.y = -Math.atan2(to.z - from.z, to.x - from.x); beam.receiveShadow = true; worldGroup.add(beam);
+  const direction = to.clone().sub(from).normalize();
+  const arrow = new THREE.Mesh(new THREE.ConeGeometry(.21, .65, 3), new THREE.MeshStandardMaterial({ color: 0xf2b84b, emissive: 0x6a4510, emissiveIntensity: .7 }));
+  arrow.position.copy(midpoint).setY(.38); arrow.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction); worldGroup.add(arrow);
+}
+
+function addAssemblyLine() {
+  const points = ASSEMBLY_ROUTE.map(({ x, z }) => new THREE.Vector3(x, 0, z));
+  [[0,1],[1,2],[2,3],[3,4],[4,5],[5,7],[7,8],[8,9]].forEach(([from, to]) => addFactoryBeam(points[from], points[to]));
+  addFactoryBeam(points[5], points[6], 0xd95555);
+  addFactoryBeam(points[6].clone().add(new THREE.Vector3(.38, 0, -.38)), points[5].clone().add(new THREE.Vector3(.38, 0, -.38)), 0xd95555);
+  ASSEMBLY_ROUTE.forEach((station, index) => {
+    const stage = STAGES[index];
+    const padColor = index === 6 ? 0x542b34 : index >= 7 ? 0x24463f : 0x263b4c;
+    const pad = new THREE.Mesh(new THREE.BoxGeometry(4, .12, 3.1), new THREE.MeshStandardMaterial({ color: padColor, roughness: .82, metalness: .1 }));
+    pad.position.set(station.x, .02, station.z); pad.receiveShadow = true; worldGroup.add(pad);
+    const marker = makeTextSprite([`${String(index + 1).padStart(2, "0")}  ${station.short}`, stage.id.replaceAll("_", " ")], index === 6 ? "#d95555" : index >= 7 ? "#75c18b" : "#f2b84b", .46);
+    marker.position.set(station.x, .62, station.z + 1.72); worldGroup.add(marker);
+  });
+  // Service lanes keep infrastructure and inputs visually separate from product flow.
+  [-11.8, 10.8].forEach((z) => {
+    const lane = new THREE.Mesh(new THREE.BoxGeometry(45, .035, .28), new THREE.MeshStandardMaterial({ color: 0x60778a, emissive: 0x24384a, emissiveIntensity: .45 }));
+    lane.position.set(0, .02, z); worldGroup.add(lane);
+  });
+  addFactoryFixtures();
+}
+
+function addFactoryFixtures() {
+  const steel = new THREE.MeshStandardMaterial({ color: 0x6b7d89, roughness: .52, metalness: .65 });
+  const safety = new THREE.MeshStandardMaterial({ color: 0xf2b84b, roughness: .5, metalness: .4 });
+  const addGantry = (stageIndex, color = 0x6b7d89) => {
+    const { x, z } = ASSEMBLY_ROUTE[stageIndex]; const material = new THREE.MeshStandardMaterial({ color, roughness: .48, metalness: .65 });
+    [-1.55, 1.55].forEach((offset) => { const post = new THREE.Mesh(new THREE.BoxGeometry(.16, 2.8, .16), material); post.position.set(x, 1.4, z + offset); worldGroup.add(post); });
+    const top = new THREE.Mesh(new THREE.BoxGeometry(.18, .18, 3.25), material); top.position.set(x, 2.75, z); worldGroup.add(top);
+  };
+  // Body shop: paired robot arms around the vehicle path.
+  [-1.45, 1.45].forEach((zOffset) => [-.85, .85].forEach((xOffset) => {
+    const { x, z } = ASSEMBLY_ROUTE[2];
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(.2, .28, .42, 10), safety); base.position.set(x + xOffset, .22, z + zOffset); worldGroup.add(base);
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(.2, 1.2, .2), steel); arm.position.set(x + xOffset, .93, z + zOffset); arm.rotation.z = xOffset > 0 ? .42 : -.42; worldGroup.add(arm);
+  }));
+  // Enclosed paint/instrument tunnel.
+  const paint = ASSEMBLY_ROUTE[3];
+  const tunnel = new THREE.Mesh(new THREE.BoxGeometry(4, 2.6, 2.8), new THREE.MeshStandardMaterial({ color: 0x52d6d2, transparent: true, opacity: .1, wireframe: true })); tunnel.position.set(paint.x, 1.35, paint.z); worldGroup.add(tunnel);
+  addGantry(4, 0x8d76b5); // marriage / standards gate
+  // End-of-line rollers and inspection/rework arches.
+  const test = ASSEMBLY_ROUTE[5];
+  [-.8, 0, .8].forEach((xOffset) => { const roller = new THREE.Mesh(new THREE.CylinderGeometry(.16, .16, 2.4, 12), steel); roller.rotation.x = Math.PI / 2; roller.position.set(test.x + xOffset, .24, test.z); worldGroup.add(roller); });
+  addGantry(6, 0xd95555); addGantry(7, 0x75c18b);
+  // Finished-vehicle yard markings.
+  const yard = ASSEMBLY_ROUTE[9];
+  [-1.2, 0, 1.2].forEach((offset) => { const stripe = new THREE.Mesh(new THREE.BoxGeometry(.08, .025, 2.6), new THREE.MeshStandardMaterial({ color: 0xf1f0e8 })); stripe.position.set(yard.x + offset, .11, yard.z); worldGroup.add(stripe); });
 }
 
 function buildDiagram(diagramId) {
@@ -410,15 +479,12 @@ function buildDiagram(diagramId) {
     const child = worldGroup.children.pop(); child.traverse((object) => { object.geometry?.dispose(); if (Array.isArray(object.material)) object.material.forEach((material) => material.dispose()); else object.material?.dispose(); });
   }
   nodeMeshes = []; edgeMeshes = []; nodePositions = layoutDiagram(activeDiagram);
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(38, .4, 25), new THREE.MeshStandardMaterial({ color: 0x172332, roughness: .9, metalness: .12 })); floor.position.y = -.25; floor.receiveShadow = true; worldGroup.add(floor);
-  const grid = new THREE.GridHelper(38, 38, 0x496179, 0x293b4e); grid.position.y = -.04; worldGroup.add(grid);
-  if (activeDiagram.id === "containers") {
-    const boundary = new THREE.Mesh(new THREE.BoxGeometry(19.5, .16, 12.2), new THREE.MeshStandardMaterial({ color: 0x183b47, transparent: true, opacity: .68, roughness: .8 })); boundary.position.y = -.02; worldGroup.add(boundary);
-    const boundaryLabel = makeTextSprite(["Session-hosted ORC Regeneration Harness", "Software System boundary"], "#52d6d2", .82); boundaryLabel.position.set(0, .55, -6); worldGroup.add(boundaryLabel);
-  }
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(48, .4, 29), new THREE.MeshStandardMaterial({ color: 0x172332, roughness: .9, metalness: .12 })); floor.position.y = -.25; floor.receiveShadow = true; worldGroup.add(floor);
+  const grid = new THREE.GridHelper(48, 48, 0x496179, 0x293b4e); grid.position.y = -.04; worldGroup.add(grid);
+  addAssemblyLine();
   activeDiagram.edges.forEach(addRelationship);
   activeDiagram.nodes.forEach(addC4Node);
-  if (!state.cycleId) productVehicle.position.set(9, .08, 7.3);
+  if (!state.cycleId) productVehicle.position.set(-22, .08, -6.5);
   $("#diagram-count").textContent = `${activeDiagram.nodes.length} elements · ${activeDiagram.edges.length} relations`;
   $("#diagram-source").textContent = `Source: .pi/architecture.md:${activeDiagram.sourceLine}`;
   updateSceneFromState();
@@ -559,15 +625,15 @@ function updateSceneFromState() {
     const active = targets.has(route.userData.edge.from) && targets.has(route.userData.edge.to);
     route.material.color.setHex(active ? 0xf2b84b : route.userData.baseColor); route.material.emissiveIntensity = active ? 2 : .5;
   });
-  const destinations = [...targets].map((id) => nodePositions.get(id)).filter(Boolean);
-  const target = destinations[0] ?? nodePositions.values().next().value ?? new THREE.Vector3();
-  agents.forEach((agent, index) => { const destination = destinations[index % Math.max(1, destinations.length)] ?? target; agent.userData.target = destination.clone().add(new THREE.Vector3((index - 1) * .7, 0, 1.8)); });
+  const routeStage = ASSEMBLY_ROUTE[Math.max(0, state.activeStage)] ?? ASSEMBLY_ROUTE[0];
+  const target = state.cycleId ? new THREE.Vector3(routeStage.x, 0, routeStage.z) : new THREE.Vector3(-22, 0, -6.5);
+  agents.forEach((agent, index) => { agent.userData.target = target.clone().add(new THREE.Vector3((index - 1) * .72, 0, 1.75 + Math.abs(index - 1) * .2)); });
 }
 
 function setCamera(mode) {
-  if (mode === "top") { camera.position.set(0, 38, .01); controls.target.set(0, 0, 0); }
-  else if (mode === "perspective") { camera.position.set(27, 16, 24); controls.target.set(0, 1, 0); }
-  else { camera.position.set(25, 23, 28); controls.target.set(0, 1, 0); }
+  if (mode === "top") { camera.position.set(0, 46, .01); controls.target.set(-3, 0, 0); }
+  else if (mode === "perspective") { camera.position.set(27, 16, 24); controls.target.set(-3, 1, 0); }
+  else { camera.position.set(23, 22, 26); controls.target.set(-3, 1, 0); }
   controls.update();
 }
 $("#camera-reset").addEventListener("click", () => { if (focusedNode) returnToOverview(); else setCamera(VARIANTS[activeVariant].camera); });
@@ -582,9 +648,15 @@ function frame(now) {
   const delta = Math.min((now - lastFrame) / 1000, .1); lastFrame = now;
   if (state.status === "running" && !state.paused) { stageElapsed += delta * state.speed; const duration = state.activeStage === 2 ? 4.3 : 2.8; if (stageElapsed >= duration) completeActiveStage(); }
   if (productVehicle.visible) {
-    const targetId = activeTargetIds()[0]; const target = nodePositions.get(targetId) ?? new THREE.Vector3();
-    const destination = state.cycleId ? target : new THREE.Vector3(9, 0, 7.3);
+    if (!state.cycleId) { vehicleWaypoints = []; lastVehicleStage = -1; }
+    if (state.cycleId && lastVehicleStage !== state.activeStage) {
+      const stagePoint = (index) => new THREE.Vector3(ASSEMBLY_ROUTE[index].x, 0, ASSEMBLY_ROUTE[index].z);
+      vehicleWaypoints = lastVehicleStage === 6 && state.activeStage === 7 ? [stagePoint(5), stagePoint(7)] : [stagePoint(Math.max(0, state.activeStage))];
+      lastVehicleStage = state.activeStage;
+    }
+    const destination = state.cycleId ? (vehicleWaypoints[0] ?? new THREE.Vector3(ASSEMBLY_ROUTE[Math.max(0, state.activeStage)].x, 0, ASSEMBLY_ROUTE[Math.max(0, state.activeStage)].z)) : new THREE.Vector3(-22, 0, -6.5);
     productVehicle.position.lerp(new THREE.Vector3(destination.x, .08 + Math.sin(now * .003) * .025, destination.z), .045 * Math.max(1, state.speed));
+    if (state.cycleId && productVehicle.position.distanceTo(new THREE.Vector3(destination.x, .08, destination.z)) < .45) vehicleWaypoints.shift();
   }
   agents.forEach((agent, index) => { if (agent.userData.target) agent.position.lerp(agent.userData.target, .018 + index * .003); agent.rotation.y = Math.sin(now * .001 + index) * .16; });
   if (cameraFlight) {

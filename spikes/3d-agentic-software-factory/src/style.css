@@ -55,7 +55,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 #factory-canvas:active { cursor: grabbing; }
 .world-title { position: absolute; top: 112px; left: 28px; max-width: 420px; pointer-events: none; text-shadow: 0 2px 15px #08111c; }
 .world-title p, .panel-heading p, .stage-focus small { margin: 0 0 3px; color: var(--amber); font: 500 14px "Barlow Condensed"; }
-.world-title h1 { margin: 0; font: 600 clamp(30px, 4vw, 56px)/.95 "Barlow Condensed"; max-width: 510px; }
+.world-title h1 { margin: 0; font: 600 clamp(28px, 3vw, 44px)/.96 "Barlow Condensed"; max-width: 360px; }
 .world-hint { position: absolute; left: 28px; bottom: 20px; color: #b9c3c9; font-size: 11px; pointer-events: none; }
 .camera-reset { position: absolute; right: 18px; top: 18px; border: 1px solid var(--line); border-radius: 2px; background: rgba(8,17,28,.78); padding: 8px 11px; cursor: pointer; }
 .architecture-toolbar { position: absolute; top: 18px; left: 28px; z-index: 2; display: grid; grid-template-columns: auto minmax(150px, 230px); gap: 3px 9px; align-items: center; padding: 9px 11px; background: rgba(8,17,28,.88); border-left: 3px solid var(--cyan); box-shadow: 0 8px 30px rgba(0,0,0,.22); }
