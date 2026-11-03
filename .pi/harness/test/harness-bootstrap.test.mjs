@@ -31,5 +31,5 @@ test("root harness bootstrap builds and verifies every configured runtime", asyn
     assert.ok(makefile.includes(`$(ASSETS)/${runtime}`), `bootstrap must build ${runtime}`);
   }
   assert.match(makefile, /build --verify/);
-  assert.doesNotMatch(makefile, /publish:oracles|submit_regeneration_cycle/);
+  assert.doesNotMatch(makefile, /publish:oracles|submit_approved_slice/);
 });

@@ -1,13 +1,13 @@
-Feature: Session-independent regeneration control
+Feature: Session-independent generation and regeneration control
   Public operations validate identities, expose durable task outcomes, bind reviewed
-  cycle preparation, and allow authorized operator sessions to observe builder work.
+  selections, and allow authorized operator sessions to observe builder work.
 
   Rule: Every public operation refuses malformed or conflicting identities
 
     @item-01-015 @skip
     Scenario: Cut preparation refuses an invalid or colliding identity
       Given a cut request does not name a full source commit or supported backend
-      When the operator prepares the regeneration cut
+      When the operator prepares the source cut
       Then the request is refused before a cut task starts
       And an existing cut identity is never replaced by different content
 
@@ -28,7 +28,7 @@ Feature: Session-independent regeneration control
 
     @item-01-018 @e2e
     Scenario: Waiting for a known task returns its one terminal outcome
-      Given a cut or regeneration task receipt was returned
+      Given a source-cut, generation, or regeneration task receipt was returned
       When the operator waits for its task identity
       Then the result is completed or failed with the ORC trace summary
       And waiting again returns the same terminal outcome

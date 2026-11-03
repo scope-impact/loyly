@@ -41,6 +41,26 @@
      :grain/allium [{:spec "model/pi-harness/regeneration-cycle.allium"
                      :kind :rule :name "ApprovePreparation"}]}
 
+    :loyly/record-approved-slice-route
+    {:description "Persist the ORC-selected operation for an approved slice request."
+     :schema [:map [:route :map]]
+     :reads #{:loyly/approved-slice-operation-routes}
+     :produces #{:loyly/approved-slice-operation-routed}
+     :grain/allium [{:spec "model/pi-harness/initial-generation.allium"
+                     :kind :rule :name "RouteApprovedSliceToInitialGeneration"}
+                    {:spec "model/pi-harness/initial-generation.allium"
+                     :kind :rule :name "RouteApprovedSliceToMeasuredRegeneration"}]}
+
+    :loyly/record-generated-candidate
+    {:description "Persist candidate lineage so ORC can route approved slices by prior component output."
+     :schema [:map [:candidate :map]]
+     :reads #{:loyly/component-candidates}
+     :produces #{:loyly/generated-candidate-recorded}
+     :grain/allium [{:spec "model/pi-harness/initial-generation.allium"
+                     :kind :rule :name "RecordInitialGenerationCandidate"}
+                    {:spec "model/pi-harness/initial-generation.allium"
+                     :kind :rule :name "RecordMeasuredRegenerationCandidate"}]}
+
     :loyly/record-cycle-progress
     {:description "Record the latest observational stage for one durable ORC tick."
      :schema [:map [:progress :map]]
@@ -102,6 +122,35 @@
     :loyly/cycle-preparation-approved
     {:description "The exact digest of a complete cycle preparation was approved."
      :schema [:map [:preparation-id :string] [:preparation-digest :string]]}
+
+    :loyly/approved-slice-operation-routed
+    {:description "ORC selected and durably pinned generation or regeneration for a request."
+     :schema [:map
+              [:request-id :string]
+              [:request-digest :string]
+              [:project-id :string]
+              [:container-id :string]
+              [:component-id :string]
+              [:selection-id :string]
+              [:operation [:enum "generation" "regeneration"]]
+              [:parent-candidate-id {:optional true} :string]
+              [:parent-candidate-root {:optional true} :string]
+              [:parent-candidate-digest {:optional true} :string]]}
+
+    :loyly/generated-candidate-recorded
+    {:description "A generated candidate and its lineage were recorded for a project component."
+     :schema [:map
+              [:candidate-id :string]
+              [:project-id :string]
+              [:container-id :string]
+              [:component-id :string]
+              [:operation [:enum "generation" "regeneration"]]
+              [:parent-candidate-id {:optional true} :string]
+              [:selection-id :string]
+              [:cut :string]
+              [:output-root :string]
+              [:subject-digest :string]
+              [:disposition [:enum "ungraded" "measured"]]]}
 
     :loyly/cycle-progress-recorded
     {:description "An observational stage snapshot was recorded; ORC tick state remains authoritative."
@@ -173,6 +222,16 @@
                  :loyly/cycle-preparation-approved}
      :version 1}
 
+    :loyly/component-candidates
+    {:description "Generated candidate lineage ordered by project component for operation routing."
+     :consumes #{:loyly/generated-candidate-recorded}
+     :version 1}
+
+    :loyly/approved-slice-operation-routes
+    {:description "The immutable operation decision keyed by approved request identity."
+     :consumes #{:loyly/approved-slice-operation-routed}
+     :version 1}
+
     :loyly/cycle-progress
     {:description "Latest observational stage and builder-session reference keyed by ORC tick identity."
      :consumes #{:loyly/cycle-progress-recorded}
@@ -212,18 +271,32 @@
     :loyly/cycle-measurement
     {:description "Return the strict measurement for one cycle."
      :schema [:map [:cycle-id :string]]
-     :reads #{:loyly/cycle-measurements}}}
+     :reads #{:loyly/cycle-measurements}}
+
+    :loyly/component-candidates
+    {:description "Return candidate lineage for one project component."
+     :schema [:map [:project-id :string] [:container-id :string] [:component-id :string]]
+     :reads #{:loyly/component-candidates}}
+
+    :loyly/approved-slice-operation-route
+    {:description "Return ORC's durably selected operation for one request."
+     :schema [:map [:request-id :string]]
+     :reads #{:loyly/approved-slice-operation-routes}}}
 
    :screens
    {:loyly/pi-regeneration
     {:description "Session control boundary for preparation approval and measured regeneration."
      :queries #{:loyly/selection
+                :loyly/component-candidates
+                :loyly/approved-slice-operation-route
                 :loyly/cycle-preparation
                 :loyly/cycle-progress
                 :loyly/cycle-observations
                 :loyly/cycle-measurement}
      :commands #{:loyly/record-selection
                  :loyly/approve-selection
+                 :loyly/record-approved-slice-route
+                 :loyly/record-generated-candidate
                  :loyly/record-cycle-preparation
                  :loyly/approve-cycle-preparation
                  :loyly/record-cycle-progress

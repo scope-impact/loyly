@@ -96,10 +96,12 @@ Read the slice (`docs/plan/01-booking-core/`): eight Gherkin scenarios covering 
 weekly schedule, standing-slot booking with reasoned refusals, and the
 single-source-of-truth rule from the story above. In a Pi session, ask the harness to:
 
-1. `prepare_regeneration_cut` from an explicit Git commit and execution backend;
+1. `prepare_source_cut` from an explicit Git commit and execution backend;
 2. `preview_slice_selection`, then `approve_slice_selection` for the intended scope;
-3. `submit_regeneration_cycle` with the approved selection, target stack, and backend;
-4. `wait_regeneration_cycle` and inspect the returned evidence.
+3. `submit_approved_slice` with the approved selection, target stack, and backend. ORC
+   chooses ungraded initial generation when no candidate exists for the selected project
+   component, or measured regeneration from its latest candidate when lineage exists;
+4. `wait_harness_operation` and inspect the operation receipt and any returned evidence.
 
 The checked-in `.pi/settings.json` loads these tools automatically when Pi opens this
 repository. `host` is useful for harness development; measured regeneration uses the

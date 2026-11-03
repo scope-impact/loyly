@@ -97,10 +97,11 @@ afterAll(async () => {
 // Keep scenario tests at module root: allure-vitest installs its runtime with root hooks.
 // Component ownership is projected through scenarioLabels instead of nested describe blocks.
 test.skip("A regeneration cycle follows the declared stage order", () => {});
-test.skip("A first regeneration starts without product or instrument oracles", () => {});
-test.skip("The first candidate is recorded without an independent verdict", () => {});
-test.skip("A builder that produces no candidate fails the first regeneration", () => {});
-test.skip("An ungraded candidate cannot pass the independent grade gate", () => {});
+test.skip("ORC routes a first approved slice to initial generation before oracles exist", () => {});
+test.skip("A successful initial generation records candidate provenance without a verdict", () => {});
+test.skip("Initial generation fails when the builder produces no candidate", () => {});
+test.skip("An ungraded generation result cannot pass the regeneration grade gate", () => {});
+test.skip("An approved slice is routed from the latest persisted component candidate", () => {});
 test.skip("make bootstrap builds every harness and supported-stack runtime", () => {});
 test.skip("make bootstrap does not run Löyly application or oracle workflows", () => {});
 test.skip("An invalid runtime build fails the Makefile target", () => {});
@@ -186,7 +187,7 @@ test("Waiting for a known task returns its one terminal outcome", async () => {
   const context = scenarioContext();
   await scenarioLabels("operator-control-plane", "item-01-018", ["e2e"]);
 
-  await given("a cut or regeneration task receipt was returned", async () => {
+  await given("a source-cut, generation, or regeneration task receipt was returned", async () => {
     context.cut = await preparedCut();
     context.taskId = context.cut.receipt.taskId;
   });
@@ -312,7 +313,7 @@ test("Preparing a cut returns immutable commit and tree identities", async () =>
   await given("the operator names a full source commit and an execution backend", async () => {
     context.cut = await preparedCut();
   });
-  await when("the Pi harness prepares the regeneration cut", async () => {
+  await when("the Pi harness prepares the source cut", async () => {
     context.cut ??= await preparedCut();
   });
   await then("the prepared cut is rooted at exactly that source commit", async () => {
@@ -413,7 +414,7 @@ test("An unapproved selection cannot start a regeneration cycle", async () => {
   await when("the operator submits a regeneration cycle for that selection", async () => {
     const selection = assertRequired(context.selections, "selection preview")[0];
     try {
-      await worker.client.submit({
+      await worker.client.submitApprovedSlice({
         requestId: `unapproved-${Date.now()}`,
         selectionId: selection.selectionId,
         scope: ["workspace"],

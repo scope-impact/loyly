@@ -240,3 +240,60 @@
                      measurement
                      "cycle measurement projection did not settle"
                      {:cycle-id (:cycle-id measurement)}))
+
+(defcommand :loyly record-approved-slice-route
+  {:grain.event-model/produces #{:loyly/approved-slice-operation-routed}}
+  "Persist ORC's generation-versus-regeneration decision for an approved request."
+  [{:keys [command] :as context}]
+  (let [route (:route command)
+        existing (read-models/find-approved-slice-route context (:request-id route))]
+    (cond
+      (= existing route) {:command/result existing}
+      existing {::anom/category ::anom/conflict
+                ::anom/message "approved-slice request identity already has a different operation route"}
+      :else {:command-result/events
+             [(event-store/->event
+               {:type :loyly/approved-slice-operation-routed
+                :tags #{(read-models/operation-route-tag (:request-id route))}
+                :body route})]})))
+
+(defn record-approved-slice-route! [context route]
+  (process! context {:command/name :loyly/record-approved-slice-route :route route}
+            "approved-slice route command failed")
+  (await-projection! #(read-models/find-approved-slice-route (dissoc context :cache)
+                                                               (:request-id route))
+                     route
+                     "approved-slice route projection did not settle"
+                     {:request-id (:request-id route)}))
+
+(defn- find-candidate [context candidate]
+  (some #(when (= (:candidate-id candidate) (:candidate-id %)) %)
+        (read-models/find-component-candidates
+         context (:project-id candidate) (:container-id candidate) (:component-id candidate))))
+
+(defcommand :loyly record-generated-candidate
+  {:grain.event-model/produces #{:loyly/generated-candidate-recorded}}
+  "Record a generated candidate as durable lineage for later ORC routing."
+  [{:keys [command] :as context}]
+  (let [candidate (:candidate command)
+        existing (find-candidate context candidate)]
+    (cond
+      (= existing candidate) {:command/result existing}
+      existing {::anom/category ::anom/conflict
+                ::anom/message "candidate identity already names different lineage"}
+      :else {:command-result/events
+             [(event-store/->event
+               {:type :loyly/generated-candidate-recorded
+                :tags #{(read-models/candidate-tag (:candidate-id candidate))
+                        (read-models/component-candidates-tag
+                         (:project-id candidate) (:container-id candidate) (:component-id candidate))}
+                :body candidate})]})))
+
+(defn record-generated-candidate! [context candidate]
+  (process! context {:command/name :loyly/record-generated-candidate
+                     :candidate candidate}
+            "generated candidate command failed")
+  (await-projection! #(find-candidate (dissoc context :cache) candidate)
+                     candidate
+                     "generated candidate projection did not settle"
+                     {:candidate-id (:candidate-id candidate)}))

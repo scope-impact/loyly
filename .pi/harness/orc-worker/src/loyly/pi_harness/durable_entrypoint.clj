@@ -4,6 +4,7 @@
             [loyly.pi-harness.core.runtime.durable-system :as durable-system]
             [loyly.pi-harness.grain.interface :as model]
             [loyly.pi-harness.interface :as harness]
+            [loyly.pi-harness.workflows.generation :as generation]
             [loyly.pi-harness.workflows.regeneration :as regeneration]
             [loyly.pi-harness.core.selection.slice-selection :as slice-selection]))
 
@@ -34,17 +35,14 @@
 (defn- with-approved-selection [{:keys [selectionId] :as request}]
   (let [selection (model/find-selection (context) selectionId)]
     (when-not (= "approved" (:status selection))
-      (throw (ex-info "regeneration requires an approved slice selection"
+      (throw (ex-info "an approved slice selection is required"
                       {:selectionId selectionId})))
     (-> request
         (dissoc :selectionId)
         (assoc :selectionContract selection))))
 
 (defn submit-approved! [request]
-  (harness/submit! (with-approved-selection request)))
-
-(defn start-approved-cycle! [request]
-  (harness/start-cycle! (with-approved-selection request)))
+  (harness/submit-approved-slice! (with-approved-selection request)))
 
 (defn- dispatch [method params]
   (case method
@@ -54,11 +52,12 @@
     "optimize-prompt" (harness/optimize-builder-prompt! params)
     "start-external-prompt-optimization" (harness/start-external-prompt-optimization! params)
     "submit-external-prompt-candidate" (harness/submit-external-prompt-candidate! params)
+    "submit-approved-slice" (submit-approved! params)
     "submit" (submit-approved! params)
-    "start-cycle" (start-approved-cycle! params)
     "execution-status" (harness/execution-status! params)
     "builder-session" (harness/builder-session! params)
     "workflow-contract" (regeneration/contract)
+    "generation-workflow-contract" (generation/contract)
     "wait" (harness/wait! params)
     "measurement" (model/find-measurement (context) (:cycleId params))
     (throw (ex-info "unknown method" {:method method}))))

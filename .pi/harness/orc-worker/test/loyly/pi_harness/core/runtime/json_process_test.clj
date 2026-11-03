@@ -7,11 +7,11 @@
                 (java.io.File. "../.pi/harness/fixtures/fake-worker.mjs"))
         result (json-process/invoke! script
                                      {:id 1
-                                      :method "submit"
+                                      :method "submit-approved-slice"
                                       :params {:requestId "request-1"}})]
     (is (zero? (:exit-code result)))
     (is (= "" (:stderr result)))
     (is (= {:id 1
             :ok true
-            :result {:cycleId "request-1" :taskId 7}}
+            :result {:operation "generation" :operationId "request-1" :taskId 7}}
            (:response result)))))

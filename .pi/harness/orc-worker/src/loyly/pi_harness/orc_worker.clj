@@ -11,13 +11,14 @@
 
 ;; Public operations
 (def prepare-cut! worker/prepare-cut!)
-(def submit! worker/submit!)
+(def submit-approved-slice! worker/submit-approved-slice!)
 (def wait! worker/wait!)
 (def optimize-builder-prompt! worker/optimize-builder-prompt!)
 (def start-external-prompt-optimization! worker/start-external-prompt-optimization!)
 (def submit-external-prompt-candidate! worker/submit-external-prompt-candidate!)
 (def respond! worker/respond!)
 (def workflow worker/workflow)
+(def generation-workflow worker/generation-workflow)
 (def cut-workflow worker/cut-workflow)
 
 ;; Executor compatibility for downstream tests and extensions.

@@ -27,29 +27,17 @@
                        {:selectionId "selection-1" :selectionDigest "digest-1"}))))
       (is (= ["selection-1" "digest-1"] @call)))))
 
-(deftest regeneration-carries-the-approved-selection-into-the-cycle
-  (with-redefs [harness/runtime-context (constantly {})
-                model/find-selection
-                (fn [_ _] (assoc contract :status "approved"))
-                harness/submit! identity]
-    (is (= {:requestId "request-1" :scope ["workspace"]
-            :selectionContract (assoc contract :status "approved")}
-           (entrypoint/submit-approved!
-            {:requestId "request-1" :selectionId "selection-1" :scope ["workspace"]})))))
-
-(deftest durable-cycle-start-carries-the-approved-selection-to-orc
-  (let [request {:cycleId "cycle-1"
-                 :tickId "f36dc9b7-9b92-4e15-84f5-1b9c4b798416"
-                 :correlationId "46ec162b-2539-4964-aea0-9d06552e7e07"
+(deftest approved-slice-submission-forwards-approval-without-an-operation-choice
+  (let [request {:requestId "request-1"
                  :selectionId "selection-1"
                  :scope ["workspace"]
                  :targetStack "typescript"
-                 :executionBackend "gondolin"}]
+                 :executionBackend "gondolin"}
+        expected (-> request
+                     (dissoc :selectionId)
+                     (assoc :selectionContract (assoc contract :status "approved")))]
     (with-redefs [harness/runtime-context (constantly {})
                   model/find-selection
                   (fn [_ _] (assoc contract :status "approved"))
-                  harness/start-cycle! identity]
-      (is (= (-> request
-                 (dissoc :selectionId)
-                 (assoc :selectionContract (assoc contract :status "approved")))
-             (entrypoint/start-approved-cycle! request))))))
+                  harness/submit-approved-slice! identity]
+      (is (= expected (entrypoint/submit-approved! request))))))

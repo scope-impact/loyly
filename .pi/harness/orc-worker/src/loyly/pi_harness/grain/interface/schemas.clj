@@ -18,6 +18,33 @@
    [:slice :string]
    [:items [:vector item-schema]]])
 
+(def generated-candidate-schema
+  [:map
+   [:candidate-id :string]
+   [:project-id :string]
+   [:container-id :string]
+   [:component-id :string]
+   [:operation [:enum "generation" "regeneration"]]
+   [:parent-candidate-id {:optional true} :string]
+   [:selection-id :string]
+   [:cut :string]
+   [:output-root :string]
+   [:subject-digest :string]
+   [:disposition [:enum "ungraded" "measured"]]])
+
+(def approved-slice-route-schema
+  [:map
+   [:request-id :string]
+   [:request-digest :string]
+   [:project-id :string]
+   [:container-id :string]
+   [:component-id :string]
+   [:selection-id :string]
+   [:operation [:enum "generation" "regeneration"]]
+   [:parent-candidate-id {:optional true} :string]
+   [:parent-candidate-root {:optional true} :string]
+   [:parent-candidate-digest {:optional true} :string]])
+
 (def cycle-progress-schema
   [:map
    [:cycle-id :string]
@@ -77,6 +104,8 @@
 (defschemas commands
   {:loyly/record-selection [:map [:contract selection-contract-schema]]
    :loyly/approve-selection [:map [:selection-id :string] [:selection-digest :string]]
+   :loyly/record-generated-candidate [:map [:candidate generated-candidate-schema]]
+   :loyly/record-approved-slice-route [:map [:route approved-slice-route-schema]]
    :loyly/record-cycle-progress [:map [:progress cycle-progress-schema]]
    :loyly/record-observation [:map [:observation observation-schema]]
    :loyly/record-cycle-measurement [:map [:measurement measurement-schema]]})
@@ -84,6 +113,8 @@
 (defschemas events
   {:loyly/selection-recorded selection-contract-schema
    :loyly/selection-approved [:map [:selectionId :string] [:selectionDigest :string]]
+   :loyly/generated-candidate-recorded generated-candidate-schema
+   :loyly/approved-slice-operation-routed approved-slice-route-schema
    :loyly/cycle-progress-recorded cycle-progress-schema
    :loyly/observation-recorded observation-schema
    :loyly/cycle-measurement-recorded measurement-schema})

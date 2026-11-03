@@ -9,21 +9,19 @@ export type CycleRequest = {
   executionBackend: "host" | "gondolin";
 };
 
-export type DurableCycleRequest = Omit<CycleRequest, "requestId"> & {
-  cycleId: string;
+export type CutReceipt = { cutId: string; taskId: number; executionBackend: "host" | "gondolin" };
+
+export type OperationReceipt = {
+  operation: "generation" | "regeneration";
+  operationId: string;
+  selectionId: string;
+  parentCandidateId?: string;
   tickId: string;
   correlationId: string;
+  taskId: number;
+  targetStack: string;
+  executionBackend: "host" | "gondolin";
 };
-
-export type DurableCycleReceipt = {
-  cycleId: string;
-  tickId: string;
-  correlationId: string;
-  sheetId: string;
-  status: string;
-};
-
-export type CycleReceipt = { cycleId: string; taskId: number };
 export type CycleOutcome = {
   status: "completed" | "failed";
   result?: unknown;
@@ -73,8 +71,8 @@ export class OrcClient {
     this.invokeRequest = invoke;
   }
 
-  prepareCut(sourceCommit: string, executionBackend: "host" | "gondolin"): Promise<CycleReceipt> {
-    return this.invoke("prepare-cut", { sourceCommit, executionBackend }) as Promise<CycleReceipt>;
+  prepareCut(sourceCommit: string, executionBackend: "host" | "gondolin"): Promise<CutReceipt> {
+    return this.invoke("prepare-cut", { sourceCommit, executionBackend }) as Promise<CutReceipt>;
   }
 
   optimizePrompt(trainset: unknown[], valset: unknown[]): Promise<unknown> {
@@ -97,12 +95,8 @@ export class OrcClient {
     return this.invoke("approve-selection", { selectionId, selectionDigest });
   }
 
-  submit(request: CycleRequest): Promise<CycleReceipt> {
-    return this.invoke("submit", request) as Promise<CycleReceipt>;
-  }
-
-  startCycle(request: DurableCycleRequest): Promise<DurableCycleReceipt> {
-    return this.invoke("start-cycle", request) as Promise<DurableCycleReceipt>;
+  submitApprovedSlice(request: CycleRequest): Promise<OperationReceipt> {
+    return this.invoke("submit-approved-slice", request) as Promise<OperationReceipt>;
   }
 
   wait(taskId: number): Promise<CycleOutcome> {

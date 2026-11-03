@@ -2,11 +2,24 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import register from "../extension.ts";
 
+test("Pi extension submits approved slices through ORC's operation selector", () => {
+  const tools = [];
+  register({ registerTool: (tool) => tools.push(tool), on: () => {} });
+
+  const sourceCut = tools.find(({ name }) => name === "prepare_source_cut");
+  const approvedSlice = tools.find(({ name }) => name === "submit_approved_slice");
+  assert.ok(sourceCut);
+  assert.ok(approvedSlice);
+  assert.equal(approvedSlice.description.includes("ORC persists the operation route"), true);
+  assert.equal(approvedSlice.parameters.properties.operation, undefined);
+  assert.equal(tools.some(({ name }) => /submit_(initial_generation|regeneration_cycle)/.test(name)), false);
+});
+
 test("Pi extension exposes progress reconciliation and builder observation as read-only tools", () => {
   const tools = [];
   register({ registerTool: (tool) => tools.push(tool), on: () => {} });
 
-  const progress = tools.find(({ name }) => name === "get_regeneration_cycle_status");
+  const progress = tools.find(({ name }) => name === "get_harness_operation_status");
   const builder = tools.find(({ name }) => name === "inspect_builder_session");
   assert.deepEqual(progress.parameters.required, ["tickId"]);
   assert.deepEqual(builder.parameters.required, ["builderSessionRef"]);

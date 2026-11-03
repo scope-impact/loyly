@@ -239,6 +239,107 @@
       (finally
         (worker/stop-runtime! system/stop!)))))
 
+(deftest approved-slice-routes-to-initial-generation-without-prior-lineage
+  (let [executed (atom nil)]
+    (worker/start-runtime! system/start!)
+    (try
+      (with-redefs [model/find-latest-candidate (fn [_ & _] nil)
+                    orc/execute (fn [_ sheet-id inputs & _]
+                                  (reset! executed {:sheet-id sheet-id :inputs inputs})
+                                  {:status :success})]
+        (let [request {:requestId "route-generation-1"
+                       :selectionContract approved-selection
+                       :scope ["impl"] :targetStack "typescript"
+                       :executionBackend "gondolin"}
+              receipt (worker/submit-approved-slice! request)
+              repeated (worker/submit-approved-slice! request)]
+          (is (= receipt repeated))
+          (is (thrown-with-msg?
+               clojure.lang.ExceptionInfo
+               #"different approved-slice payload"
+               (worker/submit-approved-slice! (assoc request :scope ["different"]))))
+          (is (= "generation" (:operation receipt)))
+          (is (= "generation"
+                 (:operation (model/find-approved-slice-route
+                              (worker/runtime-context) "route-generation-1"))))
+          (is (instance? java.util.UUID (:sheet-id @executed)))
+          (is (not (contains? (:inputs @executed) :parent-candidate-root)))))
+      (finally (worker/stop-runtime! system/stop!)))))
+
+(deftest approved-slice-routes-to-regeneration-from-latest-candidate
+  (let [executed (atom nil)
+        prior {:candidate-id "candidate-previous"
+               :output-root "/state/candidates/previous"
+               :subject-digest "sha256:parent"}]
+    (worker/start-runtime! system/start!)
+    (try
+      (with-redefs [model/find-latest-candidate (fn [_ & _] prior)
+                    orc/execute (fn [_ sheet-id inputs & _]
+                                  (reset! executed {:sheet-id sheet-id :inputs inputs})
+                                  {:status :success})]
+        (let [receipt (worker/submit-approved-slice!
+                       {:requestId "route-regeneration-1"
+                        :selectionContract approved-selection
+                        :scope ["impl"] :targetStack "typescript"
+                        :executionBackend "gondolin"})]
+          (is (= "regeneration" (:operation receipt)))
+          (is (= "candidate-previous"
+                 (:parent-candidate-id
+                  (model/find-approved-slice-route
+                   (worker/runtime-context) "route-regeneration-1"))))
+          (is (instance? java.util.UUID (:sheet-id @executed)))
+          (is (= "candidate-previous"
+                 (get-in @executed [:inputs :parent-candidate-id])))
+          (is (= "/state/candidates/previous"
+                 (get-in @executed [:inputs :parent-candidate-root])))
+          (is (= "sha256:parent"
+                 (get-in @executed [:inputs :parent-candidate-digest])))))
+      (finally (worker/stop-runtime! system/stop!)))))
+
+(deftest initial-generation-rejects-a-parent-candidate
+  (is (thrown-with-msg?
+       clojure.lang.ExceptionInfo
+       #"initial generation requires an approved selection without a parent candidate"
+       (worker/submit-generation!
+        {:requestId "generation-1"
+         :selectionContract approved-selection
+         :scope ["impl"]
+         :targetStack "typescript"
+         :executionBackend "gondolin"
+         :parentCandidateRoot "/state/candidate-before"
+         :parentCandidateDigest "sha256:before"}))))
+
+(deftest generation-workflow-produces-an-ungraded-candidate-without-grading-stages
+  (let [runtime (system/start!)]
+    (try
+      (let [context (:context runtime)
+            sheet-id (orc/build-workflow! context (worker/generation-workflow))
+            result (with-redefs [worker/run-builder-adapter
+                                 (fn [_] {:output-root "/tmp/generated-candidate"
+                                          :builder-session-id "generation-session"})
+                                 subject/digest (constantly "generation-subject")
+                                 model/record-generated-candidate! (fn [_ candidate] candidate)]
+                     (orc/execute context sheet-id
+                                  {:request-id "generation-1"
+                                   :selection approved-selection
+                                   :scope ["impl"]
+                                   :target-stack "typescript"
+                                   :execution-backend "gondolin"}))
+            outputs (:outputs result)
+            candidate (:generation-result outputs)]
+        (is (= :success (:status result)) (pr-str result))
+        (is (= ["cut" "builder" "generation"]
+               (mapv #(get-in outputs [% :stage])
+                     [:cut-result :builder-result :generation-result])))
+        (is (= "generation" (:operation candidate)))
+        (is (= "ungraded" (:candidate-disposition candidate)))
+        (is (= "generation-subject" (:subject-digest candidate)))
+        (is (not (contains? outputs :oracle-result)))
+        (is (not (contains? outputs :graders-result)))
+        (is (not (contains? outputs :instrument-conformance-result))))
+      (finally
+        (system/stop! runtime)))))
+
 (deftest regeneration-workflow-retains-every-stage-result
   (let [runtime (system/start!)]
     (try
@@ -265,6 +366,7 @@
                                   stack-conformance/check (fn [& _] {:passed true :exit-code 0
                                                                      :stdout "confirmed" :stderr ""})
                                   worker/emit-cycle-observation! (fn [& _] nil)
+                                  model/record-generated-candidate! (fn [_ candidate] candidate)
                                   worker/run-grader-adapter (fn [{:keys [mode]}]
                                                               (case mode
                                                                 "independent"
@@ -658,7 +760,8 @@
                 :selection approved-selection
                 :scope ["impl"]
                 :execution-backend "gondolin"
-                :builder-result {:builder "openai-codex/test"}
+                :builder-result {:builder "openai-codex/test"
+                                 :output-root "/tmp/candidate"}
                 :instrument-result {:subject-digest "subject-test"
                                     :evidence-root (.getAbsolutePath evidence-root)}
                 :oracle-result approved-oracle
@@ -675,6 +778,8 @@
                                    (swap! order conj :measurement-persisted)
                                    (reset! recorded value)
                                    value)
+                                 model/record-generated-candidate!
+                                 (fn [_ value] value)
                                  model/record-observation!
                                  (fn [_ value]
                                    (swap! order conj :observation-persisted)
@@ -712,6 +817,7 @@
 
 (deftest valid-poor-score-completes-the-cycle
   (is (= {:stage "result"
+          :operation "regeneration"
           :request-id "request-failed-grade"
           :cut "cut-1"
           :scope ["impl"]

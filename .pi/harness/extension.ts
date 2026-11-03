@@ -52,8 +52,8 @@ export default function register(pi: {
   const getWorker = () => worker ??= spawnOrcClient({ projectRoot });
 
   pi.registerTool({
-    name: "prepare_regeneration_cut",
-    description: "Prepare a pinned, fenced regeneration cut on the host or in a deny-egress Gondolin VM.",
+    name: "prepare_source_cut",
+    description: "Prepare a pinned, fenced source cut on the host or in a deny-egress Gondolin VM. A cut is neutral input for generation or regeneration.",
     parameters: {
       type: "object",
       properties: { sourceCommit: { type: "string" }, executionBackend: { type: "string", enum: ["host", "gondolin"] } },
@@ -154,14 +154,14 @@ export default function register(pi: {
   });
 
   pi.registerTool({
-    name: "submit_regeneration_cycle",
-    description: "Submit one idempotent regeneration cycle on the host or in Gondolin for an approved slice selection.",
+    name: "submit_approved_slice",
+    description: "Submit one approved slice. ORC persists the operation route: initial generation when no candidate lineage exists for the selected project, container, and component, or measured regeneration from the latest persisted candidate when one exists. The operator does not choose.",
     parameters: {
       type: "object",
       properties: {
         requestId: { type: "string" },
         selectionId: { type: "string" },
-        scope: { type: "array", items: { type: "string" } },
+        scope: { type: "array", minItems: 1, items: { type: "string" } },
         targetStack: { type: "string", minLength: 1 },
         executionBackend: { type: "string", enum: ["host", "gondolin"] },
       },
@@ -169,14 +169,14 @@ export default function register(pi: {
       additionalProperties: false,
     },
     execute: async (_toolCallId: string, args: { requestId: string; selectionId: string; scope: string[]; targetStack: string; executionBackend: "host" | "gondolin" }) => {
-      const result = await getWorker().client.submit(args);
+      const result = await getWorker().client.submitApprovedSlice(args);
       return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
     },
   });
 
   pi.registerTool({
-    name: "wait_regeneration_cycle",
-    description: "Wait for a durable ORC regeneration cycle task.",
+    name: "wait_harness_operation",
+    description: "Wait for the ORC-selected generation or regeneration operation to finish.",
     parameters: {
       type: "object",
       properties: { taskId: { type: "number" } },
@@ -190,7 +190,7 @@ export default function register(pi: {
   });
 
   pi.registerTool({
-    name: "get_regeneration_cycle_status",
+    name: "get_harness_operation_status",
     description: "Reconcile a progress view from ORC's durable tick state and the harness stage projection. This read never advances the workflow.",
     parameters: {
       type: "object",

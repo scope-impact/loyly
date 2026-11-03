@@ -4,11 +4,13 @@ This directory is the Clojure owner of the regeneration workflow. TypeScript
 files under `.pi/harness/src/` are process and VM adapters only; stage ordering,
 state transitions, retries, evidence interpretation, and scoring remain here.
 
-The preferred long-running cycle boundary is `interface/start-cycle!` followed by
-`interface/execution-status!`. The caller supplies stable ORC tick and correlation
-identities, status is read from ORC's durable tick projection, and runtime startup calls
-ORC's idempotent `resume-in-progress!` recovery. The older `submit!`/`wait!` boundary is
-retained for compatibility but its numeric receipts and futures are process-local.
+The public execution boundary is `interface/submit-approved-slice!`: after slice approval,
+ORC persists an operation route by request ID, then chooses ungraded generation when there
+is no candidate lineage for the project/container/component or measured regeneration from the
+latest candidate when lineage exists. Candidate outputs are durably recorded for later routing.
+Tick and correlation identities are deterministic from the request ID; numeric wait-task
+receipts remain process-local, while ORC owns durable workflow state and resumes abandoned
+leaf frontiers on startup.
 
 `execution-status!` reconciles that authoritative ORC status with the harness-owned Grain
 projection of stage, attempt, and builder-session reference. `builder-session!` is a separate

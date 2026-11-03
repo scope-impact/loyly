@@ -1,7 +1,7 @@
-# Session-hosted regeneration harness contract
+# Session-hosted generation and regeneration harness contract
 
-This directory is the canonical **target contract** for the regeneration workflow,
-currently exposed through `.pi/harness/extension.ts` and executed by ORC under
+This directory is the canonical **target contract** for initial generation and measured
+regeneration workflows, exposed through `.pi/harness/extension.ts` and executed by ORC under
 `.pi/harness/orc-worker/`. It is separate from `model/loyly`, which describes the
 product being regenerated.
 
@@ -22,10 +22,10 @@ unclassified or doubly classified scenarios.
   config and supported-stack Dockerfiles under root `harness/<project-id>/`, resolved by
   convention without a per-project profile JSON; shared harness config remains under
   `.pi/harness/config/`.
-- `cut-without-oracle.feature` and `cut-without-oracle.allium` define first regeneration
-  from an approved specification cut with no product or instrument oracle. It can produce
-  an explicitly ungraded candidate, but cannot pass a measured regeneration cycle.
-- `regeneration-cycle.feature` defines the core oracle-backed regeneration-cycle acceptance behavior.
+- `initial-generation.feature` and `initial-generation.allium` define a distinct first-time,
+  builder-only generation from an implementation-free source cut. It has no parent candidate
+  and records only an ungraded candidate.
+- `regeneration-cycle.feature` defines the separate, oracle-backed measured regeneration workflow.
 - `operator-control-plane.feature`, `prompt-optimization.feature`,
   `execution-pipeline.feature`, and `runtime-evidence.feature` own acceptance behavior for
   their corresponding model components.
@@ -39,13 +39,13 @@ unclassified or doubly classified scenarios.
 - `execution-pipeline.allium` gates measured candidate construction on descriptor-pinned product
   and instrument OCI artifacts. The product oracle must match the approved Git commit, fenced tree,
   selected denominator, and instrument-oracle descriptor before the measured builder starts; OCI
-  tags are lookup aliases only. `cut-without-oracle.allium` is the explicit no-oracle path and
+  tags are lookup aliases only. `initial-generation.allium` is the explicit no-oracle path and
   produces only an ungraded candidate. The pipeline also defines bounded verification repair
   before grading.
 - `regeneration_event_model.clj` describes only the harness-owned Grain event topology.
 - `.pi/affordances.schema.json` defines the public Pi tool inputs; observable outcomes and
   refusals remain in the Allium and Gherkin contracts rather than a parallel YAML model.
-- `GLOSSARY.md` fixes the regeneration vocabulary.
+- `GLOSSARY.md` fixes the generation, source-cut, and regeneration vocabulary.
 - `docs/adr/0001-session-and-cycle-ownership.md` records why ORC owns the inner cycle while
   operator sessions own approval and outer continuation.
 
@@ -59,9 +59,9 @@ maintainer index into the current Clojure implementation.
 
 | Contract responsibility | Implementation boundary |
 |---|---|
-| Public cycle control and status | [`loyly.pi-harness.interface`](../../.pi/harness/orc-worker/src/loyly/pi_harness/interface.clj) |
+| Public generation/regeneration control and status | [`loyly.pi-harness.interface`](../../.pi/harness/orc-worker/src/loyly/pi_harness/interface.clj) |
 | ORC executor coordination | [`loyly.pi-harness.core.worker`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/worker.clj) |
-| Cut and regeneration behavior trees | [`loyly.pi-harness.workflows`](../../.pi/harness/orc-worker/src/loyly/pi_harness/workflows/regeneration.clj) |
+| Source-cut, generation, and regeneration behavior trees | [`loyly.pi-harness.workflows`](../../.pi/harness/orc-worker/src/loyly/pi_harness/workflows/generation.clj) |
 | Builder instruction, application contract, stack checks, and subject sealing | [`loyly.pi-harness.core.build`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/build/application_contract.clj) |
 | Compose verification and independent grading | [`loyly.pi-harness.core.grading`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/grading/compose.clj) |
 | Evidence manifests and Allure projections | [`loyly.pi-harness.core.evidence`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/evidence/evidence_manifest.clj) |
@@ -99,16 +99,19 @@ The contract exposes gaps found while deriving it from the current implementatio
    so only Gondolin can produce a passing complete measurement.
 2. Selection preview currently reads `docs/plan/<slice>/spec.feature` rather than the complete
    project model contract used by the oracle.
-3. Legacy `submit`/`wait` task receipts remain in worker memory. The preferred
-   `start-cycle` path uses caller-supplied ORC tick and correlation identities, reads status
-   from ORC's durable projection, and asks ORC to resume abandoned leaf frontiers on startup.
+3. Approved-slice submission persists ORC's operation decision by request ID before starting
+   work. Candidate lineage is keyed by project/container/component; no prior candidate routes
+   to ungraded generation, while an existing candidate routes to measured regeneration from
+   the latest output. ORC tick/correlation IDs are derived deterministically from the request.
+   Numeric wait-task receipts remain process-local; ORC owns execution state and resumes
+   abandoned leaf frontiers on startup.
 4. The activated optimized instruction is held in worker memory rather than durable state.
 5. Refused, skipped, timed-out, and errored stages currently collapse into failure.
 6. Independent black-box behavior remains project-specific. Löyly has calibrated programs
    for all eleven booking-core items inside its accepted product OCI oracle; the project
    tree no longer supplies runtime grader files. Fresh-session grader authoring is not yet
-   an ORC workflow stage. First regeneration from a cut without an oracle is specified in
-   `cut-without-oracle.feature` but not implemented as an executable workflow.
+   an ORC workflow stage. Initial generation is implemented as a builder-only ORC workflow;
+   its candidate remains ungraded until a separate measured regeneration runs.
 7. GEPA candidate scoring is gated by full harness calibration and uses the product oracle,
    Compose verifier, and independent per-item black-box measurement. The selected instruction
    and its metric evidence are not yet durable harness records.

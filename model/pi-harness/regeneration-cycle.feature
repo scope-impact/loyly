@@ -1,16 +1,16 @@
-Feature: Specification-led regeneration through an operator session and ORC
+Feature: Oracle-backed regeneration through an operator session and ORC
   An operator session prepares a fenced specification cut, reviews and approves a
   deterministic cycle preparation, and submits an idempotent ORC regeneration
   cycle. A fresh builder produces a candidate in a confined workspace. Independent
   verification and grading determine the result, and the approved denominator can
   never shrink because an item was missed.
 
-  Rule: A regeneration cut is pinned and physically fenced
+  Rule: The neutral source cut is pinned and physically fenced
 
     @item-01-001 @e2e
     Scenario: Preparing a cut returns immutable commit and tree identities
       Given the operator names a full source commit and an execution backend
-      When the Pi harness prepares the regeneration cut
+      When the Pi harness prepares the source cut
       Then the prepared cut is rooted at exactly that source commit
       And its fenced tree identity is recorded
       And prior implementation and measurement paths are absent from the reachable cut history

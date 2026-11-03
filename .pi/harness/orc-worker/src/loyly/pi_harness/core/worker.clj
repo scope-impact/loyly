@@ -19,6 +19,7 @@
             [loyly.pi-harness.core.build.stack-conformance :as stack-conformance]
             [loyly.pi-harness.core.build.subject :as subject]
             [loyly.pi-harness.workflows.cut :as cut-workflow]
+            [loyly.pi-harness.workflows.generation :as generation-workflow]
             [loyly.pi-harness.workflows.regeneration :as regeneration-workflow]))
 
 (defonce ^:private runtime (atom nil))
@@ -41,7 +42,7 @@
       (let [cwd (.getCanonicalFile (java.io.File. (System/getProperty "user.dir")))
             candidates (take-while some? (iterate #(.getParentFile %) cwd))]
         (some (fn [candidate]
-                (when (.isDirectory (java.io.File. candidate ".pi/harness/config/projects"))
+                (when (.isFile (java.io.File. candidate ".pi/harness/config/oracles.json"))
                   (.getPath candidate)))
               candidates))
       (throw (ex-info "PI_HARNESS_PROJECT_ROOT is not configured" {}))))
@@ -169,6 +170,15 @@
 
 (defn builder-stage [{:keys [inputs] :as context}]
   (let [builder-session-ref (str (random-uuid))
+        parent-root (:parent-candidate-root inputs)
+        parent-digest (:parent-candidate-digest inputs)
+        _ (when (not= (boolean parent-root) (boolean parent-digest))
+            (throw (ex-info "parent candidate root and digest must be supplied together" {})))
+        _ (when parent-root
+            (let [actual (subject/digest parent-root)]
+              (when-not (= parent-digest actual)
+                (throw (ex-info "parent candidate changed before regeneration"
+                                {:expected parent-digest :actual actual})))))
         _ (record-stage-progress! context "builder" 1 builder-session-ref "running")
         builder-result (run-builder-adapter {:request-id (:request-id inputs)
                                              :cut (get-in inputs [:selection :cut])
@@ -176,6 +186,7 @@
                                              :selection (:selection inputs)
                                              :target-stack (:target-stack inputs)
                                              :execution-backend (:execution-backend inputs)
+                                             :initial-workspace-root parent-root
                                              :builder-session-ref builder-session-ref
                                              :builder-sessions-root (builder-sessions-root)
                                              :attempt 1})]
@@ -867,14 +878,31 @@
         observations (->> (into (vec (get-in inputs [:graders-result :observations]))
                                 (get-in inputs [:instrument-conformance-result :observations]))
                           (mapv #(persisted-evaluation manifest %)))
+        selection (:selection inputs)
+        builder (effective-builder-result inputs)
         context (:context @runtime)
         persisted-observations (mapv #(model/record-observation! context %) observations)
-        persisted (model/record-measurement! context measurement)]
+        persisted (model/record-measurement! context measurement)
+        candidate-data (cond-> {:candidate-id (:request-id inputs)
+                                :project-id (:projectId selection)
+                                :container-id (:containerId selection)
+                                :component-id (:componentId selection)
+                                :operation "regeneration"
+                                :selection-id (:selectionId selection)
+                                :cut (:cut selection)
+                                :output-root (:output-root builder)
+                                :subject-digest (:subject-digest instrument)
+                                :disposition "measured"}
+                         (:parent-candidate-id inputs)
+                         (assoc :parent-candidate-id (:parent-candidate-id inputs)))
+        candidate (model/record-generated-candidate! context candidate-data)]
     (when-not (= observations persisted-observations)
       (throw (ex-info "persisted observations do not match black-box evidence" {})))
     (when-not (= measurement persisted)
       (throw (ex-info "persisted cycle measurement does not match the grader result"
                       {:expected measurement :persisted persisted})))
+    (when-not (= candidate-data candidate)
+      (throw (ex-info "persisted candidate lineage does not match the regenerated output" {})))
     (doseq [value persisted-observations]
       (emit-cycle-observation! {:inputs inputs :evidence-manifest manifest} value))
     persisted))
@@ -883,7 +911,8 @@
   (record-stage-progress! context "result")
   (let [verification (effective-verify-result inputs)
         result (merge (stage-result "result" context)
-                      {:passed (boolean (and (get-in inputs [:graders-result :passed])
+                      {:operation "regeneration"
+                       :passed (boolean (and (get-in inputs [:graders-result :passed])
                                              (get-in inputs [:instrument-conformance-result :passed])))
                        :verified? (boolean (:passed verification))
                        :instrumented? (boolean (get-in inputs [:instrument-conformance-result :passed]))
@@ -894,7 +923,40 @@
 
 (defn cut-workflow [] (cut-workflow/workflow))
 
+(defn generation-workflow [] (generation-workflow/workflow))
+
 (defn workflow [] (regeneration-workflow/workflow))
+
+(defn generation-stage [{:keys [inputs] :as context}]
+  (record-stage-progress! context "record-candidate")
+  (let [builder (:builder-result inputs)
+        selection (:selection inputs)
+        candidate (merge (stage-result "generation" context)
+                         {:operation "generation"
+                          :candidate-disposition "ungraded"
+                          :output-root (:output-root builder)
+                          :builder (:builder builder)
+                          :builder-session-id (:builder-session-id builder)
+                          :subject-digest (:subject-digest builder)})]
+    (when-not (and (string? (:output-root candidate))
+                   (not (str/blank? (:output-root candidate)))
+                   (string? (:subject-digest candidate))
+                   (not (str/blank? (:subject-digest candidate))))
+      (throw (ex-info "generation cannot record an empty candidate" {:builder builder})))
+    (model/record-generated-candidate!
+     (:context @runtime)
+     {:candidate-id (:request-id inputs)
+      :project-id (:projectId selection)
+      :container-id (:containerId selection)
+      :component-id (:componentId selection)
+      :operation "generation"
+      :selection-id (:selectionId selection)
+      :cut (:cut selection)
+      :output-root (:output-root candidate)
+      :subject-digest (:subject-digest candidate)
+      :disposition "ungraded"})
+    (record-stage-progress! context "record-candidate" 1 nil "completed")
+    candidate))
 
 (defn start-runtime! [start!]
   (locking runtime
@@ -905,6 +967,7 @@
                 sheet-id (orc/build-workflow! ctx (workflow))]
             (swap! workflows assoc
                    :cut {:context ctx :sheet-id (orc/build-workflow! ctx (cut-workflow))}
+                   :generation {:context ctx :sheet-id (orc/build-workflow! ctx (generation-workflow))}
                    :prompt {:context ctx :sheet-id (orc/build-workflow! ctx (prompt/workflow))}
                    :cycle {:context ctx :sheet-id sheet-id})
             (orc/resume-in-progress! ctx)
@@ -930,27 +993,87 @@
         (reset! next-task 0)
         (reset! active-cycles {})))))
 
-(defn submit! [{:keys [requestId selectionContract scope targetStack executionBackend] :as request}]
+(defn- request-uuid [prefix request-id]
+  (java.util.UUID/nameUUIDFromBytes
+   (.getBytes (str "pi-harness:" prefix ":" request-id)
+              java.nio.charset.StandardCharsets/UTF_8)))
+
+(defn submit! [{:keys [requestId selectionContract scope targetStack executionBackend
+                       parentCandidateId parentCandidateRoot parentCandidateDigest routingRequest]
+                :as request}]
   (when-not (and (string? requestId)
                  (map? selectionContract)
                  (= "approved" (:status selectionContract))
                  (seq (:items selectionContract))
                  (vector? scope)
+                 (seq scope)
                  (string? targetStack)
                  (not (str/blank? targetStack))
-                 (or (= "host" executionBackend) (= "gondolin" executionBackend)))
-    (throw (ex-info "submit requires requestId, an approved selectionContract, scope, targetStack, and executionBackend (host or gondolin)"
+                 (contains? #{"host" "gondolin"} executionBackend)
+                 (string? parentCandidateId)
+                 (string? parentCandidateRoot)
+                 (string? parentCandidateDigest))
+    (throw (ex-info "regeneration requires an approved selection, target configuration, and persisted parent candidate"
                     {:request request})))
   (if-let [existing (get @tasks requestId)]
-    (if (= (:request existing) request)
+    (if (= routingRequest (:routing-request existing))
       (:receipt existing)
-      (throw (ex-info "requestId was already used with a different payload"
+      (throw (ex-info "requestId was already used with a different approved-slice request"
                       {:requestId requestId})))
     (let [_ (ensure-runtime!)
           {:keys [context sheet-id]} (get @workflows :cycle)
           task-id (swap! next-task inc)
-          tick-id (random-uuid)
-          correlation-id (random-uuid)
+          tick-id (request-uuid "tick" requestId)
+          correlation-id (request-uuid "correlation" requestId)
+          trace (future
+                  (orc/execute context sheet-id
+                               {:request-id requestId :selection selectionContract
+                                :scope scope :target-stack targetStack
+                                :execution-backend executionBackend
+                                :parent-candidate-id parentCandidateId
+                                :parent-candidate-root parentCandidateRoot
+                                :parent-candidate-digest parentCandidateDigest
+                                :orc-tick-id (str tick-id)}
+                               :tick-id tick-id
+                               :correlation-id correlation-id
+                               :timeout-ms 900000))
+          receipt {:operation "regeneration" :operationId requestId
+                   :cycleId requestId :selectionId (:selectionId selectionContract)
+                   :parentCandidateId parentCandidateId
+                   :parentCandidateDigest parentCandidateDigest
+                   :tickId (str tick-id) :correlationId (str correlation-id)
+                   :taskId task-id :targetStack targetStack
+                   :executionBackend executionBackend}]
+      (swap! tasks assoc requestId {:request request :routing-request routingRequest
+                                    :receipt receipt :future trace})
+      receipt)))
+
+(defn submit-generation! [{:keys [requestId selectionContract scope targetStack executionBackend routingRequest]
+                           :as request}]
+  (when-not (and (string? requestId)
+                 (map? selectionContract)
+                 (= "approved" (:status selectionContract))
+                 (seq (:items selectionContract))
+                 (vector? scope)
+                 (seq scope)
+                 (string? targetStack)
+                 (not (str/blank? targetStack))
+                 (contains? #{"host" "gondolin"} executionBackend)
+                 (not (or (:parentCandidateId request)
+                          (:parentCandidateRoot request)
+                          (:parentCandidateDigest request))))
+    (throw (ex-info "initial generation requires an approved selection without a parent candidate"
+                    {:request request})))
+  (if-let [existing (get @tasks requestId)]
+    (if (= routingRequest (:routing-request existing))
+      (:receipt existing)
+      (throw (ex-info "requestId was already used with a different approved-slice request"
+                      {:requestId requestId})))
+    (let [_ (ensure-runtime!)
+          {:keys [context sheet-id]} (get @workflows :generation)
+          task-id (swap! next-task inc)
+          tick-id (request-uuid "tick" requestId)
+          correlation-id (request-uuid "correlation" requestId)
           trace (future
                   (orc/execute context sheet-id
                                {:request-id requestId :selection selectionContract
@@ -960,11 +1083,72 @@
                                :tick-id tick-id
                                :correlation-id correlation-id
                                :timeout-ms 900000))
-          receipt {:cycleId requestId :selectionId (:selectionId selectionContract)
+          receipt {:operation "generation" :operationId requestId
+                   :generationId requestId :selectionId (:selectionId selectionContract)
+                   :tickId (str tick-id) :correlationId (str correlation-id)
                    :taskId task-id :targetStack targetStack
                    :executionBackend executionBackend}]
-      (swap! tasks assoc requestId {:request request :receipt receipt :future trace})
+      (swap! tasks assoc requestId {:request request :routing-request routingRequest
+                                    :receipt receipt :future trace})
       receipt)))
+
+(defn submit-approved-slice! [{:keys [requestId selectionContract scope targetStack executionBackend]
+                               :as request}]
+  (when-not (and (string? requestId)
+                 (map? selectionContract)
+                 (= "approved" (:status selectionContract))
+                 (seq (:items selectionContract))
+                 (vector? scope)
+                 (seq scope)
+                 (string? targetStack)
+                 (not (str/blank? targetStack))
+                 (contains? #{"host" "gondolin"} executionBackend))
+    (throw (ex-info "submit-approved-slice requires an approved selection, scope, target stack, and execution backend"
+                    {:request request})))
+  (ensure-runtime!)
+  (let [selection selectionContract
+        context (runtime-context)
+        request-digest (sha256 (json/write-str
+                                (select-keys request [:requestId :selectionContract :scope
+                                                      :targetStack :executionBackend])))
+        existing-route (model/find-approved-slice-route context requestId)
+        _ (when (and existing-route
+                     (not= request-digest (:request-digest existing-route)))
+            (throw (ex-info "requestId was already routed with a different approved-slice payload"
+                            {:requestId requestId})))
+        route (or existing-route
+                  (let [prior (model/find-latest-candidate context
+                                                           (:projectId selection)
+                                                           (:containerId selection)
+                                                           (:componentId selection))
+                        base {:request-id requestId
+                              :request-digest request-digest
+                              :project-id (:projectId selection)
+                              :container-id (:containerId selection)
+                              :component-id (:componentId selection)
+                              :selection-id (:selectionId selection)}
+                        decided (if prior
+                                  (do
+                                    (when-not (and (string? (:candidate-id prior))
+                                                   (string? (:output-root prior))
+                                                   (string? (:subject-digest prior)))
+                                      (throw (ex-info "latest candidate lineage is incomplete"
+                                                      {:candidate prior})))
+                                    (assoc base :operation "regeneration"
+                                           :parent-candidate-id (:candidate-id prior)
+                                           :parent-candidate-root (:output-root prior)
+                                           :parent-candidate-digest (:subject-digest prior)))
+                                  (assoc base :operation "generation"))]
+                    (model/record-approved-slice-route! context decided)))]
+    (case (:operation route)
+      "generation" (submit-generation! (assoc request :routing-request request))
+      "regeneration" (submit! (assoc request
+                                     :routing-request request
+                                     :parentCandidateId (:parent-candidate-id route)
+                                     :parentCandidateRoot (:parent-candidate-root route)
+                                     :parentCandidateDigest (:parent-candidate-digest route)))
+      (throw (ex-info "persisted approved-slice route has an unknown operation"
+                      {:route route})))))
 
 (defn prepare-cut! [{:keys [sourceCommit executionBackend] :as request}]
   (when-not (and (string? sourceCommit)

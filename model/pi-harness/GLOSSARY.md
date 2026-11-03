@@ -1,21 +1,34 @@
 # Pi harness regeneration context
 
-The Pi harness turns a pinned specification cut into an independently measured
-candidate implementation without exposing prior answers to the builder.
+The Pi harness separates first-time generation of an ungraded candidate from
+oracle-backed regeneration and measurement.
 
 ## Language
 
-**Regeneration cut**:
-An immutable, fenced repository snapshot identified by both commit and tree content.
-_Avoid_: Checkout, clone, workspace
+**Source cut**:
+An immutable, fenced repository snapshot identified by source commit and tree content. A cut
+is neutral input to a generation or regeneration workflow; preparing it is not itself either
+operation.
+_Avoid_: Regeneration cut, checkout, clone, workspace
+
+**Generation**:
+The first creation of a candidate from an approved source cut for a component with no prior
+candidate. It has no parent candidate and yields an explicitly ungraded result.
+_Avoid_: Regeneration, measured run
 
 **Selection contract**:
-The exact project, slice, item denominator, and cut identity reviewed for one regeneration scope.
+The exact project, slice, item denominator, and cut identity reviewed before ORC routes the approved slice to generation or regeneration.
 _Avoid_: Filter, task list, scope file
 
 **Approved selection**:
 A selection contract whose exact digest has been explicitly accepted.
 _Avoid_: Confirmed prompt, chosen tests
+
+**Approved-slice operation route**:
+The operation ORC chooses after slice approval: a component with no prior candidate begins
+initial generation; a component with a prior candidate continues through measured regeneration
+from that candidate. The operator approves the slice, not the operation.
+_Avoid_: Operator-selected workflow, inferred rerun
 
 **Cycle preparation**:
 The reviewed plan binding an approved selection, candidate scope, target stack, execution
@@ -32,11 +45,12 @@ observes, and evaluates regeneration cycles.
 _Avoid_: Builder, ORC worker, root agent
 
 **Regeneration cycle**:
-One idempotently identified attempt to build and independently measure an approved selection.
-_Avoid_: Run, session, job
+One idempotently identified, oracle-backed ORC execution that builds and independently measures
+an approved selection. It is distinct from first-time generation and owns its own measurement.
+_Avoid_: Generation, run, session, job
 
 **Builder**:
-A fresh agent that can read the regeneration cut and write only within the declared candidate scope.
+A fresh agent that can read the source cut and write only within the declared candidate scope.
 _Avoid_: Root agent, implementer session
 
 **Builder session**:
@@ -55,7 +69,8 @@ therefore marks the resulting candidate as assisted.
 _Avoid_: Observation, invisible edit
 
 **Candidate**:
-The generated application output produced by the builder for one regeneration cycle.
+The generated application output bound to one generation or regeneration operation, its cut,
+selection, builder session, and subject digest. A generation candidate is ungraded.
 _Avoid_: Implementation, answer, workspace
 
 **Instrument oracle**:
@@ -106,7 +121,7 @@ Gondolin isolation.
 _Avoid_: Shell command, VM configuration
 
 **Workflow task**:
-An asynchronously executed cut preparation or regeneration cycle identified by a receipt and observed until one terminal outcome.
+An asynchronously executed source-cut preparation, initial generation, or regeneration cycle identified by a receipt and observed until one terminal outcome.
 _Avoid_: Process, thread, future
 
 **Builder instruction**:
@@ -122,9 +137,8 @@ One proposed builder instruction evaluated during prompt optimization.
 _Avoid_: Candidate application, generated implementation
 
 **Execution stage**:
-One ordered, ORC-owned transition in a regeneration cycle: cut, harness calibration, builder,
-instrument, oracle, verify, repair verification, graders, instrument conformance, record cycle,
-or result.
+One ordered, ORC-owned transition. Initial generation contains cut, builder, and record-candidate;
+regeneration contains cut, calibration, builder, instrumentation, independent gates, and result.
 _Avoid_: Tool call, adapter process
 
 **Verification attempt**:

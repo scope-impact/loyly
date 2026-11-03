@@ -1,0 +1,238 @@
+-- Initial candidate generation from an implementation-free source cut.
+-- This workflow is deliberately separate from oracle-backed regeneration.
+
+enum InitialGenerationStatus { requested | running | candidate_produced | failed }
+enum CandidateDisposition { ungraded | measured }
+enum ApprovedSliceOperation { generation | regeneration }
+
+entity ApprovedSliceRoute {
+    request_identity: String
+    request_digest: String
+    project_identity: String
+    container_identity: String
+    component_identity: String
+    selection_identity: String
+    operation: ApprovedSliceOperation
+    parent_candidate_identity: String?
+    parent_candidate_root: String?
+    parent_candidate_digest: String?
+}
+
+entity SourceCut {
+    identity: String
+    source_commit: String
+    tree_digest: String
+}
+
+entity ComponentCandidate {
+    identity: String
+    output_root: String
+    subject_digest: String
+    project_identity: String
+    container_identity: String
+    component_identity: String
+    operation: ApprovedSliceOperation
+    parent_candidate_identity: String?
+    disposition: CandidateDisposition
+}
+
+entity InitialGeneration {
+    identity: String
+    project_identity: String
+    container_identity: String
+    component_identity: String
+    operation: ApprovedSliceOperation
+    source_cut: SourceCut
+    selection_identity: String
+    selection_digest: String
+    approved_items: List<String>
+    workspace_scope: List<String>
+    status: InitialGenerationStatus
+    failure_reason: String?
+}
+
+entity GeneratedCandidate {
+    generation: InitialGeneration
+    builder_session_identity: String
+    subject_digest: String
+    output_root: String
+    disposition: CandidateDisposition
+}
+
+rule RouteApprovedSliceToInitialGeneration {
+    when: ApprovedSliceSubmitted(request)
+    requires: selection_is_approved_and_matches_digest(request)
+    requires: not exists ComponentCandidates where
+        project_identity = request.project_identity and
+        container_identity = request.container_identity and
+        component_identity = request.component_identity
+    ensures: ApprovedSliceRoute.created(
+        request_identity: request.identity,
+        project_identity: request.project_identity,
+        container_identity: request.container_identity,
+        component_identity: request.component_identity,
+        selection_identity: request.selection_identity,
+        request_digest: request.digest,
+        operation: generation,
+        parent_candidate_identity: null,
+        parent_candidate_root: null,
+        parent_candidate_digest: null
+    )
+    ensures: InitialGenerationRequested(request)
+}
+
+rule RouteApprovedSliceToMeasuredRegeneration {
+    when: ApprovedSliceSubmitted(request)
+    requires: selection_is_approved_and_matches_digest(request)
+    requires: exists ComponentCandidates where
+        project_identity = request.project_identity and
+        container_identity = request.container_identity and
+        component_identity = request.component_identity
+    requires: latest_candidate_for_component(request) != null
+    ensures: ApprovedSliceRoute.created(
+        request_identity: request.identity,
+        project_identity: request.project_identity,
+        container_identity: request.container_identity,
+        component_identity: request.component_identity,
+        selection_identity: request.selection_identity,
+        request_digest: request.digest,
+        operation: regeneration,
+        parent_candidate_identity: latest_candidate_for_component(request).identity,
+        parent_candidate_root: latest_candidate_for_component(request).output_root,
+        parent_candidate_digest: latest_candidate_for_component(request).subject_digest
+    )
+    ensures: MeasuredRegenerationRequested(request,
+        parent_candidate: latest_candidate_for_component(request))
+}
+
+rule StartInitialGeneration {
+    when: ApprovedInitialGenerationRequested(generation)
+    requires: generation.status = requested
+    requires: generation.operation = "generation"
+    requires: generation.source_cut.source_commit != ""
+    requires: generation.source_cut.tree_digest != ""
+    requires: generation.selection_identity != ""
+    requires: generation.selection_digest != ""
+    requires: generation.approved_items.count > 0
+    requires: generation.workspace_scope.count > 0
+    requires: selection_is_approved_and_matches_digest(generation)
+    requires: source_cut_excludes_prior_implementation(generation.source_cut)
+    ensures: generation.status = running
+}
+
+rule RecordInitialGenerationCandidate {
+    when: FreshFirstBuilderCompleted(generation, session, subject_digest,
+                                     output_root, generated_paths)
+    requires: generation.status = running
+    requires: session != ""
+    requires: subject_digest != ""
+    requires: output_root != ""
+    requires: generated_paths.count > 0
+    requires: all_paths_within_scope(generated_paths, generation.workspace_scope)
+    ensures: GeneratedCandidate.created(
+        generation: generation,
+        builder_session_identity: session,
+        subject_digest: subject_digest,
+        output_root: output_root,
+        disposition: ungraded
+    )
+    ensures: ComponentCandidate.created(
+        identity: generation.identity,
+        output_root: output_root,
+        subject_digest: subject_digest,
+        project_identity: generation.project_identity,
+        container_identity: generation.container_identity,
+        component_identity: generation.component_identity,
+        operation: generation.operation,
+        parent_candidate_identity: null,
+        disposition: ungraded
+    )
+    ensures: generation.status = candidate_produced
+}
+
+rule RecordMeasuredRegenerationCandidate {
+    when: IndependentRegenerationCompleted(route, candidate)
+    requires: route.operation = regeneration
+    requires: route.parent_candidate_identity != null
+    requires: candidate.subject_digest != ""
+    requires: candidate.output_root != ""
+    ensures: ComponentCandidate.created(
+        identity: candidate.identity,
+        output_root: candidate.output_root,
+        subject_digest: candidate.subject_digest,
+        project_identity: route.project_identity,
+        container_identity: route.container_identity,
+        component_identity: route.component_identity,
+        operation: regeneration,
+        parent_candidate_identity: route.parent_candidate_identity,
+        disposition: measured
+    )
+}
+
+rule FailEmptyInitialGeneration {
+    when: FirstBuilderFailed(generation, reason)
+    requires: generation.status = running
+    requires: reason != ""
+    ensures: generation.status = failed
+    ensures: generation.failure_reason = reason
+}
+
+rule RefuseGenerationAsMeasuredPass {
+    when: MeasuredRegenerationResultRequested(generation)
+    requires: generation.status = candidate_produced
+    ensures: MeasuredRegenerationResultRefused(generation)
+}
+
+invariant ApprovedSliceOperationIsPinnedByRequestIdentity {
+    for route in ApprovedSliceRoutes:
+        route.request_identity != "" and
+        route.selection_identity != "" and
+        (route.operation = generation implies route.parent_candidate_identity = null) and
+        (route.operation = regeneration implies
+            route.parent_candidate_identity != null and
+            route.parent_candidate_root != null and
+            route.parent_candidate_digest != null)
+}
+
+invariant InitialGenerationHasNoIndependentVerdicts {
+    for candidate in GeneratedCandidates:
+        candidate.generation.operation = "generation" and
+        candidate.disposition = ungraded and
+        not exists IndependentItemVerdicts where generation = candidate.generation and
+        not exists InstrumentConformanceEvaluation where generation = candidate.generation
+}
+
+invariant InitialGenerationHasNoParentCandidate {
+    for generation in InitialGenerations:
+        not has_parent_candidate(generation)
+}
+
+invariant GeneratedCandidateRetainsProvenance {
+    for candidate in GeneratedCandidates:
+        candidate.generation.source_cut.tree_digest != "" and
+        candidate.generation.selection_digest != "" and
+        candidate.builder_session_identity != "" and
+        candidate.subject_digest != ""
+}
+
+invariant FailedInitialGenerationHasNoCandidate {
+    for generation in InitialGenerations:
+        generation.status = failed implies
+            not exists GeneratedCandidates where generation = generation
+}
+
+surface InitialGenerationWorkflow {
+    provides:
+        ApprovedInitialGenerationRequested(generation)
+        FreshFirstBuilderCompleted(generation, session, subject_digest, output_root, generated_paths)
+        FirstBuilderFailed(generation, reason)
+        MeasuredRegenerationResultRequested(generation)
+        ApprovedSliceSubmitted(request)
+        IndependentRegenerationCompleted(route, candidate)
+
+    @guarantee CandidateWithoutOracle
+        -- An approved implementation-free source cut can produce an explicitly ungraded candidate.
+
+    @guarantee NoFalsePass
+        -- Independent verdicts and passing measurements belong only to a separate regeneration cycle.
+}

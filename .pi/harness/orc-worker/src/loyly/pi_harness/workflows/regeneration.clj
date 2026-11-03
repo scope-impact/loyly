@@ -13,6 +13,9 @@
        :scope [:vector :string]
        :target-stack :string
        :execution-backend :string
+       :parent-candidate-id :string
+       :parent-candidate-root :string
+       :parent-candidate-digest :string
        :cut-result [:map
                     [:stage :string]
                     [:request-id :string]
@@ -127,6 +130,7 @@
        :cycle-result schemas/measurement-schema
        :result-result [:map
                        [:stage :string]
+                       [:operation :string]
                        [:request-id :string]
                        [:cut :string]
                        [:scope [:vector :string]]
@@ -145,7 +149,9 @@
         :writes [:harness-calibration-result])
       (orc/code "builder"
         :fn "loyly.pi-harness.core.worker/builder-stage"
-        :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend :harness-calibration-result]
+        :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend
+                :parent-candidate-id :parent-candidate-root :parent-candidate-digest
+                :harness-calibration-result]
         :writes [:builder-result])
       (orc/code "instrument"
         :fn "loyly.pi-harness.core.worker/instrument-stage"
@@ -201,7 +207,8 @@
   "Transport-safe description of the executable regeneration workflow."
   []
   (let [{:keys [workflow-name blackboard-schema root-node]} (workflow)]
-    {:workflowName workflow-name
+    {:operation "regeneration"
+     :workflowName workflow-name
      :rootType (name (:node-type root-node))
      :stages (mapv :name (:children root-node))
      :builderResultFields (schema-field-names (:builder-result blackboard-schema))

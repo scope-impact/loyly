@@ -9,6 +9,8 @@
 (def observation-event-types #{:loyly/observation-recorded})
 (def measurement-event-types #{:loyly/cycle-measurement-recorded})
 (def progress-event-types #{:loyly/cycle-progress-recorded})
+(def candidate-event-types #{:loyly/generated-candidate-recorded})
+(def operation-route-event-types #{:loyly/approved-slice-operation-routed})
 
 (def selection-keys
   [:selectionId :selectionDigest :status :projectId :containerId :componentId
@@ -25,6 +27,14 @@
 (def progress-keys
   [:cycle-id :tick-id :stage :attempt :builder-session-ref :status])
 
+(def candidate-keys
+  [:candidate-id :project-id :container-id :component-id :operation :parent-candidate-id :selection-id
+   :cut :output-root :subject-digest :disposition])
+
+(def operation-route-keys
+  [:request-id :request-digest :project-id :container-id :component-id :selection-id
+   :operation :parent-candidate-id :parent-candidate-root :parent-candidate-digest])
+
 (defn uuid-tag [tag value]
   [tag (java.util.UUID/nameUUIDFromBytes (.getBytes value "UTF-8"))])
 
@@ -32,6 +42,10 @@
 (defn observation-cycle-tag [cycle-id] (uuid-tag :observation-cycle cycle-id))
 (defn measurement-tag [cycle-id] (uuid-tag :cycle-measurement cycle-id))
 (defn progress-tag [tick-id] (uuid-tag :cycle-progress tick-id))
+(defn candidate-tag [candidate-id] (uuid-tag :generated-candidate candidate-id))
+(defn operation-route-tag [request-id] (uuid-tag :approved-slice-operation request-id))
+(defn component-candidates-tag [project-id container-id component-id]
+  (uuid-tag :component-candidates (str project-id "|" container-id "|" component-id)))
 
 (defn selection-reducer [selection event]
   (case (:event/type event)
@@ -74,6 +88,23 @@
   [state event]
   (progress-reducer state event))
 
+(defn candidates-reducer [candidates event]
+  (if (= :loyly/generated-candidate-recorded (:event/type event))
+    (conj (or candidates []) (select-keys event candidate-keys))
+    candidates))
+
+(defreadmodel :loyly component-candidates
+  {:events candidate-event-types :version 1}
+  [state event]
+  (candidates-reducer state event))
+
+(defreadmodel :loyly approved-slice-operation-route
+  {:events operation-route-event-types :version 1}
+  [state event]
+  (if (= :loyly/approved-slice-operation-routed (:event/type event))
+    (select-keys event operation-route-keys)
+    state))
+
 (defn- direct-project [context tags reducer initial-state]
   (reduce reducer initial-state
           (event-store/read (:event-store context)
@@ -105,3 +136,23 @@
     (if (:cache context)
       (not-empty (rmp/project context :loyly/cycle-progress {:tags tags}))
       (direct-project context tags progress-reducer nil))))
+
+(defn find-component-candidates [context project-id container-id component-id]
+  (let [tags #{(component-candidates-tag project-id container-id component-id)}]
+    (if (:cache context)
+      (or (rmp/project context :loyly/component-candidates {:tags tags}) [])
+      (direct-project context tags candidates-reducer []))))
+
+(defn find-latest-candidate [context project-id container-id component-id]
+  (last (find-component-candidates context project-id container-id component-id)))
+
+(defn find-approved-slice-route [context request-id]
+  (let [tags #{(operation-route-tag request-id)}]
+    (if (:cache context)
+      (not-empty (rmp/project context :loyly/approved-slice-operation-route {:tags tags}))
+      (direct-project context tags
+                      (fn [state event]
+                        (if (= :loyly/approved-slice-operation-routed (:event/type event))
+                          (select-keys event operation-route-keys)
+                          state))
+                      nil))))

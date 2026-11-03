@@ -2,7 +2,7 @@
   "ORC workflow for preparing an immutable source cut."
   (:require [ai.obney.orc.orc-service.interface :as orc]))
 
-+(defn workflow []
+(defn workflow []
   (orc/workflow "pi-harness-cut-preparation"
     (orc/blackboard
       {:source-commit :string

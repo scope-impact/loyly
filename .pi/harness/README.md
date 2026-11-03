@@ -74,27 +74,36 @@ are managed independently. Generated Gondolin assets under `.state/assets` are d
 build outputs and are not instrument source files; the tracked build declarations and harness
 code are the instrument inputs.
 
-## Run a regeneration from Pi
+## Run generation and regeneration from Pi
 
 Open Pi at the repository root. The checked-in [`.pi/settings.json`](../settings.json)
 loads `harness/extension.ts`, which exposes this control-plane sequence:
 
-1. Call `prepare_regeneration_cut` with an immutable source commit and an execution
+1. Call `prepare_source_cut` with an immutable source commit and an execution
    backend. Keep the returned cut receipt.
 2. Call `preview_slice_selection` for the desired model/spec slice.
 3. Review the derived scope and call `approve_slice_selection` with the preview's
    `selectionId` and digest.
-4. Call `submit_regeneration_cycle` with the request ID, approved selection, scope,
-   target stack, and backend.
-5. Call `wait_regeneration_cycle` for the terminal result. Use
-   `get_regeneration_cycle_status` for polling and `inspect_builder_session` when the
-   builder transcript itself needs diagnosis.
+4. Call `submit_approved_slice` once with a request ID, approved selection, scope, target
+   stack, and backend. ORC routes to ungraded initial generation when no persisted candidate
+   exists for the project/container/component, or measured regeneration from the latest
+   persisted candidate when one exists. The operator does not select the operation.
+5. Call `wait_harness_operation` for the returned task. Use
+   `get_harness_operation_status` for polling and `inspect_builder_session` when the builder
+   transcript itself needs diagnosis.
 
-Use `host` for adapter development. Use `gondolin` for a measured regeneration: it mounts
+Use `host` only for adapter development. Use `gondolin` for generation and measured
+regeneration: it mounts
 the cut read-only, confines writes to the declared workspace, denies ambient host access,
 and runs verification and grading independently of the builder.
 
-ORC executes this graph:
+ORC keeps the workflows separate. Initial generation is builder-only and ungraded:
+
+```text
+cut → builder → record-candidate (ungraded)
+```
+
+Measured regeneration requires pinned oracles and executes:
 
 ```text
 cut → harness-calibration → builder → instrument → oracle → verify
