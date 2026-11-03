@@ -167,6 +167,30 @@ test("gondolin grader isolates cycle evidence and mounts OCI probes read-only", 
   }
 });
 
+test("gondolin compose verification does not require product-oracle assets", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "loyly-gondolin-verifier-test-"));
+  const cutsRoot = path.join(root, "cuts");
+  const outputRoot = path.join(root, "output");
+  const evidenceRoot = path.join(root, "evidence");
+  await mkdir(path.join(cutsRoot, "cut-1"), { recursive: true });
+  await mkdir(path.join(outputRoot, "impl"), { recursive: true });
+  let vmOptions;
+  const room = await openGraderRoom({
+    backend: "gondolin", cutsRoot, cutId: "cut-1", outputRoot, evidenceRoot,
+    createVm: async (options) => {
+      vmOptions = options;
+      return { exec: async () => ({ exitCode: 0, stdout: "", stderr: "" }), close: async () => {} };
+    },
+  });
+  try {
+    await room.exec("true");
+    assert.deepEqual(Object.keys(vmOptions.vfs.mounts).sort(), ["/evidence", "/workspace"]);
+  } finally {
+    await room.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("oracle calibration fixtures execute only in a deny-egress Gondolin room", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "loyly-oracle-fixture-room-test-"));
   const fixtureRoot = path.join(root, "fixture");

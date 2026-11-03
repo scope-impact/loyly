@@ -84,6 +84,9 @@
   [{:keys [project-root cuts-root]}
    {:keys [cycle-id cut output-root evidence-root evidence-namespace mode execution-backend
            project-id item-ids grader-script grader-root observability-root target-stack]}]
+  (when (and (= "independent" mode) (not grader-root))
+    (throw (ex-info "independent grading requires OCI product-oracle assets"
+                    {:mode mode})))
   (let [stack (when target-stack
                 (application-contract/stack-requirements target-stack))
         runtime-image-archive (:archive stack)

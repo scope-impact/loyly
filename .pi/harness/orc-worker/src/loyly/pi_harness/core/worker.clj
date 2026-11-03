@@ -670,8 +670,6 @@
                                       :cut (get-in inputs [:selection :cut])
                                       :output-root (get-in inputs [:builder-result :output-root])
                                       :evidence-root (get-in inputs [:instrument-result :evidence-root])
-                                      :grader-root (get-in inputs [:oracle-result :grader-root])
-                                      :observability-root (get-in inputs [:oracle-result :observability-root])
                                       :execution-backend (:execution-backend inputs)
                                       :target-stack (:target-stack inputs)
                                       :mode "compose"})

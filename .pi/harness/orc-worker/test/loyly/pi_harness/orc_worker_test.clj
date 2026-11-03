@@ -452,8 +452,7 @@
                           :target-stack "typescript"
                           :execution-backend "host"
                           :builder-result {:output-root "/tmp/loyly-compose-output"
-                                           :subject-digest "subject-test"}
-                          :oracle-result approved-oracle}}
+                                           :subject-digest "subject-test"}}}
         evidence {:compose-config {:exitCode 0 :stdout "{\"services\":{\"app\":{\"healthcheck\":{\"test\":[\"CMD\",\"true\"]}},\"test\":{}}}" :stderr ""}
                   :compose-services {:exitCode 0 :stdout "app\ntest\n" :stderr ""}
                   :compose-test {:exitCode 0 :stdout "tests passed" :stderr ""}
@@ -470,6 +469,8 @@
                  (worker/verify-stage context))]
     (is (= "compose" (:mode @adapter-request)))
     (is (= "host" (:execution-backend @adapter-request)))
+    (is (nil? (:grader-root @adapter-request)))
+    (is (nil? (:observability-root @adapter-request)))
     (is (= true (:passed result)))
     (is (re-find #"tests passed" (:evidence result)))
     (is (re-find #"app ready" (:evidence result)))))
