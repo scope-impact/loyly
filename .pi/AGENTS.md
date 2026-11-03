@@ -75,9 +75,10 @@ Use strict Grain Event Model validation to reconcile declared topology with live
 
 ## Migration rule
 
-The original Löyly harness remains the behavioral parity reference while its behavior moves
-into ORC. Do not remove or silently weaken the reference until ORC output matches it,
-including refusal, skip, timeout, and evidence behavior.
+The original Löyly harness is archived at `archive/legacy-harness/` and remains the
+behavioral parity reference while its behavior moves into ORC. Do not rewrite it as if it
+were active or silently weaken the reference until ORC output matches it, including
+refusal, skip, timeout, and evidence behavior.
 
 ## Prompt rule
 

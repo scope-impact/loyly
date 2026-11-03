@@ -1,4 +1,9 @@
-# The harness: regenerate, ratify, measure
+# Archived legacy harness: regenerate, ratify, measure
+
+> **Archived:** this is the retired shell/Babashka harness, preserved intact as behavioral
+> evidence while ORC reaches parity. Its commands and internal `harness/` paths describe
+> the historical layout and are not supported from this archive. The active operator and
+> runtime documentation is [`.pi/harness/README.md`](../../.pi/harness/README.md).
 
 A minimal, working demonstration of the machinery this method runs on, applied to the
 sauna example. Distilled 2026-08-27 from a production pipeline that destroys and rebuilds
