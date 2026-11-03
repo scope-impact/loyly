@@ -13,7 +13,7 @@ Primary-source notes for making the 3D agentic-software factory read like a real
 - Rework should be visible but off the happy-path conveyor. Ford explicitly describes leak detection and testing equipment plus a **new repair area** alongside its Trim, Chassis and Final line. Mercedes treats rework as a quality-control loop, while targeting vehicles leaving the line without rectification. ([Ford Silverton plant investment PDF](https://media.ford.com/content/dam/fordmedia/fmea/South-Africa/08%20NOV%2023%20Ford%20SA%20Centenary%20-%20History%20Investment%20Product%20CSR%20overview%20%20-%20Nov%202023%20Final.pdf), [Mercedes-Benz MO360](https://media.mercedes-benz.com/en/article/abc9fd0b-edf2-4edd-901a-8bd5a294804a))
 - Passed vehicles leave production for interim finished-vehicle storage, then distribution by truck, rail, or ship. This is a yard/dock destination, not another fabrication station. ([BMW production overview](https://www.bmwgroup-werke.com/content/grpw/websites/bmwgroup_com/en/company/production.html))
 
-## Recommended 3D game footprint
+## Recommended immersive 3D footprint
 
 Use a legible one-way **folded line**, not a radial network:
 
@@ -61,4 +61,4 @@ Design implications for the spike:
 | Rework bay | Diagnosed repair attempt, then retest |
 | Finished-vehicle yard | Accepted Löyly candidate/evidence bundle |
 
-The C4 diagram remains the source of truth for which real components exist and communicate; the automotive layout supplies only their physical staging and traversal order in the game world.
+The C4 diagram remains the source of truth for which real components exist and communicate; the automotive layout supplies only their physical staging and traversal order in the spatial factory.

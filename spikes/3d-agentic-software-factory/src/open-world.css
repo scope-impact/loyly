@@ -25,16 +25,16 @@
 html, body, #root { width: 100%; min-width: 320px; height: 100%; margin: 0; overflow: hidden; }
 button, input { font: inherit; }
 button:focus-visible, input:focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; }
-.game { height: 100%; background: var(--ink); }
+.experience { height: 100%; background: var(--ink); }
 
-.game-header {
+.experience-header {
   position: relative; z-index: 20; height: 68px; display: grid; grid-template-columns: 1fr auto 1fr;
   align-items: center; padding: 0 22px; border-bottom: 1px solid var(--line); background: #0a1622;
 }
-.game-brand, .live-cycle { display: flex; align-items: center; gap: 11px; }
-.game-brand > span:last-child, .live-cycle > span { display: flex; flex-direction: column; }
-.game-brand strong { font: 600 22px "Barlow Condensed"; }
-.game-brand small, .live-cycle small, .cycle-score small { color: var(--muted); font-size: 9px; }
+.experience-brand, .live-cycle { display: flex; align-items: center; gap: 11px; }
+.experience-brand > span:last-child, .live-cycle > span { display: flex; flex-direction: column; }
+.experience-brand strong { font: 600 22px "Barlow Condensed"; }
+.experience-brand small, .live-cycle small, .cycle-score small { color: var(--muted); font-size: 9px; }
 .factory-mark { width: 34px; height: 34px; display: flex; align-items: end; gap: 3px; transform: skewY(-9deg); }
 .factory-mark i { width: 8px; background: var(--copper); }
 .factory-mark i:nth-child(1) { height: 18px; }.factory-mark i:nth-child(2) { height: 28px; }.factory-mark i:nth-child(3) { height: 23px; background: var(--amber); }
@@ -96,8 +96,8 @@ kbd { padding: 2px 5px; color: var(--paper); border: 1px solid #607687; backgrou
 .prototype-switcher button { width: 44px; height: 44px; border: 0; color: #101c27; background: #d8d6ce; cursor: pointer; font-size: 18px; }.prototype-switcher span { display: flex; flex-direction: column; text-align: center; padding: 3px 16px; }.prototype-switcher small { color: #747c80; font-size: 8px; }.prototype-switcher strong { font: 600 14px "Barlow Condensed"; }
 
 @media (max-width: 800px) {
-  .game-header { height: 58px; grid-template-columns: 1fr auto; padding: 0 12px; }
-  .game-brand { gap: 8px; }.game-brand strong { font-size: 19px; }.game-brand small, .live-cycle { display: none; }.factory-mark { width: 27px; height: 29px; }.factory-mark i { width: 6px; }
+  .experience-header { height: 58px; grid-template-columns: 1fr auto; padding: 0 12px; }
+  .experience-brand { gap: 8px; }.experience-brand strong { font-size: 19px; }.experience-brand small, .live-cycle { display: none; }.factory-mark { width: 27px; height: 29px; }.factory-mark i { width: 6px; }
   .cycle-score small, .cycle-score span { display: none; }.cycle-score strong { font-size: 24px; }
   .world-shell { height: calc(100% - 58px); }
   .replay-line, .variant-B .replay-line, .variant-C .replay-line { top: auto; left: 12px; right: 12px; bottom: 12px; width: auto; transform: none; }

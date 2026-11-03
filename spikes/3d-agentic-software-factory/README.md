@@ -1,6 +1,6 @@
-# Regeneration Yard — open-world factory prototype
+# Regeneration Yard — immersive factory experience
 
-> **Throwaway prototype question:** Does moving through the factory as a player make the Grain/Pi/Löyly model easier to understand than operating a dashboard?
+> **Throwaway prototype question:** Does moving through the factory as an operator make the Grain/Pi/Löyly model easier to understand than operating a dashboard?
 
 Three variants of the same agentic factory are switchable with `?variant=` on the existing spike route:
 
@@ -8,7 +8,7 @@ Three variants of the same agentic factory are switchable with `?variant=` on th
 - `B` — **Factory simulation.** An overhead, orbitable operations world makes the whole material flow and ten stations visible at once.
 - `C` — **Guided tour.** The camera follows the active product and explains one station at a time.
 
-Use `?prototype=1` to expose the floating variant switcher in a production build. In development it is always visible. `Alt` + left/right arrow changes variants without taking the arrow keys away from player movement.
+Use `?prototype=1` to expose the floating variant switcher in a production build. In development it is always visible. `Alt` + left/right arrow changes variants without taking the arrow keys away from operator movement.
 
 This is deliberately throwaway code on `spike/3d-agentic-software-factory`. It does not call the live Pi harness and it does not write Grain facts.
 
@@ -19,13 +19,13 @@ This is deliberately throwaway code on `spike/3d-agentic-software-factory`. It d
 - The recording includes the failed first container attempt, fresh repair builder, independent 9/11 verdict, runtime signals and final recorded result.
 - Löyly is the product moving through the line. Its Booking API, Booking Core, Event Store, Weekly Schedule, Heater Schedule and Billing Signals modules appear on the carrier as assembly progresses.
 
-The replay runs at one quarter recorded speed so a player has time to move between stations. It remains historical playback, not a claim that a new regeneration is running.
+The replay runs at one quarter recorded speed so an operator has time to move between stations. It remains historical playback, not a claim that a new regeneration is running.
 
-## Game stack
+## Experience stack
 
 - React Three Fiber renders the Three.js world.
 - Rapier supplies the physical world and station colliders.
-- Ecctrl supplies the physics-driven player, keyboard movement and mobile joystick/buttons.
+- Ecctrl supplies the physics-driven operator, keyboard movement and mobile joystick/buttons.
 - Ordinary DOM overlays provide accessible controls, the replay timeline and station evidence.
 
 ## Run

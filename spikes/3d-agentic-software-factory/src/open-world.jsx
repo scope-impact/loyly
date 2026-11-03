@@ -1,5 +1,5 @@
-// PROTOTYPE: Three radically different ways to explore the same live software factory.
-// Question: does spatial play make Grain, Pi and Löyly easier to understand than a dashboard?
+// PROTOTYPE: Three immersive ways to explore the same live software factory.
+// Question: does spatial presence make Grain, Pi and Löyly easier to understand than a dashboard?
 import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
@@ -209,7 +209,7 @@ function FactoryShell() {
   </>;
 }
 
-function PlayerModel() {
+function OperatorModel() {
   return <group>
     <mesh position={[0, .72, 0]} castShadow><capsuleGeometry args={[.34, .65, 8, 12]} /><meshStandardMaterial color="#d47542" metalness={.4} roughness={.45} /></mesh>
     <mesh position={[0, 1.52, 0]} castShadow><sphereGeometry args={[.31, 14, 10]} /><meshStandardMaterial color="#e9ece5" roughness={.45} /></mesh>
@@ -217,15 +217,15 @@ function PlayerModel() {
   </group>;
 }
 
-function FollowPlayer({ playerRef, onNearest }) {
+function FollowOperator({ operatorRef, onNearest }) {
   const { camera } = useThree();
   const lastNearest = useRef(null);
   const desired = useMemo(() => new THREE.Vector3(), []);
   const look = useMemo(() => new THREE.Vector3(), []);
   useFrame((_, delta) => {
-    const player = playerRef.current;
-    if (!player) return;
-    const pos = player.currPos;
+    const operator = operatorRef.current;
+    if (!operator) return;
+    const pos = operator.currPos;
     desired.set(pos.x + 8, pos.y + 7, pos.z + 9);
     camera.position.lerp(desired, Math.min(1, delta * 3.5));
     look.set(pos.x, pos.y + .8, pos.z);
@@ -259,7 +259,7 @@ function GuidedCamera({ stage }) {
 }
 
 function World({ variant, replay, selected, setSelected, setNearest }) {
-  const playerRef = useRef();
+  const operatorRef = useRef();
   const explorer = variant === "A";
   return <Canvas shadows dpr={[1, 1.6]} camera={{ position: explorer ? [-15, 7, 0] : [30, 34, 34], fov: explorer ? 48 : 42 }} gl={{ antialias: true }}>
     <color attach="background" args={["#07111b"]} />
@@ -275,10 +275,10 @@ function World({ variant, replay, selected, setSelected, setNearest }) {
         <ProductCarrier stage={replay.stage} />
         <FactoryAgents stage={replay.stage} />
         {explorer && <KeyboardControls map={keyboardMap}>
-          <Ecctrl ref={playerRef} position={[-25, 2, -12]} maxWalkVel={5} maxRunVel={8} jumpVel={5} floatHeight={.65} capsuleHalfHeight={.6} capsuleRadius={.38}>
-            <PlayerModel />
+          <Ecctrl ref={operatorRef} position={[-25, 2, -12]} maxWalkVel={5} maxRunVel={8} jumpVel={5} floatHeight={.65} capsuleHalfHeight={.6} capsuleRadius={.38}>
+            <OperatorModel />
           </Ecctrl>
-          <FollowPlayer playerRef={playerRef} onNearest={setNearest} />
+          <FollowOperator operatorRef={operatorRef} onNearest={setNearest} />
         </KeyboardControls>}
       </Physics>
     </Suspense>
@@ -288,8 +288,8 @@ function World({ variant, replay, selected, setSelected, setNearest }) {
 }
 
 function Header({ replay }) {
-  return <header className="game-header">
-    <div className="game-brand"><span className="factory-mark"><i /><i /><i /></span><span><strong>Regeneration Yard</strong><small>Playable software factory</small></span></div>
+  return <header className="experience-header">
+    <div className="experience-brand"><span className="factory-mark"><i /><i /><i /></span><span><strong>Regeneration Yard</strong><small>Immersive software factory</small></span></div>
     <div className="live-cycle"><i className={replay.playing ? "live" : ""} /><span><small>Recorded cycle</small><strong>{replay.playing ? "Factory running" : "Simulation paused"}</strong></span></div>
     <div className="cycle-score"><small>Independent result</small><strong>9</strong><span>/ 11</span></div>
   </header>;
@@ -405,7 +405,7 @@ function App() {
     window.addEventListener("keydown", handle);
     return () => window.removeEventListener("keydown", handle);
   }, [nearest, selected, variant, showSwitcher]);
-  return <main className={`game variant-${variant}`}>
+  return <main className={`experience variant-${variant}`}>
     <Header replay={replay} />
     <section className="world-shell" aria-label={`${VARIANTS[variant].name} factory world`}>
       <World variant={variant} replay={replay} selected={selected} setSelected={setSelected} setNearest={setNearest} />
