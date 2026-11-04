@@ -125,8 +125,23 @@ export default function register(pi: {
   });
 
   pi.registerTool({
+    name: "inspect_slice_composition",
+    description: "List every existing slice and stable Gherkin item in an immutable cut so the active Pi session can explore operator intent. This read-only tool never proposes, records, approves, or executes a selection.",
+    parameters: {
+      type: "object",
+      properties: { cut: { type: "string" } },
+      required: ["cut"],
+      additionalProperties: false,
+    },
+    execute: async (_id: string, args: { cut: string }) => {
+      const result = await getWorker().client.sliceComposition(args.cut);
+      return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
+    },
+  });
+
+  pi.registerTool({
     name: "preview_slice_selection",
-    description: "Resolve a deterministic slice contract for this Pi session to diagram and confirm.",
+    description: "Deterministically resolve a slice and optional stable item subset proposed by the active Pi session. The result awaits exact operator approval and does not start ORC.",
     parameters: {
       type: "object",
       properties: {
@@ -189,7 +204,7 @@ export default function register(pi: {
 
   pi.registerTool({
     name: "submit_approved_slice",
-    description: "Submit one approved slice. ORC persists the operation route: initial generation when no candidate lineage exists for the selected project, container, and component, or measured regeneration from the latest persisted candidate when one exists. The operator does not choose.",
+    description: "Submit one operator-approved fixed execution contract directly to ORC. ORC durably owns the bounded generation or regeneration cycle; the Pi session remains exploratory and non-authoritative.",
     parameters: {
       type: "object",
       properties: {

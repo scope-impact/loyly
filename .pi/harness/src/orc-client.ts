@@ -103,6 +103,10 @@ export class OrcClient {
     return this.invoke("submit-external-prompt-candidate", { optimizationId, prompt, proposer });
   }
 
+  sliceComposition(cut: string): Promise<any> {
+    return this.invoke("slice-composition", { cut });
+  }
+
   previewSelection(cut: string, slice: string, itemIds?: string[]): Promise<any> {
     return this.invoke("preview-selection", { cut, slice, ...(itemIds ? { itemIds } : {}) });
   }

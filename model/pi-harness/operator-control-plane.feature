@@ -33,10 +33,12 @@ Feature: Session-independent generation and regeneration control
     @item-01-041 @skip
     Scenario: An LLM proposes a reviewable slice but cannot approve it
       Given an operator describes the behavior to regenerate against a prepared cut
-      When the operator asks the LLM to propose a slice
+      When an exploratory Pi, Codex, or other operator session inspects the cut composition and asks the LLM to propose a slice
       Then every proposed slice and item identity is resolved from that cut
       And invented, missing, duplicate, or ambiguous identities are refused
       And the resolved selection is recorded as awaiting approval
+      And a durable session may retain its transcript, skills, tool calls, and branches
+      But that transcript is not part of the approved execution contract
       And no generation or regeneration starts until the operator approves its exact digest
 
     @item-01-015 @skip
@@ -104,8 +106,9 @@ Feature: Session-independent generation and regeneration control
     @item-01-036 @skip
     Scenario: The control plane does not depend on one interactive session implementation
       Given a Codex, Pi, or other authorized operator session
-      When it supplies an approved preparation through the public control plane
+      When it supplies an immutable approved fixed execution contract through the public control plane
       Then ORC starts the same regeneration cycle contract
+      And ORC owns its bounded prompt, tool surface, retries, termination, and result
       And disconnecting that session does not stop the internal ORC cycle
 
     @item-01-037 @skip

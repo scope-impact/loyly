@@ -81,3 +81,30 @@
                       root "cut-2" "02-projection-integrity")]
         (is (= "projection-integrity" (:componentId contract)))
         (is (= ["@item-01-007"] (mapv :id (:items contract))))))))
+
+(deftest composition-lists-every-existing-slice-for-session-exploration
+  (let [root (.toFile (java.nio.file.Files/createTempDirectory
+                       "project-composition-"
+                       (make-array java.nio.file.attribute.FileAttribute 0)))]
+    (try
+      (doseq [[slice feature]
+              [["01-orders" "Feature: Orders\n\n  @item-01-001\n  Scenario: Place order\n"]
+               ["02-reports" "Feature: Reports\n\n  @item-02-001\n  Scenario: Read report\n"]]]
+        (let [plan (io/file root "docs" "plan" slice)]
+          (.mkdirs plan)
+          (spit (io/file plan "spec.feature") feature)))
+      (is (= [{:slice "01-orders"
+               :componentId "orders"
+               :items [{:id "@item-01-001" :name "Place order" :rule ""
+                        :source "docs/plan/4"}]}
+              {:slice "02-reports"
+               :componentId "reports"
+               :items [{:id "@item-02-001" :name "Read report" :rule ""
+                        :source "docs/plan/4"}]}]
+             (mapv (fn [slice]
+                     (update slice :items
+                             (fn [items]
+                               (mapv (fn [item] (dissoc item :scenario-digest)) items))))
+                   (:slices (selection/slice-composition root "cut-42")))))
+      (finally
+        (doseq [file (reverse (file-seq root))] (.delete file))))))

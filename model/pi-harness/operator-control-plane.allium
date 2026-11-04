@@ -161,6 +161,7 @@ rule PreviewControlSelection {
 
 rule ProposeControlSelectionFromIntent {
     when: ProposeSliceSelection(operator_session, cut_identity, operator_intent)
+    requires: operator_session_owns_exploratory_transcript(operator_session)
     let proposed_scope = llm_propose_existing_slice_and_items(cut_identity, operator_intent)
     requires: proposed_scope.belongs_to(valid_system_composition(cut_identity))
     let resolved_items = resolve_items_once(
@@ -228,6 +229,7 @@ rule SubmitCycleTask {
     when: SubmitRegenerationCycle(operator_session, request_identity, request_digest,
                                   preparation, parent_cycle_identity)
     requires: preparation.status = approved
+    requires: fixed_bounded_execution_contract(preparation)
     requires: preparation.selection.items.count > 0
     requires: not exists HarnessTask{request_identity: request_identity}
     ensures: HarnessTask.created(
@@ -435,6 +437,15 @@ surface RegenerationControlPlane {
 
     @guarantee SessionAgnosticControl
         -- ORC cycle state outlives the Codex, Pi, or other operator session that requested it.
+
+    @guarantee ExploratorySessionOwnership
+        -- Skills, dynamic tools, branching, and human steering remain in the operator session.
+
+    @guarantee ImmutableHandoff
+        -- Only the approved preparation crosses into ORC; the exploratory transcript never becomes builder input.
+
+    @guarantee FixedContractOwnership
+        -- ORC owns bounded prompt execution, constrained tools, retries, termination, grading, and measurement.
 
     @guarantee ObservableNotAuthoritative
         -- Live notifications and builder-session views aid operators but never advance ORC state.

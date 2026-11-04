@@ -68,6 +68,18 @@ test("approved slices dispatch through one ORC operation selector", async () => 
   assert.deepEqual(calls.map(({ method }) => method), ["submit-approved-slice", "submit-approved-slice"]);
 });
 
+test("Pi explores immutable cut composition before previewing a selection", async () => {
+  const calls = [];
+  const client = new OrcClient(async (method, params) => {
+    calls.push({ method, params });
+    return { cut: params.cut, slices: [] };
+  });
+
+  await client.sliceComposition("cut-42");
+
+  assert.deepEqual(calls, [{ method: "slice-composition", params: { cut: "cut-42" } }]);
+});
+
 test("Pi adapter submits and waits through the ORC worker", async () => {
   const worker = spawnOrcClient({
     projectRoot: new URL("../../..", import.meta.url).pathname,

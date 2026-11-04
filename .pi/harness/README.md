@@ -88,16 +88,20 @@ loads `harness/extension.ts`, which exposes this control-plane sequence:
 
 1. Call `prepare_source_cut` with an immutable source commit and an execution
    backend. Keep the returned cut receipt.
-2. Call `preview_slice_selection` for the desired model/spec slice.
-3. Review the derived scope and call `approve_slice_selection` with the preview's
+2. Call `inspect_slice_composition` so the active Pi session can explore the cut's existing
+   slices and stable Gherkin items using whatever skills and tools the operator allows.
+3. Call `preview_slice_selection` with the session's proposed slice and optional item subset.
+4. Review the deterministic result and call `approve_slice_selection` with the preview's
    `selectionId` and digest.
-4. Call `submit_approved_slice` once with a request ID, approved selection, scope, target
-   stack, and backend. ORC routes to measured initial generation when no persisted candidate
-   exists for the project/container/component, or measured regeneration from the latest
-   persisted candidate when one exists. The operator does not select the operation.
-5. Call `wait_harness_operation` for the returned task. Use
-   `get_harness_operation_status` for polling and `inspect_builder_session` when the builder
-   transcript itself needs diagnosis.
+5. Call `submit_approved_slice` once with a request ID, approved selection, scope, target
+   stack, and backend. The fixed execution contract goes directly to ORC, which selects measured
+   initial generation or regeneration from persisted candidate lineage.
+6. Query `get_harness_operation_status` with the returned `tickId`; use
+   `inspect_builder_session` for the bounded builder transcript and `wait_harness_operation`
+   only while the originating worker remains connected.
+
+The operator session may itself be durable when exploratory work must survive interruption.
+Its transcript, skills, branches, and dynamic tool choices do not cross into the ORC builder.
 
 Use `host` only for adapter development. Use `gondolin` for generation and measured
 regeneration: it mounts

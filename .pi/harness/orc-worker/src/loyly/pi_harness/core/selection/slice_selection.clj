@@ -94,3 +94,28 @@
          :cut cut
          :slice slice
          :items items})))))
+
+(defn slice-composition
+  "List the immutable cut's existing slices and stable behavior items.
+
+   This is discovery input for an operator session. It does not ask an LLM to
+   select anything and it does not record or approve a selection."
+  [cut-root cut]
+  (when-not (and (string? cut) (not (str/blank? cut)))
+    (throw (ex-info "slice composition requires a cut identity" {:cut cut})))
+  (let [plan-root (io/file cut-root "docs" "plan")
+        slices (->> (when (.isDirectory plan-root) (.listFiles plan-root))
+                    (filter #(.isDirectory %))
+                    (keep (fn [directory]
+                            (let [feature (io/file directory "spec.feature")
+                                  slice (.getName directory)]
+                              (when (.isFile feature)
+                                {:slice slice
+                                 :componentId (str/replace slice #"^\d+-" "")
+                                 :items (parse-items feature)}))))
+                    (sort-by :slice)
+                    vec)]
+    (when (empty? slices)
+      (throw (ex-info "cut contains no discoverable slices"
+                      {:cut cut :path (str plan-root)})))
+    {:cut cut :slices slices}))

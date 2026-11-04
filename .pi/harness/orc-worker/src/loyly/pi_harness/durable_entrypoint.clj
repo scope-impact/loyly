@@ -29,6 +29,14 @@
                    :item-ids itemIds})]
     (model/record-selection! (context) contract)))
 
+(defn slice-composition! [{:keys [cut] :as request}]
+  (when-not (string? cut)
+    (throw (ex-info "slice-composition requires cut" {:request request})))
+  (let [cuts-root (or (System/getenv "PI_HARNESS_CUTS_ROOT")
+                      (System/getenv "LOYLEY_CUTS_ROOT")
+                      (throw (ex-info "PI_HARNESS_CUTS_ROOT is not configured" {})))]
+    (slice-selection/slice-composition (str cuts-root "/" cut) cut)))
+
 (defn approve-selection! [{:keys [selectionId selectionDigest]}]
   (model/approve-selection! (context) selectionId selectionDigest))
 
@@ -53,6 +61,7 @@
 
 (defn- dispatch [method params]
   (case method
+    "slice-composition" (slice-composition! params)
     "preview-selection" (preview-selection! params)
     "approve-selection" (approve-selection! params)
     "oracle-proposal" (oracle-proposal params)

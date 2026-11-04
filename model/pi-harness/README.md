@@ -49,7 +49,9 @@ unclassified or doubly classified scenarios.
 - `operator-control-plane.allium` defines session-agnostic preparation approval, durable ORC
   observation, builder-session inspection, and bounded outer-cycle continuation. An LLM may
   propose an existing slice and item subset from operator intent, but deterministic resolution
-  against the cut and explicit operator approval remain authoritative.
+  against the cut and explicit operator approval remain authoritative. Exploratory skills,
+  dynamic tools, branching, and steering stay in the operator session; only an immutable
+  approved fixed execution contract crosses into ORC.
 - `runtime-evidence.allium` separates candidate telemetry, harness observations, independent invariant verdicts, and report projections.
 - `execution-pipeline.allium` gates later comparison cycles on independently descriptor-pinned
   product and instrument OCI artifacts. The whole-system product oracle is a catalogue of

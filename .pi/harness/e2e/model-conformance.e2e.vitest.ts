@@ -236,6 +236,7 @@ test.skip("Approval binds the complete cycle preparation and diagram", () => {})
 test.skip("Oracle promotion requires manual approval of the exact proposal digest", () => {});
 test.skip("Public harness operations use Grain commands and queries", () => {});
 test.skip("Harness progress is projected from authoritative ORC events", () => {});
+test.skip("Slice mappings reconstruct the complete cut-bound system view", () => {});
 test.skip("An LLM proposes a reviewable slice but cannot approve it", () => {});
 test.skip("The control plane does not depend on one interactive session implementation", () => {});
 test.skip("Live progress reconciles with durable ORC execution state", () => {});
