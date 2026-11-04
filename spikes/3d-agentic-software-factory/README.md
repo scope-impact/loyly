@@ -4,11 +4,13 @@
 
 **Löyly Factory** is the reusable factory experience. **The Next Body** is its narrative essay. The Löyly sauna-booking behavior is one example product used to make the architecture concrete; it is not the only kind of product the factory can build and measure. The published experience is one self-contained `index.html`. It explains Phoenix through human anatomy, one concrete Löyly verification failure, the two explicit lifecycle contracts, candidate-blind Grade, oracle ratification, historical evidence, and language × platform expressions.
 
-The essay follows Phoenix authority transitions rather than a generic “what/why/how” template:
+The essay first establishes the human reason for the factory, then introduces the system, then follows its authority transitions:
 
 ```text
-system map → direction and route → embodiment and verification
-           → independent Grade → durable measurement → measured lineage
+why: plausible output can still fail in the world
+what: creative intelligence embodied by an accountable harness
+how: direction → build and verify → independent Grade
+               → durable measurement → measured lineage
 ```
 
 The earlier React/Three.js animatic remains in `src/` as prototype history, but it is not loaded by the page.
