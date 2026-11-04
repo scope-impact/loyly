@@ -29,6 +29,7 @@
       :else
       {:id "node"
        :base "node:22-alpine"
+       :archive "node-22-alpine.tar"
        :source "Node JavaScript or TypeScript source files"})))
 
 (defn- safe-id! [label value]

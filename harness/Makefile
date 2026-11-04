@@ -51,6 +51,7 @@ verify-platforms:
 runtime-images: check-project
 	mkdir -p $(RUNTIME_IMAGES)
 	rm -f $(RUNTIME_IMAGES)/*.tar
+	docker pull -q --platform $(ARCH) node:22-alpine
 	docker pull -q --platform $(ARCH) rust:1.91-alpine
 	docker pull -q --platform $(ARCH) eclipse-temurin:21-jdk-alpine
 	docker pull -q --platform $(ARCH) public.ecr.aws/lambda/nodejs:22
@@ -59,6 +60,7 @@ runtime-images: check-project
 	docker build --platform $(ARCH) -f $(PROJECT_ROOT)/Dockerfile.rails-offline -t pi-harness/rails:8-offline $(PROJECT_ROOT)
 	docker build --platform $(ARCH) -t pi-harness/sam-gateway:platform $(BUILD_CONFIG)/sam-gateway
 	docker build --platform $(ARCH) -f $(PROJECT_ROOT)/Dockerfile.typescript-postgres -t pi-harness/node22-postgres:platform $(PROJECT_ROOT)
+	docker save -o $(RUNTIME_IMAGES)/node-22-alpine.tar node:22-alpine
 	docker save -o $(RUNTIME_IMAGES)/rust-1.91-alpine.tar rust:1.91-alpine
 	docker save -o $(RUNTIME_IMAGES)/eclipse-temurin-21-jdk-alpine.tar eclipse-temurin:21-jdk-alpine
 	docker save -o $(RUNTIME_IMAGES)/rails-8-offline.tar pi-harness/rails:8-offline

@@ -145,3 +145,12 @@
       (is (true? (:passed (stack-conformance/check (.getAbsolutePath root) "rust"))))
       (finally
         (doseq [file (reverse (file-seq root))] (.delete file))))))
+
+(deftest node-stack-loads-the-real-base-image-archive
+  ;; The faked node base (docker import of the VM's node binary) has no npm, unlike the
+  ;; real image the builder targets, so node grading loads the real archive instead.
+  (let [stack (project-profile/stack-requirements "typescript")]
+    (is (= "node:22-alpine" (:base stack)))
+    (is (= "node-22-alpine.tar" (:archive stack)))
+    (is (str/ends-with? (#'grader-commands/runtime-command "gondolin" (:archive stack))
+                        "docker load -i /runtime-images/node-22-alpine.tar"))))
