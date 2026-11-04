@@ -1,14 +1,7 @@
 import { defineConfig } from "vite";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
 
 export default defineConfig({
   base: "/loyly/",
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes("@dimforge/rapier") || id.includes("@react-three/rapier") || id.includes("ecctrl")) return "physics";
-        },
-      },
-    },
-  },
+  plugins: [svelte()],
 });

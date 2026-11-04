@@ -4,21 +4,16 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "spike": "vite --host 127.0.0.1",
-    "build": "vite build"
+    "generate": "bash event-model/build.sh",
+    "spike": "npm run generate && vite --host 127.0.0.1",
+    "build": "npm run generate && vite build"
   },
   "dependencies": {
-    "@fontsource/barlow-condensed": "^5.2.6",
-    "@fontsource/ibm-plex-sans": "^5.2.6",
-    "@react-three/drei": "^10.7.9",
-    "@react-three/fiber": "^9.8.2",
-    "@react-three/rapier": "^2.2.0",
-    "ecctrl": "^2.0.2",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1",
-    "three": "^0.184.0"
+    "mermaid": "^12.3.0"
   },
   "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^6.2.4",
+    "svelte": "^5.57.3",
     "vite": "^7.2.0"
   }
 }

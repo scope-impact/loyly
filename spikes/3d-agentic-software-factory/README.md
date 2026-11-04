@@ -1,36 +1,42 @@
-# Löyly Factory — The Next Body visual essay
+# Pi Harness Event Model
 
-> **Prototype verdict:** the architecture becomes clearer as one authored post than as a world the reader must learn to navigate.
+> **Current artifact:** a generated, navigable projection of the Pi-harness behavioral model.
 
-**Löyly Factory** is the reusable factory experience. **The Next Body** is its narrative essay. The Löyly sauna-booking behavior is one example product used to make the architecture concrete; it is not the only kind of product the factory can build and measure. The published experience is one self-contained `index.html`. It explains Phoenix through human anatomy, one concrete Löyly verification failure, the two explicit lifecycle contracts, candidate-blind Grade, oracle ratification, historical evidence, and language × platform expressions.
+The GitHub Pages entry point is rebuilt from `model/pi-harness`: Allium behavior, Gherkin examples, the Grain Event Model, and the maintained C4 diagrams. Löyly appears only as an example project where the harness model refers to it.
 
-The essay first establishes the human reason for the factory, then introduces the system, then follows its authority transitions:
+The generated page provides four connected views:
 
 ```text
-why: plausible output can still fail in the world
-what: creative intelligence embodied by an accountable harness
-builders: repository C4 context → containers → ORC components
-how: direction → build and verify → independent Grade
-               → durable measurement → measured lineage
+behavior modules → EventStorming rules, refusals, invariants and examples
+Grain topology  → commands, facts, projections, queries and flows
+C4 architecture → context, containers and ORC components
+review          → active E2E, explicit skips and implementation conformance
 ```
 
-The earlier React/Three.js animatic remains in `src/` as prototype history, but it is not loaded by the page.
+The earlier visual essay and Three.js experiments remain prototype history, but they are not loaded by or bundled into the published page.
 
-## What is real
+## Why Svelte
 
-- Lifecycle and oracle terminology follows `model/pi-harness/GLOSSARY.md` on `master` after `feature/pi-harness-platforms`.
-- Fresh Slice Generation begins without a parent or accepted product oracle; complete Grade yields a proposal that requires approval of its exact digest.
-- Measured Slice Regeneration begins from a named measured parent and selected entries from an accepted product oracle.
-- The historical evidence uses the committed `e2e-full-1793630744537.zip` normalization in `src/e2e-replay.js`.
-- The recording includes the failed first container attempt, fresh repair builder, independent 9/11 verdict, runtime signals and final recorded result.
-- The four-language comparison preserves the TypeScript, Rust, Java, and Rails baseline/final audit.
-- AWS serverless and container/Postgres are described as bootstrap-proven VM platform cells, with their current non-ratifying ORC limitation explicit.
+This artifact needs application-like navigation and filtering, but not a server framework. Svelte keeps the EventStorm cards, source drill-down, review filters, and Mermaid lifecycle as small HTML-like components. Vite supplies a static build that GitHub Pages can serve directly.
 
-## Page stack
+The published bundle contains Svelte, the extracted model data, and a lazy Mermaid chunk used only on the C4 route. It does not load a game engine or the old Three.js prototype.
 
-- Semantic HTML, inline CSS, and one inline SVG anatomy illustration.
-- A tiny script updates reading progress and respects reduced-motion preferences.
-- No runtime dependencies, external fonts, WebGL, or downloaded assets.
+## Model boundaries
+
+- Pi explores intent, composes the system view, and presents an exact deterministic selection for human approval.
+- ORC executes an immutable approved contract and owns bounded prompts, constrained tools, retries, termination, verification, grading, and durable evidence.
+- A Fresh Slice Generation Cycle begins without a parent candidate or accepted product oracle.
+- A Measured Slice Regeneration Cycle begins from a named measured parent and an accepted product oracle.
+- The builder cannot declare completion. Verification and candidate-blind grading exercise the public seam.
+- A cycle oracle is provisional. Only a complete pass and manual approval of the exact proposal digest can publish an accepted product oracle.
+
+## Generation stack
+
+- `event-model/extract.clj` reads the committed model without executing it.
+- `event-model/build.sh` writes the extracted projection to `src/event-model/model.json`.
+- Svelte owns navigation, EventStorming views, topology, evidence review, and responsive interaction.
+- Mermaid is loaded on demand to render the three maintained C4 structural views.
+- Vite emits the static `dist/` directory deployed to GitHub Pages.
 
 ## Run
 
