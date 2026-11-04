@@ -39,6 +39,10 @@
    "repair-verification" "affordance-conformance" "grade" "instrument-conformance"
    "repair-evaluation" "conclude"])
 
+(deftest the-cycle-budget-covers-a-slow-cycle-by-default
+  (is (= (* 90 60 1000) worker/default-cycle-timeout-ms))
+  (is (= worker/default-cycle-timeout-ms (worker/cycle-timeout-ms))))
+
 (deftest one-slice-cycle-exposes-the-specified-stage-order
   (let [contract (slice-cycle-workflow/contract)]
     (is (= "pi-harness-slice-cycle" (:workflowName contract)))
@@ -972,6 +976,8 @@
     (is (re-find #"http://app:8080" instruction))
     (is (re-find #"docker compose run --rm test" instruction))
     (is (re-find #"no Docker daemon" instruction))
+    (is (re-find #"prove its contents natively" instruction))
+    (is (re-find #"must not run the candidate test suite" instruction))
     (is (re-find #"never fetch packages" instruction))
     (is (re-find #"runtime evidence" instruction))
     (is (re-find #"human affordance" instruction))
