@@ -80,9 +80,11 @@ export type OracleProposal = {
 
 export type WorkflowContract = {
   workflowName: string;
+  routes: Array<"fresh-generation" | "measured-regeneration">;
   rootType: string;
   stages: string[];
   builderResultFields: string[];
+  proposalResultFields: string[];
   observationFields: string[];
 };
 

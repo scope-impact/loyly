@@ -4,8 +4,7 @@
             [loyly.pi-harness.core.runtime.durable-system :as durable-system]
             [loyly.pi-harness.grain.interface :as model]
             [loyly.pi-harness.interface :as harness]
-            [loyly.pi-harness.workflows.generation :as generation]
-            [loyly.pi-harness.workflows.regeneration :as regeneration]
+            [loyly.pi-harness.workflows.slice-cycle :as slice-cycle]
             [loyly.pi-harness.core.selection.slice-selection :as slice-selection]))
 
 (defn- context [] (harness/runtime-context))
@@ -74,8 +73,7 @@
     "submit" (submit-approved! params)
     "execution-status" (harness/execution-status! params)
     "builder-session" (harness/builder-session! params)
-    "workflow-contract" (regeneration/contract)
-    "generation-workflow-contract" (generation/contract)
+    "workflow-contract" (slice-cycle/contract)
     "wait" (harness/wait! params)
     "measurement" (model/find-measurement (context) (:cycleId params))
     (throw (ex-info "unknown method" {:method method}))))

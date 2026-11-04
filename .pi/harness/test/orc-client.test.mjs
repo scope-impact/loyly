@@ -131,7 +131,7 @@ test("Pi adapter submits and waits through the ORC worker", async () => {
     assert.equal(receipt.taskId, 7);
     const outcome = await worker.client.wait(receipt.taskId);
     assert.equal(outcome.status, "completed");
-    assert.equal(outcome.result.outputs["graders-result"].stage, "graders");
+    assert.equal(outcome.result.outputs["grade-result"].stage, "grade");
   } finally {
     await worker.close();
   }

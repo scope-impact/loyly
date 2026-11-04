@@ -2,11 +2,13 @@
 
 ## Architecture
 
-ORC/Clojure is the workflow engine and owns all regeneration behavior:
+ORC/Clojure is the workflow engine and owns all regeneration behavior. Both routes run one
+slice cycle; the persisted route (`fresh-generation` or `measured-regeneration`) selects what
+the oracle, grade, repair-evaluation, and conclude stages do:
 
 ```text
-cut → harness-calibration → builder → instrument → oracle → verify
-    → repair-verification → graders → instrument-conformance → record-cycle → result
+cut → harness-snapshot → oracle → builder → instrument → verify → repair-verification
+    → affordance-conformance → grade → instrument-conformance → repair-evaluation → conclude
 ```
 
 TypeScript is adapter code only. It may provide:

@@ -263,7 +263,7 @@
                                  :subject-digest "subject-1"}
                 :instrument-result {:evidence-root (.getAbsolutePath evidence-root)
                                     :subject-digest "subject-1"}
-                :baseline-grade-result
+                :grade-result
                 {:passed true :grader-producer "independent-baseline-judge"
                  :judge-id "sha256:judge" :normalized-evidence-digest "evidence-digest"
                  :measurement {:passed 1 :items [measured]}}
@@ -277,7 +277,7 @@
                 {:passed true :total 30 :passed-count 30
                  :evidence "{\"checks\":[{\"id\":\"screen:Home\",\"passed\":true}]}"}}}]
     (try
-      (let [result (worker/initial-allure-stage {:inputs inputs})
+      (let [result (worker/materialize-allure! {:inputs inputs})
             files (file-seq (io/file evidence-root "allure-results"))]
         (is (= 3 (:result-count result)))
         (is (= 3 (count (filter #(str/ends-with? (.getName %) "-result.json") files)))))

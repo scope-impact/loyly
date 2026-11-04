@@ -21,14 +21,12 @@
             [loyly.pi-harness.core.build.stack-conformance :as stack-conformance]
             [loyly.pi-harness.core.build.subject :as subject]
             [loyly.pi-harness.workflows.cut :as cut-workflow]
-            [loyly.pi-harness.workflows.generation :as generation-workflow]
-            [loyly.pi-harness.workflows.regeneration :as regeneration-workflow]))
+            [loyly.pi-harness.workflows.slice-cycle :as slice-cycle-workflow]))
 
 (defonce ^:private runtime (atom nil))
 (defonce ^:private workflows (atom {}))
 (defonce ^:private tasks (atom {}))
 (defonce ^:private next-task (atom 0))
-(defonce ^:private active-cycles (atom {}))
 
 (defn registered-workflows [] @workflows)
 
@@ -94,9 +92,9 @@
       (get-in inputs [:repair-verification-result :verify])
       (:verify-result inputs)))
 
-(defn effective-baseline-grade-result [inputs]
-  (or (get-in inputs [:repair-evaluation-result :baseline-grade])
-      (:baseline-grade-result inputs)))
+(defn effective-grade-result [inputs]
+  (or (get-in inputs [:repair-evaluation-result :grade])
+      (:grade-result inputs)))
 
 (defn effective-instrument-conformance-result [inputs]
   (or (get-in inputs [:repair-evaluation-result :instrument-conformance])
@@ -109,7 +107,7 @@
 
 (defn effective-grading-context [inputs]
   (or (:oracle-result inputs)
-      (:baseline-grade-result inputs)))
+      (:grade-result inputs)))
 
 (defn run-cut-adapter [source-commit execution-backend]
   (adapters/run-cut! (project-root) source-commit execution-backend))
@@ -173,11 +171,6 @@
                                  (mapv val)))
             :evidence (json/write-str {:mismatches (:mismatches result)
                                        :suites suite-summary})})))
-
-;; Measured regeneration retains its historical stage name while binding the
-;; same local harness snapshot as fresh generation.
-(defn harness-calibration-stage [context]
-  (assoc (harness-snapshot-stage context) :stage "harness-calibration"))
 
 (defn- prompt-registration-key [purpose]
   (case purpose
@@ -265,7 +258,7 @@
         expected-digest (get-in inputs [:builder-result :subject-digest])
         observed-digest (subject/digest output-root)
         evidence-root (str output-root ".evidence")
-        calibration-results (some-> (get-in inputs [:harness-calibration-result
+        calibration-results (some-> (get-in inputs [:harness-snapshot-result
                                                      :calibration-results])
                                     (json/read-str :key-fn keyword))]
     (when-not (= expected-digest observed-digest)
@@ -282,9 +275,9 @@
               :evidence-root evidence-root
               :evidence-locations [(str evidence-root "/allure-results")]}))))
 
-(declare ensure-runtime! run-grader-adapter graders-stage sha256 baseline-grader-root
-         ensure-baseline-grader! ensure-cycle-oracle!
-         affordance-conformance-stage baseline-grade-stage)
+(declare ensure-runtime! run-grader-adapter sha256 baseline-grader-root
+         ensure-cycle-oracle!
+         affordance-conformance-stage grade-with-cycle-oracle)
 
 (defn run-oracle-fixture-adapter [request]
   (adapters/run-oracle-fixture! (project-root) request))
@@ -431,9 +424,9 @@
                                :verify-result verification)
         cycle-oracle (when (:passed verification)
                        (ensure-cycle-oracle! verified-inputs))
-        context {:inputs (assoc verified-inputs :cycle-oracle-result cycle-oracle)}
+        context {:inputs (assoc verified-inputs :oracle-result cycle-oracle)}
         grading (when (:passed verification)
-                  (baseline-grade-stage context))
+                  (grade-with-cycle-oracle context))
         measurement (:measurement grading)
         valid-measurement? (and (:passed verification)
                                 (:complete? measurement)
@@ -711,7 +704,7 @@
   (let [results-root (evidence-results-root inputs)
         builder (effective-builder-result inputs)
         instrument (effective-instrument-result inputs)
-        baseline-grade (effective-baseline-grade-result inputs)
+        baseline-grade (effective-grade-result inputs)
         base {:role "observed"
               :builder (:builder builder)
               :evidence-kind (or evidence-kind "grader")
@@ -741,9 +734,8 @@
                           :evidence evidence})))
           (:items measurement)))))
 
-(defn initial-allure-stage [{:keys [inputs] :as context}]
-  (record-stage-progress! context "materialize-allure")
-  (let [grade (effective-baseline-grade-result inputs)
+(defn materialize-allure! [{:keys [inputs] :as context}]
+  (let [grade (effective-grade-result inputs)
         conformance (effective-instrument-conformance-result inputs)
         affordance (effective-affordance-conformance-result inputs)
         denominator (count (get-in inputs [:selection :items]))]
@@ -800,7 +792,7 @@
      :correlation {:operation-id cycle-id}
      :artifacts []
      :oracle-digest (or (get-in inputs [:oracle-result :oracle-digest])
-                        (get-in inputs [:baseline-grade-result
+                        (get-in inputs [:grade-result
                                         :normalized-evidence-digest])
                         "unpromoted")}))
 
@@ -833,15 +825,14 @@
                             {:digest sha256 :media-type media-type :location path})
                           (:artifacts manifest))))
 
-(defn oracle-stage [{:keys [inputs] :as context}]
-  (record-stage-progress! context "oracle")
+(defn resolve-accepted-oracle [{:keys [inputs] :as context}]
   (let [selection (:selection inputs)
         adapter (project-adapter selection)
         result (run-oracle (get-in inputs [:selection :cut])
                            selection
                            (product-oracle-options selection))
         accepted-contract-digest (:oracle-digest result)
-        harness-snapshot-digest (get-in inputs [:harness-calibration-result
+        harness-snapshot-digest (get-in inputs [:harness-snapshot-result
                                                  :harness-snapshot-digest])
         combined-digest (sha256 (str harness-snapshot-digest "\n"
                                      accepted-contract-digest))]
@@ -887,10 +878,10 @@
 
 (defn affordance-conformance-stage [{:keys [inputs] :as context}]
   (record-stage-progress! context "affordance-conformance")
-  (let [builder (:builder-result inputs)
-        instrument (:instrument-result inputs)
+  ;; The effective candidate: after verification repair this is the repaired one.
+  (let [builder (effective-builder-result inputs)
+        instrument (effective-instrument-result inputs)
         grader-root (or (get-in inputs [:oracle-result :grader-root])
-                        (get-in inputs [:cycle-oracle-result :grader-root])
                         (baseline-grader-root))
         evidence (run-grader-adapter
                   {:cycle-id (:request-id inputs)
@@ -1004,8 +995,7 @@
                         :evidence-root (:evidence-root repaired-instrument)
                         :passed (boolean (:passed repaired-verification))})))))))
 
-(defn graders-stage [{:keys [inputs] :as context}]
-  (record-stage-progress! context "graders")
+(defn grade-against-accepted-oracle [{:keys [inputs] :as context}]
   (let [verification (effective-verify-result inputs)
         _ (when-not (:passed verification)
             (throw (ex-info "verification did not pass; independent grading was not run"
@@ -1129,8 +1119,7 @@
                 (sorted-map :cut (get-in inputs [:selection :cut])
                             :selection-digest (get-in inputs [:selection :selectionDigest])
                             :harness-snapshot-digest
-                            (or (get-in inputs [:harness-snapshot-result :harness-snapshot-digest])
-                                (get-in inputs [:harness-calibration-result :harness-snapshot-digest]))
+                            (get-in inputs [:harness-snapshot-result :harness-snapshot-digest])
                             :grader-model (or (System/getenv "PI_GRADER_MODEL")
                                               (System/getenv "PI_BUILDER_MODEL")
                                               "gpt-5.6-luna")
@@ -1179,8 +1168,7 @@
         (.delete file)))))
 
 (defn ensure-cycle-oracle! [inputs]
-  (let [snapshot-digest (or (get-in inputs [:harness-snapshot-result :harness-snapshot-digest])
-                            (get-in inputs [:harness-calibration-result :harness-snapshot-digest]))]
+  (let [snapshot-digest (get-in inputs [:harness-snapshot-result :harness-snapshot-digest])]
     (loop [attempt 1
            failed-cases []]
       (let [task-prompt (grader-author-prompt (:selection inputs) failed-cases)
@@ -1226,10 +1214,7 @@
                               {:failures (mapv failed-case-summary failures)
                                :attempts attempt}))))))))
 
-(def ensure-baseline-grader! ensure-cycle-oracle!)
-
-(defn cycle-oracle-stage [{:keys [inputs] :as context}]
-  (record-stage-progress! context "cycle-oracle")
+(defn author-cycle-oracle [{:keys [inputs] :as context}]
   (let [oracle (ensure-cycle-oracle! inputs)]
     (merge (stage-result "cycle-oracle" context)
            {:passed true
@@ -1247,8 +1232,7 @@
        :sha256 (sha256-file trace)
        :bytes (.length trace)})))
 
-(defn baseline-grade-stage [{:keys [inputs] :as context}]
-  (record-stage-progress! context "baseline-grade")
+(defn grade-with-cycle-oracle [{:keys [inputs] :as context}]
   (let [verification (effective-verify-result inputs)
         _ (when-not (:passed verification)
             (throw (ex-info "verification did not pass; baseline grading was not run"
@@ -1257,8 +1241,9 @@
         instrument (effective-instrument-result inputs)
         selected-items (get-in inputs [:selection :items])
         expected-ids (mapv #(str/replace (:id %) #"^@item-" "") selected-items)
-        authored-grader (or (:cycle-oracle-result inputs)
-                            (ensure-baseline-grader! inputs))
+        authored-grader (or (:oracle-result inputs)
+                            (throw (ex-info "grading requires the cycle oracle sealed by the oracle stage"
+                                            {:request-id (:request-id inputs)})))
         grader-root (:grader-root authored-grader)
         evidence (run-grader-adapter
                   {:cycle-id (:request-id inputs)
@@ -1318,9 +1303,8 @@
                                        :normalized normalized
                                        :playwright-trace playwright-trace})})))
 
-(defn propose-oracle-stage [{:keys [inputs] :as context}]
-  (record-stage-progress! context "propose-oracle")
-  (let [grade (effective-baseline-grade-result inputs)
+(defn propose-oracle! [{:keys [inputs] :as context}]
+  (let [grade (effective-grade-result inputs)
         conformance (effective-instrument-conformance-result inputs)
         selection (:selection inputs)
         builder (effective-builder-result inputs)
@@ -1375,10 +1359,8 @@
         ;; No selected item has a runtime-evidence contract: the applicable denominator is
         ;; empty, so record that explicitly instead of invoking the evaluator with no items.
         not-applicable? (empty? instrumented-items)
-        conformance-grader-root (if (:oracle-result inputs)
-                                  (get-in inputs [:oracle-result :grader-root])
-                                  (or (get-in inputs [:cycle-oracle-result :grader-root])
-                                      (baseline-grader-root)))
+        conformance-grader-root (or (get-in inputs [:oracle-result :grader-root])
+                                    (baseline-grader-root))
         evidence (when (and gondolin? (not not-applicable?))
                    (run-grader-adapter {:cycle-id (:request-id inputs)
                                         :cut (get-in inputs [:selection :cut])
@@ -1435,14 +1417,13 @@
 (defn- evaluation-passed? [verification affordance grade conformance]
   (and (:passed verification) (:passed affordance) (:passed grade) (:passed conformance)))
 
-(defn repair-evaluation-stage [{:keys [inputs] :as context}]
-  (record-stage-progress! context "repair-evaluation")
+(defn resample-evaluation [{:keys [inputs] :as context} max-rounds]
   (loop [round 1
          builder (effective-builder-result inputs)
          instrument (effective-instrument-result inputs)
          affordance (effective-affordance-conformance-result inputs)
          verification (effective-verify-result inputs)
-         grade (:baseline-grade-result inputs)
+         grade (:grade-result inputs)
          conformance (:instrument-conformance-result inputs)
          attempts []]
     (let [passed (evaluation-passed? verification affordance grade conformance)
@@ -1454,7 +1435,7 @@
                    :grade-passed (boolean (:passed grade))
                    :instrument-conformance-passed (boolean (:passed conformance))}
           attempts (conj attempts attempt)]
-      (if (or passed (>= round max-evaluation-rounds))
+      (if (or passed (>= round max-rounds))
         (merge (stage-result "repair-evaluation" context)
                {:passed (boolean passed)
                 :rounds round
@@ -1462,7 +1443,7 @@
                 :instrument instrument
                 :affordance affordance
                 :verify verification
-                :baseline-grade grade
+                :grade grade
                 :instrument-conformance conformance
                 :attempts attempts})
         (let [next-round (inc round)
@@ -1495,7 +1476,7 @@
                                           :affordance-conformance-result
                                           :verify-result
                                           :repair-verification-result
-                                          :baseline-grade-result
+                                          :grade-result
                                           :instrument-conformance-result
                                           :repair-evaluation-result))
               repaired-context {:inputs repaired-inputs
@@ -1525,10 +1506,10 @@
                                        :repair-verification-result
                                        verification-repair)
               repaired-grade (when (:passed repaired-verification)
-                               (baseline-grade-stage
+                               (grade-with-cycle-oracle
                                 (assoc repaired-context :inputs evaluation-inputs)))
               conformance-inputs (assoc evaluation-inputs
-                                        :baseline-grade-result repaired-grade)
+                                        :grade-result repaired-grade)
               repaired-conformance (when (:passed repaired-grade)
                                      (instrument-conformance-stage
                                       (assoc repaired-context :inputs conformance-inputs)))]
@@ -1541,8 +1522,7 @@
                  (or repaired-conformance {:passed false})
                  attempts))))))
 
-(defn record-cycle-stage [{:keys [inputs] :as stage-context}]
-  (record-stage-progress! stage-context "record-cycle")
+(defn record-cycle! [{:keys [inputs]}]
   (let [instrument (effective-instrument-result inputs)
         manifest (evidence-manifest/seal!
                   (:evidence-root instrument)
@@ -1554,10 +1534,10 @@
         instrument-conformance (select-keys
                                 (get inputs :instrument-conformance-result)
                                 [:passed :total :passed-count :items])
-        measurement (assoc (get-in inputs [:graders-result :measurement])
+        measurement (assoc (get-in inputs [:grade-result :measurement])
                            :instrument-conformance instrument-conformance
                            :evidence-manifest manifest)
-        observations (->> (into (vec (get-in inputs [:graders-result :observations]))
+        observations (->> (into (vec (get-in inputs [:grade-result :observations]))
                                 (get-in inputs [:instrument-conformance-result :observations]))
                           (mapv #(persisted-evaluation manifest %)))
         selection (:selection inputs)
@@ -1591,41 +1571,83 @@
       (emit-cycle-observation! {:inputs inputs :evidence-manifest manifest} value))
     persisted))
 
-(defn grade-gate-stage [{:keys [inputs] :as context}]
-  (record-stage-progress! context "result")
+(defn grade-gate [{:keys [inputs] :as context}]
   (let [verification (effective-verify-result inputs)
         result (merge (stage-result "result" context)
                       {:operation "measured-regeneration"
-                       :passed (boolean (and (get-in inputs [:graders-result :passed])
+                       :passed (boolean (and (get-in inputs [:grade-result :passed])
                                              (get-in inputs [:instrument-conformance-result :passed])))
                        :verified? (boolean (:passed verification))
                        :instrumented? (boolean (get-in inputs [:instrument-conformance-result :passed]))
-                       :score (select-keys (get-in inputs [:graders-result :measurement])
+                       :score (select-keys (get-in inputs [:grade-result :measurement])
                                            [:passed :failed])})]
     (record-stage-progress! context "result" 1 nil "completed")
     result))
 
+;; Slice-cycle stages. The persisted route selects what the oracle, grade,
+;; repair-evaluation, and conclude stages do; every other stage is shared.
+
+(defn- route! [inputs]
+  (let [route (:route inputs)]
+    (when-not (#{"fresh-generation" "measured-regeneration"} route)
+      (throw (ex-info "slice cycle requires a fresh-generation or measured-regeneration route"
+                      {:route route})))
+    route))
+
+(defn oracle-stage [{:keys [inputs] :as context}]
+  (record-stage-progress! context "oracle")
+  (case (route! inputs)
+    ;; Candidate-blind, so it runs before the builder and fails fast when uncalibratable.
+    "fresh-generation" (assoc (author-cycle-oracle context) :stage "oracle" :kind "cycle-oracle")
+    ;; Never authors: resolves the pinned accepted oracle or fails before the builder.
+    "measured-regeneration" (assoc (resolve-accepted-oracle context)
+                                   :stage "oracle" :kind "accepted-oracle")))
+
+(defn grade-stage [{:keys [inputs] :as context}]
+  (record-stage-progress! context "grade")
+  (assoc (case (route! inputs)
+           "fresh-generation" (grade-with-cycle-oracle context)
+           "measured-regeneration" (grade-against-accepted-oracle context))
+         :stage "grade"))
+
+(defn repair-evaluation-stage [{:keys [inputs] :as context}]
+  (record-stage-progress! context "repair-evaluation")
+  (case (route! inputs)
+    "fresh-generation" (assoc (resample-evaluation context max-evaluation-rounds) :applicable true)
+    ;; Measured regeneration reports its single measurement and never resamples.
+    "measured-regeneration" (assoc (resample-evaluation context 1) :applicable false)))
+
+(defn conclude-stage [{:keys [inputs] :as context}]
+  (record-stage-progress! context "conclude")
+  (case (route! inputs)
+    "fresh-generation"
+    (let [allure (materialize-allure! context)
+          proposal (propose-oracle! context)]
+      (merge (stage-result "conclude" context)
+             {:passed true :allure allure :oracle-proposal proposal}))
+    "measured-regeneration"
+    (let [cycle (record-cycle! context)
+          gate (grade-gate context)]
+      (merge (stage-result "conclude" context)
+             {:passed (boolean (:passed gate)) :cycle cycle :gate gate}))))
+
 (defn cut-workflow [] (cut-workflow/workflow))
 
-(defn generation-workflow [] (generation-workflow/workflow))
-
-(defn workflow [] (regeneration-workflow/workflow))
+(defn workflow [] (slice-cycle-workflow/workflow))
 
 (defn start-runtime! [start!]
   (locking runtime
     (or @runtime
         (let [started (start!)]
           (reset! runtime started)
-          (let [ctx (:context started)
-                sheet-id (orc/build-workflow! ctx (workflow))]
+          (let [ctx (:context started)]
             (swap! workflows assoc
                    :cut {:context ctx :sheet-id (orc/build-workflow! ctx (cut-workflow))}
-                   :generation {:context ctx :sheet-id (orc/build-workflow! ctx (generation-workflow))}
+                   :slice-cycle {:context ctx :sheet-id (orc/build-workflow! ctx (workflow))}
                    :generation-prompt
                    {:context ctx :sheet-id (orc/build-workflow! ctx (prompt/workflow :fresh-generation))}
                    :repair-prompt
-                   {:context ctx :sheet-id (orc/build-workflow! ctx (prompt/workflow :verification-repair))}
-                   :cycle {:context ctx :sheet-id sheet-id})
+                   {:context ctx :sheet-id (orc/build-workflow! ctx (prompt/workflow :verification-repair))})
             (orc/resume-in-progress! ctx)
             started)))))
 
@@ -1646,104 +1668,61 @@
         (reset! runtime nil)
         (reset! workflows {})
         (reset! tasks {})
-        (reset! next-task 0)
-        (reset! active-cycles {})))))
+        (reset! next-task 0)))))
 
 (defn- request-uuid [prefix request-id]
   (java.util.UUID/nameUUIDFromBytes
    (.getBytes (str "pi-harness:" prefix ":" request-id)
               java.nio.charset.StandardCharsets/UTF_8)))
 
-(defn submit! [{:keys [requestId selectionContract scope targetStack executionBackend
-                       parentCandidateId parentCandidateRoot parentCandidateDigest routingRequest]
-                :as request}]
-  (when-not (and (string? requestId)
-                 (map? selectionContract)
-                 (= "approved" (:status selectionContract))
-                 (seq (:items selectionContract))
-                 (vector? scope)
-                 (seq scope)
-                 (string? targetStack)
-                 (not (str/blank? targetStack))
-                 (contains? #{"host" "gondolin"} executionBackend)
-                 (string? parentCandidateId)
-                 (string? parentCandidateRoot)
-                 (string? parentCandidateDigest))
-    (throw (ex-info "regeneration requires an approved selection, target configuration, and persisted parent candidate"
-                    {:request request})))
+(defn- submit-slice-cycle!
+  "Start one slice cycle on its persisted route. Only submit-approved-slice! calls this."
+  [{:keys [requestId selectionContract scope targetStack executionBackend
+           parentCandidateId parentCandidateRoot parentCandidateDigest routingRequest]
+    :as request}
+   route]
+  (when-not (slice-cycle-workflow/routes route)
+    (throw (ex-info "unknown slice-cycle route" {:route route})))
+  (when (= "measured-regeneration" route)
+    (when-not (and (string? parentCandidateId)
+                   (string? parentCandidateRoot)
+                   (string? parentCandidateDigest))
+      (throw (ex-info "measured regeneration requires a persisted parent candidate"
+                      {:request request}))))
+  (when (and (= "fresh-generation" route)
+             (or parentCandidateId parentCandidateRoot parentCandidateDigest))
+    (throw (ex-info "fresh generation must not carry a parent candidate" {:request request})))
   (if-let [existing (get @tasks requestId)]
     (if (= routingRequest (:routing-request existing))
       (:receipt existing)
       (throw (ex-info "requestId was already used with a different approved-slice request"
                       {:requestId requestId})))
     (let [_ (ensure-runtime!)
-          {:keys [context sheet-id]} (get @workflows :cycle)
+          {:keys [context sheet-id]} (get @workflows :slice-cycle)
           task-id (swap! next-task inc)
           tick-id (request-uuid "tick" requestId)
           correlation-id (request-uuid "correlation" requestId)
+          measured? (= "measured-regeneration" route)
           trace (future
                   (orc/execute context sheet-id
-                               {:request-id requestId :selection selectionContract
-                                :scope scope :target-stack targetStack
-                                :execution-backend executionBackend
-                                :parent-candidate-id parentCandidateId
-                                :parent-candidate-root parentCandidateRoot
-                                :parent-candidate-digest parentCandidateDigest
-                                :orc-tick-id (str tick-id)}
+                               (cond-> {:request-id requestId :route route
+                                        :selection selectionContract
+                                        :scope scope :target-stack targetStack
+                                        :execution-backend executionBackend
+                                        :orc-tick-id (str tick-id)}
+                                 measured? (assoc :parent-candidate-id parentCandidateId
+                                                  :parent-candidate-root parentCandidateRoot
+                                                  :parent-candidate-digest parentCandidateDigest))
                                :tick-id tick-id
                                :correlation-id correlation-id
                                :timeout-ms 900000))
-          receipt {:operation "measured-regeneration" :operationId requestId
-                   :cycleId requestId :selectionId (:selectionId selectionContract)
-                   :parentCandidateId parentCandidateId
-                   :parentCandidateDigest parentCandidateDigest
-                   :tickId (str tick-id) :correlationId (str correlation-id)
-                   :taskId task-id :targetStack targetStack
-                   :executionBackend executionBackend}]
-      (swap! tasks assoc requestId {:request request :routing-request routingRequest
-                                    :receipt receipt :future trace})
-      receipt)))
-
-(defn submit-generation! [{:keys [requestId selectionContract scope targetStack executionBackend routingRequest]
-                           :as request}]
-  (when-not (and (string? requestId)
-                 (map? selectionContract)
-                 (= "approved" (:status selectionContract))
-                 (seq (:items selectionContract))
-                 (vector? scope)
-                 (seq scope)
-                 (string? targetStack)
-                 (not (str/blank? targetStack))
-                 (contains? #{"host" "gondolin"} executionBackend)
-                 (not (or (:parentCandidateId request)
-                          (:parentCandidateRoot request)
-                          (:parentCandidateDigest request))))
-    (throw (ex-info "initial generation requires an approved selection without a parent candidate"
-                    {:request request})))
-  (if-let [existing (get @tasks requestId)]
-    (if (= routingRequest (:routing-request existing))
-      (:receipt existing)
-      (throw (ex-info "requestId was already used with a different approved-slice request"
-                      {:requestId requestId})))
-    (let [_ (ensure-runtime!)
-          {:keys [context sheet-id]} (get @workflows :generation)
-          task-id (swap! next-task inc)
-          tick-id (request-uuid "tick" requestId)
-          correlation-id (request-uuid "correlation" requestId)
-          trace (future
-                  (orc/execute context sheet-id
-                               {:request-id requestId :selection selectionContract
-                                :scope scope :target-stack targetStack
-                                :execution-backend executionBackend
-                                :orc-tick-id (str tick-id)}
-                               :tick-id tick-id
-                               :correlation-id correlation-id
-                               :timeout-ms 900000))
-          receipt {:operation "fresh-generation" :operationId requestId
-                   :generationId requestId :selectionId (:selectionId selectionContract)
-                   :tickId (str tick-id) :correlationId (str correlation-id)
-                   :taskId task-id :targetStack targetStack
-                   :executionBackend executionBackend}]
+          receipt (cond-> {:operation route :operationId requestId
+                           :cycleId requestId :selectionId (:selectionId selectionContract)
+                           :tickId (str tick-id) :correlationId (str correlation-id)
+                           :taskId task-id :targetStack targetStack
+                           :executionBackend executionBackend}
+                    measured? (assoc :parentCandidateId parentCandidateId
+                                     :parentCandidateDigest parentCandidateDigest))]
       (swap! tasks assoc requestId {:request request :routing-request routingRequest
                                     :receipt receipt :future trace})
       receipt)))
@@ -1796,15 +1775,12 @@
                                            :parent-candidate-digest (:subject-digest prior)))
                                   (assoc base :operation "fresh-generation"))]
                     (model/record-approved-slice-route! context decided)))]
-    (case (:operation route)
-      "fresh-generation" (submit-generation! (assoc request :routing-request request))
-      "measured-regeneration" (submit! (assoc request
-                                     :routing-request request
-                                     :parentCandidateId (:parent-candidate-id route)
-                                     :parentCandidateRoot (:parent-candidate-root route)
-                                     :parentCandidateDigest (:parent-candidate-digest route)))
-      (throw (ex-info "persisted approved-slice route has an unknown operation"
-                      {:route route})))))
+    (submit-slice-cycle! (cond-> (assoc request :routing-request request)
+                           (= "measured-regeneration" (:operation route))
+                           (assoc :parentCandidateId (:parent-candidate-id route)
+                                  :parentCandidateRoot (:parent-candidate-root route)
+                                  :parentCandidateDigest (:parent-candidate-digest route)))
+                         (:operation route))))
 
 (defn start-approved-cycle-preparation!
   "Translate one digest-approved preparation into the existing idempotent ORC
@@ -1812,9 +1788,7 @@
   [context preparation-id preparation-digest]
   (let [deadline (+ (System/nanoTime) (* 30 1000000000))
         _ (loop []
-            (when-not (and @runtime
-                           (get @workflows :generation)
-                           (get @workflows :cycle))
+            (when-not (and @runtime (get @workflows :slice-cycle))
               (when (>= (System/nanoTime) deadline)
                 (throw (ex-info "ORC cycle workflow was not ready for approved preparation"
                                 {:preparation-id preparation-id})))
@@ -1876,73 +1850,6 @@
     (java.util.UUID/fromString value)
     (catch IllegalArgumentException _
       (throw (ex-info (str (name field) " must be a UUID string") {field value})))))
-
-(defn- cycle-receipt [cycle-id tick-id correlation-id sheet-id status]
-  {:cycleId cycle-id
-   :tickId (str tick-id)
-   :correlationId (str correlation-id)
-   :sheetId (str sheet-id)
-   :status status})
-
-(defn- existing-cycle-receipt
-  [cycle-id tick-id correlation-id sheet-id tick]
-  (when-not (= sheet-id (:sheet-id tick))
-    (throw (ex-info "tickId belongs to a different ORC workflow"
-                    {:tickId (str tick-id)
-                     :expectedSheetId (str sheet-id)
-                     :actualSheetId (some-> (:sheet-id tick) str)})))
-  (when-not (= correlation-id (:correlation-id tick))
-    (throw (ex-info "tickId belongs to a different ORC correlation"
-                    {:tickId (str tick-id)
-                     :expectedCorrelationId (str correlation-id)
-                     :actualCorrelationId (some-> (:correlation-id tick) str)})))
-  (cycle-receipt cycle-id tick-id correlation-id sheet-id (name (:status tick))))
-
-(defn start-cycle!
-  "Start one ORC cycle with caller-supplied durable execution identities.
-
-   Repeated calls in one process return the same receipt. After restart, an
-   existing ORC tick is discovered from the durable tick projection."
-  [{:keys [cycleId tickId correlationId selectionContract scope targetStack
-           executionBackend]
-    :as request}]
-  (when-not (and (string? cycleId)
-                 (map? selectionContract)
-                 (= "approved" (:status selectionContract))
-                 (seq (:items selectionContract))
-                 (vector? scope)
-                 (string? targetStack)
-                 (not (str/blank? targetStack))
-                 (contains? #{"host" "gondolin"} executionBackend))
-    (throw (ex-info "start-cycle requires cycleId, durable identities, an approved selectionContract, scope, targetStack, and executionBackend"
-                    {:request request})))
-  (let [tick-id (parse-uuid-field :tickId tickId)
-        correlation-id (parse-uuid-field :correlationId correlationId)
-        _ (ensure-runtime!)
-        {:keys [context sheet-id]} (get @workflows :cycle)
-        receipt (cycle-receipt cycleId tick-id correlation-id sheet-id "running")]
-    (locking active-cycles
-      (if-let [existing (get @active-cycles tick-id)]
-        (if (= request (:request existing))
-          (:receipt existing)
-          (throw (ex-info "tickId was already used with a different payload"
-                          {:tickId tickId})))
-        (if-let [tick (orc/get-tick context tick-id)]
-          (existing-cycle-receipt cycleId tick-id correlation-id sheet-id tick)
-          (let [execution (future
-                            (orc/execute context sheet-id
-                                         {:request-id cycleId
-                                          :selection selectionContract
-                                          :scope scope
-                                          :target-stack targetStack
-                                          :execution-backend executionBackend
-                                          :orc-tick-id (str tick-id)}
-                                         :tick-id tick-id
-                                         :correlation-id correlation-id
-                                         :timeout-ms 900000))]
-            (swap! active-cycles assoc tick-id
-                   {:request request :receipt receipt :future execution})
-            receipt))))))
 
 (defn execution-status!
   "Return transport-safe execution state from ORC's durable tick read model."

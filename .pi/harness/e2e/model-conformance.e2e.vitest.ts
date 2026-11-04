@@ -500,15 +500,15 @@ test.skip("A final result requires every independent gate to pass", async () => 
     const outputs = context.outcome.result.outputs;
     assert.equal(outputs["oracle-result"].passed, true);
     assert.equal(outputs["verify-result"].passed, true);
-    assert.equal(outputs["result-result"].passed, false);
+    assert.equal(outputs["conclude-result"].gate.passed, false);
   });
   await and("every approved item was graded", async () => {
-    const measurement = context.outcome.result.outputs["cycle-result"];
+    const measurement = context.outcome.result.outputs["conclude-result"].cycle;
     assert.equal(measurement.total, context.selection.items.length);
     assert.equal(measurement.passed + measurement.failed, measurement.total);
   });
   await and("failed approved items remain in the denominator", async () => {
-    assert.ok(context.outcome.result.outputs["cycle-result"].failed > 0);
+    assert.ok(context.outcome.result.outputs["conclude-result"].cycle.failed > 0);
   });
 });
 

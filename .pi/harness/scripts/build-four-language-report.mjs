@@ -24,7 +24,7 @@ const repairs = {
 const stacks = [];
 for (const id of Object.keys(names)) {
   const b = baseline.stacks.find(x => x.id === id);
-  const observations = b.outcome.result.outputs["graders-result"].observations;
+  const observations = b.outcome.result.outputs["grade-result"].observations;
   const finished = final.stacks.find(x => x.id === id);
   const capture = await captureStats(path.join(profileEvidenceRoot, id));
   const baselineItems = Object.fromEntries(observations.map(x => {
