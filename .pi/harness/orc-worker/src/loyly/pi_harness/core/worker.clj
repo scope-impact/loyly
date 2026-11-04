@@ -988,7 +988,8 @@
    "Write /workspace/grader/grade.mjs. It must accept a public base URL as argv[2] "
    "followed by one or more '--item @item-NN-NNN' pairs, drive only that HTTP seam, "
    "and print one JSON array containing exactly one {itemId, verdict, evidence} object "
-   "per requested item. itemId omits the '@item-' prefix. Exit zero only when every "
+   "per requested item. itemId omits the '@item-' prefix and evidence must be a concise "
+   "non-empty string, never an object or array. Exit zero only when every "
    "requested item passes. Exercise behavior, not a rigid response schema: accept "
    "equivalent kebab/camel field spellings and semantically equivalent representations "
    "unless the Gherkin requires exact wording. The selected Gherkin is authoritative: "
@@ -997,7 +998,9 @@
    "the pass condition is confirmation and the resulting two holdings, not refusal.\n\n"
    "The public fixture's 'carried' role implements every selected scenario and must pass. "
    "Its 'uncarried' role deliberately violates only the requested item and must fail. "
-   "Use that protocol to make every selected item independently discriminating.\n\n"
+   "Use that protocol to make every selected item independently discriminating. Drive HTTP "
+   "with Playwright's API request context (context.request.fetch or request.newContext), not "
+   "page.evaluate/fetch, so calibration works without a browser page origin.\n\n"
    "Use playwright-core and Chromium at /usr/bin/chromium-browser. When "
    "HARNESS_EVIDENCE_ROOT is set, capture a genuine Playwright trace at "
    "$HARNESS_EVIDENCE_ROOT/playwright/baseline/trace.zip and write useful exchanges "
@@ -1017,6 +1020,19 @@
                                               (System/getenv "PI_BUILDER_MODEL")
                                               "gpt-5.6-luna"))))))
 
+(defn- valid-calibration-case? [{:keys [itemId role exitCode stdout]}]
+  (try
+    (let [payload (json/read-str stdout :key-fn keyword)
+          verdict (when (and (vector? payload) (= 1 (count payload))) (first payload))
+          expected-id (str/replace itemId #"^@item-" "")
+          expected-verdict (if (= role "carried") "pass" "fail")]
+      (and (= (:itemId verdict) expected-id)
+           (= (:verdict verdict) expected-verdict)
+           (string? (:evidence verdict))
+           (not (str/blank? (:evidence verdict)))
+           (if (= role "carried") (zero? exitCode) (not (zero? exitCode)))))
+    (catch Exception _ false)))
+
 (defn- grader-calibration! [inputs grader-root]
   (let [selected-items (get-in inputs [:selection :items])
         fixture-source (slurp (str (cuts-root) "/" (get-in inputs [:selection :cut])
@@ -1029,11 +1045,7 @@
         result (run-oracle-fixture-adapter {:fixtureSource fixture-source
                                             :graderRoot grader-root
                                             :cases cases})
-        failures (filterv (fn [{:keys [role exitCode]}]
-                            (if (= role "carried")
-                              (not (zero? exitCode))
-                              (zero? exitCode)))
-                          (:cases result))]
+        failures (filterv (complement valid-calibration-case?) (:cases result))]
     (when (seq failures)
       (throw (ex-info "authored black-box grader failed carried/uncarried calibration"
                       {:failures failures})))

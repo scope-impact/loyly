@@ -497,8 +497,10 @@
                   worker/run-oracle-fixture-adapter
                   (fn [request]
                     (reset! fixture-request request)
-                    {:cases [{:itemId "@item-01-007" :role "carried" :exitCode 0}
-                             {:itemId "@item-01-007" :role "uncarried" :exitCode 1}]})]
+                    {:cases [{:itemId "@item-01-007" :role "carried" :exitCode 0
+                              :stdout "[{\"itemId\":\"01-007\",\"verdict\":\"pass\",\"evidence\":\"carried\"}]"}
+                             {:itemId "@item-01-007" :role "uncarried" :exitCode 1
+                              :stdout "[{\"itemId\":\"01-007\",\"verdict\":\"fail\",\"evidence\":\"uncarried\"}]"}]})]
       (let [result (worker/ensure-baseline-grader! inputs)]
         (is (= "/sealed/grader" (:grader-root result)))
         (is (not (contains? @author-request :candidateRoot)))
