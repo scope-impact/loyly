@@ -33,12 +33,34 @@
     (is (= {:prompt "Build from the approved cut."}
            (executor {:node {:instruction "Build from the approved cut."}})))))
 
-(deftest generation-runs-affordance-conformance-before-verification
+(deftest fresh-generation-runs-affordance-conformance-inside-grade
   (let [stages (:stages (generation-workflow/contract))]
-    (is (= "affordance-conformance"
-           (nth stages (inc (.indexOf stages "instrument")))))
-    (is (< (.indexOf stages "affordance-conformance")
-           (.indexOf stages "verify")))))
+    (is (= ["cut" "harness-snapshot" "fenced-build" "verify"
+            "repair-verification" "grade"] stages))
+    (is (not-any? #{"affordance-conformance"} stages))))
+
+(deftest fresh-generation-exposes-the-approved-top-level-contract
+  (let [contract (generation-workflow/contract)]
+    (is (= "fresh-generation" (:operation contract)))
+    (is (= "pi-harness-fresh-generation" (:workflowName contract)))
+    (is (= ["cut" "harness-snapshot" "fenced-build" "verify"
+            "repair-verification" "grade"]
+           (:stages contract)))))
+
+(deftest harness-snapshot-stage-never-resolves-a-published-instrument-oracle
+  (with-redefs [harness-calibration/calibrate!
+                (fn [root]
+                  (is (= "/repo" root))
+                  {:passed true :harness-revision "33e537c"
+                   :harness-snapshot-digest "sha256:snapshot"
+                   :mismatches [] :actual {} :suites {}})
+                worker/project-root (constantly "/repo")]
+    (let [result (worker/harness-snapshot-stage
+                  {:inputs {:request-id "fresh-1" :selection approved-selection
+                            :scope ["impl"] :execution-backend "gondolin"}})]
+      (is (true? (:passed result)))
+      (is (= "harness-snapshot" (:stage result)))
+      (is (= "sha256:snapshot" (:harness-snapshot-digest result))))))
 
 (deftest affordance-conformance-preserves-a-flexible-independent-browser-verdict
   (let [request (atom nil)]
@@ -297,8 +319,8 @@
                clojure.lang.ExceptionInfo
                #"different approved-slice payload"
                (worker/submit-approved-slice! (assoc request :scope ["different"]))))
-          (is (= "generation" (:operation receipt)))
-          (is (= "generation"
+          (is (= "fresh-generation" (:operation receipt)))
+          (is (= "fresh-generation"
                  (:operation (model/find-approved-slice-route
                               (worker/runtime-context) "route-generation-1"))))
           (is (instance? java.util.UUID (:sheet-id @executed)))
@@ -321,7 +343,7 @@
                         :selectionContract approved-selection
                         :scope ["impl"] :targetStack "typescript"
                         :executionBackend "gondolin"})]
-          (is (= "regeneration" (:operation receipt)))
+          (is (= "measured-regeneration" (:operation receipt)))
           (is (= "candidate-previous"
                  (:parent-candidate-id
                   (model/find-approved-slice-route
@@ -358,16 +380,29 @@
                                  (constantly {:grader-root "/judge"
                                               :binding-digest "sha256:binding"
                                               :calibration {:cases []}})
-                                 worker/harness-calibration-stage
+                                 worker/harness-snapshot-stage
                                  (fn [{:keys [inputs]}]
-                                   {:stage "harness-calibration"
+                                   {:stage "harness-snapshot"
                                     :request-id (:request-id inputs)
                                     :cut (get-in inputs [:selection :cut])
                                     :scope (:scope inputs)
                                     :execution-backend (:execution-backend inputs)
                                     :passed true
-                                    :instrument-oracle-digest "instrument-digest"
+                                    :harness-revision "33e537c"
+                                    :harness-snapshot-digest "sha256:snapshot"
                                     :calibration-results "{}"
+                                    :evidence "{}"})
+                                 worker/cycle-oracle-stage
+                                 (fn [{:keys [inputs]}]
+                                   {:stage "cycle-oracle"
+                                    :request-id (:request-id inputs)
+                                    :cut (get-in inputs [:selection :cut])
+                                    :scope (:scope inputs)
+                                    :execution-backend (:execution-backend inputs)
+                                    :passed true :grader-root "/judge"
+                                    :cycle-oracle-digest "sha256:cycle-oracle"
+                                    :binding-digest "sha256:binding"
+                                    :author-session-id "grader-session"
                                     :evidence "{}"})
                                  worker/run-builder-adapter
                                  (fn [_] {:output-root "/tmp/generated-candidate"
@@ -446,10 +481,8 @@
                                    :execution-backend "gondolin"}))
             outputs (:outputs result)]
         (is (= :success (:status result)) (pr-str result))
-        (is (= ["cut" "harness-calibration" "builder" "instrument"
-                "affordance-conformance" "verify"
-                "repair-verification" "baseline-grade" "instrument-conformance"
-                "repair-evaluation" "materialize-allure" "propose-oracle"]
+        (is (= ["cut" "harness-snapshot" "fenced-build" "verify"
+                "repair-verification" "grade"]
                (:stages (generation-workflow/contract))))
         (is (= "proposed" (get-in outputs [:oracle-proposal-result :status])))
         (is (not (contains? outputs :generation-result)))
@@ -484,7 +517,7 @@
         fixture-request (atom nil)
         inputs {:execution-backend "gondolin"
                 :selection approved-selection
-                :harness-calibration-result {:instrument-oracle-digest "sha256:instrument"}}]
+                :harness-snapshot-result {:harness-snapshot-digest "sha256:instrument"}}]
     (.mkdirs (.getParentFile fixture))
     (spit fixture "fixture")
     (with-redefs [worker/project-root (constantly "/repo")
@@ -506,6 +539,8 @@
         (is (not (contains? @author-request :candidateRoot)))
         (is (not (contains? @author-request :evidenceRoot)))
         (is (= ["@item-01-007"] (:itemIds @author-request)))
+        (is (= "sha256:instrument" (:harnessSnapshotDigest @author-request)))
+        (is (= "digest-1" (:selectionDigest @author-request)))
         (is (re-find #"carried.*must pass" (:prompt @author-request)))
         (is (re-find #"context.close.*no dispose" (:prompt @author-request)))
         (is (= ["carried" "uncarried"] (mapv :role (:cases @fixture-request))))))))
@@ -601,7 +636,8 @@
                                   worker/instrument-oracle-ref (constantly "instrument-oracle-test")
                                   harness-calibration/calibrate!
                                   (fn [& _] {:passed true
-                                             :oracle-digest "instrument-oracle-test"
+                                             :harness-revision "33e537c"
+                                             :harness-snapshot-digest "harness-snapshot-test"
                                              :mismatches [] :suites {}})
                                   worker/run-oracle (constantly {:passed true :oracle-digest "oracle-test"
                                                                  :grader-root "/oracle/grader"
@@ -663,8 +699,8 @@
                      [:cut-result :harness-calibration-result :builder-result :instrument-result
                       :repair-verification-result :graders-result
                       :instrument-conformance-result :result-result])))
-        (is (= "instrument-oracle-test"
-               (get-in result [:outputs :harness-calibration-result :instrument-oracle-digest])))
+        (is (= "harness-snapshot-test"
+               (get-in result [:outputs :harness-calibration-result :harness-snapshot-digest])))
         (is (true? (get-in result [:outputs :instrument-conformance-result :passed])))
         (is (true? (get-in result [:outputs :result-result :instrumented?])))
         (is (= 1 (get-in result [:outputs :cycle-result :total]))))
@@ -703,7 +739,7 @@
     (is (re-find #"tests passed" (:evidence result)))
     (is (re-find #"app ready" (:evidence result)))))
 
-(deftest verification-rejects-an-api-only-affordance-result
+(deftest verification-is-limited-to-the-fenced-build-contract
   (let [context {:inputs {:request-id "request-api-only"
                           :selection approved-selection
                           :scope ["impl"]
@@ -720,8 +756,8 @@
         result (with-redefs [worker/run-grader-adapter (constantly compose-evidence)
                              stack-conformance/check (constantly {:passed true})]
                  (worker/verify-stage context))]
-    (is (false? (:passed result)))
-    (is (re-find #"affordance" (:evidence result)))))
+    (is (true? (:passed result)))
+    (is (not (re-find #"affordance" (:evidence result))))))
 
 (deftest affordance-conformance-passes-when-the-contract-does-not-apply-to-the-slice
   (let [request (atom nil)
@@ -788,7 +824,7 @@
     (is (= "/state/request-repair.evidence" (:verification-evidence-root @builder-call)))
     (is (= 2 (:round @builder-call)))
     (is (= "/state/request-repair-repair-02" (get-in result [:builder :output-root])))
-    (is (true? (get-in result [:affordance :passed])))
+    (is (nil? (:affordance result)))
     (is (true? (get-in result [:verify :passed])))))
 
 (deftest independent-grading-never-runs-for-an-unverified-candidate
@@ -1193,7 +1229,7 @@
 
 (deftest valid-poor-score-completes-the-cycle
   (is (= {:stage "result"
-          :operation "regeneration"
+          :operation "measured-regeneration"
           :request-id "request-failed-grade"
           :cut "cut-1"
           :scope ["impl"]

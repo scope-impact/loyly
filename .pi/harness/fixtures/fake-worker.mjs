@@ -6,7 +6,7 @@ rl.on("line", (line) => {
   const result = request.method === "cwd"
     ? { cwd: process.cwd() }
     : request.method === "submit-approved-slice"
-      ? { operation: "generation", operationId: request.params.requestId, taskId: 7 }
+      ? { operation: "fresh-generation", operationId: request.params.requestId, taskId: 7 }
       : { status: "completed", result: { outputs: { "graders-result": { stage: "graders" } } } };
   process.stdout.write(JSON.stringify({ id: request.id, ok: true, result }) + "\n");
 });

@@ -1,6 +1,35 @@
 (ns loyly.pi-harness.core.oracle.harness-calibration-test
   (:require [clojure.test :refer [deftest is]]
-            [loyly.pi-harness.core.oracle.harness-calibration :as calibration]))
+            [loyly.pi-harness.core.oracle.harness-calibration :as calibration]
+            [loyly.pi-harness.core.oracle.harness-snapshot :as snapshot]))
+
+(deftest fresh-harness-calibration-builds-a-local-sealed-snapshot
+  (let [called (atom nil)]
+    (with-redefs [snapshot/build! (fn [root]
+                                   (reset! called root)
+                                   {:harness-revision "33e537c"
+                                    :manifest-digest (str "sha256:" (apply str (repeat 64 "a")))
+                                    :artifacts [{:path "harness" :digest "sha256:artifact"}]
+                                    :components calibration/required-components
+                                    :fixtures [{:id "carried" :role "carried"}
+                                               {:id "uncarried" :role "uncarried"}]
+                                    :goldens [{:labels {:fixture_id "carried"}}
+                                              {:labels {:fixture_id "uncarried"}}]})
+                  calibration/run-suites
+                  (fn [_ fixtures]
+                    {:fixture-results (zipmap (map :id fixtures) (repeat true))
+                     :suites {:clojure-worker {:exit-code 0}
+                              :node-adapters {:exit-code 0}}})
+                  calibration/evaluate
+                  (fn [_ fixture-results]
+                    {:passed (every? true? (vals fixture-results))
+                     :mismatches [] :actual {}})]
+      (let [result (calibration/calibrate! "/repo")]
+        (is (= "/repo" @called))
+        (is (true? (:passed result)))
+        (is (= "33e537c" (:harness-revision result)))
+        (is (= (str "sha256:" (apply str (repeat 64 "a")))
+               (:harness-snapshot-digest result)))))))
 
 (deftest full-harness-calibration-rejects-an-uncovered-component
   (let [pack {:instruments [{:id "full-pi-harness"

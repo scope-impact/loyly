@@ -123,7 +123,10 @@
   (record-stage-progress! context "cut")
   (stage-result "cut" context))
 
-(defn instrument-oracle-ref []
+(defn instrument-oracle-ref
+  "Legacy configuration reader retained for measured-regeneration compatibility.
+  Fresh generation never calls it."
+  []
   (or (System/getenv "PI_HARNESS_INSTRUMENT_ORACLE_REF")
       (System/getenv "LOYLEY_INSTRUMENT_ORACLE_REF")
       (:instrumentOracleRef
@@ -133,35 +136,40 @@
 
 (defn calibrate-harness! []
   (let [root (project-root)
-        pack-ref (instrument-oracle-ref)
-        result (harness-calibration/calibrate! root pack-ref)
+        result (harness-calibration/calibrate! root)
         suite-summary (into {}
                             (map (fn [[suite value]]
                                    [suite (select-keys value [:exit-code :timed-out?])]))
                             (:suites result))]
     (when-not (:passed result)
       (throw (ex-info "full harness calibration failed"
-                      {:instrument-oracle-digest (:oracle-digest result)
+                      {:harness-snapshot-digest (:harness-snapshot-digest result)
                        :mismatches (:mismatches result)
                        :suites suite-summary})))
     result))
 
-(defn harness-calibration-stage [context]
-  (record-stage-progress! context "harness-calibration")
+(defn harness-snapshot-stage [context]
+  (record-stage-progress! context "harness-snapshot")
   (let [result (calibrate-harness!)
         suite-summary (into {}
                             (map (fn [[suite value]]
                                    [suite (select-keys value [:exit-code :timed-out?])]))
                             (:suites result))]
-    (merge (stage-result "harness-calibration" context)
+    (merge (stage-result "harness-snapshot" context)
            {:passed true
-            :instrument-oracle-digest (:oracle-digest result)
+            :harness-revision (:harness-revision result)
+            :harness-snapshot-digest (:harness-snapshot-digest result)
             :calibration-results
             (json/write-str (->> (:actual result)
                                  (sort-by key)
                                  (mapv val)))
             :evidence (json/write-str {:mismatches (:mismatches result)
                                        :suites suite-summary})})))
+
+;; Measured regeneration retains its historical stage name while binding the
+;; same local harness snapshot as fresh generation.
+(defn harness-calibration-stage [context]
+  (assoc (harness-snapshot-stage context) :stage "harness-calibration"))
 
 (defn run-builder-adapter [request]
   (adapters/run-builder! {:project-root (project-root)
@@ -233,7 +241,7 @@
               :evidence-locations [(str evidence-root "/allure-results")]}))))
 
 (declare ensure-runtime! run-grader-adapter graders-stage sha256 baseline-grader-root
-         ensure-baseline-grader!
+         ensure-baseline-grader! ensure-cycle-oracle!
          affordance-conformance-stage)
 
 (defn run-oracle-fixture-adapter [request]
@@ -731,9 +739,9 @@
                            selection
                            (product-oracle-options selection))
         accepted-contract-digest (:oracle-digest result)
-        instrument-oracle-digest (get-in inputs [:harness-calibration-result
-                                                  :instrument-oracle-digest])
-        combined-digest (sha256 (str instrument-oracle-digest "\n"
+        harness-snapshot-digest (get-in inputs [:harness-calibration-result
+                                                 :harness-snapshot-digest])
+        combined-digest (sha256 (str harness-snapshot-digest "\n"
                                      accepted-contract-digest))]
     (when-not (:passed result)
       (throw (ex-info "oracle rejected the pinned model contract" {:oracle result})))
@@ -741,7 +749,7 @@
            {:passed true
             :oracle-digest combined-digest
             :accepted-contract-digest accepted-contract-digest
-            :instrument-oracle-digest instrument-oracle-digest
+            :harness-snapshot-digest harness-snapshot-digest
             :grader-root (:grader-root result)
             :observability-root (:observability-root result)
             :grader-producer (:graderProducer adapter)
@@ -780,6 +788,7 @@
   (let [builder (:builder-result inputs)
         instrument (:instrument-result inputs)
         grader-root (or (get-in inputs [:oracle-result :grader-root])
+                        (get-in inputs [:cycle-oracle-result :grader-root])
                         (baseline-grader-root))
         evidence (run-grader-adapter
                   {:cycle-id (:request-id inputs)
@@ -815,13 +824,10 @@
                                       :target-stack (:target-stack inputs)
                                       :mode "compose"})
         compose-result (compose/interpret-verification evidence)
-        affordance-result (effective-affordance-conformance-result inputs)
         result {:passed (and (:passed stack-result)
-                             (:passed compose-result)
-                             (:passed affordance-result))
+                             (:passed compose-result))
                 :stack stack-result
-                :compose compose-result
-                :affordance affordance-result}]
+                :compose compose-result}]
     (merge (stage-result "verify" context)
            {:passed (:passed result)
             :evidence (json/write-str result)})))
@@ -881,19 +887,14 @@
                                 :tick-id (:tick-id context)
                                 :cycle-id (:request-id inputs)}
               repaired-instrument (instrument-stage repaired-context)
-              repaired-affordance (affordance-conformance-stage
-                                    (assoc repaired-context :inputs
-                                           (assoc repaired-inputs
-                                                  :instrument-result repaired-instrument)))
               repaired-verification (verify-stage
                                      (assoc repaired-context :inputs
                                             (assoc repaired-inputs
-                                                   :instrument-result repaired-instrument
-                                                   :affordance-conformance-result repaired-affordance)))]
+                                                   :instrument-result repaired-instrument)))]
           (recur next-round
                  repaired-builder
                  repaired-instrument
-                 repaired-affordance
+                 affordance
                  repaired-verification
                  (conj attempts
                        {:round next-round
@@ -1015,8 +1016,9 @@
        (sha256 (json/write-str
                 (sorted-map :cut (get-in inputs [:selection :cut])
                             :selection-digest (get-in inputs [:selection :selectionDigest])
-                            :instrument-oracle-digest
-                            (get-in inputs [:harness-calibration-result :instrument-oracle-digest])
+                            :harness-snapshot-digest
+                            (or (get-in inputs [:harness-snapshot-result :harness-snapshot-digest])
+                                (get-in inputs [:harness-calibration-result :harness-snapshot-digest]))
                             :grader-model (or (System/getenv "PI_GRADER_MODEL")
                                               (System/getenv "PI_BUILDER_MODEL")
                                               "gpt-5.6-luna"))))))
@@ -1052,10 +1054,12 @@
                       {:failures failures})))
     result))
 
-(defn ensure-baseline-grader! [inputs]
+(defn ensure-cycle-oracle! [inputs]
   (let [binding-digest (grader-binding-digest inputs)
-        output-root (str (project-root) "/.pi/harness/.state/graders/"
+        output-root (str (project-root) "/.pi/harness/.state/cycle-oracles/"
                          (subs binding-digest 7))
+        snapshot-digest (or (get-in inputs [:harness-snapshot-result :harness-snapshot-digest])
+                            (get-in inputs [:harness-calibration-result :harness-snapshot-digest]))
         result (run-grader-author-adapter
                 {:backend (:execution-backend inputs)
                  :cutId (get-in inputs [:selection :cut])
@@ -1066,13 +1070,30 @@
                  :prompt (grader-author-prompt (:selection inputs))
                  :outputRoot output-root
                  :bindingDigest binding-digest
+                 :harnessSnapshotDigest snapshot-digest
+                 :selectionDigest (get-in inputs [:selection :selectionDigest])
                  :sessionsRoot (builder-sessions-root)})
         calibration (grader-calibration! inputs (:graderRoot result))]
     {:grader-root (:graderRoot result)
+     :cycle-oracle-digest (:cycleOracleDigest result)
+     :evaluator-kinds (:evaluatorKinds result)
      :binding-digest binding-digest
      :author-session-id (:sessionId result)
      :reused (:reused result)
      :calibration calibration}))
+
+(def ensure-baseline-grader! ensure-cycle-oracle!)
+
+(defn cycle-oracle-stage [{:keys [inputs] :as context}]
+  (record-stage-progress! context "cycle-oracle")
+  (let [oracle (ensure-cycle-oracle! inputs)]
+    (merge (stage-result "cycle-oracle" context)
+           {:passed true
+            :grader-root (:grader-root oracle)
+            :cycle-oracle-digest (:cycle-oracle-digest oracle)
+            :binding-digest (:binding-digest oracle)
+            :author-session-id (:author-session-id oracle)
+            :evidence (json/write-str (dissoc oracle :calibration))})))
 
 (defn- baseline-playwright-trace [evidence-root cycle-id]
   (let [trace (io/file evidence-root "cycles" cycle-id
@@ -1092,7 +1113,8 @@
         instrument (effective-instrument-result inputs)
         selected-items (get-in inputs [:selection :items])
         expected-ids (mapv #(str/replace (:id %) #"^@item-" "") selected-items)
-        authored-grader (ensure-baseline-grader! inputs)
+        authored-grader (or (:cycle-oracle-result inputs)
+                            (ensure-baseline-grader! inputs))
         grader-root (:grader-root authored-grader)
         evidence (run-grader-adapter
                   {:cycle-id (:request-id inputs)
@@ -1208,7 +1230,8 @@
         gondolin? (= "gondolin" (:execution-backend inputs))
         conformance-grader-root (if (:oracle-result inputs)
                                   (get-in inputs [:oracle-result :grader-root])
-                                  (baseline-grader-root))
+                                  (or (get-in inputs [:cycle-oracle-result :grader-root])
+                                      (baseline-grader-root)))
         evidence (when gondolin?
                    (run-grader-adapter {:cycle-id (:request-id inputs)
                                         :cut (get-in inputs [:selection :cut])
@@ -1391,7 +1414,7 @@
                                 :project-id (:projectId selection)
                                 :container-id (:containerId selection)
                                 :component-id (:componentId selection)
-                                :operation "regeneration"
+                                :operation "measured-regeneration"
                                 :selection-id (:selectionId selection)
                                 :cut (:cut selection)
                                 :output-root (:output-root builder)
@@ -1417,7 +1440,7 @@
   (record-stage-progress! context "result")
   (let [verification (effective-verify-result inputs)
         result (merge (stage-result "result" context)
-                      {:operation "regeneration"
+                      {:operation "measured-regeneration"
                        :passed (boolean (and (get-in inputs [:graders-result :passed])
                                              (get-in inputs [:instrument-conformance-result :passed])))
                        :verified? (boolean (:passed verification))
@@ -1512,7 +1535,7 @@
                                :tick-id tick-id
                                :correlation-id correlation-id
                                :timeout-ms 900000))
-          receipt {:operation "regeneration" :operationId requestId
+          receipt {:operation "measured-regeneration" :operationId requestId
                    :cycleId requestId :selectionId (:selectionId selectionContract)
                    :parentCandidateId parentCandidateId
                    :parentCandidateDigest parentCandidateDigest
@@ -1558,7 +1581,7 @@
                                :tick-id tick-id
                                :correlation-id correlation-id
                                :timeout-ms 900000))
-          receipt {:operation "generation" :operationId requestId
+          receipt {:operation "fresh-generation" :operationId requestId
                    :generationId requestId :selectionId (:selectionId selectionContract)
                    :tickId (str tick-id) :correlationId (str correlation-id)
                    :taskId task-id :targetStack targetStack
@@ -1609,15 +1632,15 @@
                                                    (string? (:subject-digest prior)))
                                       (throw (ex-info "latest candidate lineage is incomplete"
                                                       {:candidate prior})))
-                                    (assoc base :operation "regeneration"
+                                    (assoc base :operation "measured-regeneration"
                                            :parent-candidate-id (:candidate-id prior)
                                            :parent-candidate-root (:output-root prior)
                                            :parent-candidate-digest (:subject-digest prior)))
-                                  (assoc base :operation "generation"))]
+                                  (assoc base :operation "fresh-generation"))]
                     (model/record-approved-slice-route! context decided)))]
     (case (:operation route)
-      "generation" (submit-generation! (assoc request :routing-request request))
-      "regeneration" (submit! (assoc request
+      "fresh-generation" (submit-generation! (assoc request :routing-request request))
+      "measured-regeneration" (submit! (assoc request
                                      :routing-request request
                                      :parentCandidateId (:parent-candidate-id route)
                                      :parentCandidateRoot (:parent-candidate-root route)

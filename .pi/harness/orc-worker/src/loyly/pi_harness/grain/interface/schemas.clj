@@ -29,7 +29,7 @@
    [:project-id :string]
    [:container-id :string]
    [:component-id :string]
-   [:operation [:enum "generation" "regeneration"]]
+   [:operation [:enum "fresh-generation" "measured-regeneration"]]
    [:parent-candidate-id {:optional true} :string]
    [:selection-id :string]
    [:cut :string]
@@ -71,7 +71,7 @@
    [:container-id :string]
    [:component-id :string]
    [:selection-id :string]
-   [:operation [:enum "generation" "regeneration"]]
+   [:operation [:enum "fresh-generation" "measured-regeneration"]]
    [:parent-candidate-id {:optional true} :string]
    [:parent-candidate-root {:optional true} :string]
    [:parent-candidate-digest {:optional true} :string]])

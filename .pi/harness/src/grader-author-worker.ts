@@ -1,16 +1,17 @@
-import { cp, chmod, mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, writeFile } from "node:fs/promises";
-import { createHash } from "node:crypto";
+import { cp, mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { getModel } from "@earendil-works/pi-ai/compat";
 import { createAgentSession, createBashToolDefinition, createExtensionRuntime, getAgentDir, ModelRuntime, SessionManager, SettingsManager, type ResourceLoader } from "@earendil-works/pi-coding-agent";
 import { openBuilderRoom } from "./builder-room.ts";
 import { executionBackend, type ExecutionBackend } from "./execution-backend.ts";
+import { sealCycleOracleBundle, validateCycleOracleBundle } from "./cycle-oracle-bundle.ts";
 
 type Request = {
   backend: ExecutionBackend; cutId: string; cutsRoot: string; projectId: string;
   slice: string; itemIds: string[]; prompt: string; outputRoot: string;
   bindingDigest: string; sessionsRoot: string;
+  harnessSnapshotDigest: string; selectionDigest: string;
 };
 
 const request = JSON.parse(await readStdin()) as Request;
@@ -28,6 +29,8 @@ try {
     await mkdir(path.join(restrictedCut, "public-protocol"), { recursive: true });
     await cp(path.join(cutRoot, "docs", "plan", request.slice, "spec.feature"), path.join(restrictedCut, "spec.feature"));
     await cp(path.join(cutRoot, "model", request.projectId, "fixtures", "oracle-fixture-server.mjs"), path.join(restrictedCut, "public-protocol", "fixture-server.mjs"));
+    await copyIfPresent(path.join(cutRoot, "model", request.projectId, "affordances.yaml"), path.join(restrictedCut, "affordances.yaml"));
+    await copyIfPresent(path.join(cutRoot, "model", request.projectId, "runtime-evidence-contract.json"), path.join(restrictedCut, "runtime-evidence-contract.json"));
     await writeFile(path.join(restrictedCut, "selection.json"), JSON.stringify({ slice: request.slice, itemIds: request.itemIds }, null, 2) + "\n");
 
     room = await openBuilderRoom({
@@ -72,17 +75,17 @@ try {
     if (!(await readdir(authoredRoot)).includes("grade.mjs")) throw new Error("grader author produced no grade.mjs");
     await stat(path.join(authoredRoot, "grade.mjs"));
     await mkdir(path.dirname(request.outputRoot), { recursive: true });
-    await rm(request.outputRoot, { recursive: true, force: true });
-    await cp(authoredRoot, request.outputRoot, { recursive: true, force: true });
+    const applicability = await detectApplicability(restrictedCut, request);
+    const validatorsRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../conformance");
+    const sealed = await sealCycleOracleBundle({
+      authoredRoot, validatorsRoot, outputRoot: request.outputRoot,
+      bindingDigest: request.bindingDigest, harnessSnapshotDigest: request.harnessSnapshotDigest,
+      selectionDigest: request.selectionDigest, sessionId, model: model.id, applicability,
+    });
     const playwrightRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../node_modules/playwright-core");
     await mkdir(path.join(request.outputRoot, "node_modules"), { recursive: true });
     await cp(playwrightRoot, path.join(request.outputRoot, "node_modules", "playwright-core"), { recursive: true, force: true });
-    const graderDigest = await fileDigest(path.join(request.outputRoot, "grade.mjs"));
-    const manifestPath = path.join(request.outputRoot, "manifest.json");
-    await writeFile(manifestPath, JSON.stringify({ version: 1, bindingDigest: request.bindingDigest, graderDigest, sessionId, model: model.id }, null, 2) + "\n");
-    await chmod(path.join(request.outputRoot, "grade.mjs"), 0o444);
-    await chmod(manifestPath, 0o444);
-    process.stdout.write(JSON.stringify({ ok: true, result: { graderRoot: request.outputRoot, bindingDigest: request.bindingDigest, graderDigest, sessionId, reused: false } }) + "\n");
+    process.stdout.write(JSON.stringify({ ok: true, result: { ...sealed, reused: false } }) + "\n");
   }
 } catch (error) {
   process.stdout.write(JSON.stringify({ ok: false, error: error instanceof Error ? error.message : String(error) }) + "\n");
@@ -93,17 +96,11 @@ try {
 }
 
 async function reusableResult(value: Request) {
-  const manifest = JSON.parse(await readFile(path.join(value.outputRoot, "manifest.json"), "utf8"));
-  if (manifest.bindingDigest !== value.bindingDigest) throw new Error("sealed grader binding changed");
-  const graderPath = path.join(value.outputRoot, "grade.mjs");
-  await stat(graderPath);
-  const graderDigest = await fileDigest(graderPath);
-  if (graderDigest !== manifest.graderDigest) throw new Error("sealed grader content changed");
-  return { graderRoot: value.outputRoot, bindingDigest: value.bindingDigest, graderDigest, sessionId: manifest.sessionId, reused: true };
-}
-
-async function fileDigest(file: string) {
-  return `sha256:${createHash("sha256").update(await readFile(file)).digest("hex")}`;
+  const manifest = await validateCycleOracleBundle(value.outputRoot, value.bindingDigest);
+  if (manifest.harnessSnapshotDigest !== value.harnessSnapshotDigest || manifest.selectionDigest !== value.selectionDigest) {
+    throw new Error("sealed cycle oracle contract changed");
+  }
+  return { ...manifest, reused: true };
 }
 
 function validateRequest(value: Request) {
@@ -111,7 +108,25 @@ function validateRequest(value: Request) {
   if (!/^[A-Za-z0-9._-]+$/.test(value.projectId)) throw new Error("invalid grader project identity");
   if (!/^[A-Za-z0-9._-]+$/.test(value.slice)) throw new Error("invalid grader slice identity");
   if (!value.itemIds.length || !value.itemIds.every((id) => /^@item-[0-9]+-[0-9]+$/.test(id))) throw new Error("invalid grader item identities");
-  if (!value.prompt || !value.bindingDigest.startsWith("sha256:")) throw new Error("grader author binding is incomplete");
+  if (!value.prompt || !value.bindingDigest.startsWith("sha256:") ||
+      !value.harnessSnapshotDigest.startsWith("sha256:") || !value.selectionDigest.startsWith("sha256:")) {
+    throw new Error("grader author binding is incomplete");
+  }
+}
+
+async function copyIfPresent(source: string, destination: string) {
+  try { await stat(source); await cp(source, destination, { recursive: true }); } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+}
+
+async function detectApplicability(restrictedCut: string, value: Request) {
+  const affordance = await readFile(path.join(restrictedCut, "affordances.yaml"), "utf8")
+    .then((text) => text.includes(value.slice)).catch(() => false);
+  const runtime = await readFile(path.join(restrictedCut, "runtime-evidence-contract.json"), "utf8")
+    .then((text) => value.itemIds.some((item) => text.includes(item)))
+    .catch(() => false);
+  return { affordance, runtime };
 }
 
 function readStdin(): Promise<string> {

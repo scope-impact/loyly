@@ -21,5 +21,5 @@
     (is (= "" (:stderr result)))
     (is (= {:id 1
             :ok true
-            :result {:operation "generation" :operationId "request-1" :taskId 7}}
+            :result {:operation "fresh-generation" :operationId "request-1" :taskId 7}}
            (:response result)))))

@@ -12,7 +12,7 @@ export type CycleRequest = {
 export type CutReceipt = { cutId: string; taskId: number; executionBackend: "host" | "gondolin" };
 
 export type OperationReceipt = {
-  operation: "generation" | "regeneration";
+  operation: "fresh-generation" | "measured-regeneration";
   operationId: string;
   selectionId: string;
   parentCandidateId?: string;

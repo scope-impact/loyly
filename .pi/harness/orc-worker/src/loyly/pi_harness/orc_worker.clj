@@ -37,6 +37,7 @@
 (def prepare-cut-stage worker/prepare-cut-stage)
 (def cut-stage worker/cut-stage)
 (def harness-calibration-stage worker/harness-calibration-stage)
+(def harness-snapshot-stage worker/harness-snapshot-stage)
 (def builder-stage worker/builder-stage)
 (def instrument-stage worker/instrument-stage)
 (def oracle-stage worker/oracle-stage)
@@ -44,6 +45,7 @@
 (def repair-verification-stage worker/repair-verification-stage)
 (def graders-stage worker/graders-stage)
 (def instrument-conformance-stage worker/instrument-conformance-stage)
+(def cycle-oracle-stage worker/cycle-oracle-stage)
 (def record-cycle-stage worker/record-cycle-stage)
 (def grade-gate-stage worker/grade-gate-stage)
 

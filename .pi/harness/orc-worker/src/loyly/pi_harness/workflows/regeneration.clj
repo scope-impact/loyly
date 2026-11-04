@@ -28,7 +28,8 @@
                                     [:scope [:vector :string]]
                                     [:execution-backend :string]
                                     [:passed :boolean]
-                                    [:instrument-oracle-digest :string]
+                                    [:harness-revision :string]
+                                    [:harness-snapshot-digest :string]
                                     [:calibration-results :string]
                                     [:evidence :string]]
        :builder-result [:map
@@ -56,7 +57,7 @@
                        [:passed :boolean]
                        [:oracle-digest :string]
                        [:accepted-contract-digest :string]
-                       [:instrument-oracle-digest :string]
+                       [:harness-snapshot-digest :string]
                        [:grader-root :string]
                        [:grader-producer :string]
                        [:grader-id :string]
@@ -229,7 +230,7 @@
   "Transport-safe description of the executable regeneration workflow."
   []
   (let [{:keys [workflow-name blackboard-schema root-node]} (workflow)]
-    {:operation "regeneration"
+    {:operation "measured-regeneration"
      :workflowName workflow-name
      :rootType (name (:node-type root-node))
      :stages (mapv :name (:children root-node))

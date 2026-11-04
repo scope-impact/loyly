@@ -9,14 +9,14 @@
         tenant #uuid "27e205ec-80c4-3e7c-86ca-9a8cc66e51e7"
         generation {:candidate-id "candidate-1"
                     :project-id "loyly" :container-id "loyly"
-                    :component-id "booking-core" :operation "generation"
+                    :component-id "booking-core" :operation "fresh-generation"
                     :selection-id "selection-1" :cut "cut-1"
                     :output-root "/state/candidates/1"
                     :subject-digest "sha256:candidate-1"
                     :disposition "baseline-measured"
                     :oracle-descriptor-digest "sha256:oracle-1"}
         regeneration (assoc generation :candidate-id "candidate-2"
-                            :operation "regeneration" :parent-candidate-id "candidate-1"
+                            :operation "measured-regeneration" :parent-candidate-id "candidate-1"
                             :selection-id "selection-2"
                             :cut "cut-2" :output-root "/state/candidates/2"
                             :subject-digest "sha256:candidate-2"
@@ -25,7 +25,7 @@
         route {:request-id "request-2" :request-digest "sha256:request-2"
                :project-id "loyly" :container-id "loyly"
                :component-id "booking-core" :selection-id "selection-2"
-               :operation "regeneration" :parent-candidate-id "candidate-1"
+               :operation "measured-regeneration" :parent-candidate-id "candidate-1"
                :parent-candidate-root "/state/candidates/1"
                :parent-candidate-digest "sha256:candidate-1"}]
     (.delete (java.io.File. db))

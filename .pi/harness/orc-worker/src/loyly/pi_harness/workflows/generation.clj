@@ -4,7 +4,7 @@
             [loyly.pi-harness.grain.interface.schemas :as schemas]))
 
 (defn workflow []
-  (orc/workflow "pi-harness-initial-generation"
+  (orc/workflow "pi-harness-fresh-generation"
     (orc/blackboard
       {:request-id :string
        :orc-tick-id :string
@@ -17,14 +17,15 @@
                     [:request-id :string]
                     [:cut :string]
                     [:scope [:vector :string]]]
-       :harness-calibration-result [:map
+       :harness-snapshot-result [:map
                                     [:stage :string]
                                     [:request-id :string]
                                     [:cut :string]
                                     [:scope [:vector :string]]
                                     [:execution-backend :string]
                                     [:passed :boolean]
-                                    [:instrument-oracle-digest :string]
+                                    [:harness-revision :string]
+                                    [:harness-snapshot-digest :string]
                                     [:calibration-results :string]
                                     [:evidence :string]]
        :builder-result [:map
@@ -87,12 +88,6 @@
                                                   [:subject-digest :string]
                                                   [:evidence-root :string]
                                                   [:evidence-locations [:vector :string]]]]
-                                    [:affordance [:map
-                                                  [:passed :boolean]
-                                                  [:applicable :boolean]
-                                                  [:total :int]
-                                                  [:passed-count :int]
-                                                  [:evidence :string]]]
                                     [:verify [:map
                                               [:stage :string]
                                               [:request-id :string]
@@ -106,6 +101,18 @@
                                                  [:subject-digest :string]
                                                  [:evidence-root :string]
                                                  [:passed :boolean]]]]]
+       :cycle-oracle-result [:map
+                             [:stage :string]
+                             [:request-id :string]
+                             [:cut :string]
+                             [:scope [:vector :string]]
+                             [:execution-backend :string]
+                             [:passed :boolean]
+                             [:grader-root :string]
+                             [:cycle-oracle-digest :string]
+                             [:binding-digest :string]
+                             [:author-session-id :string]
+                             [:evidence :string]]
        :baseline-grade-result [:map
                                [:stage :string]
                                [:request-id :string]
@@ -177,69 +184,76 @@
         :fn "loyly.pi-harness.core.worker/cut-stage"
         :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend]
         :writes [:cut-result])
-      (orc/code "harness-calibration"
-        :fn "loyly.pi-harness.core.worker/harness-calibration-stage"
+      (orc/code "harness-snapshot"
+        :fn "loyly.pi-harness.core.worker/harness-snapshot-stage"
         :reads [:request-id :orc-tick-id :selection :scope :execution-backend :cut-result]
-        :writes [:harness-calibration-result])
-      (orc/code "builder"
-        :fn "loyly.pi-harness.core.worker/builder-stage"
-        :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend]
-        :writes [:builder-result])
-      (orc/code "instrument"
-        :fn "loyly.pi-harness.core.worker/instrument-stage"
-        :reads [:request-id :orc-tick-id :selection :scope :execution-backend :builder-result]
-        :writes [:instrument-result])
-      (orc/code "affordance-conformance"
-        :fn "loyly.pi-harness.core.worker/affordance-conformance-stage"
-        :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend
-                :builder-result :instrument-result]
-        :writes [:affordance-conformance-result])
+        :writes [:harness-snapshot-result])
+      (orc/sequence "fenced-build"
+        (orc/code "builder"
+          :fn "loyly.pi-harness.core.worker/builder-stage"
+          :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend]
+          :writes [:builder-result])
+        (orc/code "instrument"
+          :fn "loyly.pi-harness.core.worker/instrument-stage"
+          :reads [:request-id :orc-tick-id :selection :scope :execution-backend :builder-result]
+          :writes [:instrument-result]))
       (orc/code "verify"
         :fn "loyly.pi-harness.core.worker/verify-stage"
         :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend
-                :builder-result :instrument-result :affordance-conformance-result]
+                :builder-result :instrument-result]
         :writes [:verify-result])
       (orc/code "repair-verification"
         :fn "loyly.pi-harness.core.worker/repair-verification-stage"
         :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend
-                :builder-result :instrument-result :affordance-conformance-result :verify-result]
+                :builder-result :instrument-result :verify-result]
         :writes [:repair-verification-result])
-      (orc/code "baseline-grade"
-        :fn "loyly.pi-harness.core.worker/baseline-grade-stage"
-        :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend
-                :harness-calibration-result :builder-result :instrument-result :verify-result
-                :repair-verification-result]
-        :writes [:baseline-grade-result])
-      (orc/code "instrument-conformance"
-        :fn "loyly.pi-harness.core.worker/instrument-conformance-stage"
-        :reads [:request-id :orc-tick-id :selection :scope :execution-backend :builder-result
-                :instrument-result :baseline-grade-result :repair-verification-result]
-        :writes [:instrument-conformance-result])
-      (orc/code "repair-evaluation"
-        :fn "loyly.pi-harness.core.worker/repair-evaluation-stage"
-        :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend
-                :harness-calibration-result :builder-result :instrument-result :verify-result
-                :repair-verification-result
-                :baseline-grade-result :instrument-conformance-result]
-        :writes [:repair-evaluation-result])
-      (orc/code "materialize-allure"
-        :fn "loyly.pi-harness.core.worker/initial-allure-stage"
-        :reads [:request-id :orc-tick-id :selection :scope :execution-backend
-                :builder-result :instrument-result :repair-verification-result
-                :baseline-grade-result :instrument-conformance-result
-                :affordance-conformance-result
-                :repair-evaluation-result]
-        :writes [:allure-result])
-      (orc/code "propose-oracle"
-        :fn "loyly.pi-harness.core.worker/propose-oracle-stage"
-        :reads [:request-id :orc-tick-id :selection :scope :execution-backend :builder-result
-                :repair-verification-result :baseline-grade-result
-                :instrument-conformance-result :repair-evaluation-result :allure-result]
-        :writes [:oracle-proposal-result]))))
+      (orc/sequence "grade"
+        (orc/code "cycle-oracle"
+          :fn "loyly.pi-harness.core.worker/cycle-oracle-stage"
+          :reads [:request-id :orc-tick-id :selection :scope :execution-backend
+                  :harness-snapshot-result]
+          :writes [:cycle-oracle-result])
+        (orc/code "affordance-conformance"
+          :fn "loyly.pi-harness.core.worker/affordance-conformance-stage"
+          :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend
+                  :builder-result :instrument-result :repair-verification-result :cycle-oracle-result]
+          :writes [:affordance-conformance-result])
+        (orc/code "baseline-grade"
+          :fn "loyly.pi-harness.core.worker/baseline-grade-stage"
+          :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend
+                  :harness-snapshot-result :cycle-oracle-result :builder-result :instrument-result
+                  :verify-result :repair-verification-result]
+          :writes [:baseline-grade-result])
+        (orc/code "instrument-conformance"
+          :fn "loyly.pi-harness.core.worker/instrument-conformance-stage"
+          :reads [:request-id :orc-tick-id :selection :scope :execution-backend :builder-result
+                  :instrument-result :baseline-grade-result :repair-verification-result
+                  :cycle-oracle-result]
+          :writes [:instrument-conformance-result])
+        (orc/code "repair-evaluation"
+          :fn "loyly.pi-harness.core.worker/repair-evaluation-stage"
+          :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend
+                  :harness-snapshot-result :cycle-oracle-result :builder-result :instrument-result
+                  :verify-result :repair-verification-result :affordance-conformance-result
+                  :baseline-grade-result :instrument-conformance-result]
+          :writes [:repair-evaluation-result])
+        (orc/code "materialize-allure"
+          :fn "loyly.pi-harness.core.worker/initial-allure-stage"
+          :reads [:request-id :orc-tick-id :selection :scope :execution-backend
+                  :builder-result :instrument-result :repair-verification-result
+                  :baseline-grade-result :instrument-conformance-result
+                  :affordance-conformance-result :repair-evaluation-result]
+          :writes [:allure-result])
+        (orc/code "propose-oracle"
+          :fn "loyly.pi-harness.core.worker/propose-oracle-stage"
+          :reads [:request-id :orc-tick-id :selection :scope :execution-backend :builder-result
+                  :repair-verification-result :baseline-grade-result
+                  :instrument-conformance-result :repair-evaluation-result :allure-result]
+          :writes [:oracle-proposal-result])))))
 
 (defn contract []
   (let [{:keys [workflow-name blackboard-schema root-node]} (workflow)]
-    {:operation "generation"
+    {:operation "fresh-generation"
      :workflowName workflow-name
      :rootType (name (:node-type root-node))
      :stages (mapv :name (:children root-node))
