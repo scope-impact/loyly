@@ -507,6 +507,7 @@
         (is (not (contains? @author-request :evidenceRoot)))
         (is (= ["@item-01-007"] (:itemIds @author-request)))
         (is (re-find #"carried.*must pass" (:prompt @author-request)))
+        (is (re-find #"context.close.*no dispose" (:prompt @author-request)))
         (is (= ["carried" "uncarried"] (mapv :role (:cases @fixture-request))))))))
 
 (deftest baseline-grade-normalizes-the-complete-selected-denominator
