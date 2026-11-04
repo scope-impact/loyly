@@ -27,6 +27,8 @@ actions:
       NoSauna: {must: "Name the sauna {dressingRoom} belongs to."}
       NotATime: {must: "A slot start is a time of day, as 17:00."}
     call: {method: PUT, path: "/api/rooms/{dressingRoom}/days", body: {sauna: "{sauna}", weekdays: "{weekdays}", slots: "{slots}"}}
+    responds:
+      DaysConfigured: {status: 200, body: {dressing-room: "{dressingRoom}", sauna: "{sauna}", weekdays: "{weekdays}", slots: "{slots}", message: "{must}"}}
     tool: {name: configureDays}
 
   RequestStandingSlot:
@@ -45,6 +47,11 @@ actions:
       Held: {must: "{weekday} at {start} in {dressingRoom} is held by another household.", offers: [RequestStandingSlot], with: the nearest free slot}
       NothingYet: {must: "No sauna days are configured yet.", links: [Manage]}
     call: {method: POST, path: /api/standing-slots, body: {household: "{household}", dressing-room: "{dressingRoom}", weekday: "{weekday}", start: "{start}"}}
+    responds:
+      SlotConfirmed: {status: 201, body: {status: confirmed, slot-id: string, household: "{household}", dressing-room: "{dressingRoom}", weekday: "{weekday}", start: "{start}", end: "{end}", message: "{must}"}}
+      ClosedDay: {status: 409, body: {error: ClosedDay, message: "{must}", available-days: list of weekday, available-slots: list of time}}
+      Held: {status: 409, body: {error: Held, message: "{must}"}}
+      NothingYet: {status: 409, body: {error: NothingYet, message: "{must}"}}
     tool: {name: requestStandingSlot}
 
   GiveUpStandingSlot:
@@ -61,6 +68,9 @@ actions:
     rejections:
       NotHeld: {must: "Apartment {household} does not hold {weekday} at {start} in {dressingRoom}."}
     call: {method: POST, path: /api/standing-slots/give-up, body: {household: "{household}", dressing-room: "{dressingRoom}", weekday: "{weekday}", start: "{start}"}}
+    responds:
+      SlotGivenUp: {status: 200, body: {message: "{must}"}}
+      NotHeld: {status: 404, body: {error: NotHeld, message: "{must}"}}
     tool: {name: giveUpStandingSlot}
 
   ReadWeeklySchedule:
@@ -71,6 +81,16 @@ actions:
     input:
       sauna: {component: textbox, type: string, label: Sauna}
     call: {method: GET, path: "/api/schedule?sauna={sauna}"}
+    responds:
+      Schedule:
+        status: 200
+        body:
+          sauna: "{sauna}"
+          dressing-rooms:
+            - dressing-room: string
+              sauna: "{sauna}"
+              slots:
+                - {weekday: weekday, start: time, end: time, status: free or held, household: "present only when held"}
     tool: {name: readWeeklySchedule}
 
 types:
@@ -102,6 +122,10 @@ ui:
   refusal: alert
   tokens: tokens.json
   tokensOnly: true
+
+# Wire contract: every `responds` entry is an exact external interface. Field names are
+# copied verbatim (kebab-case, no camelCase aliases); a refusal carries `error` set to its
+# rejection name and its must text in `message`. Extra fields are allowed; renamed ones are not.
 
 conformance:
   - every action a screen offers is a form whose toolname is the action's tool name
