@@ -12,6 +12,7 @@
             [loyly.pi-harness.grain.oracle-proposal-test]
             [loyly.pi-harness.entrypoint-test]
             [loyly.pi-harness.core.oracle.harness-calibration-test]
+            [loyly.pi-harness.core.legacy-cycle-test]
             [loyly.pi-harness.core.grading.independent-grader-test]
             [loyly.pi-harness.core.oracle.instrument-oracle-test]
             [loyly.pi-harness.core.runtime.json-process-test]
@@ -37,6 +38,7 @@
     loyly.pi-harness.grain.oracle-proposal-test
     loyly.pi-harness.entrypoint-test
     loyly.pi-harness.core.oracle.harness-calibration-test
+    loyly.pi-harness.core.legacy-cycle-test
     loyly.pi-harness.core.grading.independent-grader-test
     loyly.pi-harness.core.oracle.instrument-oracle-test
     loyly.pi-harness.core.runtime.json-process-test

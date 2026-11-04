@@ -21,7 +21,9 @@
             [loyly.pi-harness.core.build.stack-conformance :as stack-conformance]
             [loyly.pi-harness.core.build.subject :as subject]
             [loyly.pi-harness.workflows.cut :as cut-workflow]
-            [loyly.pi-harness.workflows.slice-cycle :as slice-cycle-workflow]))
+            [loyly.pi-harness.workflows.slice-cycle :as slice-cycle-workflow]
+            [loyly.pi-harness.workflows.cycle :as cycle-workflow]
+            [loyly.pi-harness.core.legacy-cycle :as legacy-cycle]))
 
 (defonce ^:private runtime (atom nil))
 (defonce ^:private workflows (atom {}))
@@ -1631,6 +1633,37 @@
       (merge (stage-result "conclude" context)
              {:passed (boolean (:passed gate)) :cycle cycle :gate gate}))))
 
+;; The regeneration cycle in the legacy shape. Each stage calls the legacy tool for its job;
+;; see core.legacy-cycle.
+(defn- legacy-stage-result [stage inputs result]
+  (merge {:stage stage :request-id (:request-id inputs)} result))
+
+(defn cycle-fence-stage [{:keys [inputs]}]
+  (legacy-stage-result "fence" inputs (legacy-cycle/fence (project-root) (:request-id inputs))))
+
+(defn cycle-regenerate-stage [{:keys [inputs]}]
+  (legacy-stage-result "regenerate" inputs
+                       (assoc (legacy-cycle/regenerate (project-root) (:request-id inputs)
+                                                       (get-in inputs [:fence-result :room]))
+                              :passed true)))
+
+(defn cycle-gate-stage [{:keys [inputs]}]
+  (legacy-stage-result "gate" inputs
+                       (legacy-cycle/gate (project-root) (:request-id inputs)
+                                          (get-in inputs [:fence-result :room])
+                                          (get-in inputs [:fence-result :evidence-root])
+                                          (:regenerate-result inputs))))
+
+(defn cycle-score-stage [{:keys [inputs]}]
+  (legacy-stage-result "score" inputs
+                       (legacy-cycle/score (project-root)
+                                           (get-in inputs [:fence-result :evidence-root]))))
+
+(defn cycle-scoreboard-stage [{:keys [inputs]}]
+  (when-not (get-in inputs [:score-result :passed])
+    (throw (ex-info "scoreboard requires a filed score" {})))
+  (legacy-stage-result "scoreboard" inputs {:passed true}))
+
 (defn cut-workflow [] (cut-workflow/workflow))
 
 (defn workflow [] (slice-cycle-workflow/workflow))
@@ -1644,6 +1677,7 @@
             (swap! workflows assoc
                    :cut {:context ctx :sheet-id (orc/build-workflow! ctx (cut-workflow))}
                    :slice-cycle {:context ctx :sheet-id (orc/build-workflow! ctx (workflow))}
+                   :cycle {:context ctx :sheet-id (orc/build-workflow! ctx (cycle-workflow/workflow))}
                    :generation-prompt
                    {:context ctx :sheet-id (orc/build-workflow! ctx (prompt/workflow :fresh-generation))}
                    :repair-prompt
@@ -1735,6 +1769,31 @@
                                      :parentCandidateDigest parentCandidateDigest))]
       (swap! tasks assoc requestId {:request request :routing-request routingRequest
                                     :receipt receipt :future trace})
+      receipt)))
+
+(defn submit-cycle!
+  "Start one regeneration cycle (fence, regenerate, gate, score, scoreboard) for the product
+  that harness/config.sh describes. Repeating a request identity returns its receipt."
+  [{:keys [requestId] :as request}]
+  (when-not (and (string? requestId) (re-matches #"[A-Za-z0-9._-]+" requestId))
+    (throw (ex-info "submit-cycle requires a safe requestId" {:request request})))
+  (if-let [existing (get @tasks requestId)]
+    (:receipt existing)
+    (let [_ (ensure-runtime!)
+          {:keys [context sheet-id]} (get @workflows :cycle)
+          task-id (swap! next-task inc)
+          tick-id (request-uuid "tick" requestId)
+          correlation-id (request-uuid "correlation" requestId)
+          trace (future
+                  (orc/execute context sheet-id
+                               {:request-id requestId :orc-tick-id (str tick-id)}
+                               :tick-id tick-id
+                               :correlation-id correlation-id
+                               :timeout-ms (cycle-timeout-ms)))
+          receipt {:operation "regeneration-cycle" :cycleId requestId
+                   :tickId (str tick-id) :correlationId (str correlation-id)
+                   :taskId task-id}]
+      (swap! tasks assoc requestId {:request request :receipt receipt :future trace})
       receipt)))
 
 (defn submit-approved-slice! [{:keys [requestId selectionContract scope targetStack executionBackend]

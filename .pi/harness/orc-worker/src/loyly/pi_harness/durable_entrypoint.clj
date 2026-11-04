@@ -5,6 +5,7 @@
             [loyly.pi-harness.grain.interface :as model]
             [loyly.pi-harness.interface :as harness]
             [loyly.pi-harness.workflows.slice-cycle :as slice-cycle]
+            [loyly.pi-harness.workflows.cycle :as cycle]
             [loyly.pi-harness.core.selection.slice-selection :as slice-selection]))
 
 (defn- context [] (harness/runtime-context))
@@ -70,6 +71,8 @@
     "start-external-prompt-optimization" (harness/start-external-prompt-optimization! params)
     "submit-external-prompt-candidate" (harness/submit-external-prompt-candidate! params)
     "submit-approved-slice" (submit-approved! params)
+    "submit-cycle" (harness/submit-cycle! params)
+    "cycle-contract" (cycle/contract)
     "submit" (submit-approved! params)
     "execution-status" (harness/execution-status! params)
     "builder-session" (harness/builder-session! params)

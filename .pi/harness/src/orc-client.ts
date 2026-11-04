@@ -141,6 +141,14 @@ export class OrcClient {
     return this.invoke("approve-oracle-proposal", { proposalId, proposalDigest, approvedBy }) as Promise<OracleProposal>;
   }
 
+  submitCycle(requestId: string): Promise<{ cycleId: string; tickId: string; taskId: number }> {
+    return this.invoke("submit-cycle", { requestId }) as Promise<{ cycleId: string; tickId: string; taskId: number }>;
+  }
+
+  cycleContract(): Promise<{ workflowName: string; stages: string[] }> {
+    return this.invoke("cycle-contract", {}) as Promise<{ workflowName: string; stages: string[] }>;
+  }
+
   submitApprovedSlice(request: CycleRequest): Promise<OperationReceipt> {
     return this.invoke("submit-approved-slice", request) as Promise<OperationReceipt>;
   }
