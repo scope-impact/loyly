@@ -4,6 +4,13 @@
 
 The published experience is one self-contained `index.html`. It explains Phoenix through human anatomy, one concrete Löyly verification failure, the two explicit lifecycle contracts, candidate-blind Grade, oracle ratification, historical evidence, and language × platform expressions.
 
+The essay follows Phoenix authority transitions rather than a generic “what/why/how” template:
+
+```text
+system map → direction and route → embodiment and verification
+           → independent Grade → durable measurement → measured lineage
+```
+
 The earlier React/Three.js animatic remains in `src/` as prototype history, but it is not loaded by the page.
 
 ## What is real
