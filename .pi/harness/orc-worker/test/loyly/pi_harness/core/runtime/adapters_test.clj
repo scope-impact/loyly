@@ -85,7 +85,8 @@
 
 (deftest baseline-grading-captures-runtime-evidence-around-the-public-seam
   (let [commands (grader-commands/commands
-                  "baseline" "gondolin" {:runtime-image-archive "node.tar"})
+                  "baseline" "gondolin" {:runtime-image-archive "node.tar"
+                                           :item-ids ["@item-01-007" "@item-01-008"]})
         names (mapv :name commands)]
     (is (= ["baseline-runtime" "baseline-evidence" "baseline-up"
             "baseline-observe-start" "baseline-grade" "baseline-observe-stop"
@@ -95,6 +96,8 @@
       (is (re-find #"--wait" up-command))
       (is (not (re-find #"/health" up-command))))
     (is (re-find #"/grader/grade.mjs"
+                 (:command (first (filter #(= "baseline-grade" (:name %)) commands)))))
+    (is (re-find #"--item @item-01-007 --item @item-01-008"
                  (:command (first (filter #(= "baseline-grade" (:name %)) commands)))))
     (is (re-find #"/evidence/otel/independent/baseline"
                  (:command (first (filter #(= "baseline-observe-start" (:name %))

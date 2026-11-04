@@ -6,11 +6,9 @@ status: ready-for-development
 
 A household can request a standing weekly slot on a bookable dressing room, have it
 confirmed against that room's own sauna days, hold a second one while there is room, and
-give one up. The posted slot list, the heater schedule and the invoicing signal are
-derived views of the booking record and can never disagree with it. This is the smallest
-slice that makes the corpus's central incident impossible: at Soukanvuori a booking lived
-in three hand-kept representations, two moved and one did not, and a resident stood in a
-cold sauna at a time they still believed was theirs.
+give one up. This slice establishes the booking lifecycle consumed by the projection
+integrity slice; slice 02 proves that the posted list, heater schedule, and invoicing
+signal cannot drift from that lifecycle.
 
 ## References
 
@@ -37,8 +35,6 @@ Per the minimum reference rule (`docs/wow/way-of-working.md` §3), this slice re
   reason on a closed day or a held slot
 - The second-standing-slot-when-there-is-room policy, both directions
 - Giving up a standing slot
-- The three derived views: posted slot list, heater schedule, invoicing signal,
-  all read models over the booking record
 
 **Out:**
 
@@ -49,6 +45,8 @@ Per the minimum reference rule (`docs/wow/way-of-working.md` §3), this slice re
   grounded in `raw/domain/public/brf-masthugget.md` and the elicitation source
 - Fee amounts and invoice delivery: the signal names payer and charge basis; pricing
   stays on the billing side (see the wiki's slot-lifecycle-and-billing page)
+- Cross-projection consistency for confirmation and release: slice
+  `02-projection-integrity`
 
 ## Acceptance
 
@@ -58,5 +56,4 @@ interface before this slice is done; the verification trail goes in `decisions.m
 ## Tickets
 
 - `ticket-01-weekly-schedule.md`: the per-resource schedule read model and view
-- `ticket-02-standing-slot.md`: request, confirmation, refusals, give-up, and the
-  three derived views
+- `ticket-02-standing-slot.md`: request, confirmation, refusals, and give-up

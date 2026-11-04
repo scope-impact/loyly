@@ -1003,6 +1003,7 @@
                    :execution-backend (:execution-backend inputs)
                    :grader-root grader-root
                    :target-stack (:target-stack inputs)
+                   :item-ids (mapv :id selected-items)
                    :mode "baseline"})
         grade-command (:baseline-grade evidence)
         interpreted (independent-grader/interpret-verdicts expected-ids (:stdout grade-command))
@@ -1192,8 +1193,8 @@
                             :selection (:selection inputs)
                             :target-stack (:target-stack inputs)
                             :execution-backend (:execution-backend inputs)
-                            :initial-workspace-root (:output-root builder)
-                            :verification-evidence-root (:evidence-root instrument)
+                            :initial-workspace-root nil
+                            :verification-evidence-root nil
                             :round next-round
                             :builder-session-ref builder-session-ref
                             :builder-sessions-root (builder-sessions-root)

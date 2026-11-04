@@ -3,17 +3,20 @@
             [clojure.test :refer [deftest is testing]]
             [loyly.pi-harness.core.selection.slice-selection :as selection]))
 
-(defn- with-cut [spec f]
+(defn- with-slice [slice spec f]
   (let [root (.toFile (java.nio.file.Files/createTempDirectory
                        "loyly-selection-"
                        (make-array java.nio.file.attribute.FileAttribute 0)))
-        plan (io/file root "docs" "plan" "01-booking-core")]
+        plan (io/file root "docs" "plan" slice)]
     (try
       (.mkdirs plan)
       (spit (io/file plan "spec.feature") spec)
       (f root)
       (finally
         (doseq [file (reverse (file-seq root))] (.delete file))))))
+
+(defn- with-cut [spec f]
+  (with-slice "01-booking-core" spec f))
 
 (deftest selection-is-deterministic-and-limited-to-the-requested-slice
   (with-cut
@@ -68,3 +71,13 @@
         (is (thrown-with-msg? clojure.lang.ExceptionInfo
                               #"stable @item identity"
                               (selection/resolve-selection root "cut-1" "01-booking-core")))))))
+
+(deftest stable-item-identity-is-independent-of-slice-identity
+  (with-slice
+    "02-projection-integrity"
+    "Feature: Projection integrity\n\n  @item-01-007\n  Scenario: Existing stable identity\n"
+    (fn [root]
+      (let [contract (selection/resolve-selection
+                      root "cut-2" "02-projection-integrity")]
+        (is (= "projection-integrity" (:componentId contract)))
+        (is (= ["@item-01-007"] (mapv :id (:items contract))))))))

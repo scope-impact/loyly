@@ -762,7 +762,7 @@
            (worker/graders-stage context))))
     (is (false? @called?))))
 
-(deftest failed-instrument-conformance-reenters-the-builder-loop
+(deftest failed-independent-evaluation-starts-a-fresh-clean-room-generation
   (let [builder-call (atom nil)
         context {:inputs {:request-id "generation-conformance-repair"
                           :selection approved-selection
@@ -798,8 +798,8 @@
                  (worker/repair-evaluation-stage context))]
     (is (true? (:passed result)))
     (is (= 2 (:rounds result)))
-    (is (= "/state/candidate" (:initial-workspace-root @builder-call)))
-    (is (= "/state/candidate.evidence" (:verification-evidence-root @builder-call)))
+    (is (nil? (:initial-workspace-root @builder-call)))
+    (is (nil? (:verification-evidence-root @builder-call)))
     (is (= 2 (:round @builder-call)))
     (is (= "subject-two" (get-in result [:builder :subject-digest])))
     (is (true? (get-in result [:instrument-conformance :passed])))))

@@ -26,6 +26,8 @@ behavior requires a new approved specification and a separately reviewed oracle 
 - No product oracle is required before the first candidate is built; the calibrated instrument
   oracle remains required before builder execution.
 - Baseline grade or oracle evidence never enters the builder or verification-repair loop.
+- A failed baseline grade or instrument-conformance check may trigger another bounded attempt,
+  but that attempt is a fresh generation from the approved cut with no candidate or evidence input.
 - Failed, missing, inconclusive, or non-conformant evidence cannot be proposed or promoted.
 - The generated candidate becomes routable lineage only after exact manual approval and immutable
   oracle publication.

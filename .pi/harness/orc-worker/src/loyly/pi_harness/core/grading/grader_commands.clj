@@ -123,9 +123,14 @@
     (do
       (when-not (= "gondolin" backend)
         (throw (ex-info "baseline grading currently requires Gondolin" {:backend backend})))
+      (when-not (and (seq item-ids)
+                     (every? #(re-matches #"@item-[A-Za-z0-9._-]+" %) item-ids))
+        (throw (ex-info "baseline grading requires safe selected item identities"
+                        {:item-ids item-ids})))
       (let [runtime-root "/evidence/otel/independent/baseline"
             baseline-overlay "/tmp/pi-harness-baseline-evidence-compose.json"
             baseline-compose-files (str compose-files " -f " baseline-overlay)
+            item-arguments (apply str (map #(str " --item " %) item-ids))
             baseline-compose-json
             (json/write-str
              {:services {:app {:environment {"OTEL_FILE_EXPORT_DIR" runtime-root}}}}
@@ -155,7 +160,8 @@
                         "; kill -0 \"$(cat /tmp/pi-harness-obi.pid)\"")}
          {:name "baseline-grade"
           :command (str "OTEL_FILE_EXPORT_DIR=" runtime-root
-                        " node /grader/grade.mjs \"$(cat /tmp/pi-harness-baseline-base-url)\"")}
+                        " node /grader/grade.mjs \"$(cat /tmp/pi-harness-baseline-base-url)\""
+                        item-arguments)}
          {:name "baseline-observe-stop"
           :command (str "kill -INT \"$(cat /tmp/pi-harness-obi.pid)\" 2>/dev/null || true"
                         "; sleep 2"

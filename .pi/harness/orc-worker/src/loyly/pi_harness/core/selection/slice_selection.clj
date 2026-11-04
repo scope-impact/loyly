@@ -11,7 +11,7 @@
   (let [digest (java.security.MessageDigest/getInstance "SHA-256")]
     (format "%064x" (BigInteger. 1 (.digest digest (.getBytes (str value) "UTF-8"))))))
 
-(defn- parse-items [feature-path slice-prefix]
+(defn- parse-items [feature-path]
   (loop [lines (str/split-lines (slurp feature-path))
          line-number 1
          rule nil
@@ -34,9 +34,6 @@
             (when-not pending-id
               (throw (ex-info "every scenario requires a stable @item identity"
                               {:line line-number :scenario scenario})))
-            (when-not (str/starts-with? pending-id (str "@item-" slice-prefix "-"))
-              (throw (ex-info "scenario item identity does not belong to the selected slice"
-                              {:line line-number :item pending-id :slice-prefix slice-prefix})))
             (let [scenario-lines
                   (cons line
                         (take-while #(not (or (re-find item-tag %)
@@ -71,7 +68,7 @@
       (throw (ex-info "slice must begin with its numeric identity" {:slice slice})))
     (when-not (.isFile feature-path)
       (throw (ex-info "selected slice has no spec.feature" {:slice slice :path (str feature-path)})))
-    (let [all-items (parse-items feature-path slice-prefix)
+    (let [all-items (parse-items feature-path)
           known-ids (set (map :id all-items))
           unknown-ids (seq (remove known-ids requested-ids))
           _ (when unknown-ids

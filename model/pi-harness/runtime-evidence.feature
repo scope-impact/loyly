@@ -43,7 +43,7 @@ Feature: Authoritative and complete runtime evidence
     Scenario: ORC exposes artifact provenance in its executable contract
       Given the Pi harness ORC worker is running
       When Pi requests the executable regeneration workflow contract
-      Then the observation includes the field "artifactDigests"
+      Then the observation includes the field "artifacts"
 
     @skip
     Scenario: Instrument conformance is independent of the behavioral grade

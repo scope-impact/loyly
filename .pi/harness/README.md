@@ -92,7 +92,7 @@ loads `harness/extension.ts`, which exposes this control-plane sequence:
 3. Review the derived scope and call `approve_slice_selection` with the preview's
    `selectionId` and digest.
 4. Call `submit_approved_slice` once with a request ID, approved selection, scope, target
-   stack, and backend. ORC routes to ungraded initial generation when no persisted candidate
+   stack, and backend. ORC routes to measured initial generation when no persisted candidate
    exists for the project/container/component, or measured regeneration from the latest
    persisted candidate when one exists. The operator does not select the operation.
 5. Call `wait_harness_operation` for the returned task. Use
@@ -104,15 +104,20 @@ regeneration: it mounts
 the cut read-only, confines writes to the declared workspace, denies ambient host access,
 and runs verification and grading independently of the builder.
 
-ORC keeps the workflows separate. Initial generation is independently verified but ungraded:
+ORC keeps the workflows separate. Initial generation is independently verified and baseline
+graded, then yields a non-authoritative oracle proposal for manual approval:
 
 ```text
-cut → builder → instrument → verify → repair-verification → record-candidate (ungraded)
+cut → calibration → builder → instrument → affordance → verify → repair-verification
+    → baseline-grade → instrument-conformance → fresh-sample loop
+    → Allure → propose-oracle
 ```
 
 Failed verification starts a fresh Gondolin builder session from the preceding candidate and
-read-only verifier evidence. A candidate is recorded only after this bounded inner loop passes;
-product-oracle resolution and black-box grading remain exclusive to measured regeneration.
+read-only verifier evidence. Failed black-box grading or instrument conformance can only start
+another clean sample from the approved cut; that builder receives neither the candidate nor any
+evaluation evidence. A generated candidate becomes routable lineage only after exact manual
+approval and publication of the resulting oracle proposal.
 
 Measured regeneration requires pinned oracles and executes:
 

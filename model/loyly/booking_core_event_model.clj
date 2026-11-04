@@ -3,7 +3,8 @@
 
    This model is intentionally authored before generated implementation code. The
    behavioral source is model/loyly/booking-core.allium and the executable
-   acceptance source is docs/plan/01-booking-core/spec.feature."
+   acceptance sources are docs/plan/01-booking-core/spec.feature and
+   docs/plan/02-projection-integrity/spec.feature."
   (:require [ai.obney.grain.event-model.interface :refer [defeventmodel]]))
 
 (defeventmodel :loyly

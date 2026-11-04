@@ -54,6 +54,15 @@ Feature: Initial generation captures and promotes its first independent grade
       And no baseline-measured candidate is recorded
       And the failed denominator and evidence remain visible for diagnosis
 
+    @item-01-054 @skip
+    Scenario: Failed independent evaluation can only request another clean sample
+      Given initial generation has produced a verified candidate
+      When baseline grading or instrument conformance fails
+      Then ORC may continue by starting a fresh builder session from the approved cut
+      And the builder receives no candidate workspace, grader evidence, or instrument evidence
+      And the new candidate is verified and independently evaluated from the beginning
+      But the failed evaluation cannot enter any builder or verification-repair prompt
+
     @item-01-048 @skip
     Scenario: Initial generation keeps repairing until verification passes
       Given initial generation has produced a candidate that fails independent verification

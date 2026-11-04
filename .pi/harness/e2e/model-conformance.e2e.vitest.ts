@@ -97,10 +97,14 @@ afterAll(async () => {
 // Keep scenario tests at module root: allure-vitest installs its runtime with root hooks.
 // Component ownership is projected through scenarioLabels instead of nested describe blocks.
 test.skip("A regeneration cycle follows the declared stage order", () => {});
+test.skip("A slice without a human affordance contract does not invent a UI", () => {});
+test.skip("Startup refuses a harness topology that differs from its Grain Event Model", () => {});
+test.skip("A successful first grade preserves its Playwright trace", () => {});
 test.skip("ORC runs explicitly requested generation without consulting candidate history", () => {});
 test.skip("A successful first grade proposes evidence for oracle promotion", () => {});
 test.skip("Manual approval promotes exactly the reviewed oracle evidence", () => {});
 test.skip("Failed or incomplete first grading cannot produce an oracle", () => {});
+test.skip("Failed independent evaluation can only request another clean sample", () => {});
 test.skip("Initial generation keeps repairing until verification passes", () => {});
 test.skip("Initial generation fails when the builder produces no candidate", () => {});
 test.skip("Unapproved generation evidence cannot become an oracle or measured candidate", () => {});
@@ -504,8 +508,8 @@ test("ORC exposes artifact provenance in its executable contract", async () => {
     context.contract = await worker.client.workflowContract();
     await allure.attachment("workflow-contract.json", JSON.stringify(context.contract, null, 2), "application/json");
   });
-  await then('the observation includes the field "artifactDigests"', async () => {
-    assert.ok(required(context.contract).observationFields.includes("artifactDigests"));
+  await then('the observation includes the field "artifacts"', async () => {
+    assert.ok(required(context.contract).observationFields.includes("artifacts"));
   });
 });
 

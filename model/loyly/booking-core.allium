@@ -1,6 +1,7 @@
 -- allium: 3
 -- Löyly booking-core behavioral model.
--- The executable acceptance source is docs/plan/01-booking-core/spec.feature.
+-- The executable acceptance sources are docs/plan/01-booking-core/spec.feature and
+-- docs/plan/02-projection-integrity/spec.feature.
 
 enum Weekday { monday | tuesday | wednesday | thursday | friday | saturday | sunday }
 
