@@ -2,7 +2,7 @@
 
 > **Prototype verdict:** the architecture becomes clearer as one authored post than as a world the reader must learn to navigate.
 
-**Löyly Factory** is the product name. **The Next Body** is its narrative essay. The published experience is one self-contained `index.html`. It explains Phoenix through human anatomy, one concrete Löyly verification failure, the two explicit lifecycle contracts, candidate-blind Grade, oracle ratification, historical evidence, and language × platform expressions.
+**Löyly Factory** is the reusable factory experience. **The Next Body** is its narrative essay. The Löyly sauna-booking behavior is one example product used to make the architecture concrete; it is not the only kind of product the factory can build and measure. The published experience is one self-contained `index.html`. It explains Phoenix through human anatomy, one concrete Löyly verification failure, the two explicit lifecycle contracts, candidate-blind Grade, oracle ratification, historical evidence, and language × platform expressions.
 
 The essay follows Phoenix authority transitions rather than a generic “what/why/how” template:
 
