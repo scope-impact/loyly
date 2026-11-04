@@ -2,7 +2,7 @@
   "Process-boundary adapters. This namespace translates Clojure domain data to
   the narrow newline-delimited JSON contracts implemented by the TypeScript
   workers; it does not own workflow ordering or state."
-  (:require [loyly.pi-harness.core.build.application-contract :as application-contract]
+  (:require [loyly.pi-harness.core.build.project-profile :as project-profile]
             [loyly.pi-harness.core.grading.grader-commands :as grader-commands]
             [loyly.pi-harness.core.runtime.json-process :as json-process]))
 
@@ -23,12 +23,12 @@
                                    :backend execution-backend}))))
 
 (defn run-builder!
-  [{:keys [project-root cuts-root builder-id builder-prompt project-adapter]}
-   {:keys [request-id cut scope execution-backend prompt-text selection target-stack
-           initial-workspace-root verification-evidence-root round builder-session-ref
+  [{:keys [project-root cuts-root builder-id]}
+   {:keys [request-id cut scope execution-backend system-prompt system-prompt-digest
+           prompt prompt-digest target-stack
+           initial-workspace-root verification-evidence-root builder-session-ref
            builder-sessions-root attempt]}]
-  (let [adapter (project-adapter selection)
-        output-root (str (or (System/getenv "PI_HARNESS_OUTPUT_ROOT")
+  (let [output-root (str (or (System/getenv "PI_HARNESS_OUTPUT_ROOT")
                              (System/getenv "LOYLEY_OUTPUT_ROOT")
                              (str project-root "/.pi/harness/.state/outputs"))
                          "/" request-id)
@@ -36,20 +36,10 @@
         request {:backend execution-backend
                  :cutId cut
                  :scope scope
-                 :prompt (application-contract/builder-instruction
-                          {:base-instruction
-                           (str (or prompt-text @builder-prompt)
-                                (when verification-evidence-root
-                                  (str "\n\nThis is repair round " round ". "
-                                       "The previous candidate is already present in the workspace. "
-                                       "Inspect the verifier's shared files under "
-                                       "$HARNESS_VERIFICATION_EVIDENCE_ROOT, repair the candidate, "
-                                       "and do not replace working behavior merely to silence a log.")))
-                           :request-id request-id
-                           :scope scope
-                           :selection selection
-                           :target-stack target-stack
-                           :model-root (:modelRoot adapter)})
+                 :systemPrompt system-prompt
+                 :systemPromptDigest system-prompt-digest
+                 :prompt prompt
+                 :promptDigest prompt-digest
                  :targetStack target-stack
                  :initialWorkspaceRoot initial-workspace-root
                  :verificationEvidenceRoot verification-evidence-root
@@ -63,6 +53,8 @@
                                                         {:working-directory project-root}))]
     {:output-root (:outputRoot result)
      :builder-session-id (:builderSessionId result)
+     :prompt-digest (:promptDigest result)
+     :system-prompt-digest (:systemPromptDigest result)
      :builder (builder-id)}))
 
 (defn read-builder-session!
@@ -96,7 +88,7 @@
     (throw (ex-info "independent grading requires read-only grader assets"
                     {:mode mode})))
   (let [stack (when target-stack
-                (application-contract/stack-requirements target-stack))
+                (project-profile/stack-requirements target-stack))
         runtime-image-archive (:archive stack)
         script (str project-root "/.pi/harness/src/execution-worker.ts")
         request {:backend execution-backend

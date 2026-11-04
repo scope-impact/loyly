@@ -1,0 +1,12 @@
+{
+  "name": "pi-harness-sam-gateway",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test sam-template.test.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "3.1152.0",
+    "yaml": "2.9.1"
+  }
+}

@@ -1,0 +1,7 @@
+# Offline Rails runtime for grading (`pi-harness/rails:8-offline`). Reconstructed from the image used
+# by the 2026-11-02 four-language run (docker history): Ruby 3.3.13 on Alpine 3.24, Rails 8.1.4,
+# sqlite3 2.10.2. Distinct from Dockerfile.rails, which is the builder room.
+FROM ruby:3.3.13-alpine3.24
+RUN apk add --no-cache build-base sqlite-dev yaml-dev tzdata \
+ && gem install rails -v 8.1.4 --no-document \
+ && gem install sqlite3 -v 2.10.2 --no-document

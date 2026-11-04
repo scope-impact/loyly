@@ -8,12 +8,12 @@
     "krunfwVersion": "v5.2.1"
   },
   "oci": {
-    "image": "loyly-cut:oci",
+    "image": "pi-harness/cut:oci",
     "runtime": "docker",
     "platform": "linux/arm64",
     "pullPolicy": "never"
   },
   "rootfs": {
-    "label": "loyly-cut-root"
+    "label": "pi-harness-cut-root"
   }
 }

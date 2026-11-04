@@ -19,7 +19,7 @@
            @invocation))
     (is (= {:cutId "cut-1"} result))))
 
-(deftest builder-adapter-preserves-the-fresh-pi-session-identity
+(deftest builder-adapter-transports-the-orc-rendered-prompts-unchanged
   (let [invocation (atom nil)]
     (with-redefs [json-process/invoke!
                   (fn [script request options]
@@ -29,22 +29,33 @@
                      :stderr ""
                      :response {:ok true
                                 :result {:outputRoot "/output/cycle-1"
-                                         :builderSessionId "builder-session-1"}}})]
+                                         :builderSessionId "builder-session-1"
+                                         :promptDigest "sha256:rendered"
+                                         :systemPromptDigest "sha256:system"}}})]
       (is (= {:output-root "/output/cycle-1"
               :builder-session-id "builder-session-1"
+              :prompt-digest "sha256:rendered"
+              :system-prompt-digest "sha256:system"
               :builder "openai-codex/test"}
              (adapters/run-builder!
               {:project-root "/repo"
                :cuts-root "/cuts"
                :builder-id (constantly "openai-codex/test")
-               :builder-prompt (atom "build")
                :project-adapter (constantly {:modelRoot "model"})}
               {:request-id "cycle-1"
                :cut "cut-1"
                :scope ["impl"]
                :execution-backend "gondolin"
+               :system-prompt "system owned by ORC"
+               :system-prompt-digest "sha256:system"
+               :prompt "task owned by ORC"
+               :prompt-digest "sha256:rendered"
                :selection {:items [{:id "@item-01-007"}]}
                :target-stack "typescript"})))
+      (is (= "system owned by ORC" (get-in @invocation [:request :systemPrompt])))
+      (is (= "sha256:system" (get-in @invocation [:request :systemPromptDigest])))
+      (is (= "task owned by ORC" (get-in @invocation [:request :prompt])))
+      (is (= "sha256:rendered" (get-in @invocation [:request :promptDigest])))
       (is (= {:working-directory "/repo"} (:options @invocation))))))
 
 (deftest grader-author-adapter-exposes-the-contract-but-not-the-candidate
@@ -65,11 +76,13 @@
                :cutsRoot "/cuts"
                :slice "01-booking-core"
                :itemIds ["@item-01-007"]
+               :systemPrompt "system owned by ORC"
                :prompt "author the grader"
                :outputRoot "/state/graders/sealed"})))
       (is (= "/repo/.pi/harness/src/grader-author-worker.ts" (:script @invocation)))
       (is (not (contains? (:request @invocation) :candidateRoot)))
       (is (not (contains? (:request @invocation) :evidenceRoot)))
+      (is (= "system owned by ORC" (get-in @invocation [:request :systemPrompt])))
       (is (= {:working-directory "/repo"} (:options @invocation))))))
 
 (deftest adapter-failures-retain-process-diagnostics

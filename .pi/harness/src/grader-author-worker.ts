@@ -10,6 +10,7 @@ import { sealCycleOracleBundle, validateCycleOracleBundle } from "./cycle-oracle
 type Request = {
   backend: ExecutionBackend; cutId: string; cutsRoot: string; projectId: string;
   slice: string; itemIds: string[]; prompt: string; outputRoot: string;
+  systemPrompt: string;
   bindingDigest: string; sessionsRoot: string;
   harnessSnapshotDigest: string; selectionDigest: string;
 };
@@ -53,7 +54,7 @@ try {
       getPrompts: () => ({ prompts: [], diagnostics: [] }),
       getThemes: () => ({ themes: [], diagnostics: [] }),
       getAgentsFiles: () => ({ agentsFiles: [] }),
-      getSystemPrompt: () => "You are an independent black-box grader author. Read only the observable contract under $HARNESS_CUT_ROOT. Write only grader assets under $HARNESS_WORKSPACE_ROOT/grader. You cannot inspect any candidate implementation, builder transcript, verifier, prior verdict, or host credential.",
+      getSystemPrompt: () => request.systemPrompt,
       getSystemPromptSource: () => undefined, getAppendSystemPrompt: () => [],
       getAppendSystemPromptSources: () => [], extendResources: () => {}, reload: async () => {},
     };
@@ -108,7 +109,7 @@ function validateRequest(value: Request) {
   if (!/^[A-Za-z0-9._-]+$/.test(value.projectId)) throw new Error("invalid grader project identity");
   if (!/^[A-Za-z0-9._-]+$/.test(value.slice)) throw new Error("invalid grader slice identity");
   if (!value.itemIds.length || !value.itemIds.every((id) => /^@item-[0-9]+-[0-9]+$/.test(id))) throw new Error("invalid grader item identities");
-  if (!value.prompt || !value.bindingDigest.startsWith("sha256:") ||
+  if (!value.systemPrompt || !value.prompt || !value.bindingDigest.startsWith("sha256:") ||
       !value.harnessSnapshotDigest.startsWith("sha256:") || !value.selectionDigest.startsWith("sha256:")) {
     throw new Error("grader author binding is incomplete");
   }

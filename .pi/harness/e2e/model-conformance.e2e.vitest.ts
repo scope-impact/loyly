@@ -306,7 +306,13 @@ test("Prompt optimization requires training and validation examples", async () =
   await given("either example set is missing or not a collection", async () => {});
   await when("the operator requests builder-prompt optimization", async () => {
     try {
-      await worker.client.optimizePrompt([], []);
+      await worker.client.optimizePrompt({
+        purpose: "fresh-generation",
+        reflectionProvider: "bedrock",
+        reflectionModel: "eu.amazon.nova-2-lite-v1:0",
+        trainset: [],
+        valset: [],
+      });
     } catch (error) {
       context.error = error as Error;
     }
@@ -317,7 +323,13 @@ test("Prompt optimization requires training and validation examples", async () =
 });
 
 test.skip("Every instruction candidate is scored by independent regeneration gates", () => {});
-test.skip("Only the winning instruction becomes active", () => {});
+test.skip("Only the winning instruction for each purpose becomes durably active", () => {});
+test.skip("GEPA optimizes the complete strategy sent through one prompt seam", () => {});
+test.skip("Generation and verification repair are independent optimization targets", () => {});
+test.skip("Bedrock reflection is pinned and provenance recorded", () => {});
+test.skip("ORC owns every builder and grader-author production prompt", () => {});
+test.skip("Harness enforcement does not depend on model compliance", () => {});
+test.skip("Bedrock reflection and candidate execution remain separate roles", () => {});
 test("Preparing a cut returns immutable commit and tree identities", async () => {
   const context = scenarioContext();
   await scenarioLabels("regeneration-cycle", "item-01-001", ["e2e"]);

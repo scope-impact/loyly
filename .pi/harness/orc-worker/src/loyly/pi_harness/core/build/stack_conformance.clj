@@ -1,6 +1,6 @@
 (ns loyly.pi-harness.core.build.stack-conformance
   (:require [clojure.string :as str]
-            [loyly.pi-harness.core.build.application-contract :as application-contract]))
+            [loyly.pi-harness.core.build.project-profile :as project-profile]))
 
 (defn- files-under [root]
   (let [directory (java.io.File. root)]
@@ -22,7 +22,7 @@
          first)))
 
 (defn check [output-root target-stack]
-  (let [{:keys [id base]} (application-contract/stack-requirements target-stack)
+  (let [{:keys [id base]} (project-profile/stack-requirements target-stack)
         dockerfile (java.io.File. output-root "impl/Dockerfile")
         instruction (first-instruction dockerfile)
         paths (set (map #(relative-path output-root %) (files-under output-root)))

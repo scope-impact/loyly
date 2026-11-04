@@ -1,0 +1,43 @@
+# Platform aws-serverless: the public seam (app:8080) is the harness SAM gateway; the
+# candidate supplies the function image and template.yaml. No host ports are published.
+x-aws-local: &aws-local
+  AWS_REGION: eu-north-1
+  AWS_ACCESS_KEY_ID: local
+  AWS_SECRET_ACCESS_KEY: local
+  AWS_ENDPOINT_URL_DYNAMODB: http://dynamodb:8000
+
+services:
+  app:
+    image: pi-harness/sam-gateway:platform
+    environment:
+      <<: *aws-local
+      SAM_TEMPLATE: /sam/template.yaml
+      SAM_FUNCTION_URL: http://function:8080/2015-03-31/functions/function/invocations
+    volumes:
+      - ./template.yaml:/sam/template.yaml:ro
+    depends_on: [function, dynamodb]
+    healthcheck:
+      test: ["CMD", "node", "/gateway/healthcheck.mjs"]
+      interval: 1s
+      retries: 120
+
+  function:
+    build: .
+    environment:
+      <<: *aws-local
+      TABLE_NAME: ItemsTable
+
+  dynamodb:
+    image: amazon/dynamodb-local:2.6.1
+    command: ["-jar", "DynamoDBLocal.jar", "-inMemory", "-sharedDb"]
+
+  test:
+    image: pi-harness/sam-gateway:platform
+    entrypoint: ["node", "/probe/test.mjs"]
+    environment:
+      BASE_URL: http://app:8080
+    volumes:
+      - ../../probe-test.mjs:/probe/test.mjs:ro
+    depends_on:
+      app:
+        condition: service_healthy

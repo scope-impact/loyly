@@ -5,7 +5,9 @@
   (:require [loyly.pi-harness.core.build.prompt :as prompt]))
 
 (def seed-instruction prompt/seed-instruction)
+(def system-instruction prompt/system-instruction)
+(def render-builder-prompt prompt/render-builder-prompt)
+(def digest prompt/digest)
 (def expose-candidate-instruction prompt/expose-candidate-instruction)
 (def workflow prompt/workflow)
-(def optimize! prompt/optimize!)
 (def winner-instruction prompt/winner-instruction)

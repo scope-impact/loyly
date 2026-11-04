@@ -15,6 +15,7 @@
             [loyly.pi-harness.core.oracle.harness-calibration :as harness-calibration]
             [loyly.pi-harness.core.grading.independent-evidence :as independent-evidence]
             [loyly.pi-harness.core.grading.independent-grader :as independent-grader]
+            [loyly.pi-harness.core.grading.prompt :as grading-prompt]
             [loyly.pi-harness.core.build.prompt :as prompt]
             [loyly.pi-harness.core.build.project-profile :as project-profile]
             [loyly.pi-harness.core.build.stack-conformance :as stack-conformance]
@@ -28,7 +29,6 @@
 (defonce ^:private tasks (atom {}))
 (defonce ^:private next-task (atom 0))
 (defonce ^:private active-cycles (atom {}))
-(defonce ^:private builder-prompt (atom prompt/seed-instruction))
 
 (defn registered-workflows [] @workflows)
 
@@ -171,13 +171,47 @@
 (defn harness-calibration-stage [context]
   (assoc (harness-snapshot-stage context) :stage "harness-calibration"))
 
+(defn- prompt-registration-key [purpose]
+  (case purpose
+    :fresh-generation :generation-prompt
+    :verification-repair :repair-prompt
+    (throw (ex-info "unknown builder instruction purpose" {:purpose purpose}))))
+
+(defn- find-workflow-node [node node-name]
+  (when node
+    (or (when (= node-name (:name node)) node)
+        (some #(find-workflow-node % node-name) (:children node)))))
+
+(defn- active-instruction [purpose]
+  (let [{:keys [context sheet-id]} (get @workflows (prompt-registration-key purpose))
+        version (when (and context sheet-id) (orc/get-latest-version context sheet-id))]
+    (or (:instruction (find-workflow-node (get-in version [:snapshot :nodes])
+                                          (prompt/component-name purpose)))
+        (prompt/seed-instruction purpose))))
+
+(defn- render-builder-request [request]
+  (let [purpose (or (:purpose request)
+                    (if (:verification-evidence-root request)
+                      :verification-repair
+                      :fresh-generation))
+        adapter (project-adapter (:selection request))]
+    (merge request
+           (prompt/render-builder-prompt
+            {:purpose purpose
+             :instruction (or (:instruction request) (active-instruction purpose))
+             :request-id (:request-id request)
+             :scope (:scope request)
+             :selection (:selection request)
+             :target-stack (:target-stack request)
+             :model-root (:modelRoot adapter)
+             :verification-evidence-root (:verification-evidence-root request)}))))
+
 (defn run-builder-adapter [request]
   (adapters/run-builder! {:project-root (project-root)
                           :cuts-root (cuts-root)
                           :builder-id builder-id
-                          :builder-prompt builder-prompt
                           :project-adapter project-adapter}
-                         request))
+                         (render-builder-request request)))
 
 (defn run-builder-session-adapter [builder-session-ref]
   (adapters/read-builder-session! (project-root)
@@ -242,7 +276,7 @@
 
 (declare ensure-runtime! run-grader-adapter graders-stage sha256 baseline-grader-root
          ensure-baseline-grader! ensure-cycle-oracle!
-         affordance-conformance-stage)
+         affordance-conformance-stage baseline-grade-stage)
 
 (defn run-oracle-fixture-adapter [request]
   (adapters/run-oracle-fixture! (project-root) request))
@@ -324,14 +358,26 @@
      :cut (:cut selection)
      :scope scope
      :target-stack (or (:target-stack value) "unspecified")
+     :harness-snapshot-digest (:harness-snapshot-digest value)
+     :initial-workspace-root (:initial-workspace-root value)
+     :verification-evidence-root (:verification-evidence-root value)
      :execution-backend execution-backend}))
 
-(defn evaluate-prompt [input output]
+(defn evaluate-prompt
+  ([input output] (evaluate-prompt :fresh-generation input output))
+  ([purpose input output]
   (let [candidate (or (:prompt output) (get output "prompt"))
         _ (when-not (and (string? candidate) (not (str/blank? candidate)))
             (throw (ex-info "prompt metric requires a generated instruction" {:output output})))
-        {:keys [request-id selection cut scope target-stack execution-backend]}
+        {:keys [request-id selection cut scope target-stack execution-backend
+                harness-snapshot-digest initial-workspace-root
+                verification-evidence-root]}
         (prompt-evaluation-input input)
+        _ (when (and (= :verification-repair purpose)
+                     (not (and (string? initial-workspace-root)
+                               (string? verification-evidence-root))))
+            (throw (ex-info "repair prompt metric requires fixed candidate and verifier evidence roots"
+                            {:input input})))
         evaluation-id (str "gepa-" request-id "-" (subs (sha256 candidate) 0 12)
                            "-" (random-uuid))
         evidence (run-builder-adapter {:request-id evaluation-id
@@ -340,22 +386,17 @@
                                        :selection selection
                                        :target-stack target-stack
                                        :execution-backend execution-backend
-                                       :prompt-text candidate})
+                                       :purpose purpose
+                                       :instruction candidate
+                                       :initial-workspace-root (when (= :verification-repair purpose)
+                                                                 initial-workspace-root)
+                                       :verification-evidence-root (when (= :verification-repair purpose)
+                                                                     verification-evidence-root)})
         subject-digest (subject/digest (:output-root evidence))
         evidence-root (str (:output-root evidence) ".evidence")
-        adapter (project-adapter selection)
-        oracle (run-oracle cut selection (product-oracle-options selection))
-        oracle-result {:passed (:passed oracle)
-                       :oracle-digest (:oracle-digest oracle)
-                       :grader-root (:grader-root oracle)
-                       :observability-root (:observability-root oracle)
-                       :grader-producer (:graderProducer adapter)
-                       :grader-id (:graderId adapter)}
         grader-request {:cut cut :output-root (:output-root evidence)
                         :cycle-id evaluation-id
                         :evidence-root evidence-root
-                        :grader-root (:grader-root oracle)
-                        :observability-root (:observability-root oracle)
                         :execution-backend execution-backend
                         :target-stack target-stack}
         base-inputs {:request-id evaluation-id
@@ -366,7 +407,10 @@
                      :builder-result (assoc evidence :subject-digest subject-digest)
                      :instrument-result {:subject-digest subject-digest
                                          :evidence-root evidence-root}
-                     :oracle-result oracle-result}
+                     :harness-snapshot-result
+                     {:harness-snapshot-digest
+                      (or harness-snapshot-digest
+                          (str "sha256:" (sha256 "direct-prompt-evaluation")))}}
         affordance (affordance-conformance-stage {:inputs base-inputs})
         compose-verification (compose/interpret-verification
                               (run-grader-adapter (assoc grader-request :mode "compose")))
@@ -374,14 +418,16 @@
                             :passed (and (:passed compose-verification)
                                          (:passed affordance))
                             :affordance affordance)
-        context {:inputs (assoc base-inputs
-                                :affordance-conformance-result affordance
-                                :verify-result verification)}
-        grading (when (and (:passed oracle-result) (:passed verification))
-                  (graders-stage context))
+        verified-inputs (assoc base-inputs
+                               :affordance-conformance-result affordance
+                               :verify-result verification)
+        cycle-oracle (when (:passed verification)
+                       (ensure-cycle-oracle! verified-inputs))
+        context {:inputs (assoc verified-inputs :cycle-oracle-result cycle-oracle)}
+        grading (when (:passed verification)
+                  (baseline-grade-stage context))
         measurement (:measurement grading)
-        valid-measurement? (and (:passed oracle-result)
-                                (:passed verification)
+        valid-measurement? (and (:passed verification)
                                 (:complete? measurement)
                                 (pos? (:total measurement)))
         score (if valid-measurement?
@@ -394,41 +440,71 @@
                     :failed-items (->> (:items measurement)
                                        (filter #(= "fail" (:verdict %)))
                                        (mapv #(select-keys % [:item-id :evidence :graded?])))}
-                   {:oracle-passed (:passed oracle-result)
-                    :affordance-passed (:passed affordance)
+                   {:affordance-passed (:passed affordance)
                     :verification-passed (:passed verification)
                     :reason "candidate did not reach a complete independent measurement"})]
     {:score score
-     :feedback (json/write-str feedback)}))
+     :feedback (json/write-str feedback)})))
 
-(defn optimize-builder-prompt! [{:keys [trainset valset] :as request}]
+(defn- request-purpose [{:keys [purpose] :as request}]
+  (let [value (some-> purpose keyword)]
+    (when-not (contains? prompt/purposes value)
+      (throw (ex-info "prompt optimization requires purpose fresh-generation or verification-repair"
+                      {:request request})))
+    value))
+
+(defn- enabled-reflection-model []
+  (or (System/getenv "PI_HARNESS_GEPA_MODEL")
+      "eu.amazon.nova-2-lite-v1:0"))
+
+(defn optimize-builder-prompt!
+  [{:keys [trainset valset reflectionProvider reflectionModel] :as request}]
   (when-not (and (vector? trainset) (seq trainset)
                  (vector? valset) (seq valset))
     (throw (ex-info "optimize-prompt requires non-empty trainset and valset vectors"
                     {:request request})))
-  (doseq [example (concat trainset valset)]
+  (let [purpose (request-purpose request)]
+   (when-not (and (= "bedrock" reflectionProvider)
+                  (= (enabled-reflection-model) reflectionModel))
+     (throw (ex-info "optimize-prompt requires the Bedrock provider and an exact reflection model"
+                     {:reflectionProvider reflectionProvider
+                      :reflectionModel reflectionModel
+                      :enabledReflectionModel (enabled-reflection-model)})))
+   (doseq [example (concat trainset valset)]
     (prompt-evaluation-input example))
-  (let [normalized-trainset (mapv stringify-example-keys trainset)
-        normalized-valset (mapv stringify-example-keys valset)
-        _ (calibrate-harness!)
+  (let [calibration (calibrate-harness!)
+        snapshot (:harness-snapshot-digest calibration)
+        normalized-trainset (mapv #(assoc (stringify-example-keys %)
+                                          "harness-snapshot-digest" snapshot)
+                                  trainset)
+        normalized-valset (mapv #(assoc (stringify-example-keys %)
+                                        "harness-snapshot-digest" snapshot)
+                                valset)
         _ (ensure-runtime!)
-        {:keys [context sheet-id]} (get @workflows :prompt)
+        {:keys [context sheet-id]} (get @workflows (prompt-registration-key purpose))
+        source-version (:version-number (orc/get-latest-version context sheet-id))
         result (gepa/optimize! context
                                {:sheet-id sheet-id
                                 :trainset normalized-trainset
                                 :valset normalized-valset
-                                :metric-fn evaluate-prompt
+                                :metric-fn (fn [input output]
+                                             (evaluate-prompt purpose input output))
                                 :inherit-from-previous true
                                 :block? true
                                 :timeout-ms 1800000
-                                :config {:max-metric-calls 12}})
-        winner (prompt/winner-instruction result)]
-    (when (string? winner) (reset! builder-prompt winner))
+                                :config {:max-metric-calls 12
+                                         :reflection-lm reflectionModel}})
+        winner (prompt/winner-instruction purpose result)
+        application (when (= :completed (:status result))
+                      (gepa/apply-winner! context (:optimization-id result) source-version))]
     {:status (name (:status result))
+     :purpose (name purpose)
      :bestScore (:best-score result)
      :prompt winner
      :error (:error result)
-     :optimizationId (some-> (:optimization-id result) str)}))
+     :optimizationId (some-> (:optimization-id result) str)
+     :reflection {:provider "bedrock" :model reflectionModel}
+     :activation application})))
 
 (defn- await-gepa-candidate! [context optimization-id candidate-id timeout-ms]
   (let [deadline (+ (System/currentTimeMillis) timeout-ms)]
@@ -463,29 +539,31 @@
      :optimizationId (str optimization-id)
      :candidateId (some-> (:candidate-id candidate) str)
      :candidateScore (:aggregate-score candidate)
-     :candidatePrompt (get-in candidate [:instructions "builder-instruction"])
+     :candidatePrompt (some-> candidate :instructions vals first)
      :feedback (:feedbacks candidate)
      :metricCalls (:metric-calls proposal-context)
      :bestScore (:best-score proposal-context)
-     :bestPrompt (get-in best [:instructions "builder-instruction"])}))
+     :bestPrompt (some-> best :instructions vals first)}))
 
 (defn start-external-prompt-optimization! [{:keys [trainset valset] :as request}]
   (when-not (and (vector? trainset) (seq trainset)
                  (vector? valset) (seq valset))
     (throw (ex-info "external prompt optimization requires non-empty trainset and valset vectors"
                     {:request request})))
-  (doseq [example (concat trainset valset)]
+  (let [purpose (request-purpose request)]
+   (doseq [example (concat trainset valset)]
     (prompt-evaluation-input example))
   (let [normalized-trainset (mapv stringify-example-keys trainset)
         normalized-valset (mapv stringify-example-keys valset)
         _ (calibrate-harness!)
         _ (ensure-runtime!)
-        {:keys [context sheet-id]} (get @workflows :prompt)
+        {:keys [context sheet-id]} (get @workflows (prompt-registration-key purpose))
         started (gepa/optimize! context
                                 {:sheet-id sheet-id
                                  :trainset normalized-trainset
                                  :valset normalized-valset
-                                 :metric-fn evaluate-prompt
+                                 :metric-fn (fn [input output]
+                                              (evaluate-prompt purpose input output))
                                  :inherit-from-previous false
                                  :block? false
                                  ;; One seed plus one proposal authored by the
@@ -508,7 +586,15 @@
                       :else (do (Thread/sleep 250) (recur (dec remaining))))))
         seed (get-in (gepa/get-population-state context optimization-id)
                      [:candidates seed-id])]
-    (external-proposal-result context optimization-id seed)))
+    (assoc (external-proposal-result context optimization-id seed)
+           :purpose (name purpose)))))
+
+(defn- optimization-purpose [context optimization-id]
+  (let [sheet-id (:sheet-id (gepa/get-optimization-summary context optimization-id))]
+    (some (fn [purpose]
+            (when (= sheet-id (:sheet-id (get @workflows (prompt-registration-key purpose))))
+              purpose))
+          prompt/purposes)))
 
 (defn submit-external-prompt-candidate!
   [{:keys [optimizationId prompt proposer] :as request}]
@@ -516,19 +602,27 @@
     (throw (ex-info "external prompt candidate requires optimizationId and a non-empty prompt"
                     {:request request})))
   (ensure-runtime!)
-  (let [{:keys [context]} (get @workflows :prompt)
-        optimization-id (java.util.UUID/fromString optimizationId)
+  (let [optimization-id (java.util.UUID/fromString optimizationId)
+        context (:context (get @workflows :generation-prompt))
+        purpose (or (optimization-purpose context optimization-id)
+                    (throw (ex-info "optimization does not belong to a builder purpose"
+                                    {:optimizationId optimizationId})))
         submitted (gepa/submit-external-candidate!
                    context optimization-id
-                   {"builder-instruction" prompt}
+                   {(prompt/component-name purpose) prompt}
                    (or proposer (builder-id)))
         candidate (await-gepa-candidate! context optimization-id
                                          (:candidate-id submitted) 1800000)
         _ (await-gepa-terminal-if-budget-exhausted! context optimization-id)
-        result (external-proposal-result context optimization-id candidate)]
-    (when (= (:candidateScore result) (:bestScore result))
-      (reset! builder-prompt (:bestPrompt result)))
-    (assoc result :reused (:reused? submitted))))
+        result (external-proposal-result context optimization-id candidate)
+        summary (gepa/get-optimization-summary context optimization-id)
+        application (when (= :completed (:status summary))
+                      (let [latest (orc/get-latest-version
+                                    context
+                                    (:sheet-id (get @workflows (prompt-registration-key purpose))))]
+                        (gepa/apply-winner! context optimization-id (:version-number latest))))]
+    (assoc result :purpose (name purpose) :reused (:reused? submitted)
+           :activation application)))
 
 (defn run-grader-adapter [request]
   (adapters/run-grader! {:project-root (project-root)
@@ -1012,8 +1106,9 @@
    "Selected identities: " (str/join ", " (map :id (:items selection))) "."))
 
 (defn- grader-binding-digest [inputs]
-  (str "sha256:"
-       (sha256 (json/write-str
+  (let [task-prompt (grader-author-prompt (:selection inputs))]
+    (str "sha256:"
+         (sha256 (json/write-str
                 (sorted-map :cut (get-in inputs [:selection :cut])
                             :selection-digest (get-in inputs [:selection :selectionDigest])
                             :harness-snapshot-digest
@@ -1021,7 +1116,9 @@
                                 (get-in inputs [:harness-calibration-result :harness-snapshot-digest]))
                             :grader-model (or (System/getenv "PI_GRADER_MODEL")
                                               (System/getenv "PI_BUILDER_MODEL")
-                                              "gpt-5.6-luna"))))))
+                                              "gpt-5.6-luna")
+                            :system-prompt-digest (prompt/digest grading-prompt/system-instruction)
+                            :task-prompt-digest (prompt/digest task-prompt)))))))
 
 (defn- valid-calibration-case? [{:keys [itemId role exitCode stdout]}]
   (try
@@ -1067,6 +1164,7 @@
                  :projectId (get-in inputs [:selection :projectId])
                  :slice (get-in inputs [:selection :slice])
                  :itemIds (mapv :id (get-in inputs [:selection :items]))
+                 :systemPrompt grading-prompt/system-instruction
                  :prompt (grader-author-prompt (:selection inputs))
                  :outputRoot output-root
                  :bindingDigest binding-digest
@@ -1466,7 +1564,10 @@
             (swap! workflows assoc
                    :cut {:context ctx :sheet-id (orc/build-workflow! ctx (cut-workflow))}
                    :generation {:context ctx :sheet-id (orc/build-workflow! ctx (generation-workflow))}
-                   :prompt {:context ctx :sheet-id (orc/build-workflow! ctx (prompt/workflow))}
+                   :generation-prompt
+                   {:context ctx :sheet-id (orc/build-workflow! ctx (prompt/workflow :fresh-generation))}
+                   :repair-prompt
+                   {:context ctx :sheet-id (orc/build-workflow! ctx (prompt/workflow :verification-repair))}
                    :cycle {:context ctx :sheet-id sheet-id})
             (orc/resume-in-progress! ctx)
             started)))))

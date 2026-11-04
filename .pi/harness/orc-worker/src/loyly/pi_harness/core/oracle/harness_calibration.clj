@@ -7,7 +7,7 @@
   #{"accepted-contract-eligibility"
     "allure-evidence-projection"
     "allure-golden-normalizer"
-    "application-contract"
+    "production-prompt-renderer"
     "black-box-grader"
     "builder-room"
     "candidate-subject-seal"

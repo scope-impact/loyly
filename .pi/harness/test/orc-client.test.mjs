@@ -9,19 +9,54 @@ test("Pi/Codex proposals cross only the ORC external-proposer boundary", async (
     return { status: "running" };
   });
 
-  await client.startExternalPromptOptimization([{ task: "train" }], [{ task: "validate" }]);
+  await client.startExternalPromptOptimization({
+    purpose: "fresh-generation",
+    trainset: [{ task: "train" }],
+    valset: [{ task: "validate" }],
+  });
   await client.submitExternalPromptCandidate("optimization-1", "improved prompt", "pi-codex");
 
   assert.deepEqual(calls, [
     {
       method: "start-external-prompt-optimization",
-      params: { trainset: [{ task: "train" }], valset: [{ task: "validate" }] },
+      params: {
+        purpose: "fresh-generation",
+        trainset: [{ task: "train" }],
+        valset: [{ task: "validate" }],
+      },
     },
     {
       method: "submit-external-prompt-candidate",
       params: { optimizationId: "optimization-1", prompt: "improved prompt", proposer: "pi-codex" },
     },
   ]);
+});
+
+test("GEPA optimization pins a purpose and Bedrock reflection model", async () => {
+  const calls = [];
+  const client = new OrcClient(async (method, params) => {
+    calls.push({ method, params });
+    return { status: "completed" };
+  });
+
+  await client.optimizePrompt({
+    purpose: "verification-repair",
+    reflectionProvider: "bedrock",
+    reflectionModel: "eu.amazon.nova-2-lite-v1:0",
+    trainset: [{ task: "train" }],
+    valset: [{ task: "validate" }],
+  });
+
+  assert.deepEqual(calls, [{
+    method: "optimize-prompt",
+    params: {
+      purpose: "verification-repair",
+      reflectionProvider: "bedrock",
+      reflectionModel: "eu.amazon.nova-2-lite-v1:0",
+      trainset: [{ task: "train" }],
+      valset: [{ task: "validate" }],
+    },
+  }]);
 });
 
 test("Pi reads durable execution progress and builder sessions without mutation methods", async () => {

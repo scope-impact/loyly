@@ -38,6 +38,8 @@ const promptExampleSchema = {
     scope: { type: "array", minItems: 1, items: { type: "string" } },
     "target-stack": { type: "string" },
     "execution-backend": { type: "string", const: "gondolin" },
+    "initial-workspace-root": { type: "string" },
+    "verification-evidence-root": { type: "string" },
   },
   required: ["task", "request-id", "selection", "scope", "execution-backend"],
   additionalProperties: false,
@@ -75,14 +77,23 @@ export default function register(pi: {
     parameters: {
       type: "object",
       properties: {
+        purpose: { type: "string", enum: ["fresh-generation", "verification-repair"] },
+        reflectionProvider: { type: "string", const: "bedrock" },
+        reflectionModel: { type: "string", minLength: 1 },
         trainset: { type: "array", minItems: 1, items: promptExampleSchema },
         valset: { type: "array", minItems: 1, items: promptExampleSchema },
       },
-      required: ["trainset", "valset"],
+      required: ["purpose", "reflectionProvider", "reflectionModel", "trainset", "valset"],
       additionalProperties: false,
     },
-    execute: async (_toolCallId: string, args: { trainset: unknown[]; valset: unknown[] }) => {
-      const result = await getWorker().client.optimizePrompt(args.trainset, args.valset);
+    execute: async (_toolCallId: string, args: {
+      purpose: "fresh-generation" | "verification-repair";
+      reflectionProvider: "bedrock";
+      reflectionModel: string;
+      trainset: unknown[];
+      valset: unknown[];
+    }) => {
+      const result = await getWorker().client.optimizePrompt(args);
       return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
     },
   });
@@ -93,14 +104,19 @@ export default function register(pi: {
     parameters: {
       type: "object",
       properties: {
+        purpose: { type: "string", enum: ["fresh-generation", "verification-repair"] },
         trainset: { type: "array", minItems: 1, items: promptExampleSchema },
         valset: { type: "array", minItems: 1, items: promptExampleSchema },
       },
-      required: ["trainset", "valset"],
+      required: ["purpose", "trainset", "valset"],
       additionalProperties: false,
     },
-    execute: async (_toolCallId: string, args: { trainset: unknown[]; valset: unknown[] }) => {
-      const result = await getWorker().client.startExternalPromptOptimization(args.trainset, args.valset);
+    execute: async (_toolCallId: string, args: {
+      purpose: "fresh-generation" | "verification-repair";
+      trainset: unknown[];
+      valset: unknown[];
+    }) => {
+      const result = await getWorker().client.startExternalPromptOptimization(args);
       return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
     },
   });

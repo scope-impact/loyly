@@ -4,7 +4,7 @@
             [clojure.test :refer [deftest is]]
             [ai.obney.orc.demos.pi-agent-loop.system :as system]
             [ai.obney.orc.orc-service.interface :as orc]
-            [loyly.pi-harness.core.build.application-contract :as application-contract]
+            [loyly.pi-harness.core.build.prompt :as prompt]
             [loyly.pi-harness.core.evidence.allure-golden :as allure-golden]
             [loyly.pi-harness.core.grading.compose :as compose]
             [loyly.pi-harness.grain.interface :as model]
@@ -947,69 +947,49 @@
     (is (= false (:passed result)))
     (is (re-find #"app service must define a healthcheck" (:stderr result)))))
 
-(deftest builder-instruction-requires-the-compose-application-contract
-  (let [instruction (application-contract/builder-instruction
-                     {:base-instruction "Build from the model."
-                      :request-id "request-compose"
-                      :scope ["impl"]
-                      :target-stack "typescript"
-                      :model-root "model/loyly"
-                      :selection approved-selection})]
+(deftest rendered-generation-prompt-carries-strategy-and-runtime-contract
+  (let [rendered (prompt/render-builder-prompt
+                  {:purpose :fresh-generation
+                   :instruction (prompt/seed-instruction :fresh-generation)
+                   :request-id "request-compose"
+                   :scope ["impl"]
+                   :target-stack "typescript"
+                   :model-root "model/loyly"
+                   :selection approved-selection})
+        instruction (:prompt rendered)]
     (is (re-find #"model/loyly" instruction))
-    (is (re-find #"Target implementation stack: typescript" instruction))
+    (is (re-find #"Target stack: typescript" instruction))
+    (is (re-find #"Base image: node:22-alpine" instruction))
+    (is (re-find #"Node JavaScript or TypeScript source files" instruction))
     (is (re-find #"impl/compose.yaml" instruction))
     (is (re-find #"impl/start.sh" instruction))
-    (is (re-find #"Independent grading starts the Compose app" instruction))
-    (is (re-find #"private container network" instruction))
-    (is (re-find #"app" instruction))
-    (is (re-find #"test" instruction))
     (is (re-find #"internal port 8080" instruction))
     (is (re-find #"http://app:8080" instruction))
     (is (re-find #"docker compose run --rm test" instruction))
-    (is (re-find #"exact selected compiler or runtime" instruction))
-    (is (re-find #"deliberately has no Docker daemon" instruction))
-    (is (re-find #"impl/Dockerfile" instruction))
-    (is (re-find #"node:22-alpine" instruction))
-    (is (re-find #"no registry or package-index access" instruction))
-    (is (re-find #"runtime guaranteed to exist" instruction))
-    (is (re-find #"docker compose up.*--wait" instruction))
-    (is (re-find #"runtime-evidence contract" instruction))
-    (is (re-find #"every approved item" instruction))
-    (is (re-find #"record counts" instruction))
-    (is (re-find #"health-only suite is insufficient" instruction))
-    (is (re-find #"exact external interfaces" instruction))
-    (is (re-find #"wire field names exactly" instruction))
-    (is (re-find #"percent-decode dynamic path parameters" instruction))
-    (is (re-find #"percent-encode dynamic path-segment values" instruction))
-    (is (re-find #"every scenario Then step" instruction))
-    (is (re-find #"identity fields unchanged in every view" instruction))
-    (is (re-find #"traceability checklist" instruction))
-    (is (re-find #"test-driven loop" instruction))
-    (is (re-find #"observe the relevant test fail" instruction))
-    (is (re-find #"smallest implementation change" instruction))
-    (is (re-find #"full candidate suite" instruction))
-    (is (re-find #"one authoritative structured state" instruction))
-    (is (re-find #"rejected command must leave" instruction))
-    (is (re-find #"atomic with respect to concurrent commands" instruction))
-    (is (re-find #"same committed domain fact" instruction))
-    (is (re-find #"isolated initial state" instruction))
-    (is (re-find #"overlap before either response" instruction))
-    (is (re-find #"constructing the follow-up request from that response alone" instruction))
+    (is (re-find #"no Docker daemon" instruction))
+    (is (re-find #"never fetch packages" instruction))
+    (is (re-find #"runtime evidence" instruction))
+    (is (re-find #"human affordance" instruction))
     (is (re-find #"camelCase aliases" instruction))
-    (is (re-find #"syntax or compile check" instruction))
-    (is (re-find #"zero discovered tests" instruction))))
+    (is (re-find #"Percent-decode" instruction))
+    (is (re-find #"authoritative structured state" instruction))
+    (is (re-find #"mutations are atomic" instruction))
+    (is (re-find #"overlap concurrent requests" instruction))
+    (is (re-find #"test discovered by its runner" instruction))))
 
-(deftest rust-builder-instruction-cannot-fall-back-to-node-or-python
-  (let [instruction (application-contract/builder-instruction
-                     {:base-instruction "Build from the model."
-                      :request-id "request-rust"
-                      :scope ["impl"]
-                      :target-stack "rust"
-                      :model-root "model/loyly"
-                      :selection approved-selection})]
-    (is (re-find #"rust:1.91-alpine" instruction))
-    (is (re-find #"\.rs" instruction))
-    (is (not (re-find #"prefer node:22-alpine or python:3.12-alpine" instruction)))))
+(deftest rendered-rust-context-cannot-fall-back-to-node
+  (let [instruction (:prompt
+                     (prompt/render-builder-prompt
+                      {:purpose :fresh-generation
+                       :instruction (prompt/seed-instruction :fresh-generation)
+                       :request-id "request-rust"
+                       :scope ["impl"]
+                       :target-stack "rust"
+                       :model-root "model/loyly"
+                       :selection approved-selection}))]
+    (is (re-find #"Base image: rust:1.91-alpine" instruction))
+    (is (re-find #"Rust \.rs source files" instruction))
+    (is (not (re-find #"Base image: node:22-alpine" instruction)))))
 
 (deftest builder-result-identifies-the-generated-subject-by-content
   (let [root (.toFile (java.nio.file.Files/createTempDirectory

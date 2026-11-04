@@ -101,7 +101,7 @@ maintainer index into the current Clojure implementation.
 | Public generation/regeneration control and status | [`loyly.pi-harness.interface`](../../.pi/harness/orc-worker/src/loyly/pi_harness/interface.clj) |
 | ORC executor coordination | [`loyly.pi-harness.core.worker`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/worker.clj) |
 | Source-cut, generation, and regeneration behavior trees | [`loyly.pi-harness.workflows`](../../.pi/harness/orc-worker/src/loyly/pi_harness/workflows/generation.clj) |
-| Builder instruction, application contract, stack checks, and subject sealing | [`loyly.pi-harness.core.build`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/build/application_contract.clj) |
+| Builder strategy and rendering, stack checks, and subject sealing | [`loyly.pi-harness.core.build`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/build/prompt.clj) |
 | Compose verification and independent grading | [`loyly.pi-harness.core.grading`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/grading/compose.clj) |
 | Evidence manifests and Allure projections | [`loyly.pi-harness.core.evidence`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/evidence/evidence_manifest.clj) |
 | Harness snapshot, cycle-oracle, and product-oracle calibration | [`loyly.pi-harness.core.oracle`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/oracle/oracle.clj) |
@@ -157,12 +157,11 @@ The contract exposes gaps found while deriving it from the current implementatio
    evidence, and pause for exact manual approval before publishing the first immutable product
    oracle. The current runtime still treats its accepted product OCI as executable grader
    material and does not yet implement proposal, approval, or evidence-oracle publication.
-7. GEPA currently mutates only a short seed while the application-contract renderer appends most
-   model-directed strategy outside the candidate. Candidate scoring also requires an accepted
-   product oracle. The target contract instead measures the complete purpose-specific strategy
-   with the exact rendered prompt digest, independent verification, and a complete candidate-blind
-   black-box grade that does not require a pre-existing product oracle. The selected instruction
-   and its metric evidence are not yet durable harness records.
+7. The production prompt renderer now measures the complete purpose-specific strategy and binds
+   deterministic runtime context, including the selected stack and base image, to the exact prompt
+   digest. Candidate scoring remains responsible for independent verification and a complete
+   candidate-blind black-box grade that does not require a pre-existing product oracle. The selected
+   instruction and its metric evidence are not yet durable harness records.
 8. Full source-commit and candidate-scope validation occurs inside asynchronous cut
    or builder execution, after a task receipt has been created, rather than at submission.
 9. Gondolin provides the declared builder isolation. The host backend executes through

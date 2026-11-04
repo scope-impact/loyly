@@ -9,6 +9,22 @@ export type CycleRequest = {
   executionBackend: "host" | "gondolin";
 };
 
+export type BuilderInstructionPurpose = "fresh-generation" | "verification-repair";
+
+export type PromptOptimizationRequest = {
+  purpose: BuilderInstructionPurpose;
+  reflectionProvider: "bedrock";
+  reflectionModel: string;
+  trainset: unknown[];
+  valset: unknown[];
+};
+
+export type ExternalPromptOptimizationRequest = {
+  purpose: BuilderInstructionPurpose;
+  trainset: unknown[];
+  valset: unknown[];
+};
+
 export type CutReceipt = { cutId: string; taskId: number; executionBackend: "host" | "gondolin" };
 
 export type OperationReceipt = {
@@ -91,12 +107,12 @@ export class OrcClient {
     return this.invoke("prepare-cut", { sourceCommit, executionBackend }) as Promise<CutReceipt>;
   }
 
-  optimizePrompt(trainset: unknown[], valset: unknown[]): Promise<unknown> {
-    return this.invoke("optimize-prompt", { trainset, valset });
+  optimizePrompt(request: PromptOptimizationRequest): Promise<unknown> {
+    return this.invoke("optimize-prompt", request);
   }
 
-  startExternalPromptOptimization(trainset: unknown[], valset: unknown[]): Promise<any> {
-    return this.invoke("start-external-prompt-optimization", { trainset, valset });
+  startExternalPromptOptimization(request: ExternalPromptOptimizationRequest): Promise<any> {
+    return this.invoke("start-external-prompt-optimization", request);
   }
 
   submitExternalPromptCandidate(optimizationId: string, prompt: string, proposer: string): Promise<any> {

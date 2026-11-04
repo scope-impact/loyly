@@ -12,10 +12,12 @@ not as a runtime dependency.
 
 ## Bootstrap and validate a checkout
 
-From the repository root, `make -C harness bootstrap` installs the harness dependencies,
-builds the cut, instrument, grader, and TypeScript/Rust/Java/Rails OCI images, converts them
-to Gondolin assets, and verifies every asset under `.pi/harness/.state/assets/`. It requires
-Docker, Node.js/npm, and the platform supported by Gondolin. It does not build the Löyly app,
+From the repository root, `make -C harness bootstrap PROJECT=<project-id>` installs the
+harness dependencies, builds the cut, instrument, grader, and TypeScript/Rust/Java/Rails OCI
+images, converts them to Gondolin assets, and verifies every asset under
+`.pi/harness/.state/assets/`. It requires the conventional runtime inputs under
+`harness/<project-id>/`; `PROJECT` defaults to `loyly`. It also requires Docker, Node.js/npm,
+and the platform supported by Gondolin. It does not build the selected product implementation,
 publish oracles, or submit regeneration.
 
 For tests, the Clojure CLI is also required. Real OCI-backed scenarios require `oras` on
@@ -31,6 +33,53 @@ npm run test:e2e
 `npm test` covers the TypeScript adapters and Pi tool boundary. `orc-worker/check.sh`
 checks and tests the Clojure workflow. `npm run test:e2e` validates Gherkin coverage and
 then runs the end-to-end suite with Allure result generation.
+
+## Runtime archives and target platforms
+
+Grading rooms deny egress, so they never pull images. The command
+`make -C harness runtime-images PROJECT=<project-id>` (part of bootstrap) builds or pulls every
+image a grading room starts and saves one archive per target cell under `.state/runtime-images/`;
+the room mounts it read-only and runs `docker load`. One archive may carry several images
+(base, sidecars, gateway).
+
+A target is **language × platform**. Besides the bare language stacks, two platforms are
+available for TypeScript so far:
+
+| Platform | Public seam (`app:8080`) | Sidecars | Runtime base |
+|---|---|---|---|
+| `aws-serverless` | SAM gateway (`config/build/sam-gateway/`) → Lambda Runtime Interface Emulator | `dynamodb-local` | `public.ecr.aws/lambda/nodejs:22` (bundles AWS SDK v3) |
+| `container-postgres` | the candidate's own HTTP server | `postgres:16-alpine` | `harness/<project-id>/Dockerfile.typescript-postgres` (`pg` under `/node_modules`) |
+
+The SAM gateway replaces `sam local start-api`, which needs a Docker socket and registry
+pulls. It reads the candidate's `template.yaml`, routes `HttpApi` (payload 2.0) and `Api`
+(1.0) events to the function container, and creates every `AWS::DynamoDB::Table` and
+`AWS::Serverless::SimpleTable` on `dynamodb-local`, so a broken template fails startup. Local
+table names are the logical ID unless a literal `TableName` is declared. It currently supports
+exactly one function and serializes invocations, because the emulator serves one at a time.
+Its unit tests run with `cd config/build/sam-gateway && npm install && npm test`.
+
+**The VM side is proven before any cycle starts.** Bootstrap ends with
+`make -C harness verify-platforms`, which runs `scripts/verify-platforms.mjs --all` in a
+deny-egress Gondolin grader VM: every archive must load and every image it carries must start
+with networking disabled, and every platform probe under `fixtures/platforms/` must pass end to
+end through its public seam. The script refuses to run if the VM can reach a registry; Gondolin
+answers blocked requests with `403 blocked by request policy`, so curl's exit status alone does
+not prove denial. Use `node scripts/verify-platforms.mjs <probe> host` to debug a probe on host
+Docker. Overrides: `PI_HARNESS_PROBE_MEMORY` (`4G`), `PI_HARNESS_PROBE_ROOTFS_SIZE` (`12G`),
+`PI_HARNESS_PROBE_CPUS` (`4`).
+
+Known gaps, not yet wired into ORC (the production prompt and stack registry still know only
+bare language stacks):
+
+- The gateway does not yet enforce the template `Timeout` (Lambda default 3 s), still accepts a
+  trailing slash on literal routes, and collapses duplicate query parameters instead of joining
+  them with commas (2.0) or adding `multiValue*` fields (1.0).
+- A candidate's own `impl/**/node_modules` would shadow the platform package set; conformance
+  must reject it.
+- Rust and Java archives are standard library only (no crate registry, Maven, or Gradle), and
+  the Rails offline image ships no app server (no puma or webrick).
+- `config/build/sam-gateway/` is grading machinery but is not yet an instrument-oracle input.
+- Archives are not byte-reproducible across rebuilds; pin images by digest, not archive checksum.
 
 ## OCI oracles
 

@@ -38,7 +38,7 @@ The layout mirrors ORC components:
 loyly.pi-harness
 ├── interface                 public consumer boundary
 ├── core/worker               serialized ORC executors and coordination
-├── core/build/*              prompt, application contract, candidate sealing
+├── core/build/*              prompt rendering, project profiles, candidate sealing
 ├── core/grading/*            Compose and independent grade interpretation
 ├── core/evidence/*           manifests and Allure evidence projections
 ├── core/oracle/*             product/instrument OCI oracle resolution

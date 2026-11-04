@@ -4,6 +4,33 @@
 
 (def supported-stacks [:typescript :rust :java :rails])
 
+(defn stack-requirements [target-stack]
+  (let [stack (str/lower-case target-stack)]
+    (cond
+      (str/includes? stack "rust")
+      {:id "rust"
+       :base "rust:1.91-alpine"
+       :archive "rust-1.91-alpine.tar"
+       :source "Rust .rs source files"}
+      (str/includes? stack "java")
+      {:id "java"
+       :base "eclipse-temurin:21-jdk-alpine"
+       :archive "eclipse-temurin-21-jdk-alpine.tar"
+       :source "Java .java source files"}
+      (or (str/includes? stack "rails") (str/includes? stack "ruby"))
+      {:id "rails"
+       :base "pi-harness/rails:8-offline"
+       :archive "rails-8-offline.tar"
+       :source "a Ruby on Rails application with Gemfile, config/application.rb, and app/ source"}
+      (str/includes? stack "python")
+      {:id "python"
+       :base "python:3.12-alpine"
+       :source "Python .py source files"}
+      :else
+      {:id "node"
+       :base "node:22-alpine"
+       :source "Node JavaScript or TypeScript source files"})))
+
 (defn- safe-id! [label value]
   (when-not (and (string? value)
                  (re-matches #"[A-Za-z0-9._-]+" value)
