@@ -23,7 +23,7 @@ Feature: Authoritative and complete runtime evidence
     @item-01-032 @skip
     Scenario: Missing or dropped required signals are inconclusive
       Given the pinned product-oracle OCI contains the approved normalized evidence for an item
-      And the instrument oracle declares the exact runtime signals required to collect comparable evidence
+      And the sealed harness snapshot carries the generic evaluator for the runtime signals declared by the approved project model
       And one required signal is missing, incomplete, sampled, or reported as dropped
       When the independent validator compares the captured evidence with the product oracle entry
       Then it persists an inconclusive invariant evaluation
@@ -79,7 +79,7 @@ Feature: Authoritative and complete runtime evidence
 
     @item-01-042 @skip @gondolin
     Scenario: Each comparison cycle isolates evidence from its pinned OTel capture policy
-      Given the pinned instrument-oracle OCI supplies a declarative OTel capture policy
+      Given the sealed harness snapshot supplies a declarative OTel capture policy
       When an independent Gondolin validator room opens for one regeneration cycle
       Then the candidate and OTel capture policy are mounted read-only
       And the candidate subject digest remains unchanged after observation

@@ -105,8 +105,8 @@ test.skip("A successful first grade proposes evidence for oracle promotion", () 
 test.skip("Manual approval promotes exactly the reviewed oracle evidence", () => {});
 test.skip("Failed or incomplete first grading cannot produce an oracle", () => {});
 test.skip("Failed independent evaluation can only request another clean sample", () => {});
-test.skip("Initial generation keeps repairing until verification passes", () => {});
-test.skip("Initial generation fails when the builder produces no candidate", () => {});
+test.skip("Fresh Slice Generation keeps repairing until verification passes", () => {});
+test.skip("Fresh Slice Generation fails when the builder produces no candidate", () => {});
 test.skip("Unapproved generation evidence cannot become an oracle or measured candidate", () => {});
 test.skip("An explicitly requested regeneration uses the named persisted component candidate", () => {});
 test.skip("make bootstrap builds every harness and supported-stack runtime", () => {});

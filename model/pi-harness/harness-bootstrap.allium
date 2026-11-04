@@ -8,6 +8,9 @@ entity HarnessRuntimeBootstrap {
     makefile: String
     output_directory: String
     runtime_assets: List<String>
+    harness_revision: String
+    snapshot_manifest_digest: String?
+    calibration_digest: String?
     status: HarnessBootstrapStatus
     failure_reason: String?
 }
@@ -41,6 +44,11 @@ rule VerifyHarnessRuntimes {
 rule CompleteHarnessBootstrap {
     when: HarnessRuntimeAssetsVerified(bootstrap)
     requires: bootstrap.status = verifying_runtimes
+    requires: bootstrap.harness_revision != ""
+    requires: all_runtime_assets_and_conformance_machinery_are_manifest_bound(bootstrap)
+    requires: carried_and_uncarried_harness_calibration_passes(bootstrap)
+    ensures: bootstrap.snapshot_manifest_digest = digest_harness_snapshot_manifest(bootstrap)
+    ensures: bootstrap.calibration_digest = digest_harness_calibration(bootstrap)
     ensures: bootstrap.status = completed
 }
 
@@ -76,8 +84,7 @@ surface PiHarnessRuntimeBootstrap {
         HarnessBootstrapCommandFailed(bootstrap, reason)
 
     @guarantee OracleIndependentRuntimeSetup
-        -- The local Gondolin runtime can be built and verified before any product or
-        -- instrument oracle exists.
+        -- A fresh sealed harness snapshot can be built and calibrated before any product oracle exists.
 
     @guarantee HarnessOnlyEffect
         -- The Makefile target builds harness and supported-stack runtime assets only; it does not build,

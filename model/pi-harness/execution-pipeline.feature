@@ -10,8 +10,8 @@ Feature: Ordered regeneration execution and evidence
       When ORC advances the cycle
       Then its stages are cut, harness calibration, builder, instrument, affordance conformance, verify, repair verification, collect evidence, compare oracle, instrument conformance, record cycle, and grade gate in that order
       And adapter completion cannot reorder or skip an ORC stage
-      And before the builder starts ORAS resolves the pinned instrument oracle
-      And every verdict-affecting harness component and the complete harness source digest match
+      And before the builder starts ORC verifies the fresh sealed harness snapshot
+      And every verdict-affecting harness component, runtime asset, and the complete harness revision match its manifest
       And normalized carried and uncarried Allure goldens pass
       And any calibration mismatch prevents the builder stage
 
@@ -54,8 +54,8 @@ Feature: Ordered regeneration execution and evidence
       Then the immutable descriptor contains every selected item exactly once
       And every selected entry matches the full scenario digest and contains manually approved normalized expected evidence
       And unselected catalogue entries do not enter the approved denominator
-      And the product oracle need not match the source tree or name the instrument oracle
-      And cycle evidence records the independently resolved product and instrument descriptors
+      And the product oracle need not match the source tree or name the harness snapshot
+      And cycle evidence records the independently resolved product descriptor and sealed harness snapshot digest
       And any missing, duplicate, or scenario-digest-mismatched selected item prevents the builder from starting
 
   Rule: Independent rooms and evidence preserve provenance

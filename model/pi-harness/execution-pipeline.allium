@@ -59,7 +59,7 @@ entity PipelineBuilderSession {
 
 entity HarnessCalibration {
     cycle: PipelineCycle
-    instrument_oracle_digest: String
+    harness_snapshot_digest: String
     harness_source_digest: String
     passed: Boolean
     fixture_identities: List<String>
@@ -149,12 +149,12 @@ rule ValidatePipelineCut {
 }
 
 rule CalibratePipelineHarness {
-    when: FullHarnessCalibrated(cycle, instrument_oracle_digest,
+    when: FullHarnessCalibrated(cycle, harness_snapshot_digest,
                                 harness_source_digest, fixture_identities)
     requires: cycle.status = running
     requires: cycle.stage = harness_calibration
-    requires: pinned_instrument_oracle_resolved(cycle, instrument_oracle_digest)
-    requires: complete_instrument_component_coverage(cycle, instrument_oracle_digest)
+    requires: fresh_harness_snapshot_sealed(cycle, harness_snapshot_digest)
+    requires: complete_harness_snapshot_component_coverage(cycle, harness_snapshot_digest)
     requires: product_oracle_resolved_by_descriptor_digest(cycle)
     requires: product_oracle_contains_selected_items_exactly_once(cycle)
     requires: selected_item_scenario_digests_match_product_oracle(cycle)
@@ -164,7 +164,7 @@ rule CalibratePipelineHarness {
     requires: carried_and_uncarried_goldens_passed(cycle, fixture_identities)
     ensures: HarnessCalibration.created(
         cycle: cycle,
-        instrument_oracle_digest: instrument_oracle_digest,
+        harness_snapshot_digest: harness_snapshot_digest,
         harness_source_digest: harness_source_digest,
         passed: true,
         fixture_identities: fixture_identities
@@ -325,7 +325,7 @@ rule ComparePipelineEvidenceWithOracle {
     requires: observations.all(o => o.item_identity in cycle.approved_items)
     requires: observations.all(o => o.subject_digest = instrumented_subject_digest(cycle))
     requires: observations.all(o => o.oracle_digest = combined_oracle_digest(
-        instrument_oracle_digest(cycle),
+        harness_snapshot_digest(cycle),
         resolved_product_oracle_descriptor_digest(cycle)
     ))
     ensures:
@@ -454,7 +454,7 @@ surface RegenerationExecutionPipeline {
     provides:
         ApprovedCycleStarted(cycle)
         PinnedCutValidated(cycle, cut_digest)
-        FullHarnessCalibrated(cycle, instrument_oracle_digest, harness_source_digest, fixture_identities)
+        FullHarnessCalibrated(cycle, harness_snapshot_digest, harness_source_digest, fixture_identities)
         FreshBuilderCompleted(cycle, builder_session_identity, operation_identity,
                               workspace_generation, assisted, subject_digest,
                               generated_paths, tool_calls)

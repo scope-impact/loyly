@@ -47,9 +47,9 @@
      :schema [:map [:route :map]]
      :reads #{:loyly.pi-harness/approved-slice-operation-routes}
      :produces #{:loyly.pi-harness/approved-slice-operation-routed}
-     :grain/allium [{:spec "model/pi-harness/initial-generation.allium"
-                     :kind :rule :name "RouteApprovedSliceToInitialGeneration"}
-                    {:spec "model/pi-harness/initial-generation.allium"
+     :grain/allium [{:spec "model/pi-harness/fresh-slice-generation.allium"
+                     :kind :rule :name "RouteApprovedSliceToFreshSliceGeneration"}
+                    {:spec "model/pi-harness/fresh-slice-generation.allium"
                      :kind :rule :name "RouteApprovedSliceToMeasuredRegeneration"}]}
 
     :loyly.pi-harness/record-generated-candidate
@@ -57,7 +57,7 @@
      :schema [:map [:candidate :map]]
      :reads #{:loyly.pi-harness/component-candidates}
      :produces #{:loyly.pi-harness/generated-candidate-recorded}
-     :grain/allium [{:spec "model/pi-harness/initial-generation.allium"
+     :grain/allium [{:spec "model/pi-harness/fresh-slice-generation.allium"
                      :kind :rule :name "RecordPublishedOracleAndCandidate"}]}
 
     :loyly.pi-harness/record-oracle-proposal
@@ -65,15 +65,15 @@
      :schema [:map [:proposal :map]]
      :reads #{:loyly.pi-harness/oracle-proposals}
      :produces #{:loyly.pi-harness/oracle-proposal-recorded}
-     :grain/allium [{:spec "model/pi-harness/initial-generation.allium"
-                     :kind :rule :name "ProposeOracleFromSuccessfulFirstGrade"}]}
+     :grain/allium [{:spec "model/pi-harness/fresh-slice-generation.allium"
+                     :kind :rule :name "ProposeOracleFromSuccessfulGrade"}]}
 
     :loyly.pi-harness/approve-oracle-proposal
     {:description "Manually approve only the exact digest of a recorded oracle proposal."
      :schema [:map [:proposal-id :string] [:proposal-digest :string] [:approved-by :string]]
      :reads #{:loyly.pi-harness/oracle-proposals}
      :produces #{:loyly.pi-harness/oracle-proposal-approved}
-     :grain/allium [{:spec "model/pi-harness/initial-generation.allium"
+     :grain/allium [{:spec "model/pi-harness/fresh-slice-generation.allium"
                      :kind :rule :name "ApproveExactOracleProposal"}]}
 
     :loyly.pi-harness/record-accepted-product-oracle
@@ -81,7 +81,7 @@
      :schema [:map [:accepted-oracle :map]]
      :reads #{:loyly.pi-harness/oracle-proposals}
      :produces #{:loyly.pi-harness/product-oracle-accepted}
-     :grain/allium [{:spec "model/pi-harness/initial-generation.allium"
+     :grain/allium [{:spec "model/pi-harness/fresh-slice-generation.allium"
                      :kind :rule :name "RecordPublishedOracleAndCandidate"}]}
 
     :loyly.pi-harness/record-observation

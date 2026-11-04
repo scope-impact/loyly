@@ -98,9 +98,9 @@ single-source-of-truth rule from the story above. In a Pi session, ask the harne
 
 1. `prepare_source_cut` from an explicit Git commit and execution backend;
 2. `preview_slice_selection`, then `approve_slice_selection` for the intended scope;
-3. `submit_approved_slice` with the approved selection, target stack, and backend. ORC
-   chooses ungraded initial generation when no candidate exists for the selected project
-   component, or measured regeneration from its latest candidate when lineage exists;
+3. `submit_approved_slice` with the approved selection, target stack, and backend. The
+   approved operation selects a Fresh Slice Generation Cycle with no parent or accepted
+   product oracle, or a Measured Slice Regeneration Cycle with named measured lineage;
 4. `wait_harness_operation` and inspect the operation receipt and any returned evidence.
 
 The checked-in `.pi/settings.json` loads these tools automatically when Pi opens this
@@ -109,11 +109,17 @@ repository. `host` is useful for harness development; measured regeneration uses
 
 ### 2. Ratify and measure
 
-ORC runs the fixed stage graph:
+ORC runs one of two fixed contracts:
 
 ```text
-cut → harness-calibration → builder → instrument → oracle → verify
-    → repair-verification → graders → instrument-conformance → record-cycle → result
+Fresh Slice Generation:
+cut → sealed harness snapshot → fenced build → verify/repair
+    → Grade [build + calibrate + seal cycle oracle → black-box grade]
+    → oracle proposal
+
+Measured Slice Regeneration:
+cut → sealed harness snapshot → fenced build → verify/repair
+    → Grade [accepted product-oracle comparison] → measurement
 ```
 
 The builder never declares itself done. Verification and grading run outside its session,

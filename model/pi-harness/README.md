@@ -1,7 +1,7 @@
 # Session-hosted generation and regeneration harness contract
 
-This directory is the canonical **target contract** for initial generation and measured
-regeneration workflows, exposed through `.pi/harness/extension.ts` and executed by ORC under
+This directory is the canonical **target contract** for Fresh Slice Generation and Measured
+Slice Regeneration workflows, exposed through `.pi/harness/extension.ts` and executed by ORC under
 `.pi/harness/orc-worker/`. It is separate from `model/loyly`, which describes the
 product being regenerated.
 
@@ -29,12 +29,12 @@ unclassified or doubly classified scenarios.
   config and supported-stack Dockerfiles under root `harness/<project-id>/`, resolved by
   convention without a per-project profile JSON; shared harness config remains under
   `.pi/harness/config/`.
-- `initial-generation.feature` and `initial-generation.allium` define explicitly requested
-  Generation from an implementation-free source cut. Existing candidate history does not change
-  its mode and it has no parent candidate. After independent verification, Generation grades the
-  full approved denominator through the public seam, proposes normalized successful evidence as
-  the first product oracle, waits for exact manual approval, and records a baseline-measured
-  candidate only after immutable oracle publication.
+- `fresh-slice-generation.feature` and `fresh-slice-generation.allium` define explicitly
+  requested Fresh Slice Generation from an implementation-free source cut and a fresh sealed
+  harness snapshot. Existing candidate history does not change its mode and it has no parent
+  candidate. After independent verification, Grade builds and seals a candidate-blind cycle
+  oracle, measures the full approved denominator through the public seam, proposes normalized
+  successful evidence as the first product oracle, and waits for exact manual approval.
 - `regeneration-cycle.feature` defines the separate, oracle-backed measured regeneration workflow.
 - `operator-control-plane.feature`, `prompt-optimization.feature`,
   `execution-pipeline.feature`, and `runtime-evidence.feature` own acceptance behavior for
@@ -53,14 +53,15 @@ unclassified or doubly classified scenarios.
   dynamic tools, branching, and steering stay in the operator session; only an immutable
   approved fixed execution contract crosses into ORC.
 - `runtime-evidence.allium` separates candidate telemetry, harness observations, independent invariant verdicts, and report projections.
-- `execution-pipeline.allium` gates later comparison cycles on independently descriptor-pinned
-  product and instrument OCI artifacts. The whole-system product oracle is a catalogue of
+- `execution-pipeline.allium` gates later comparison cycles on an accepted product-oracle
+  descriptor and a fresh sealed harness snapshot. The whole-system product oracle is a catalogue of
   manually approved normalized evidence: every selected stable Gherkin item identity occurs
   exactly once with the matching full scenario digest. Extra catalogue items do not enter the
-  denominator. Neither oracle is bound to the source tree or to the other oracle; cycle evidence
-  records both exact descriptors, and OCI tags are lookup aliases only. `initial-generation.allium`
-  is the no-existing-product-oracle path: it baseline-grades first, pauses for exact operator
-  approval, and publishes the initial immutable evidence oracle. The pipeline also defines
+  denominator. The accepted oracle is independent of the source tree; cycle evidence records its
+  exact descriptor together with the harness-snapshot and cycle-oracle digests. The Fresh Slice
+  Generation contract is the no-existing-product-oracle path: Grade builds a fresh cycle oracle,
+  pauses after complete measurement for exact operator approval, and only then publishes the
+  initial immutable evidence oracle. The pipeline also defines
   bounded verification repair before any grade evidence is collected.
 - `regeneration_event_model.clj` mandates the harness-owned Grain service area. Its block names
   use the `:loyly.pi-harness/*` namespace, its public commands, events, read models, queries, and
@@ -95,7 +96,7 @@ maintainer index into the current Clojure implementation.
 | Builder instruction, application contract, stack checks, and subject sealing | [`loyly.pi-harness.core.build`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/build/application_contract.clj) |
 | Compose verification and independent grading | [`loyly.pi-harness.core.grading`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/grading/compose.clj) |
 | Evidence manifests and Allure projections | [`loyly.pi-harness.core.evidence`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/evidence/evidence_manifest.clj) |
-| Product and instrument oracle resolution and calibration | [`loyly.pi-harness.core.oracle`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/oracle/oracle.clj) |
+| Harness snapshot, cycle-oracle, and product-oracle calibration | [`loyly.pi-harness.core.oracle`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/oracle/oracle.clj) |
 | Process adapters and durable runtime composition | [`loyly.pi-harness.core.runtime`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/runtime/adapters.clj) |
 | Deterministic slice selection | [`loyly.pi-harness.core.selection`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/selection/slice_selection.clj) |
 | Harness-owned Grain facts | [`loyly.pi-harness.grain.interface`](../../.pi/harness/orc-worker/src/loyly/pi_harness/grain/interface.clj) |
@@ -141,8 +142,8 @@ The contract exposes gaps found while deriving it from the current implementatio
    abandoned leaf frontiers on startup.
 4. The activated optimized instruction is held in worker memory rather than durable state.
 5. Refused, skipped, timed-out, and errored stages currently collapse into failure.
-6. Independent black-box behavior remains project-specific. The target contract makes the
-   first generation grade all approved items after verification, propose its normalized
+6. Independent black-box behavior remains project-specific. The target contract makes Fresh
+   Slice Generation grade all approved items after verification, propose its normalized
    evidence, and pause for exact manual approval before publishing the first immutable product
    oracle. The current runtime still treats its accepted product OCI as executable grader
    material and does not yet implement proposal, approval, or evidence-oracle publication.
@@ -182,10 +183,10 @@ The contract exposes gaps found while deriving it from the current implementatio
     transcript without the VM-visible filesystem it changed would be invalid.
 18. Parent-cycle lineage and bounded continuation heuristics are not yet recorded when an
     operator session decides to begin another complete cycle.
-19. Product-oracle preflight still compares repository commit/tree metadata and cross-binds the
+19. Product-oracle preflight still compares repository commit/tree metadata and cross-binds an
     instrument-oracle descriptor. The target contract instead selects manually approved expected
-    evidence by stable item identity plus full Gherkin scenario digest, then combines the
-    independently pinned product and instrument descriptors only in cycle evidence.
+    evidence by stable item identity plus full Gherkin scenario digest and independently records
+    the fresh harness-snapshot and sealed cycle-oracle digests in cycle evidence.
 20. The current harness implementation uses `:loyly/*` runtime blocks, direct read helpers, and a
     duplicate harness progress event. It lacks the declared cycle-preparation blocks, Grain
     `defquery` handlers, registered `defevent` history contracts, the Grain Event Model runtime

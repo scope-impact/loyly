@@ -1,13 +1,13 @@
 -- allium: 3
--- Initial generation captures a complete independent first grade, proposes its normalized
+-- Fresh Slice Generation captures a complete independent first grade, proposes its normalized
 -- evidence as the first product oracle, and waits for exact operator approval before promotion.
 
-enum InitialGenerationStatus {
+enum FreshSliceGenerationStatus {
     requested | running | awaiting_oracle_approval | oracle_promoted | failed
 }
 
 enum CandidateDisposition { baseline_measured | oracle_measured }
-enum ApprovedSliceOperation { generation | regeneration }
+enum ApprovedSliceOperation { fresh_generation | measured_regeneration }
 enum OracleProposalStatus { proposed | approved | published | rejected }
 
 entity ApprovedSliceRoute {
@@ -29,18 +29,29 @@ entity SourceCut {
     tree_digest: String
 }
 
-entity InitialGeneration {
+entity HarnessSnapshot {
+    identity: String
+    harness_revision: String
+    manifest_digest: String
+    runtime_asset_digests: List<String>
+    calibration_digest: String
+    sealed: Boolean
+    calibrated: Boolean
+}
+
+entity FreshSliceGeneration {
     identity: String
     project_identity: String
     container_identity: String
     component_identity: String
     operation: ApprovedSliceOperation
     source_cut: SourceCut
+    harness_snapshot: HarnessSnapshot
     selection_identity: String
     selection_digest: String
     approved_items: List<String>
     workspace_scope: List<String>
-    status: InitialGenerationStatus
+    status: FreshSliceGenerationStatus
     failure_reason: String?
 }
 
@@ -50,8 +61,9 @@ entity ItemVerdict {
     evidence_digest: String
 }
 
-entity BaselineGrade {
-    generation: InitialGeneration
+entity FreshCycleGrade {
+    generation: FreshSliceGeneration
+    cycle_oracle_binding_digest: String
     subject_digest: String
     judge_identity: String
     item_verdicts: List<ItemVerdict>
@@ -61,26 +73,35 @@ entity BaselineGrade {
     passed: Boolean
 }
 
-entity SealedExternalGrader {
-    generation: InitialGeneration
+entity SealedCycleOracle {
+    generation: FreshSliceGeneration
     binding_digest: String
+    harness_snapshot_digest: String
     author_session_identity: String
     selected_items: List<String>
+    evaluator_kinds: List<String>
+    candidate_blind: Boolean
     carried_calibration_passed: Boolean
     uncarried_calibration_passed: Boolean
 }
 
-rule AuthorCalibrateAndSealExternalGrader {
-    when: InitialGenerationVerificationPassed(generation)
+rule BuildCalibrateAndSealCycleOracle {
+    when: FreshSliceGenerationVerificationPassed(generation)
     requires: generation.status = running
-    requires: grader_author_can_read_only_selected_gherkin_and_public_protocol(generation)
-    requires: grader_author_cannot_read_candidate_or_evaluation_material(generation)
-    requires: authored_grader_passes_carried_and_uncarried_calibration(generation)
-    ensures: SealedExternalGrader.created(
+    requires: generation.harness_snapshot.sealed
+    requires: generation.harness_snapshot.calibrated
+    requires: oracle_author_can_read_only_approved_cut_and_public_calibration_protocol(generation)
+    requires: oracle_author_cannot_read_candidate_or_evaluation_material(generation)
+    requires: cycle_oracle_contains_only_applicable_behavior_affordance_and_runtime_evaluators(generation)
+    requires: cycle_oracle_passes_carried_and_uncarried_calibration(generation)
+    ensures: SealedCycleOracle.created(
         generation: generation,
-        binding_digest: digest_grader_binding(generation),
-        author_session_identity: independent_grader_author_session(generation),
+        binding_digest: digest_cycle_oracle_binding(generation),
+        harness_snapshot_digest: generation.harness_snapshot.manifest_digest,
+        author_session_identity: independent_oracle_author_session(generation),
         selected_items: generation.approved_items,
+        evaluator_kinds: applicable_evaluator_kinds(generation),
+        candidate_blind: true,
         carried_calibration_passed: true,
         uncarried_calibration_passed: true
     )
@@ -88,7 +109,7 @@ rule AuthorCalibrateAndSealExternalGrader {
 
 entity ProductOracleProposal {
     identity: String
-    generation: InitialGeneration
+    generation: FreshSliceGeneration
     selection_identity: String
     selection_digest: String
     scenario_digests: List<String>
@@ -121,7 +142,7 @@ entity ComponentCandidate {
 }
 
 entity GeneratedCandidate {
-    generation: InitialGeneration
+    generation: FreshSliceGeneration
     builder_session_identity: String
     subject_digest: String
     output_root: String
@@ -129,10 +150,10 @@ entity GeneratedCandidate {
     oracle_descriptor_digest: String
 }
 
-rule RouteApprovedSliceToInitialGeneration {
+rule RouteApprovedSliceToFreshSliceGeneration {
     when: ApprovedSliceSubmitted(request)
     requires: selection_is_approved_and_matches_digest(request)
-    requires: request.operation = generation
+    requires: request.operation = fresh_generation
     requires: request.parent_candidate_identity = null
     ensures: ApprovedSliceRoute.created(
         request_identity: request.identity,
@@ -141,18 +162,18 @@ rule RouteApprovedSliceToInitialGeneration {
         container_identity: request.container_identity,
         component_identity: request.component_identity,
         selection_identity: request.selection_identity,
-        operation: generation,
+        operation: fresh_generation,
         parent_candidate_identity: null,
         parent_candidate_root: null,
         parent_candidate_digest: null
     )
-    ensures: InitialGenerationRequested(request)
+    ensures: FreshSliceGenerationRequested(request)
 }
 
-rule StartInitialGeneration {
-    when: ApprovedInitialGenerationRequested(generation)
+rule StartFreshSliceGeneration {
+    when: ApprovedFreshSliceGenerationRequested(generation)
     requires: generation.status = requested
-    requires: generation.operation = generation
+    requires: generation.operation = fresh_generation
     requires: generation.source_cut.source_commit != ""
     requires: generation.source_cut.tree_digest != ""
     requires: generation.selection_identity != ""
@@ -161,14 +182,19 @@ rule StartInitialGeneration {
     requires: generation.workspace_scope.count > 0
     requires: selection_is_approved_and_matches_digest(generation)
     requires: source_cut_excludes_prior_implementation_and_measurements(generation.source_cut)
-    requires: instrument_oracle_is_calibrated(generation)
+    requires: generation.harness_snapshot.harness_revision != ""
+    requires: generation.harness_snapshot.manifest_digest != ""
+    requires: generation.harness_snapshot.sealed
+    requires: generation.harness_snapshot.calibrated
     ensures: generation.status = running
 }
 
-rule ProposeOracleFromSuccessfulFirstGrade {
-    when: InitialGenerationFirstGradeCompleted(generation, grade, scenario_digests)
+rule ProposeOracleFromSuccessfulGrade {
+    when: FreshSliceGenerationGradeCompleted(generation, grade, scenario_digests)
     requires: generation.status = running
     requires: grade.generation = generation
+    requires: grade.cycle_oracle_binding_digest =
+              sealed_cycle_oracle_for(generation).binding_digest
     requires: grade.subject_digest != ""
     requires: grade.judge_identity != ""
     requires: grade.complete
@@ -240,7 +266,7 @@ rule RecordPublishedOracleAndCandidate {
         project_identity: proposal.generation.project_identity,
         container_identity: proposal.generation.container_identity,
         component_identity: proposal.generation.component_identity,
-        operation: generation,
+        operation: fresh_generation,
         parent_candidate_identity: null,
         disposition: baseline_measured,
         oracle_descriptor_digest: descriptor_digest
@@ -249,8 +275,8 @@ rule RecordPublishedOracleAndCandidate {
     ensures: proposal.generation.status = oracle_promoted
 }
 
-rule RefuseFailedOrIncompleteFirstGrade {
-    when: InitialGenerationFirstGradeCompleted(generation, grade, scenario_digests)
+rule RefuseFailedOrIncompleteGrade {
+    when: FreshSliceGenerationGradeCompleted(generation, grade, scenario_digests)
     requires: generation.status = running
     requires: not grade.complete or not grade.passed or
               not grade.instrument_conformance_passed or
@@ -262,8 +288,8 @@ rule RefuseFailedOrIncompleteFirstGrade {
     ensures: not exists GeneratedCandidates where generation = generation
 }
 
-rule RepairFailedInitialGenerationVerification {
-    when: InitialGenerationVerificationFailed(generation, candidate, evidence, attempts)
+rule RepairFailedFreshSliceGenerationVerification {
+    when: FreshSliceGenerationVerificationFailed(generation, candidate, evidence, attempts)
     requires: generation.status = running
     requires: evidence != null
     requires: attempts.count < 3
@@ -276,7 +302,7 @@ rule RepairFailedInitialGenerationVerification {
     ensures: no_baseline_grade_or_oracle_evidence_is_shared(generation)
 }
 
-rule FailEmptyInitialGeneration {
+rule FailEmptyFreshSliceGeneration {
     when: FirstBuilderFailed(generation, reason)
     requires: generation.status = running
     requires: reason != ""
@@ -288,7 +314,7 @@ rule FailEmptyInitialGeneration {
 rule RouteApprovedSliceToMeasuredRegeneration {
     when: ApprovedSliceSubmitted(request)
     requires: selection_is_approved_and_matches_digest(request)
-    requires: request.operation = regeneration
+    requires: request.operation = measured_regeneration
     requires: request.parent_candidate_identity != null
     requires: candidate_named(request.parent_candidate_identity).disposition = baseline_measured or
               candidate_named(request.parent_candidate_identity).disposition = oracle_measured
@@ -300,7 +326,7 @@ rule RouteApprovedSliceToMeasuredRegeneration {
         container_identity: request.container_identity,
         component_identity: request.component_identity,
         selection_identity: request.selection_identity,
-        operation: regeneration,
+        operation: measured_regeneration,
         parent_candidate_identity: request.parent_candidate_identity,
         parent_candidate_root: candidate_named(request.parent_candidate_identity).output_root,
         parent_candidate_digest: candidate_named(request.parent_candidate_identity).subject_digest
@@ -312,9 +338,9 @@ rule RouteApprovedSliceToMeasuredRegeneration {
             candidate_named(request.parent_candidate_identity).oracle_descriptor_digest))
 }
 
-invariant InitialGenerationCandidateRequiresApprovedOracle {
+invariant FreshSliceGenerationCandidateRequiresApprovedOracle {
     for candidate in GeneratedCandidates:
-        candidate.generation.operation = generation and
+        candidate.generation.operation = fresh_generation and
         candidate.disposition = baseline_measured and
         candidate.oracle_descriptor_digest != "" and
         exists AcceptedProductOracles where
@@ -333,35 +359,42 @@ invariant OracleProposalRetainsCompleteProvenance {
         proposal.proposal_digest != ""
 }
 
-invariant FailedInitialGenerationHasNoPromotedCandidate {
-    for generation in InitialGenerations:
+invariant FailedFreshSliceGenerationHasNoPromotedCandidate {
+    for generation in FreshSliceGenerations:
         generation.status = failed implies
             not exists AcceptedProductOracles where proposal.generation = generation and
             not exists GeneratedCandidates where generation = generation
 }
 
-invariant InitialGenerationHasNoParentCandidate {
-    for generation in InitialGenerations:
+invariant FreshSliceGenerationHasNoParentCandidate {
+    for generation in FreshSliceGenerations:
         not has_parent_candidate(generation)
 }
 
-surface InitialGenerationWorkflow {
+surface FreshSliceGenerationWorkflow {
     provides:
-        ApprovedInitialGenerationRequested(generation)
-        InitialGenerationVerificationFailed(generation, candidate, evidence, attempts)
-        InitialGenerationFirstGradeCompleted(generation, grade, scenario_digests)
+        ApprovedFreshSliceGenerationRequested(generation)
+        FreshSliceGenerationVerificationFailed(generation, candidate, evidence, attempts)
+        FreshSliceGenerationGradeCompleted(generation, grade, scenario_digests)
         OperatorApprovesOracleProposal(operator, proposal, supplied_digest)
         ProductOraclePublished(proposal, descriptor_digest, approved_by, published_at,
                                session, output_root)
         FirstBuilderFailed(generation, reason)
         ApprovedSliceSubmitted(request)
 
-    @guarantee FirstGradeBeforePromotion
+    @guarantee GradeBeforePromotion
         -- Every approved item must independently pass before evidence can be proposed as an oracle.
+
+    @guarantee FreshHarnessBeforeBuilder
+        -- The cycle binds one calibrated, sealed harness snapshot built from a committed revision;
+        -- no published instrument oracle or manually configured validator directory is required.
+
+    @guarantee CandidateBlindCycleOracle
+        -- Grade builds and calibrates one fresh cycle oracle from the approved cut without candidate access.
 
     @guarantee ExactManualApproval
         -- Only the exact operator-approved proposal digest can be published and bind the candidate.
 
     @guarantee NoCircularBuilderFeedback
-        -- Baseline grade and oracle evidence never enter the builder or verification-repair loop.
+        -- Grade and oracle evidence never enter the builder or verification-repair loop.
 }

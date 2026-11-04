@@ -102,7 +102,7 @@ entity BuilderSession {
 
 entity HarnessCalibration {
     cycle: RegenerationCycle
-    instrument_oracle_digest: Digest
+    harness_snapshot_digest: Digest
     harness_source_digest: Digest
     carried_fixture_passed: Boolean
     uncarried_fixture_passed: Boolean
@@ -266,22 +266,22 @@ rule StartCycle {
 
 rule CalibrateHarnessAndBuildCandidate {
     when: PinnedContractValidated(cycle, product_contract_digest,
-                                  instrument_oracle_digest, harness_source_digest)
+                                  harness_snapshot_digest, harness_source_digest)
     requires: cycle.status = running
     requires: cycle.preparation.selection.cut.fenced
-    requires: pinned_instrument_oracle_resolved(instrument_oracle_digest)
-    requires: complete_harness_component_coverage(instrument_oracle_digest)
+    requires: fresh_harness_snapshot_sealed(harness_snapshot_digest)
+    requires: complete_harness_snapshot_component_coverage(harness_snapshot_digest)
     requires: product_oracle_resolved_by_descriptor_digest(cycle)
     requires: product_oracle_contains_selected_items_exactly_once(cycle)
     requires: cycle.preparation.selection.items.all(item =>
         product_oracle_has_approved_expected_evidence(
             cycle, item.identity, item.scenario_digest))
     requires: harness_source_digest = discovered_complete_harness_source_digest(cycle)
-    requires: normalized_carried_golden_passed(instrument_oracle_digest)
-    requires: normalized_uncarried_golden_passed(instrument_oracle_digest)
+    requires: normalized_carried_golden_passed(harness_snapshot_digest)
+    requires: normalized_uncarried_golden_passed(harness_snapshot_digest)
     ensures: HarnessCalibration.created(
         cycle: cycle,
-        instrument_oracle_digest: instrument_oracle_digest,
+        harness_snapshot_digest: harness_snapshot_digest,
         harness_source_digest: harness_source_digest,
         carried_fixture_passed: true,
         uncarried_fixture_passed: true
@@ -453,8 +453,8 @@ surface RegenerationHarness {
         -- The builder reads a fenced cut, writes only the declared scope, and does not inherit the operator transcript.
 
     @guarantee CalibratedBuilder
-        -- No builder starts until the pinned OCI instrument oracle covers the complete harness,
-        -- matches its source digest, and passes carried and uncarried normalized Allure goldens;
+        -- No builder starts until a fresh harness snapshot covers the complete committed harness,
+        -- binds every runtime asset, and passes carried and uncarried normalized Allure goldens;
         -- independently, the product oracle supplies digest-matched approved expected evidence per item.
 
     @guarantee IndependentMeasurement

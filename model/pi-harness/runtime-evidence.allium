@@ -59,7 +59,7 @@ entity IndependentInvariantEvaluation {
 }
 
 entity OtelCapturePolicy {
-    instrument_oracle_digest: RuntimeDigest
+    harness_snapshot_digest: RuntimeDigest
     policy_digest: RuntimeDigest
     mount_path: String
     read_only: Boolean
