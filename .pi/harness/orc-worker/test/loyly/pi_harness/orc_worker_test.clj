@@ -354,6 +354,10 @@
       (let [context (:context runtime)
             sheet-id (orc/build-workflow! context (worker/generation-workflow))
             result (with-redefs [worker/baseline-grader-root (constantly "/judge")
+                                 worker/ensure-baseline-grader!
+                                 (constantly {:grader-root "/judge"
+                                              :binding-digest "sha256:binding"
+                                              :calibration {:cases []}})
                                  worker/harness-calibration-stage
                                  (fn [{:keys [inputs]}]
                                    {:stage "harness-calibration"
@@ -471,6 +475,37 @@
                    :measurement {:total 1 :passed 0 :failed 1}}
                   :instrument-conformance-result {:passed true}}}))))
 
+(deftest baseline-grade-authors-and-calibrates-a-fenced-grader-without-candidate-access
+  (let [root (.toFile (java.nio.file.Files/createTempDirectory
+                       "loyly-grader-author-test"
+                       (make-array java.nio.file.attribute.FileAttribute 0)))
+        fixture (java.io.File. root "cut-1/model/loyly/fixtures/oracle-fixture-server.mjs")
+        author-request (atom nil)
+        fixture-request (atom nil)
+        inputs {:execution-backend "gondolin"
+                :selection approved-selection
+                :harness-calibration-result {:instrument-oracle-digest "sha256:instrument"}}]
+    (.mkdirs (.getParentFile fixture))
+    (spit fixture "fixture")
+    (with-redefs [worker/project-root (constantly "/repo")
+                  worker/cuts-root (constantly (.getPath root))
+                  worker/builder-sessions-root (constantly "/sessions")
+                  worker/run-grader-author-adapter
+                  (fn [request]
+                    (reset! author-request request)
+                    {:graderRoot "/sealed/grader" :sessionId "grader-session" :reused false})
+                  worker/run-oracle-fixture-adapter
+                  (fn [request]
+                    (reset! fixture-request request)
+                    {:cases [{:itemId "@item-01-007" :role "carried" :exitCode 0}
+                             {:itemId "@item-01-007" :role "uncarried" :exitCode 1}]})]
+      (let [result (worker/ensure-baseline-grader! inputs)]
+        (is (= "/sealed/grader" (:grader-root result)))
+        (is (not (contains? @author-request :candidateRoot)))
+        (is (not (contains? @author-request :evidenceRoot)))
+        (is (= ["@item-01-007"] (:itemIds @author-request)))
+        (is (= ["carried" "uncarried"] (mapv :role (:cases @fixture-request))))))))
+
 (deftest baseline-grade-normalizes-the-complete-selected-denominator
   (let [evidence-root (.toFile (java.nio.file.Files/createTempDirectory
                                 "loyly-playwright-trace-test"
@@ -480,6 +515,10 @@
     (.mkdirs (.getParentFile trace))
     (spit trace "genuine trace fixture")
     (with-redefs [worker/baseline-grader-root (constantly "/judge")
+                worker/ensure-baseline-grader!
+                (constantly {:grader-root "/judge"
+                             :binding-digest "sha256:binding"
+                             :calibration {:cases []}})
                 subject/digest (constantly "judge-digest")
                 worker/run-grader-adapter
                 (fn [request]
@@ -518,6 +557,10 @@
 
 (deftest baseline-grade-cannot-pass-without-a-playwright-trace
   (with-redefs [worker/baseline-grader-root (constantly "/judge")
+                worker/ensure-baseline-grader!
+                (constantly {:grader-root "/judge"
+                             :binding-digest "sha256:binding"
+                             :calibration {:cases []}})
                 subject/digest (constantly "judge-digest")
                 worker/run-grader-adapter
                 (constantly

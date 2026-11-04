@@ -34,6 +34,7 @@ function commandFor(value: FixtureCase): string {
   const itemId = shellQuote(value.itemId);
   const role = shellQuote(value.role);
   const grader = shellQuote(`/grader/${value.graderPath}`);
+  const graderRunner = value.graderPath.endsWith(".mjs") ? "node" : "bash";
   return [
     "set -uo pipefail",
     "url_file=$(mktemp)",
@@ -46,7 +47,7 @@ function commandFor(value: FixtureCase): string {
     "url=$(head -n 1 \"$url_file\")",
     "case \"$url\" in http://127.0.0.1:*) ;; *) cat \"$server_err\" >&2; exit 70 ;; esac",
     "set +e",
-    `bash ${grader} \"$url\"`,
+    `${graderRunner} ${grader} \"$url\" --item ${itemId}`,
     "grader_exit=$?",
     "set -e",
     `printf '\n${exitMarker}%s\n' \"$grader_exit\"`,

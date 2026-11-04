@@ -5,10 +5,13 @@ status: accepted
 # Promote manually approved first-grade evidence as the product oracle
 
 Initial generation has no accepted product oracle from which to derive a comparison verdict.
-Instead of fabricating a grader before any product has been observed, ORC independently verifies
-the first candidate, drives every approved scenario through the public seam, and records one
-complete baseline grade. Only a complete passing denominator with passing instrument conformance
-may become an oracle proposal.
+After independent verification, ORC asks a fresh external grader-author agent to derive a grader
+from only the selected Gherkin and public fixture protocol. The author cannot read the candidate,
+builder transcript, verifier evidence, prior verdicts, or host credentials. ORC calibrates the
+result against carried and uncarried behavior, seals it to the cut, selection, instrument oracle,
+and grader model, and then drives every approved scenario through the candidate's public seam.
+Only a complete passing denominator with passing instrument conformance may become an oracle
+proposal.
 
 The proposal contains normalized expected evidence rather than grader code or raw candidate
 transcripts. It is bound to the approved selection, full scenario digests, candidate subject,
@@ -26,6 +29,10 @@ behavior requires a new approved specification and a separately reviewed oracle 
 - No product oracle is required before the first candidate is built; the calibrated instrument
   oracle remains required before builder execution.
 - Baseline grade or oracle evidence never enters the builder or verification-repair loop.
+- Grader authoring, calibration, sealing, and execution are internal responsibilities of the
+  existing baseline-grade stage; they do not add workflow stages.
+- Fresh candidate samples in one generation cycle reuse the same sealed grader. A changed binding
+  input requires a newly authored and calibrated grader.
 - A failed baseline grade or instrument-conformance check may trigger another bounded attempt,
   but that attempt is a fresh generation from the approved cut with no candidate or evidence input.
   Each fresh sample receives the same bounded verification-repair loop before evaluation.

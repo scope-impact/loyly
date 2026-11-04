@@ -13,7 +13,8 @@
     "@earendil-works/gondolin": "0.14.0",
     "@earendil-works/pi-ai": "1.4.0",
     "@earendil-works/pi-coding-agent": "1.4.0",
-    "@earendil-works/pi-durable": "1.4.0"
+    "@earendil-works/pi-durable": "1.4.0",
+    "playwright-core": "1.57.0"
   },
   "devDependencies": {
     "@cucumber/gherkin": "^42.0.1",

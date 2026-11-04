@@ -80,6 +80,14 @@
    (json-process/invoke! (str project-root "/.pi/harness/src/oracle-fixture-worker.ts")
                          request)))
 
+(defn run-grader-author!
+  [project-root request]
+  (successful-result!
+   "grader author adapter"
+   (json-process/invoke! (str project-root "/.pi/harness/src/grader-author-worker.ts")
+                         request
+                         {:working-directory project-root})))
+
 (defn run-grader!
   [{:keys [project-root cuts-root]}
    {:keys [cycle-id cut output-root evidence-root evidence-namespace mode execution-backend

@@ -47,6 +47,31 @@
                :target-stack "typescript"})))
       (is (= {:working-directory "/repo"} (:options @invocation))))))
 
+(deftest grader-author-adapter-exposes-the-contract-but-not-the-candidate
+  (let [invocation (atom nil)]
+    (with-redefs [json-process/invoke!
+                  (fn [script request options]
+                    (reset! invocation {:script script :request request :options options})
+                    {:exit-code 0 :stdout "" :stderr ""
+                     :response {:ok true
+                                :result {:graderRoot "/state/graders/sealed"
+                                         :graderDigest "sha256:sealed"}}})]
+      (is (= {:graderRoot "/state/graders/sealed"
+              :graderDigest "sha256:sealed"}
+             (adapters/run-grader-author!
+              "/repo"
+              {:backend "gondolin"
+               :cutId "cut-1"
+               :cutsRoot "/cuts"
+               :slice "01-booking-core"
+               :itemIds ["@item-01-007"]
+               :prompt "author the grader"
+               :outputRoot "/state/graders/sealed"})))
+      (is (= "/repo/.pi/harness/src/grader-author-worker.ts" (:script @invocation)))
+      (is (not (contains? (:request @invocation) :candidateRoot)))
+      (is (not (contains? (:request @invocation) :evidenceRoot)))
+      (is (= {:working-directory "/repo"} (:options @invocation))))))
+
 (deftest adapter-failures-retain-process-diagnostics
   (with-redefs [json-process/invoke!
                 (constantly {:exit-code 17
@@ -95,8 +120,9 @@
     (let [up-command (:command (first (filter #(= "baseline-up" (:name %)) commands)))]
       (is (re-find #"--wait" up-command))
       (is (not (re-find #"/health" up-command))))
-    (is (re-find #"/grader/grade.mjs"
-                 (:command (first (filter #(= "baseline-grade" (:name %)) commands)))))
+    (let [grade-command (:command (first (filter #(= "baseline-grade" (:name %)) commands)))]
+      (is (re-find #"mount --bind /tmp/pi-harness-black-box /workspace" grade-command))
+      (is (re-find #"/grader/grade.mjs" grade-command)))
     (is (re-find #"--item @item-01-007 --item @item-01-008"
                  (:command (first (filter #(= "baseline-grade" (:name %)) commands)))))
     (is (re-find #"/evidence/otel/independent/baseline"

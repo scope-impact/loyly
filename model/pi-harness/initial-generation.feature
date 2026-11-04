@@ -27,6 +27,9 @@ Feature: Initial generation captures and promotes its first independent grade
     Scenario: A successful first grade proposes evidence for oracle promotion
       Given initial generation is running for an approved selection
       When the builder produces workspace output and independent verification passes
+      And ORC asks a fresh grader-author agent to derive one grader from only the selected Gherkin and public protocol
+      And the author cannot read candidate files, builder transcripts, verifier evidence, prior verdicts, or host credentials
+      And ORC calibrates the authored grader against carried and uncarried behavior and seals its binding digest
       And an independent black-box judge grades every approved item through the public seam
       And every item passes with complete evidence
       And instrument conformance passes for the same candidate subject
@@ -62,6 +65,7 @@ Feature: Initial generation captures and promotes its first independent grade
       And the builder receives no candidate workspace, grader evidence, or instrument evidence
       And the new candidate receives its own bounded verification-repair loop
       And only a candidate that passes that loop is independently evaluated from the beginning
+      And baseline grade reuses the grader sealed for that cut, selection digest, instrument oracle, and grader model
       But the failed evaluation cannot enter any builder or verification-repair prompt
 
     @item-01-048 @skip

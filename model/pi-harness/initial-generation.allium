@@ -61,6 +61,31 @@ entity BaselineGrade {
     passed: Boolean
 }
 
+entity SealedExternalGrader {
+    generation: InitialGeneration
+    binding_digest: String
+    author_session_identity: String
+    selected_items: List<String>
+    carried_calibration_passed: Boolean
+    uncarried_calibration_passed: Boolean
+}
+
+rule AuthorCalibrateAndSealExternalGrader {
+    when: InitialGenerationVerificationPassed(generation)
+    requires: generation.status = running
+    requires: grader_author_can_read_only_selected_gherkin_and_public_protocol(generation)
+    requires: grader_author_cannot_read_candidate_or_evaluation_material(generation)
+    requires: authored_grader_passes_carried_and_uncarried_calibration(generation)
+    ensures: SealedExternalGrader.created(
+        generation: generation,
+        binding_digest: digest_grader_binding(generation),
+        author_session_identity: independent_grader_author_session(generation),
+        selected_items: generation.approved_items,
+        carried_calibration_passed: true,
+        uncarried_calibration_passed: true
+    )
+}
+
 entity ProductOracleProposal {
     identity: String
     generation: InitialGeneration

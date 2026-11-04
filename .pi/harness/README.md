@@ -109,7 +109,8 @@ graded, then yields a non-authoritative oracle proposal for manual approval:
 
 ```text
 cut → calibration → builder → instrument → affordance → verify → repair-verification
-    → baseline-grade → instrument-conformance → fresh-sample loop
+    → baseline-grade [author → calibrate → seal/reuse → public-seam grade]
+    → instrument-conformance → fresh-sample loop
     → Allure → propose-oracle
 ```
 

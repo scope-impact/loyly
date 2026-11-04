@@ -159,7 +159,10 @@
                         "; kill -0 \"$(cat /tmp/pi-harness-otel-collector.pid)\""
                         "; kill -0 \"$(cat /tmp/pi-harness-obi.pid)\"")}
          {:name "baseline-grade"
-          :command (str "OTEL_FILE_EXPORT_DIR=" runtime-root
+          :command (str "mkdir -p /tmp/pi-harness-black-box; cd /tmp"
+                        "; mount --bind /tmp/pi-harness-black-box /workspace"
+                        "; trap 'umount /workspace' EXIT TERM INT"
+                        "; OTEL_FILE_EXPORT_DIR=" runtime-root
                         " node /grader/grade.mjs \"$(cat /tmp/pi-harness-baseline-base-url)\""
                         item-arguments)}
          {:name "baseline-observe-stop"

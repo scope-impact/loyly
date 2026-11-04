@@ -207,7 +207,8 @@
       (orc/code "baseline-grade"
         :fn "loyly.pi-harness.core.worker/baseline-grade-stage"
         :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend
-                :builder-result :instrument-result :verify-result :repair-verification-result]
+                :harness-calibration-result :builder-result :instrument-result :verify-result
+                :repair-verification-result]
         :writes [:baseline-grade-result])
       (orc/code "instrument-conformance"
         :fn "loyly.pi-harness.core.worker/instrument-conformance-stage"
@@ -217,7 +218,8 @@
       (orc/code "repair-evaluation"
         :fn "loyly.pi-harness.core.worker/repair-evaluation-stage"
         :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend
-                :builder-result :instrument-result :verify-result :repair-verification-result
+                :harness-calibration-result :builder-result :instrument-result :verify-result
+                :repair-verification-result
                 :baseline-grade-result :instrument-conformance-result]
         :writes [:repair-evaluation-result])
       (orc/code "materialize-allure"

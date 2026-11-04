@@ -233,10 +233,14 @@
               :evidence-locations [(str evidence-root "/allure-results")]}))))
 
 (declare ensure-runtime! run-grader-adapter graders-stage sha256 baseline-grader-root
+         ensure-baseline-grader!
          affordance-conformance-stage)
 
 (defn run-oracle-fixture-adapter [request]
   (adapters/run-oracle-fixture! (project-root) request))
+
+(defn run-grader-author-adapter [request]
+  (adapters/run-grader-author! (project-root) request))
 
 (defn run-oracle
   ([cut] (run-oracle cut {:allItems true}))
@@ -964,16 +968,92 @@
                                        :independent independent})})))
 
 (defn baseline-grader-root []
-  (let [configured (or (System/getenv "PI_HARNESS_BASELINE_GRADER_ROOT")
+  (let [configured (or (System/getenv "PI_HARNESS_VALIDATOR_ROOT")
+                       (System/getenv "LOYLEY_VALIDATOR_ROOT")
+                       (System/getenv "PI_HARNESS_BASELINE_GRADER_ROOT")
                        (System/getenv "LOYLEY_BASELINE_GRADER_ROOT"))
         root (when configured (.getCanonicalFile (io/file configured)))]
     (when-not (and root (.isDirectory root)
-                   (.isFile (io/file root "grade.mjs"))
                    (.isFile (io/file root "affordance-conformance.mjs"))
                    (.isFile (io/file root "runtime-conformance.py")))
-      (throw (ex-info "initial generation requires an independent baseline judge package"
+      (throw (ex-info "initial generation requires the conformance validator package"
                       {:configured configured})))
     (.getPath root)))
+
+(defn- grader-author-prompt [selection]
+  (str
+   "Author an independent black-box grader for the approved selection in /cut. "
+   "The only product inputs available are spec.feature, selection.json, and the public "
+   "calibration protocol source. Do not infer or inspect an implementation.\n\n"
+   "Write /workspace/grader/grade.mjs. It must accept a public base URL as argv[2] "
+   "followed by one or more '--item @item-NN-NNN' pairs, drive only that HTTP seam, "
+   "and print one JSON array containing exactly one {itemId, verdict, evidence} object "
+   "per requested item. itemId omits the '@item-' prefix. Exit zero only when every "
+   "requested item passes. Exercise behavior, not a rigid response schema: accept "
+   "equivalent kebab/camel field spellings and semantically equivalent representations "
+   "unless the Gherkin requires exact wording.\n\n"
+   "Use playwright-core and Chromium at /usr/bin/chromium-browser. When "
+   "HARNESS_EVIDENCE_ROOT is set, capture a genuine Playwright trace at "
+   "$HARNESS_EVIDENCE_ROOT/playwright/baseline/trace.zip and write useful exchanges "
+   "under $HARNESS_EVIDENCE_ROOT/baseline-grade. Calibration may omit that variable, "
+   "so evidence-file writes must then be skipped while verdict behavior remains identical. "
+   "Do not install dependencies and do not access any path except /cut and /workspace.\n\n"
+   "Selected identities: " (str/join ", " (map :id (:items selection))) "."))
+
+(defn- grader-binding-digest [inputs]
+  (str "sha256:"
+       (sha256 (json/write-str
+                (sorted-map :cut (get-in inputs [:selection :cut])
+                            :selection-digest (get-in inputs [:selection :selectionDigest])
+                            :instrument-oracle-digest
+                            (get-in inputs [:harness-calibration-result :instrument-oracle-digest])
+                            :grader-model (or (System/getenv "PI_GRADER_MODEL")
+                                              (System/getenv "PI_BUILDER_MODEL")
+                                              "gpt-5.6-luna"))))))
+
+(defn- grader-calibration! [inputs grader-root]
+  (let [selected-items (get-in inputs [:selection :items])
+        fixture-source (slurp (str (cuts-root) "/" (get-in inputs [:selection :cut])
+                                  "/model/" (get-in inputs [:selection :projectId])
+                                  "/fixtures/oracle-fixture-server.mjs"))
+        cases (mapv (fn [[item role]]
+                      {:itemId (:id item) :role role :graderPath "grade.mjs"})
+                    (for [item selected-items role ["carried" "uncarried"]]
+                      [item role]))
+        result (run-oracle-fixture-adapter {:fixtureSource fixture-source
+                                            :graderRoot grader-root
+                                            :cases cases})
+        failures (filterv (fn [{:keys [role exitCode]}]
+                            (if (= role "carried")
+                              (not (zero? exitCode))
+                              (zero? exitCode)))
+                          (:cases result))]
+    (when (seq failures)
+      (throw (ex-info "authored black-box grader failed carried/uncarried calibration"
+                      {:failures failures})))
+    result))
+
+(defn ensure-baseline-grader! [inputs]
+  (let [binding-digest (grader-binding-digest inputs)
+        output-root (str (project-root) "/.pi/harness/.state/graders/"
+                         (subs binding-digest 7))
+        result (run-grader-author-adapter
+                {:backend (:execution-backend inputs)
+                 :cutId (get-in inputs [:selection :cut])
+                 :cutsRoot (cuts-root)
+                 :projectId (get-in inputs [:selection :projectId])
+                 :slice (get-in inputs [:selection :slice])
+                 :itemIds (mapv :id (get-in inputs [:selection :items]))
+                 :prompt (grader-author-prompt (:selection inputs))
+                 :outputRoot output-root
+                 :bindingDigest binding-digest
+                 :sessionsRoot (builder-sessions-root)})
+        calibration (grader-calibration! inputs (:graderRoot result))]
+    {:grader-root (:graderRoot result)
+     :binding-digest binding-digest
+     :author-session-id (:sessionId result)
+     :reused (:reused result)
+     :calibration calibration}))
 
 (defn- baseline-playwright-trace [evidence-root cycle-id]
   (let [trace (io/file evidence-root "cycles" cycle-id
@@ -993,7 +1073,8 @@
         instrument (effective-instrument-result inputs)
         selected-items (get-in inputs [:selection :items])
         expected-ids (mapv #(str/replace (:id %) #"^@item-" "") selected-items)
-        grader-root (baseline-grader-root)
+        authored-grader (ensure-baseline-grader! inputs)
+        grader-root (:grader-root authored-grader)
         evidence (run-grader-adapter
                   {:cycle-id (:request-id inputs)
                    :cut (get-in inputs [:selection :cut])
@@ -1041,10 +1122,13 @@
             :judge-id (str "sha256:" (subject/digest grader-root))
             :grader-root grader-root
             :grader-producer "independent-baseline-judge"
+            :grader-author-session-id (:author-session-id authored-grader)
+            :grader-binding-digest (:binding-digest authored-grader)
             :measurement measurement
             :playwright-trace playwright-trace
             :normalized-evidence-digest normalized-evidence-digest
             :evidence (json/write-str {:commands evidence
+                                       :calibration (:calibration authored-grader)
                                        :command-failures (mapv name command-failures)
                                        :normalized normalized
                                        :playwright-trace playwright-trace})})))
@@ -1103,6 +1187,9 @@
         instrumented-items (filterv #(contains? contract-items (:id %)) selected-items)
         expected-ids (mapv #(str/replace (:id %) #"^@item-" "") instrumented-items)
         gondolin? (= "gondolin" (:execution-backend inputs))
+        conformance-grader-root (if (:oracle-result inputs)
+                                  (get-in inputs [:oracle-result :grader-root])
+                                  (baseline-grader-root))
         evidence (when gondolin?
                    (run-grader-adapter {:cycle-id (:request-id inputs)
                                         :cut (get-in inputs [:selection :cut])
@@ -1110,7 +1197,7 @@
                                         :evidence-root (:evidence-root instrument)
                                         :execution-backend "gondolin"
                                         :project-id (get-in inputs [:selection :projectId])
-                                        :grader-root (:grader-root grading-context)
+                                        :grader-root conformance-grader-root
                                         :observability-root (:observability-root grading-context)
                                         :item-ids (mapv :id instrumented-items)
                                         :mode "instrument"}))
