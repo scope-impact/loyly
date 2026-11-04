@@ -15,11 +15,11 @@ review          → active E2E, explicit skips and implementation conformance
 
 The earlier visual essay and Three.js experiments remain prototype history, but they are not loaded by or bundled into the published page.
 
-## Why Svelte
+## Why generated HTML
 
-This artifact needs application-like navigation and filtering, but not a server framework. Svelte keeps the EventStorm cards, source drill-down, review filters, and Mermaid lifecycle as small HTML-like components. Vite supplies a static build that GitHub Pages can serve directly.
+EventStorming is the primary behavioral view. The site therefore follows the Halla Event Model pattern: a Clojure extractor projects the committed specifications into JSON, and a committed HTML template turns that projection into one self-contained, hash-navigated page.
 
-The published bundle contains Svelte, the extracted model data, and a lazy Mermaid chunk used only on the C4 route. It does not load a game engine or the old Three.js prototype.
+There is no frontend framework or application bundle. The generated HTML contains the model and renderer. Mermaid is used only for the supporting C4 route.
 
 ## Model boundaries
 
@@ -33,10 +33,11 @@ The published bundle contains Svelte, the extracted model data, and a lazy Merma
 ## Generation stack
 
 - `event-model/extract.clj` reads the committed model without executing it.
-- `event-model/build.sh` writes the extracted projection to `src/event-model/model.json`.
-- Svelte owns navigation, EventStorming views, topology, evidence review, and responsive interaction.
-- Mermaid is loaded on demand to render the three maintained C4 structural views.
-- Vite emits the static `dist/` directory deployed to GitHub Pages.
+- `event-model/template.html` owns the EventStorm HTML structure and rendering.
+- `event-model/build.mjs` injects the temporary JSON projection into the template.
+- `event-model/build.sh` regenerates the committed `index.html`.
+- Mermaid renders the three maintained C4 structural views on their supporting route.
+- Vite copies the single generated page into `dist/` for GitHub Pages.
 
 ## Run
 
