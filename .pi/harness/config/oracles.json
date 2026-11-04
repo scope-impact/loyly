@@ -1,1 +1,3 @@
-{}
+{
+  "instrumentOracleRef": "ghcr.io/scope-impact/loyly/instrument-oracle@sha256:30e713424e3b012273b75cf092a6a5b3e91e153729232b1f87cfa0c62ef34d1b"
+}
