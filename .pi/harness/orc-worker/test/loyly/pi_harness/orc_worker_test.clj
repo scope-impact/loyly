@@ -1,5 +1,6 @@
 (ns loyly.pi-harness.orc-worker-test
   (:require [clojure.data.json :as json]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is]]
             [ai.obney.orc.demos.pi-agent-loop.system :as system]
@@ -544,6 +545,67 @@
         (is (re-find #"carried.*must pass" (:prompt @author-request)))
         (is (re-find #"context.close.*no dispose" (:prompt @author-request)))
         (is (= ["carried" "uncarried"] (mapv :role (:cases @fixture-request))))))))
+
+(defn- cycle-oracle-calibration-cases [carried-verdict]
+  [{:itemId "@item-01-007" :role "carried" :exitCode (if (= "pass" carried-verdict) 0 1)
+    :stdout (str "[{\"itemId\":\"01-007\",\"verdict\":\"" carried-verdict "\",\"evidence\":\"carried\"}]")}
+   {:itemId "@item-01-007" :role "uncarried" :exitCode 1
+    :stdout "[{\"itemId\":\"01-007\",\"verdict\":\"fail\",\"evidence\":\"uncarried\"}]"}])
+
+(defn- with-cycle-oracle-authoring [carried-verdicts f]
+  (let [root (.toFile (java.nio.file.Files/createTempDirectory
+                       "loyly-grader-reauthor-test"
+                       (make-array java.nio.file.attribute.FileAttribute 0)))
+        fixture (java.io.File. root "cut-1/model/loyly/fixtures/oracle-fixture-server.mjs")
+        author-requests (atom [])
+        verdicts (atom carried-verdicts)
+        inputs {:execution-backend "gondolin"
+                :selection (assoc approved-selection :selectionDigest "sha256:digest-1")
+                :harness-snapshot-result {:harness-snapshot-digest "sha256:instrument"}}]
+    (.mkdirs (.getParentFile fixture))
+    (spit fixture "fixture")
+    (with-redefs [worker/project-root (constantly (.getPath root))
+                  worker/cuts-root (constantly (.getPath root))
+                  worker/builder-sessions-root (constantly "/sessions")
+                  worker/run-grader-author-adapter
+                  (fn [request]
+                    (swap! author-requests conj request)
+                    (.mkdirs (io/file (:outputRoot request)))
+                    (spit (io/file (:outputRoot request) "grade.mjs") "grader")
+                    {:graderRoot (:outputRoot request) :sessionId "grader-session" :reused false})
+                  worker/run-oracle-fixture-adapter
+                  (fn [_]
+                    (let [verdict (first @verdicts)]
+                      (swap! verdicts rest)
+                      {:cases (cycle-oracle-calibration-cases verdict)}))]
+      (f inputs author-requests))))
+
+(deftest uncalibrated-cycle-oracle-is-discarded-and-reauthored
+  (with-cycle-oracle-authoring
+    ["fail" "pass"]
+    (fn [inputs author-requests]
+      (let [result (worker/ensure-cycle-oracle! inputs)
+            [first-request second-request] @author-requests]
+        (is (= 2 (:authoring-attempts result)))
+        (is (= 2 (count @author-requests)))
+        (is (not (.exists (io/file (:outputRoot first-request)))))
+        (is (.exists (io/file (:outputRoot second-request))))
+        (is (= (:outputRoot second-request) (:grader-root result)))
+        (is (not= (:bindingDigest first-request) (:bindingDigest second-request)))
+        (is (not (re-find #"failed public calibration" (:prompt first-request))))
+        (is (re-find #"failed public calibration" (:prompt second-request)))
+        (is (re-find #"@item-01-007.*carried.*\"expected\":\"pass\"" (:prompt second-request)))))))
+
+(deftest cycle-fails-after-three-uncalibrated-cycle-oracles
+  (with-cycle-oracle-authoring
+    ["fail" "fail" "fail" "pass"]
+    (fn [inputs author-requests]
+      (is (thrown-with-msg?
+           clojure.lang.ExceptionInfo
+           #"failed carried/uncarried calibration after 3 attempts: @item-01-007 carried"
+           (worker/ensure-cycle-oracle! inputs)))
+      (is (= 3 (count @author-requests)))
+      (is (every? #(not (.exists (io/file (:outputRoot %)))) @author-requests)))))
 
 (deftest baseline-grade-normalizes-the-complete-selected-denominator
   (let [evidence-root (.toFile (java.nio.file.Files/createTempDirectory
@@ -1126,6 +1188,32 @@
     (is (= ["@item-01-007"] (:item-ids @adapter-request)))
     (is (= "runtime-instrument-conformance" (get-in result [:observations 0 :producer])))
     (is (= "pass" (get-in result [:items 0 :verdict])))))
+
+(deftest instrument-conformance-records-an-empty-applicable-denominator
+  (let [root (.toFile (java.nio.file.Files/createTempDirectory
+                       "loyly-instrument-not-applicable-"
+                       (make-array java.nio.file.attribute.FileAttribute 0)))
+        contract (io/file root "cut-1/model/loyly/runtime-evidence-contract.json")
+        adapter-called (atom false)]
+    (.mkdirs (.getParentFile contract))
+    (spit contract (json/write-str {:contracts [{:itemId "@item-01-099"}]}))
+    (let [result (with-redefs [worker/cuts-root (constantly (.getPath root))
+                               worker/run-grader-adapter
+                               (fn [_] (reset! adapter-called true) {})]
+                   (worker/instrument-conformance-stage
+                    {:inputs {:request-id "request-no-runtime-contract"
+                              :selection approved-selection
+                              :scope ["impl"]
+                              :execution-backend "gondolin"
+                              :cycle-oracle-result {:grader-root "/judge"}
+                              :builder-result {:output-root "/tmp/out" :subject-digest "s"}
+                              :instrument-result {:evidence-root "/tmp/out.evidence"
+                                                  :subject-digest "s"}}}))]
+      (is (false? @adapter-called))
+      (is (true? (:passed result)))
+      (is (false? (:applicable result)))
+      (is (= 0 (:total result)))
+      (is (= [] (:items result))))))
 
 (deftest cycle-measurement-is-persisted-before-the-grade-gate
   (let [evidence-root (.toFile (java.nio.file.Files/createTempDirectory

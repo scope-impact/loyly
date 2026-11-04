@@ -102,6 +102,7 @@ test.skip("Startup refuses a harness topology that differs from its Grain Event 
 test.skip("A successful first grade preserves its Playwright trace", () => {});
 test.skip("ORC runs explicitly requested generation without consulting candidate history", () => {});
 test.skip("A successful first grade proposes evidence for oracle promotion", () => {});
+test.skip("An uncalibrated cycle oracle is discarded and re-authored", () => {});
 test.skip("Manual approval promotes exactly the reviewed oracle evidence", () => {});
 test.skip("Failed or incomplete first grading cannot produce an oracle", () => {});
 test.skip("Failed independent evaluation can only request another clean sample", () => {});

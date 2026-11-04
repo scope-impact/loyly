@@ -41,6 +41,16 @@ Feature: A Fresh Slice Generation Cycle captures and promotes its first independ
       And the proposal records the candidate subject, complete denominator, evidence digest, and judge identity
       And generation waits for manual approval without publishing an oracle or recording a promotable candidate
 
+    @item-01-062 @skip
+    Scenario: An uncalibrated cycle oracle is discarded and re-authored
+      Given a Fresh Slice Generation Cycle has passed independent verification
+      When an authored cycle oracle fails carried or uncarried calibration
+      Then ORC discards that cycle oracle without sealing or reusing it
+      And ORC asks a fresh oracle-author agent for a new cycle oracle
+      And the new author receives only the failed calibration cases from the public calibration protocol
+      And the cycle stops as failed after three uncalibrated authoring attempts
+      And no uncalibrated cycle oracle grades the candidate
+
     @item-01-052 @skip
     Scenario: Manual approval promotes exactly the reviewed oracle evidence
       Given a successful first grade produced a proposed oracle with a stable digest

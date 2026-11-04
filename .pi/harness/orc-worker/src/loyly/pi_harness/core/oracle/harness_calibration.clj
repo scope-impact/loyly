@@ -96,7 +96,12 @@
         clojure-result
         (run-command orc-root
                      ["clojure" "-Sdeps"
-                      (str "{:paths [\"" worker-src "\" \"" worker-test "\"]}")
+                      ;; Keep in step with orc-worker/check.sh and run.sh.
+                      (str "{:paths [\"" worker-src "\" \"" worker-test "\"]"
+                           " :deps {tech.unravel/litellm-clj-bedrock"
+                           " {:git/url \"https://github.com/ObneyAI/litellm-clj.git\""
+                           " :git/sha \"0570e9459b8751d4a0c3dc1cd48595804426a84d\""
+                           " :deps/root \"contrib/bedrock\"}}}")
                       "-M:dev" "-m" "loyly.pi-harness.test-runner"])
         node-result (run-command harness-root ["npm" "test"])
         passed (and (zero? (:exit-code clojure-result))

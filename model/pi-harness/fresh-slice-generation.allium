@@ -107,6 +107,26 @@ rule BuildCalibrateAndSealCycleOracle {
     )
 }
 
+-- An authored cycle oracle that fails calibration is discarded, never sealed or reused.
+-- A fresh author may retry with only the failed public calibration cases, at most three
+-- authoring attempts per generation.
+rule ReauthorUncalibratedCycleOracle {
+    when: CycleOracleCalibrationFailed(generation, attempt, failed_cases)
+    requires: generation.status = running
+    requires: attempt < 3
+    requires: failed_cases_come_only_from_public_calibration_protocol(failed_cases)
+    ensures: discard_cycle_oracle(generation, attempt)
+    ensures: CycleOracleAuthoringRequested(generation, attempt + 1, failed_cases)
+}
+
+rule FailAfterThreeUncalibratedCycleOracles {
+    when: CycleOracleCalibrationFailed(generation, attempt, failed_cases)
+    requires: generation.status = running
+    requires: attempt = 3
+    ensures: discard_cycle_oracle(generation, attempt)
+    ensures: generation.status = failed
+}
+
 entity ProductOracleProposal {
     identity: String
     generation: FreshSliceGeneration

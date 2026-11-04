@@ -1075,7 +1075,18 @@
                       {:configured configured})))
     (.getPath root)))
 
-(defn- grader-author-prompt [selection]
+(def max-cycle-oracle-attempts 3)
+
+(defn- failed-calibration-note [failed-cases]
+  (when (seq failed-cases)
+    (str "\n\nA previously authored grader was discarded because it failed public calibration. "
+         "Write a new grader from scratch; do not assume the previous one was close. "
+         "These public calibration cases were wrong (carried must pass, uncarried must fail):\n"
+         (str/join "\n" (map json/write-str failed-cases)))))
+
+(defn- grader-author-prompt
+  ([selection] (grader-author-prompt selection []))
+  ([selection failed-cases]
   (str
    "Author an independent black-box grader for the approved selection in /cut. "
    "The only product inputs available are spec.feature, selection.json, and the public "
@@ -1088,9 +1099,7 @@
    "requested item passes. Exercise behavior, not a rigid response schema: accept "
    "equivalent kebab/camel field spellings and semantically equivalent representations "
    "unless the Gherkin requires exact wording. The selected Gherkin is authoritative: "
-   "do not replace an explicit positive outcome with a conventional business constraint. "
-   "In particular, if a scenario says a second request is confirmed while capacity remains, "
-   "the pass condition is confirmation and the resulting two holdings, not refusal.\n\n"
+   "do not replace an explicit outcome with a conventional business constraint.\n\n"
    "The public fixture's 'carried' role implements every selected scenario and must pass. "
    "Its 'uncarried' role deliberately violates only the requested item and must fail. "
    "Use that protocol to make every selected item independently discriminating. Drive HTTP "
@@ -1103,11 +1112,11 @@
    "under $HARNESS_EVIDENCE_ROOT/baseline-grade. Calibration may omit that variable, "
    "so evidence-file writes must then be skipped while verdict behavior remains identical. "
    "Do not install dependencies and do not access any path except /cut and /workspace.\n\n"
-   "Selected identities: " (str/join ", " (map :id (:items selection))) "."))
+   "Selected identities: " (str/join ", " (map :id (:items selection))) "."
+   (failed-calibration-note failed-cases))))
 
-(defn- grader-binding-digest [inputs]
-  (let [task-prompt (grader-author-prompt (:selection inputs))]
-    (str "sha256:"
+(defn- grader-binding-digest [inputs task-prompt]
+  (str "sha256:"
          (sha256 (json/write-str
                 (sorted-map :cut (get-in inputs [:selection :cut])
                             :selection-digest (get-in inputs [:selection :selectionDigest])
@@ -1118,7 +1127,7 @@
                                               (System/getenv "PI_BUILDER_MODEL")
                                               "gpt-5.6-luna")
                             :system-prompt-digest (prompt/digest grading-prompt/system-instruction)
-                            :task-prompt-digest (prompt/digest task-prompt)))))))
+                            :task-prompt-digest (prompt/digest task-prompt))))))
 
 (defn- valid-calibration-case? [{:keys [itemId role exitCode stdout]}]
   (try
@@ -1146,39 +1155,68 @@
                                             :graderRoot grader-root
                                             :cases cases})
         failures (filterv (complement valid-calibration-case?) (:cases result))]
-    (when (seq failures)
-      (throw (ex-info "authored black-box grader failed carried/uncarried calibration"
-                      {:failures failures})))
-    result))
+    (assoc result :failures failures)))
+
+(defn- failed-case-summary [{:keys [itemId role exitCode stdout]}]
+  {:itemId itemId
+   :role role
+   :expected (if (= role "carried") "pass" "fail")
+   :exitCode exitCode
+   :output (let [text (str stdout)] (subs text 0 (min 500 (count text))))})
+
+(defn- discard-cycle-oracle! [output-root]
+  (let [root (io/file output-root)]
+    (when (.exists root)
+      (doseq [file (reverse (file-seq root))]
+        (.delete file)))))
 
 (defn ensure-cycle-oracle! [inputs]
-  (let [binding-digest (grader-binding-digest inputs)
-        output-root (str (project-root) "/.pi/harness/.state/cycle-oracles/"
-                         (subs binding-digest 7))
-        snapshot-digest (or (get-in inputs [:harness-snapshot-result :harness-snapshot-digest])
-                            (get-in inputs [:harness-calibration-result :harness-snapshot-digest]))
-        result (run-grader-author-adapter
-                {:backend (:execution-backend inputs)
-                 :cutId (get-in inputs [:selection :cut])
-                 :cutsRoot (cuts-root)
-                 :projectId (get-in inputs [:selection :projectId])
-                 :slice (get-in inputs [:selection :slice])
-                 :itemIds (mapv :id (get-in inputs [:selection :items]))
-                 :systemPrompt grading-prompt/system-instruction
-                 :prompt (grader-author-prompt (:selection inputs))
-                 :outputRoot output-root
-                 :bindingDigest binding-digest
-                 :harnessSnapshotDigest snapshot-digest
-                 :selectionDigest (get-in inputs [:selection :selectionDigest])
-                 :sessionsRoot (builder-sessions-root)})
-        calibration (grader-calibration! inputs (:graderRoot result))]
-    {:grader-root (:graderRoot result)
-     :cycle-oracle-digest (:cycleOracleDigest result)
-     :evaluator-kinds (:evaluatorKinds result)
-     :binding-digest binding-digest
-     :author-session-id (:sessionId result)
-     :reused (:reused result)
-     :calibration calibration}))
+  (let [snapshot-digest (or (get-in inputs [:harness-snapshot-result :harness-snapshot-digest])
+                            (get-in inputs [:harness-calibration-result :harness-snapshot-digest]))]
+    (loop [attempt 1
+           failed-cases []]
+      (let [task-prompt (grader-author-prompt (:selection inputs) failed-cases)
+            binding-digest (grader-binding-digest inputs task-prompt)
+            output-root (str (project-root) "/.pi/harness/.state/cycle-oracles/"
+                             (subs binding-digest 7))
+            result (run-grader-author-adapter
+                    {:backend (:execution-backend inputs)
+                     :cutId (get-in inputs [:selection :cut])
+                     :cutsRoot (cuts-root)
+                     :projectId (get-in inputs [:selection :projectId])
+                     :slice (get-in inputs [:selection :slice])
+                     :itemIds (mapv :id (get-in inputs [:selection :items]))
+                     :systemPrompt grading-prompt/system-instruction
+                     :prompt task-prompt
+                     :outputRoot output-root
+                     :bindingDigest binding-digest
+                     :harnessSnapshotDigest snapshot-digest
+                     :selectionDigest (get-in inputs [:selection :selectionDigest])
+                     :sessionsRoot (builder-sessions-root)})
+            calibration (grader-calibration! inputs (:graderRoot result))
+            failures (:failures calibration)]
+        (cond
+          (empty? failures)
+          {:grader-root (:graderRoot result)
+           :cycle-oracle-digest (:cycleOracleDigest result)
+           :evaluator-kinds (:evaluatorKinds result)
+           :binding-digest binding-digest
+           :author-session-id (:sessionId result)
+           :reused (:reused result)
+           :authoring-attempts attempt
+           :calibration (dissoc calibration :failures)}
+
+          (< attempt max-cycle-oracle-attempts)
+          (do (discard-cycle-oracle! output-root)
+              (recur (inc attempt) (mapv failed-case-summary failures)))
+
+          :else
+          (do (discard-cycle-oracle! output-root)
+              (throw (ex-info (str "authored black-box grader failed carried/uncarried calibration after "
+                                   attempt " attempts: "
+                                   (str/join ", " (map #(str (:itemId %) " " (:role %)) failures)))
+                              {:failures (mapv failed-case-summary failures)
+                               :attempts attempt}))))))))
 
 (def ensure-baseline-grader! ensure-cycle-oracle!)
 
@@ -1326,11 +1364,14 @@
         instrumented-items (filterv #(contains? contract-items (:id %)) selected-items)
         expected-ids (mapv #(str/replace (:id %) #"^@item-" "") instrumented-items)
         gondolin? (= "gondolin" (:execution-backend inputs))
+        ;; No selected item has a runtime-evidence contract: the applicable denominator is
+        ;; empty, so record that explicitly instead of invoking the evaluator with no items.
+        not-applicable? (empty? instrumented-items)
         conformance-grader-root (if (:oracle-result inputs)
                                   (get-in inputs [:oracle-result :grader-root])
                                   (or (get-in inputs [:cycle-oracle-result :grader-root])
                                       (baseline-grader-root)))
-        evidence (when gondolin?
+        evidence (when (and gondolin? (not not-applicable?))
                    (run-grader-adapter {:cycle-id (:request-id inputs)
                                         :cut (get-in inputs [:selection :cut])
                                         :output-root (:output-root builder)
@@ -1342,8 +1383,14 @@
                                         :item-ids (mapv :id instrumented-items)
                                         :mode "instrument"}))
         command (get evidence :instrument-conformance)
-        interpreted (if gondolin?
+        interpreted (cond
+                      not-applicable?
+                      {:passed true :total 0 :passed-count 0 :verdicts []}
+
+                      gondolin?
                       (independent-grader/interpret-verdicts expected-ids (:stdout command))
+
+                      :else
                       (independent-grader/interpret-verdicts
                        expected-ids
                        (json/write-str
@@ -1351,7 +1398,8 @@
                                 {:itemId item-id :verdict "fail"
                                  :evidence "instrument conformance currently requires Gondolin"})
                               expected-ids))))
-        command-passed (and command (zero? (or (:exitCode command) 1)))
+        command-passed (or not-applicable?
+                           (and command (zero? (or (:exitCode command) 1))))
         passed (and (:passed interpreted) command-passed)
         items (mapv (fn [{:keys [item-id verdict evidence]}]
                       {:item-id (str "@item-" item-id)
@@ -1360,6 +1408,7 @@
                        :graded? true})
                     (:verdicts interpreted))
         summary {:passed (boolean passed)
+                 :applicable (not not-applicable?)
                  :total (:total interpreted)
                  :passed-count (:passed-count interpreted)
                  :items items}
