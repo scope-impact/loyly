@@ -5,12 +5,12 @@ Feature: Authoritative and complete runtime evidence
   Rule: Runtime evidence preserves authority and collection quality
 
     @skip @gondolin
-    Scenario: A successful first grade preserves its Playwright trace
-      Given the independent baseline judge drives the candidate only through its public seam
-      When the complete selected denominator passes
+    Scenario: A score preserves its Playwright trace
+      Given the sealed grader drives the candidate only through its public seam
+      When the score stage completes
       Then the cycle evidence contains a non-empty Playwright trace archive
-      And the normalized evidence proposal binds the trace archive digest
-      And a missing Playwright trace prevents oracle proposal
+      And the measurement binds the trace archive digest
+      And a missing Playwright trace makes the score incomplete
 
     @item-01-031 @skip
     Scenario: Candidate telemetry cannot author an independent verdict
@@ -22,12 +22,11 @@ Feature: Authoritative and complete runtime evidence
 
     @item-01-032 @skip
     Scenario: Missing or dropped required signals are inconclusive
-      Given the pinned product-oracle OCI contains the approved normalized evidence for an item
-      And the sealed harness snapshot carries the generic evaluator for the runtime signals declared by the approved project model
+      Given the sealed grader carries the generic evaluator for the runtime signals declared by the approved project model
       And one required signal is missing, incomplete, sampled, or reported as dropped
-      When the independent validator compares the captured evidence with the product oracle entry
+      When the score stage evaluates the captured evidence for an item
       Then it persists an inconclusive invariant evaluation
-      And the approved item cannot pass the comparison gate
+      And the approved item cannot pass the score
       And collection status identifies the affected signal kind and reason
       And diagnostic profiles remain available but cannot author a verdict
 
@@ -46,18 +45,18 @@ Feature: Authoritative and complete runtime evidence
       Then the observation includes the field "artifacts"
 
     @skip
-    Scenario: Instrument conformance is independent of the behavioral grade
+    Scenario: Runtime evidence is scored independently of behavior
       Given the independent execution emitted runtime evidence
-      And the black-box oracle comparator returned a failure
-      When the instrument conformance stage evaluates the runtime evidence
+      And the behavior evaluator returned a failure
+      When the runtime-evidence evaluator scores the same items
       Then it records its own pass, fail, or inconclusive observation
-      And the behavioral failure cannot skip or author the instrument verdict
-      And the final cycle passes only when both independent results pass
+      And the behavioral failure cannot skip or author the runtime-evidence verdict
+      And an item passes only when both evaluators pass
 
     @skip
-    Scenario: Instrument conformance is selected entirely from the pinned project model
+    Scenario: Runtime evidence is selected entirely from the pinned project model
       Given each selected item has a runtime evidence contract in the pinned project model
-      When the instrument conformance stage evaluates the selected items
+      When the runtime-evidence evaluator scores the selected items
       Then one generic evaluator reads their declared paths, record kinds, cardinalities, correlations, and invariants
       And adding a project or item does not require evaluator or ORC source changes
       And a selected item with no contract receives a failing observation
@@ -67,7 +66,7 @@ Feature: Authoritative and complete runtime evidence
       Given an independent invariant evaluation and its evidence digest were persisted
       When an OTel result span and Allure report are emitted
       Then both identify the persisted evaluation and evidence digest
-      And both name the same candidate subject and oracle digests
+      And both name the same candidate subject and grader digests
       And neither projection can change the recorded verdict
 
     @item-01-041 @skip

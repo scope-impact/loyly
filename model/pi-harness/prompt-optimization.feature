@@ -16,7 +16,7 @@ Feature: Independently measured builder-instruction optimization
       When ORC evaluates an instruction candidate
       Then a fresh builder produces a candidate application
       And independent verification and a complete candidate-blind black-box grade produce its metric
-      And the metric does not require a pre-existing accepted product oracle
+      And the metric does not require an approved sealed grader
       And the builder cannot supply or alter that metric
 
     @item-01-023 @skip
@@ -37,10 +37,10 @@ Feature: Independently measured builder-instruction optimization
 
     @item-01-057 @skip
     Scenario: Generation and verification repair are independent optimization targets
-      Given fresh generation and verification repair use different builder purposes
+      Given regeneration and gate repair use different builder purposes
       When ORC measures instruction candidates for each purpose
       Then the generation candidate is measured from a fresh approved cut
-      And the repair candidate is measured from fixed failed-verification inputs
+      And the repair candidate is measured from fixed failed-gate inputs
       And behavior supplied by one purpose cannot improve the other purpose's score
 
     @item-01-058 @skip
@@ -53,7 +53,7 @@ Feature: Independently measured builder-instruction optimization
 
     @item-01-059 @skip
     Scenario: ORC owns every builder and grader-author production prompt
-      Given a fresh-generation builder, verification-repair builder, or cycle-oracle grader author starts
+      Given a regeneration builder, gate-repair builder, or grader author starts
       When its model session is created
       Then ORC supplies both the system instruction and task instruction
       And ORC binds their digests to the deterministic runtime context and rendered prompt

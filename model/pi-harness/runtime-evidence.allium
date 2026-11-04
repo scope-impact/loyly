@@ -175,13 +175,13 @@ rule OpenIndependentValidationRoom {
 }
 
 rule BindSuccessfulBaselineTrace {
-    when: BaselineGradeCompleted(cycle_identity, evaluation, trace)
+    when: ScoreCompleted(cycle_identity, evaluation, trace)
     requires: evaluation.verdict = pass
     requires: trace.cycle_identity = cycle_identity
     requires: trace.path = "playwright/baseline/trace.zip"
     requires: trace.complete
     requires: trace.authority = independent_validator
-    ensures: NormalizedEvidenceProposalBound(
+    ensures: MeasurementTraceBound(
         cycle_identity: cycle_identity,
         evidence_digest: evaluation.evidence_digest,
         browser_trace_digest: trace.content_digest
@@ -258,7 +258,7 @@ surface RuntimeEvidenceMeasurement {
         -- Independent validation writes only to one cycle-owned evidence volume; the
         -- candidate and instrument-OCI-supplied declarative capture policy remain read-only.
 
-    @guarantee BaselineTraceIsBound
-        -- A passing first grade is promotable only when its genuine Playwright trace exists,
-        -- is complete, and its digest is part of the normalized proposal evidence.
+    @guarantee ScoreTraceIsBound
+        -- A score is complete only when its genuine Playwright trace exists, is complete, and
+        -- its digest is bound into the measurement.
 }

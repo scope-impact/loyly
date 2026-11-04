@@ -6,8 +6,8 @@ external entity HarnessOperator {}
 
 enum PromptOptimizationStatus { evaluating | optimized | failed }
 enum InstructionCandidateStatus { proposed | measured | rejected | selected }
-enum BuilderInstructionPurpose { fresh_generation | verification_repair }
-enum ProductionPromptRole { fresh_generation_builder | verification_repair_builder | cycle_oracle_grader_author }
+enum BuilderInstructionPurpose { regeneration | gate_repair }
+enum ProductionPromptRole { regeneration_builder | gate_repair_builder | grader_author }
 
 entity BuilderInstruction {
     identity: String
@@ -270,7 +270,7 @@ surface BuilderPromptOptimization {
         -- purpose is credited for behavior supplied by the other instruction.
 
     @guarantee ExactPromptTransport
-        -- ORC owns system and task instructions for builders and the cycle-oracle
+        -- ORC owns system and task instructions for builders and the grader
         -- grader author, renders them with deterministic runtime facts, and records
         -- the exact digest. The adapter transports it without adding prompt text.
 

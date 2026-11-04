@@ -96,34 +96,36 @@ afterAll(async () => {
 
 // Keep scenario tests at module root: allure-vitest installs its runtime with root hooks.
 // Component ownership is projected through scenarioLabels instead of nested describe blocks.
-test.skip("A slice cycle follows the declared stage order", () => {});
+test.skip("A regeneration cycle follows the declared stage order", () => {});
+test.skip("The fence refuses to build a room for an instrument nobody checked", () => {});
+test.skip("The gate ratifies done; the builder cannot", () => {});
+test.skip("The score reports to a person and never into the loop", () => {});
+test.skip("The checklist is one item per stamped scenario of the approved selection", () => {});
+test.skip("A grader is written once from the spec and calibrated before it is sealed", () => {});
+test.skip("An approved grader is reused until its scenarios change", () => {});
+test.skip("A sealed grader changes only for a recorded reason", () => {});
+test.skip("Zero verdicts mean the score did not happen", () => {});
+test.skip("An unreached item is recorded as failed and the denominator holds", () => {});
+test.skip("Behavior, affordance, and runtime evidence are scored by the same sealed grader", () => {});
+test.skip("The scoreboard compares shared items in both directions and never nets them", () => {});
+test.skip("The first cycle of a selection has no comparison", () => {});
 test.skip("A slice without a human affordance contract does not invent a UI", () => {});
 test.skip("Startup refuses a harness topology that differs from its Grain Event Model", () => {});
-test.skip("A successful first grade preserves its Playwright trace", () => {});
-test.skip("ORC runs explicitly requested generation without consulting candidate history", () => {});
-test.skip("A successful first grade proposes evidence for oracle promotion", () => {});
-test.skip("An uncalibrated cycle oracle is discarded and re-authored", () => {});
-test.skip("Manual approval promotes exactly the reviewed oracle evidence", () => {});
-test.skip("Failed or incomplete first grading cannot produce an oracle", () => {});
-test.skip("Failed independent evaluation can only request another clean sample", () => {});
-test.skip("Fresh Slice Generation keeps repairing until verification passes", () => {});
-test.skip("Fresh Slice Generation fails when the builder produces no candidate", () => {});
-test.skip("Unapproved generation evidence cannot become an oracle or measured candidate", () => {});
-test.skip("An explicitly requested regeneration uses the named persisted component candidate", () => {});
+test.skip("A score preserves its Playwright trace", () => {});
 test.skip("make bootstrap builds every harness and supported-stack runtime", () => {});
-test.skip("make bootstrap does not run Löyly application or oracle workflows", () => {});
+test.skip("make bootstrap does not run Löyly application or instrument workflows", () => {});
 test.skip("An invalid runtime build fails the Makefile target", () => {});
 test.skip("Löyly resolves its Gondolin config and Dockerfile for each supported stack", () => {});
 test.skip("An unsupported or missing project stack Dockerfile is refused", () => {});
 
-test.skip("ORC exposes the declared slice-cycle stage order", async () => {
+test.skip("ORC exposes the declared stage order", async () => {
   const context = scenarioContext();
   await scenarioLabels("execution-pipeline", "item-01-024", ["e2e"]);
 
   await given("the Pi harness ORC worker is running", async () => {
     assert.ok(worker, "the ORC worker must be started by the E2E harness");
   });
-  await when("Pi requests the executable regeneration workflow contract", async () => {
+  await when("Pi requests the executable cycle workflow contract", async () => {
     context.contract = await worker.client.workflowContract();
     await allure.attachment("workflow-contract.json", JSON.stringify(context.contract, null, 2), "application/json");
   });
@@ -132,38 +134,20 @@ test.skip("ORC exposes the declared slice-cycle stage order", async () => {
     assert.ok(expectedStages, "the modeled stage table is required");
     assert.deepEqual(required(context.contract).stages, expectedStages);
   }, [
-    ["cut"],
-    ["harness-snapshot"],
-    ["oracle"],
-    ["builder"],
-    ["instrument"],
-    ["verify"],
-    ["repair-verification"],
-    ["affordance-conformance"],
-    ["grade"],
-    ["instrument-conformance"],
-    ["repair-evaluation"],
-    ["conclude"],
+    ["fence"],
+    ["regenerate"],
+    ["gate"],
+    ["score"],
+    ["scoreboard"],
   ]);
 });
 
-test.skip("Instrumentation records the subject without changing it", () => {});
-test.skip("The whole-system product oracle supplies approved expected evidence", () => {});
-test.skip("The fresh-generation oracle stage authors and seals a cycle oracle before the builder", () => {});
-test.skip("The measured-regeneration oracle stage resolves the pinned accepted oracle", () => {});
-test.skip("Only fresh generation may resample after a failed evaluation", () => {});
-test.skip("A fresh-generation cycle concludes by proposing its oracle", () => {});
-test.skip("A measured-regeneration cycle concludes by recording its gated measurement", () => {});
 test.skip("Evidence identity cannot be reused for different content", () => {});
 test.skip("Evidence reports are derived projections", () => {});
-test.skip("A non-successful stage cannot disappear from the result [harness snapshot]", () => {});
-test.skip("A non-successful stage cannot disappear from the result [oracle]", () => {});
-test.skip("A non-successful stage cannot disappear from the result [builder]", () => {});
-test.skip("A non-successful stage cannot disappear from the result [instrument]", () => {});
-test.skip("A non-successful stage cannot disappear from the result [verify]", () => {});
-test.skip("A non-successful stage cannot disappear from the result [affordance conformance]", () => {});
-test.skip("A non-successful stage cannot disappear from the result [grade]", () => {});
-test.skip("A non-successful stage cannot disappear from the result [instrument conformance]", () => {});
+test.skip("A non-successful stage cannot disappear from the result [fence]", () => {});
+test.skip("A non-successful stage cannot disappear from the result [regenerate]", () => {});
+test.skip("A non-successful stage cannot disappear from the result [gate]", () => {});
+test.skip("A non-successful stage cannot disappear from the result [score]", () => {});
 test.skip("Cut preparation refuses an invalid or colliding identity", () => {});
 
 test("Selection preview refuses an empty or ambiguous denominator", async () => {
@@ -242,7 +226,7 @@ test("Waiting refuses an unknown task identity", async () => {
 
 test.skip("A durable task remains observable after worker restart", () => {});
 test.skip("Approval binds the complete cycle preparation and diagram", () => {});
-test.skip("Oracle promotion requires manual approval of the exact proposal digest", () => {});
+test.skip("A sealed grader is used only after manual approval of its exact digest", () => {});
 test.skip("Public harness operations use Grain commands and queries", () => {});
 test.skip("Harness progress is projected from authoritative ORC events", () => {});
 test.skip("Slice mappings reconstruct the complete cut-bound system view", () => {});
@@ -371,6 +355,7 @@ test("Preparing a cut returns immutable commit and tree identities", async () =>
 });
 
 test.skip("The builder cannot modify or escape the cut", () => {});
+test.skip("The clean room holds the spec, not an answer or a judge", () => {});
 
 test("Previewing the same slice produces the same selection identity", async () => {
   const context = scenarioContext();
@@ -483,8 +468,6 @@ test("ORC exposes builder session identity in its executable contract", async ()
 });
 
 test.skip("Verification rejects an incomplete runnable application contract", () => {});
-test.skip("Independent oracle comparison fails closed when no readable verdict exists", () => {});
-test.skip("An unreached approved item remains a failed denominator item", () => {});
 
 test.skip("A final result requires every independent gate to pass", async () => {
   const context = scenarioContext();
@@ -535,8 +518,8 @@ test("ORC exposes artifact provenance in its executable contract", async () => {
   });
 });
 
-test.skip("Instrument conformance is independent of the behavioral grade", () => {});
-test.skip("Instrument conformance is selected entirely from the pinned project model", () => {});
+test.skip("Runtime evidence is scored independently of behavior", () => {});
+test.skip("Runtime evidence is selected entirely from the pinned project model", () => {});
 test.skip("An operator Pi session profiles a Gondolin VM directly", () => {});
 test("OTel and Allure project the persisted invariant evaluation", async () => {
   const context = scenarioContext();
@@ -590,7 +573,7 @@ test("OTel and Allure project the persisted invariant evaluation", async () => {
     assert.equal(labels.evidence_digest, evaluation.evidenceDigest);
     assert.equal(attributes["loyly.evidence.digest"], evaluation.evidenceDigest);
   });
-  await and("both name the same candidate subject and oracle digests", async () => {
+  await and("both name the same candidate subject and grader digests", async () => {
     const projections = assertRequired(context.evidenceProjections, "evidence projections");
     const labels = Object.fromEntries(projections.allure.labels.map(({ name, value }: any) => [name, value]));
     const span = projections.otel.resourceSpans[0].scopeSpans[0].spans[0];

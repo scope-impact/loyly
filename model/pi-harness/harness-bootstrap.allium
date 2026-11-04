@@ -1,5 +1,5 @@
 -- Local build contract for the repository-root Pi harness Makefile target.
--- This workflow is distinct from candidate regeneration and requires no oracle.
+-- This workflow is distinct from candidate regeneration and requires no grader.
 
 enum HarnessBootstrapStatus { requested | installing_dependencies | building_runtimes | verifying_runtimes | completed | failed }
 

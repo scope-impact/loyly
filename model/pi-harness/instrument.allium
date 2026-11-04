@@ -1,0 +1,203 @@
+-- allium: 3
+-- The instrument: a checklist derived from the spec, a grader written once, calibrated,
+-- sealed, and approved by digest, a score with an honest denominator, and a scoreboard that
+-- compares cycles on shared items in both directions. It reports to a person and never
+-- feeds the build loop.
+
+enum GraderStatus { calibrating | sealed | approved | discarded }
+enum GraderReplacementReason { instrument_behavior_changed | wording_replaced | spec_grew }
+enum ItemVerdict { pass | fail | inconclusive }
+
+entity Grader {
+    digest: String
+    scenario_digests: List<String>
+    author_session_identity: String
+    attempt: Integer
+    status: GraderStatus
+    replaces: Grader?
+    replacement_reason: GraderReplacementReason?
+
+    transitions status {
+        calibrating -> sealed
+        calibrating -> discarded
+        sealed -> approved
+        terminal: approved, discarded
+    }
+}
+
+entity ScoreVerdict {
+    cycle_identity: String
+    item_identity: String
+    grader_digest: String
+    verdict: ItemVerdict
+    reached: Boolean
+    evidence: String
+}
+
+entity Scoreboard {
+    cycle_identity: String
+    previous_cycle_identity: String?
+    pass_rate: Decimal
+    denominator: Integer
+    shared_items: List<String>
+    newly_passing: List<String>
+    newly_failing: List<String>
+    new_items: List<String>
+}
+
+-- The checklist is never written; a scenario nobody stamped stops the run.
+rule DeriveChecklist {
+    when: ChecklistRequested(selection_identity, scenarios)
+    requires: scenarios.count > 0
+    requires: every_scenario_has_stamped_identity(scenarios)
+    ensures: ChecklistDerived(
+        selection_identity: selection_identity,
+        items: one_item_per_scenario(scenarios)
+    )
+}
+
+-- A grader is authored from the selected Gherkin and the public calibration protocol only.
+rule SealCalibratedGrader {
+    when: GraderCalibrated(grader, carried_passed, uncarried_failed)
+    requires: grader.status = calibrating
+    requires: grader_author_read_only_spec_and_protocol(grader)
+    requires: carried_passed
+    requires: uncarried_failed
+    ensures: grader.status = sealed
+}
+
+rule ReauthorUncalibratedGrader {
+    when: GraderCalibrationFailed(grader, failed_cases)
+    requires: grader.status = calibrating
+    requires: grader.attempt < 3
+    requires: failed_cases_come_only_from_public_protocol(failed_cases)
+    ensures: grader.status = discarded
+    ensures: GraderAuthoringRequested(
+        scenario_digests: grader.scenario_digests,
+        attempt: grader.attempt + 1,
+        failed_cases: failed_cases
+    )
+}
+
+rule StopAfterThreeUncalibratedGraders {
+    when: GraderCalibrationFailed(grader, failed_cases)
+    requires: grader.status = calibrating
+    requires: grader.attempt = 3
+    ensures: grader.status = discarded
+    ensures: InstrumentUnavailable(scenario_digests: grader.scenario_digests)
+}
+
+-- Only an operator approves a grader, and only its exact digest.
+rule ApproveExactGrader {
+    when: ApproveGrader(operator, grader, supplied_digest)
+    requires: grader.status = sealed
+    requires: supplied_digest = grader.digest
+    requires: grader.replaces = null or grader.replacement_reason != null
+    requires: grader.replacement_reason = spec_grew implies
+              only_adds_items(grader.replaces, grader)
+    ensures: grader.status = approved
+}
+
+-- An approved grader is reused, re-calibrated before every score, and replaced only for
+-- the items whose scenario digest changed.
+rule ReuseApprovedGrader {
+    when: GraderRequested(selection_identity, checklist)
+    requires: exists approved_grader_covering(checklist)
+    ensures: GraderRecalibrationRequested(grader: approved_grader_covering(checklist))
+}
+
+rule FileScore {
+    when: ScoreReturned(cycle_identity, grader, checklist, verdicts)
+    requires: grader.status = approved
+    requires: verdicts.count > 0
+    ensures:
+        for item in checklist:
+            ScoreVerdict.created(
+                cycle_identity: cycle_identity,
+                item_identity: item.item_identity,
+                grader_digest: grader.digest,
+                verdict: verdict_or_fail(verdicts, item),
+                reached: item_reached(verdicts, item),
+                evidence: evidence_or_unreached(verdicts, item)
+            )
+    ensures: ScoreFiled(cycle: cycle_identity, observations: verdicts)
+}
+
+rule ReportFirstScoreboard {
+    when: ScoreboardRequested(cycle_identity, selection_identity)
+    requires: not exists previous_measurement(selection_identity, cycle_identity)
+    ensures: Scoreboard.created(
+        cycle_identity: cycle_identity,
+        previous_cycle_identity: null,
+        pass_rate: pass_rate(cycle_identity),
+        denominator: denominator(cycle_identity),
+        shared_items: [],
+        newly_passing: [],
+        newly_failing: [],
+        new_items: []
+    )
+}
+
+rule ReportComparedScoreboard {
+    when: ScoreboardRequested(cycle_identity, selection_identity)
+    requires: exists previous_measurement(selection_identity, cycle_identity)
+    ensures: Scoreboard.created(
+        cycle_identity: cycle_identity,
+        previous_cycle_identity: previous_measurement(selection_identity, cycle_identity),
+        pass_rate: pass_rate(cycle_identity),
+        denominator: denominator(cycle_identity),
+        shared_items: shared_items(selection_identity, cycle_identity),
+        newly_passing: newly_passing(selection_identity, cycle_identity),
+        newly_failing: newly_failing(selection_identity, cycle_identity),
+        new_items: new_items(selection_identity, cycle_identity)
+    )
+}
+
+invariant ScoreUsesOnlyApprovedGraders {
+    for verdict in ScoreVerdicts:
+        grader_status(verdict.grader_digest) = approved
+}
+
+invariant UnreachedItemsFail {
+    for verdict in ScoreVerdicts:
+        not verdict.reached implies verdict.verdict = fail
+}
+
+invariant ScoreboardNeverNets {
+    for board in Scoreboards:
+        board.newly_passing and board.newly_failing are reported separately
+}
+
+invariant GraderAuthorIsCandidateBlind {
+    for grader in Graders:
+        grader_author_read_only_spec_and_protocol(grader)
+}
+
+surface Instrument {
+    facing operator: OperatorSession
+
+    provides:
+        ChecklistRequested(selection_identity, scenarios)
+        GraderCalibrated(grader, carried_passed, uncarried_failed)
+        GraderCalibrationFailed(grader, failed_cases)
+        ApproveGrader(operator, grader, supplied_digest)
+        GraderRequested(selection_identity, checklist)
+        ScoreReturned(cycle_identity, grader, checklist, verdicts)
+        ScoreboardRequested(cycle_identity, selection_identity)
+
+    @guarantee DerivedChecklist
+        -- The denominator is one item per stamped scenario of the approved selection and never
+        -- drifts for any reason other than the spec moving.
+
+    @guarantee StableCalibratedGrader
+        -- A grader is calibrated against carried and uncarried behavior, sealed by digest, and
+        -- used only after an operator approves that exact digest. It changes only for a recorded
+        -- reason, never to turn a failing score green.
+
+    @guarantee HonestScore
+        -- Zero verdicts mean no score was filed; an unreached item fails and stays counted.
+
+    @guarantee HonestScoreboard
+        -- Cycles are compared on shared items, newly passing and newly failing separately,
+        -- with new items counted as the untuned holdout. A net is never computed.
+}

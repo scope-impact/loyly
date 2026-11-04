@@ -10,7 +10,6 @@ enum PreparationStatus { awaiting_approval | approved }
 enum ExecutionProfile { host_development | gondolin_isolated | automatic }
 enum BuilderSessionStatus { opening | active | paused | completed | failed }
 enum InterventionKind { pause | steer | fork }
-enum ControlOracleProposalStatus { proposed | approved | published }
 
 value RequestDigest { value: String }
 value SelectionDigest { value: String }
@@ -39,7 +38,7 @@ entity CyclePreparation {
     target_stack: String
     execution_profile: ExecutionProfile
     cut_digest: String
-    oracle_digest: String
+    grader_digest: String
     diagram_digest: String
     max_outer_cycles: Integer
 
@@ -95,18 +94,6 @@ entity DurableMeasurementReceipt {
     passed: Integer
     failed: Integer
     complete: Boolean
-}
-
-entity ControlOracleProposal {
-    identity: String
-    digest: String
-    status: ControlOracleProposalStatus
-
-    transitions status {
-        proposed -> approved
-        approved -> published
-        terminal: published
-    }
 }
 
 rule ValidateHarnessGrainServiceArea {
@@ -188,7 +175,7 @@ rule ApproveControlSelection {
 rule PrepareCycle {
     when: PrepareRegenerationCycle(operator_session, preparation_identity, selection,
                                    candidate_scope, target_stack, execution_profile,
-                                   cut_digest, oracle_digest, diagram_digest, max_outer_cycles)
+                                   cut_digest, grader_digest, diagram_digest, max_outer_cycles)
     requires: selection.status = approved
     requires: safe_candidate_scope(candidate_scope)
     requires: supported_execution_profile(execution_profile)
@@ -197,14 +184,14 @@ rule PrepareCycle {
         identity: preparation_identity,
         digest: deterministic_preparation_digest(
             selection, candidate_scope, target_stack, execution_profile,
-            cut_digest, oracle_digest, diagram_digest, max_outer_cycles),
+            cut_digest, grader_digest, diagram_digest, max_outer_cycles),
         status: awaiting_approval,
         selection: selection,
         candidate_scope: candidate_scope,
         target_stack: target_stack,
         execution_profile: execution_profile,
         cut_digest: cut_digest,
-        oracle_digest: oracle_digest,
+        grader_digest: grader_digest,
         diagram_digest: diagram_digest,
         max_outer_cycles: max_outer_cycles
     )
@@ -215,14 +202,6 @@ rule ApproveCyclePreparation {
     requires: preparation.status = awaiting_approval
     requires: supplied_digest = preparation.digest
     ensures: preparation.status = approved
-}
-
-rule ApproveExactOracleProposal {
-    when: ApproveOracleProposal(operator_session, proposal, supplied_digest)
-    requires: proposal.status = proposed
-    requires: supplied_digest = proposal.digest
-    ensures: proposal.status = approved
-    ensures: ImmutableProductOraclePublicationRequested(proposal: proposal)
 }
 
 rule SubmitCycleTask {
@@ -391,7 +370,7 @@ invariant ApprovedPreparationDigestIsStable {
                 preparation.target_stack,
                 preparation.execution_profile,
                 preparation.cut_digest,
-                preparation.oracle_digest,
+                preparation.grader_digest,
                 preparation.diagram_digest,
                 preparation.max_outer_cycles)
 }
@@ -417,9 +396,8 @@ surface RegenerationControlPlane {
         ApproveSliceSelection(operator_session, selection, supplied_digest)
         PrepareRegenerationCycle(operator_session, preparation_identity, selection,
                                  candidate_scope, target_stack, execution_profile,
-                                 cut_digest, oracle_digest, diagram_digest, max_outer_cycles)
+                                 cut_digest, grader_digest, diagram_digest, max_outer_cycles)
         ApprovePreparedCycle(operator_session, preparation, supplied_digest)
-        ApproveOracleProposal(operator_session, proposal, supplied_digest)
         SubmitRegenerationCycle(operator_session, request_identity, request_digest,
                                 preparation, parent_cycle_identity)
         WaitRegenerationTask(operator_session, task)

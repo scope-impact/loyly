@@ -1,11 +1,9 @@
-Feature: Oracle-backed regeneration through an operator session and ORC
+Feature: Preparing, approving, and running a regeneration cycle through an operator session
   An operator session prepares a fenced specification cut, reviews and approves a
-  deterministic cycle preparation, and submits an idempotent ORC regeneration
-  cycle. It follows the shared slice-cycle stage order on the measured-regeneration
-  route: the oracle stage resolves the pinned accepted oracle before a fresh builder produces a
-  candidate in a confined workspace. Independent verification, conformance, and a grade that
-  compares fresh evidence with the accepted oracle determine the result, and the approved
-  denominator can never shrink because an item was missed.
+  deterministic selection, and submits an idempotent ORC regeneration cycle. A fresh
+  builder rebuilds the selection inside a physical clean room, the gate ratifies the
+  candidate, and the instrument scores it. The approved denominator can never shrink
+  because an item was missed.
 
   Rule: The neutral source cut is pinned and physically fenced
 
@@ -24,6 +22,15 @@ Feature: Oracle-backed regeneration through an operator session and ORC
       Then the cut is mounted read-only
       And writes outside the declared candidate scope are denied
       And network access, judge material, host credentials, and host session resources are unavailable
+
+    @item-01-080 @skip
+    Scenario: The clean room holds the spec, not an answer or a judge
+      Given the repository holds implementations, measurements, reports, and the instrument
+      When the fence builds the clean room
+      Then the spec, the domain sources, and the public application contract remain readable
+      And prior implementations, recorded measurements, and reports are absent from the room and its history
+      And the instrument, its calibration fixtures, and the harness that grades are absent from the room
+      And a fenced path that matches nothing stops the fence instead of passing silently
 
     @item-01-042 @skip
     Scenario: Slice mappings reconstruct the complete cut-bound system view
@@ -88,32 +95,16 @@ Feature: Oracle-backed regeneration through an operator session and ORC
     @item-01-008 @skip
     Scenario: Verification rejects an incomplete runnable application contract
       Given the builder has produced a candidate
-      When the independent verifier inspects and runs it
+      When the gate inspects and runs it
       Then the candidate must define app and test services
       And the app must define a healthcheck without publishing host ports
       And every required compose operation and candidate test command must succeed
 
-    @item-01-009 @skip
-    Scenario: Independent oracle comparison fails closed when no readable verdict exists
-      Given an approved selection with at least one item
-      When the independent comparator returns no readable observation
-      Then the grade stage fails
-      And no passing cycle measurement is recorded
-
-    @item-01-010 @skip
-    Scenario: An unreached approved item remains a failed denominator item
-      Given the approved selection contains three items
-      And the grade stage reaches only one item
-      When the cycle measurement is reduced
-      Then the measurement total remains three
-      And each unreached item is recorded as failed and not graded
-      And the measurement is marked incomplete
-
     @item-01-011 @skip @playback
     Scenario: A final result requires every independent gate to pass
-      Given the oracle comparator, verifier, instrument conformance, and measurement have completed
+      Given the gate, the score, and the measurement have completed
       When the final result is derived
-      Then it does not pass when any independent gate failed
+      Then it does not pass when the gate or any checklist item failed
       And every approved item was graded
       And failed approved items remain in the denominator
 

@@ -1,7 +1,6 @@
-# Session-hosted generation and regeneration harness contract
+# Session-hosted regeneration harness contract
 
-This directory is the canonical **target contract** for Fresh Slice Generation and Measured
-Slice Regeneration workflows, exposed through `.pi/harness/extension.ts` and executed by ORC under
+This directory is the canonical **target contract** for the regeneration cycle, exposed through `.pi/harness/extension.ts` and executed by ORC under
 `.pi/harness/orc-worker/`. It is separate from `model/loyly`, which describes the
 product being regenerated.
 
@@ -24,33 +23,33 @@ unclassified or doubly classified scenarios.
 
 - `harness-bootstrap.feature` and `harness-bootstrap.allium` specify the local
   `harness/Makefile` bootstrap; it builds and verifies harness and supported-stack runtime assets without
-  requiring an oracle and does not regenerate the product.
+  requiring a grader and does not regenerate the product.
 - `project-vm-config.feature` and `project-vm-config.allium` require project-specific VM
   config and supported-stack Dockerfiles under root `harness/<project-id>/`, resolved by
   convention without a per-project profile JSON; shared harness config remains under
   `.pi/harness/config/`.
-- `fresh-slice-generation.feature` and `fresh-slice-generation.allium` define explicitly
-  requested Fresh Slice Generation from an implementation-free source cut and a fresh sealed
-  harness snapshot. Existing candidate history does not change its mode and it has no parent
-  candidate. After independent verification, Grade builds and seals a candidate-blind cycle
-  oracle, measures the full approved denominator through the public seam, proposes normalized
-  successful evidence as the first product oracle, and waits for exact manual approval.
-- `regeneration-cycle.feature` defines the separate, oracle-backed measured regeneration workflow.
+- `execution-pipeline.feature` and `execution-pipeline.allium` define the one regeneration
+  cycle in the legacy shape: fence, regenerate, gate, score, scoreboard. The fence and the gate
+  are the harness and feed the build loop; the score and the scoreboard are the instrument and
+  never do.
+- `instrument.feature` and `instrument.allium` define the instrument: a checklist derived from
+  the spec, a grader written once, calibrated carried/uncarried, sealed, and approved by exact
+  digest, an honest score, and a scoreboard that compares shared items in both directions.
+- `regeneration-cycle.feature` and `regeneration-cycle.allium` define cut preparation,
+  composition, selection, preparation approval, and idempotent submission.
 - `operator-control-plane.feature`, `prompt-optimization.feature`,
   `execution-pipeline.feature`, and `runtime-evidence.feature` own acceptance behavior for
   their corresponding model components.
 - `prompt-optimization.allium` treats the complete model-directed strategy as the GEPA mutation
-  unit. Fresh generation and verification repair have separate active instructions and separate
+  unit. Regeneration and gate repair have separate active instructions and separate
   measurements. ORC renders deterministic runtime facts beside the selected strategy through one
-  prompt seam; ORC also owns the system and task instructions used by the cycle-oracle grader
-  author. Adapters transport exact rendered digests without adding instructions. Execution rooms
+  prompt seam; ORC also owns the system and task instructions used by the grader author. Adapters transport exact rendered digests without adding instructions. Execution rooms
   and verifiers enforce capability and candidate contracts independently of model compliance.
   GEPA reflection is bound to an explicit Bedrock provider and model, while Pi/Codex builder
   execution and independent grading remain separate roles.
 - Tagged acceptance scenarios retain stable `@item-*` identities so Allure results can be
   reconciled with the model without a parallel coverage catalogue. Two instrument-conformance
   scenarios still lack identities and remain an explicit traceability gap.
-- `regeneration-cycle.allium` defines the core invariants.
 - Cut composition maps every stable Gherkin behavior item to a slice, component, and container;
   reducing those mappings must reconstruct the complete system view, and decomposition must
   recover the same mappings without omissions or duplicates.
@@ -61,16 +60,6 @@ unclassified or doubly classified scenarios.
   dynamic tools, branching, and steering stay in the operator session; only an immutable
   approved fixed execution contract crosses into ORC.
 - `runtime-evidence.allium` separates candidate telemetry, harness observations, independent invariant verdicts, and report projections.
-- `execution-pipeline.allium` gates later comparison cycles on an accepted product-oracle
-  descriptor and a fresh sealed harness snapshot. The whole-system product oracle is a catalogue of
-  manually approved normalized evidence: every selected stable Gherkin item identity occurs
-  exactly once with the matching full scenario digest. Extra catalogue items do not enter the
-  denominator. The accepted oracle is independent of the source tree; cycle evidence records its
-  exact descriptor together with the harness-snapshot and cycle-oracle digests. The Fresh Slice
-  Generation contract is the no-existing-product-oracle path: Grade builds a fresh cycle oracle,
-  pauses after complete measurement for exact operator approval, and only then publishes the
-  initial immutable evidence oracle. The pipeline also defines
-  bounded verification repair before any grade evidence is collected.
 - `regeneration_event_model.clj` mandates the harness-owned Grain service area. Its block names
   use the `:loyly.pi-harness/*` namespace, its public commands, events, read models, queries, and
   processors must reconcile with live registries, and every event has an explicit `defevent`
@@ -81,7 +70,7 @@ unclassified or doubly classified scenarios.
   not invent a UI. `.pi/affordances.schema.json` is an
   extensible vocabulary, not a closed shape: independent conformance ignores unknown fields and
   validates reachable screens, operable accessible actions, declared calls, and visible feedback.
-- `GLOSSARY.md` fixes the generation, source-cut, and regeneration vocabulary.
+- `GLOSSARY.md` fixes the regeneration-cycle vocabulary.
 - `docs/adr/0001-session-and-cycle-ownership.md` records why ORC owns the inner cycle while
   operator sessions own approval and outer continuation.
 - `docs/adr/0002-pi-harness-is-an-orc-grain-service-area.md` records why the harness shares
@@ -98,13 +87,13 @@ maintainer index into the current Clojure implementation.
 
 | Contract responsibility | Implementation boundary |
 |---|---|
-| Public generation/regeneration control and status | [`loyly.pi-harness.interface`](../../.pi/harness/orc-worker/src/loyly/pi_harness/interface.clj) |
+| Public regeneration control and status | [`loyly.pi-harness.interface`](../../.pi/harness/orc-worker/src/loyly/pi_harness/interface.clj) |
 | ORC executor coordination | [`loyly.pi-harness.core.worker`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/worker.clj) |
-| Source-cut, generation, and regeneration behavior trees | [`loyly.pi-harness.workflows`](../../.pi/harness/orc-worker/src/loyly/pi_harness/workflows/generation.clj) |
+| Source-cut and regeneration-cycle behavior trees | [`loyly.pi-harness.workflows`](../../.pi/harness/orc-worker/src/loyly/pi_harness/workflows/slice_cycle.clj) |
 | Builder strategy and rendering, stack checks, and subject sealing | [`loyly.pi-harness.core.build`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/build/prompt.clj) |
 | Compose verification and independent grading | [`loyly.pi-harness.core.grading`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/grading/compose.clj) |
 | Evidence manifests and Allure projections | [`loyly.pi-harness.core.evidence`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/evidence/evidence_manifest.clj) |
-| Harness snapshot, cycle-oracle, and product-oracle calibration | [`loyly.pi-harness.core.oracle`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/oracle/oracle.clj) |
+| Harness self-check and grader calibration | [`loyly.pi-harness.core.oracle`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/oracle/oracle.clj) |
 | Process adapters and durable runtime composition | [`loyly.pi-harness.core.runtime`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/runtime/adapters.clj) |
 | Deterministic slice selection | [`loyly.pi-harness.core.selection`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/selection/slice_selection.clj) |
 | Harness-owned Grain facts | [`loyly.pi-harness.grain.interface`](../../.pi/harness/orc-worker/src/loyly/pi_harness/grain/interface.clj) |
@@ -133,7 +122,10 @@ progress event.
 
 ## Known implementation limits and gaps
 
-The contract exposes gaps found while deriving it from the current implementation:
+The contract exposes gaps found while deriving it from the current implementation. The current
+runtime still runs the twelve-stage slice cycle with routes, a per-cycle grader author, and
+proposal-based promotion; the contract now requires the five-stage legacy cycle with an
+approved sealed grader and a scoreboard.
 
 1. A host-backed cycle can be submitted, but independent grading currently requires Gondolin,
    so only Gondolin can produce a passing complete measurement.
@@ -141,72 +133,55 @@ The contract exposes gaps found while deriving it from the current implementatio
    named slice, and hashes the project model inventory. It does not yet propose a slice from
    operator intent or resolve stable item identities and full scenario digests directly from the
    canonical product Gherkin contract.
-3. The target contract requires approved-slice submission to persist the explicitly requested
-   Generate or Regenerate operation by request ID before starting work. Generate forbids a parent;
-   Regenerate requires a named persisted parent. The current implementation still infers the mode
-   from project/container/component lineage and therefore drifts from this contract. ORC
-   tick/correlation IDs are derived deterministically from the request.
-   Numeric wait-task receipts remain process-local; ORC owns execution state and resumes
-   abandoned leaf frontiers on startup.
-4. The activated optimized instruction is held in worker memory rather than durable state. The
-   target contract requires one recoverable active instruction per purpose: fresh generation and
-   verification repair.
-5. Refused, skipped, timed-out, and errored stages currently collapse into failure.
-6. Independent black-box behavior remains project-specific. The target contract makes Fresh
-   Slice Generation grade all approved items after verification, propose its normalized
-   evidence, and pause for exact manual approval before publishing the first immutable product
-   oracle. The current runtime still treats its accepted product OCI as executable grader
-   material and does not yet implement proposal, approval, or evidence-oracle publication.
-7. The production prompt renderer now measures the complete purpose-specific strategy and binds
+3. The activated optimized instruction is held in worker memory rather than durable state. The
+   target contract requires one recoverable active instruction per purpose: regeneration and
+   gate repair.
+4. Refused, skipped, timed-out, and errored stages currently collapse into failure.
+5. The production prompt renderer now measures the complete purpose-specific strategy and binds
    deterministic runtime context, including the selected stack and base image, to the exact prompt
-   digest. Candidate scoring remains responsible for independent verification and a complete
-   candidate-blind black-box grade that does not require a pre-existing product oracle. The selected
+   digest. Candidate scoring remains responsible for the gate and a complete score by an approved
+   sealed grader. The selected
    instruction and its metric evidence are not yet durable harness records.
-8. Full source-commit and candidate-scope validation occurs inside asynchronous cut
+6. Full source-commit and candidate-scope validation occurs inside asynchronous cut
    or builder execution, after a task receipt has been created, rather than at submission.
-9. Gondolin provides the declared builder isolation. The host backend executes through
+7. Gondolin provides the declared builder isolation. The host backend executes through
    a normal host shell with the host environment and is not capability-equivalent.
-10. Re-previewing an already approved deterministic selection returns its current
+8. Re-previewing an already approved deterministic selection returns its current
     `approved` status; it does not regress to `awaiting-approval`.
-11. Standalone runtime conformance is selected from each pinned project's JSONL contract;
+9. Standalone runtime conformance is selected from each pinned project's JSONL contract;
     the evaluator contains no project, item, event, projection, or field identities. Live
     Löyly evidence covers `@item-01-007` and `@item-01-008`. General producer authority, collection
     completeness, OBI capture, semantic runtime-signal OTLP conventions, and `inconclusive`
     outcomes remain unimplemented. Persisted invariant results are projected as OTLP JSON
     spans alongside Allure with the same evaluation identity and evidence-manifest digest.
-12. Supported target stacks are now independently bound to language-specific Gondolin builder
+10. Supported target stacks are now independently bound to language-specific Gondolin builder
     rooms and checked against the candidate. Rust, Java, Ruby on Rails, and the Node family fail
     closed on a stack mismatch; this is a finite supported-stack registry, not universal
     language independence. The host backend remains non-ratifying and is not isolation-equivalent.
-13. Verification repair is bounded to three attempts. Each repair uses a fresh builder seeded
-    with the previous candidate and a read-only verification evidence root. Runtime instrument
-    conformance runs after oracle comparison and does not yet participate in this repair loop.
-14. Approval currently binds only the slice selection. It does not yet bind a complete cycle
+11. Gate repair is bounded to three attempts. Each repair uses a fresh builder seeded with the
+    previous candidate and a read-only gate evidence root; score evidence never enters it.
+12. Approval currently binds only the slice selection. It does not yet bind a complete cycle
     preparation containing scope, target stack, execution profile, pinned inputs, diagram, and
     outer-cycle budget.
-15. The control RPC reconciles ORC's authoritative durable tick status with a harness-owned
+13. The control RPC reconciles ORC's authoritative durable tick status with a harness-owned
     durable stage/attempt projection and opaque builder-session reference. The Pi extension can
     query this state after reconnect; push notification subscription and an automatic live UI
     remain unimplemented.
-16. Builder sessions are fresh, isolated, and persisted as append-only Pi transcripts. The
+14. Builder sessions are fresh, isolated, and persisted as append-only Pi transcripts. The
     read-only RPC exposes committed entries, tool-call count, generated top-level workspace
     entries, status, and attempt progress. Steering, attachment, and forking remain unimplemented.
-17. Builder transcripts are not yet bound to durable workspace generations. Restoring an agent
+15. Builder transcripts are not yet bound to durable workspace generations. Restoring an agent
     transcript without the VM-visible filesystem it changed would be invalid.
-18. Parent-cycle lineage and bounded continuation heuristics are not yet recorded when an
+16. Parent-cycle lineage and bounded continuation heuristics are not yet recorded when an
     operator session decides to begin another complete cycle.
-19. Product-oracle preflight still compares repository commit/tree metadata and cross-binds an
-    instrument-oracle descriptor. The target contract instead selects manually approved expected
-    evidence by stable item identity plus full Gherkin scenario digest and independently records
-    the fresh harness-snapshot and sealed cycle-oracle digests in cycle evidence.
-20. The current harness implementation uses `:loyly/*` runtime blocks, direct read helpers, and a
+17. The current harness implementation uses `:loyly/*` runtime blocks, direct read helpers, and a
     duplicate harness progress event. It lacks the declared cycle-preparation blocks, Grain
     `defquery` handlers, registered `defevent` history contracts, the Grain Event Model runtime
     package, and strict startup/model-conformance validation. ORC also does not yet register the
     `:sheet` Event Model required to resolve the harness's cross-area command and event edges.
     These dependencies must converge with the target `:loyly.pi-harness/*` service area before
     the harness is Grain-conformant.
-21. GEPA reflection currently uses the runtime's hardcoded OpenRouter provider. The target contract
+18. GEPA reflection currently uses the runtime's hardcoded OpenRouter provider. The target contract
     requires explicit Bedrock provider registration, a pinned reflection model per optimization,
     and durable sanitized provider/model/call provenance. AWS credentials must remain outside
     prompts, events, transcripts, and repository state.

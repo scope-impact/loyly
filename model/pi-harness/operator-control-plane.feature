@@ -93,13 +93,13 @@ Feature: Session-independent generation and regeneration control
       And approval accepts only that exact preparation digest
       And changing any bound field requires a new preparation
 
-    @item-01-054 @skip
-    Scenario: Oracle promotion requires manual approval of the exact proposal digest
-      Given a complete passing first grade produced an oracle proposal awaiting approval
-      When an operator manually approves its exact proposal digest
-      Then the control plane requests immutable publication of that proposal
+    @item-01-081 @skip
+    Scenario: A sealed grader is used only after manual approval of its exact digest
+      Given a calibrated grader was sealed for a selection's scenario digests
+      When an operator manually approves its exact grader digest
+      Then later cycles score with that grader
       And a stale or different digest is refused
-      And no accepted product oracle exists before publication succeeds
+      And a cycle refuses to score with a sealed grader nobody approved
 
   Rule: Any operator session can drive the outer lifecycle
 

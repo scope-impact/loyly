@@ -9,10 +9,6 @@ enum SelectionStatus { awaiting_approval | approved }
 enum PreparationStatus { awaiting_approval | approved }
 enum ExecutionProfile { host_development | gondolin_isolated | automatic }
 enum CycleStatus { submitted | running | passed | failed }
-enum BuilderSessionStatus { opening | active | paused | completed | failed }
-enum Verdict { pass | fail | inconclusive }
-enum ProducerAuthority { candidate | harness_observer | independent_validator }
-enum EvidencePurpose { assertion | diagnostic | calibration }
 
 value Digest { value: String }
 value SourceCommit { value: String }
@@ -62,7 +58,7 @@ entity CyclePreparation {
     target_stack: String
     execution_profile: ExecutionProfile
     cut_digest: Digest
-    oracle_digest: Digest
+    grader_digest: Digest
     diagram_digest: Digest
     max_outer_cycles: Integer
 
@@ -84,57 +80,6 @@ entity RegenerationCycle {
         running -> failed
         terminal: passed, failed
     }
-
-    observations: ItemObservation with cycle = this
-    measurement: CycleMeasurement with cycle = this
-}
-
-entity BuilderSession {
-    identity: String
-    cycle: RegenerationCycle
-    operation_identity: String
-    stage: String
-    attempt: Integer
-    status: BuilderSessionStatus
-    workspace_generation: String?
-    assisted: Boolean
-}
-
-entity HarnessCalibration {
-    cycle: RegenerationCycle
-    harness_snapshot_digest: Digest
-    harness_source_digest: Digest
-    carried_fixture_passed: Boolean
-    uncarried_fixture_passed: Boolean
-}
-
-entity ItemObservation {
-    cycle: RegenerationCycle
-    item: SelectionItem
-    producer: String
-    authority: ProducerAuthority
-    evidence_purpose: EvidencePurpose
-    verdict: Verdict
-    reached: Boolean
-    evidence: String
-    subject_digest: Digest
-    oracle_digest: Digest
-}
-
-entity CycleMeasurement {
-    cycle: RegenerationCycle
-    total: Integer
-    passed: Integer
-    failed: Integer
-    complete: Boolean
-    item_results: List<ItemObservation>
-}
-
-entity CollectedProductEvidence {
-    cycle: RegenerationCycle
-    subject_digest: Digest
-    evidence_digest: Digest
-    complete: Boolean
 }
 
 rule PrepareCut {
@@ -215,7 +160,7 @@ rule ApproveSelection {
 rule PrepareCycle {
     when: PrepareRegenerationCycle(operator, preparation_identity, selection, scope,
                                    target_stack, execution_profile, cut_digest,
-                                   oracle_digest, diagram_digest, max_outer_cycles)
+                                   grader_digest, diagram_digest, max_outer_cycles)
     requires: selection.status = approved
     requires: scope_is_safe(scope)
     requires: max_outer_cycles > 0
@@ -223,14 +168,14 @@ rule PrepareCycle {
         identity: preparation_identity,
         digest: deterministic_preparation_digest(
             selection, scope, target_stack, execution_profile, cut_digest,
-            oracle_digest, diagram_digest, max_outer_cycles),
+            grader_digest, diagram_digest, max_outer_cycles),
         status: awaiting_approval,
         selection: selection,
         scope: scope,
         target_stack: target_stack,
         execution_profile: execution_profile,
         cut_digest: cut_digest,
-        oracle_digest: oracle_digest,
+        grader_digest: grader_digest,
         diagram_digest: diagram_digest,
         max_outer_cycles: max_outer_cycles
     )
@@ -257,145 +202,13 @@ rule SubmitCycle {
     )
 }
 
+-- The cycle's stages (fence, regenerate, gate, score, scoreboard) are owned by
+-- execution-pipeline.allium; scoring is owned by instrument.allium.
 rule StartCycle {
     when: StartRegenerationCycle(cycle)
     requires: cycle.status = submitted
     ensures: cycle.status = running
-    ensures: ValidatePinnedContract(cycle: cycle)
-}
-
--- Stage order is owned by execution-pipeline.allium (the shared slice cycle). On the
--- measured_regeneration route this rule spans its harness-snapshot and oracle stages: the
--- pinned accepted product oracle is resolved by digest before the builder starts.
-rule CalibrateHarnessAndBuildCandidate {
-    when: PinnedContractValidated(cycle, product_contract_digest,
-                                  harness_snapshot_digest, harness_source_digest)
-    requires: cycle.status = running
-    requires: cycle.preparation.selection.cut.fenced
-    requires: fresh_harness_snapshot_sealed(harness_snapshot_digest)
-    requires: complete_harness_snapshot_component_coverage(harness_snapshot_digest)
-    requires: product_oracle_resolved_by_descriptor_digest(cycle)
-    requires: product_oracle_contains_selected_items_exactly_once(cycle)
-    requires: cycle.preparation.selection.items.all(item =>
-        product_oracle_has_approved_expected_evidence(
-            cycle, item.identity, item.scenario_digest))
-    requires: harness_source_digest = discovered_complete_harness_source_digest(cycle)
-    requires: normalized_carried_golden_passed(harness_snapshot_digest)
-    requires: normalized_uncarried_golden_passed(harness_snapshot_digest)
-    ensures: HarnessCalibration.created(
-        cycle: cycle,
-        harness_snapshot_digest: harness_snapshot_digest,
-        harness_source_digest: harness_source_digest,
-        carried_fixture_passed: true,
-        uncarried_fixture_passed: true
-    )
-    ensures: BuilderStartedFresh(cycle: cycle, scope: cycle.preparation.scope)
-}
-
-rule OpenBuilderSession {
-    when: BuilderStartedFresh(cycle, stage, attempt, operation_identity)
-    requires: cycle.status = running
-    requires: unique_builder_operation_identity(cycle, stage, attempt, operation_identity)
-    ensures: BuilderSession.created(
-        identity: builder_session_identity(operation_identity),
-        cycle: cycle,
-        operation_identity: operation_identity,
-        stage: stage,
-        attempt: attempt,
-        status: active,
-        workspace_generation: null,
-        assisted: false
-    )
-}
-
-rule CandidateProduced {
-    when: BuilderProducedCandidate(cycle, builder_session, candidate_digest,
-                                   workspace_generation, tool_calls, generated_paths)
-    requires: cycle.status = running
-    requires: builder_session.cycle = cycle
-    requires: tool_calls > 0
-    requires: generated_paths.count > 0
-    ensures: cycle.candidate_digest = candidate_digest
-    ensures: builder_session.workspace_generation = workspace_generation
-    ensures: builder_session.status = completed
-    ensures: VerifyCandidate(cycle: cycle)
-}
-
-rule CandidateVerified {
-    when: CandidateApplicationVerified(cycle)
-    requires: cycle.status = running
-    requires: cycle.candidate_digest != null
-    ensures: CollectProductEvidence(cycle: cycle)
-}
-
--- CollectCandidateEvidence and CompareCandidateEvidenceWithOracle together form the
--- measured-regeneration grade stage; the measured route never resamples after it.
-rule CollectCandidateEvidence {
-    when: ProductEvidenceCollected(cycle, subject_digest, evidence_digest, complete)
-    requires: cycle.status = running
-    requires: cycle.candidate_digest = subject_digest
-    ensures: CollectedProductEvidence.created(
-        cycle: cycle,
-        subject_digest: subject_digest,
-        evidence_digest: evidence_digest,
-        complete: complete
-    )
-    ensures: CompareCollectedEvidenceWithOracle(cycle: cycle)
-}
-
-rule CompareCandidateEvidenceWithOracle {
-    when: OracleComparisonVerdictsReturned(cycle, observations)
-    requires: cycle.status = running
-    requires: exists CollectedProductEvidence{cycle: cycle, complete: true}
-    requires: observations.count > 0
-    requires: observations.all(o => o.item in cycle.preparation.selection.items)
-    ensures:
-        for observation in observations:
-            ItemObservation.created(
-                cycle: cycle,
-                item: observation.item,
-                producer: observation.producer,
-                authority: independent_validator,
-                evidence_purpose: assertion,
-                verdict: observation.verdict,
-                reached: true,
-                evidence: observation.evidence,
-                subject_digest: observation.subject_digest,
-                oracle_digest: combined_oracle_digest(cycle)
-            )
-    ensures: ReduceCycleMeasurement(cycle: cycle)
-}
-
-rule RecordMeasurement {
-    when: ReduceCycleMeasurement(cycle)
-    let reached = cycle.observations where reached
-    let passed_items = reached where verdict = pass
-    let total = cycle.preparation.selection.items.count
-    ensures: CycleMeasurement.created(
-        cycle: cycle,
-        total: total,
-        passed: passed_items.count,
-        failed: total - passed_items.count,
-        complete: reached.count = total,
-        item_results: measurement_results_for(cycle.preparation.selection.items, reached)
-    )
-}
-
-rule PassCycle {
-    when: IndependentGatesCompleted(cycle, oracle_passed, verifier_passed, instrument_conformance_passed)
-    requires: cycle.status = running
-    requires: oracle_passed
-    requires: verifier_passed
-    requires: instrument_conformance_passed
-    requires: cycle.measurement.complete
-    requires: cycle.measurement.failed = 0
-    ensures: cycle.status = passed
-}
-
-rule FailCycle {
-    when: IndependentGateFailed(cycle, reason)
-    requires: cycle.status = running
-    ensures: cycle.status = failed
+    ensures: FenceRequested(cycle: cycle)
 }
 
 invariant ApprovedSelectionDigestIsStable {
@@ -417,25 +230,9 @@ invariant ApprovedPreparationDigestIsStable {
                 preparation.target_stack,
                 preparation.execution_profile,
                 preparation.cut_digest,
-                preparation.oracle_digest,
+                preparation.grader_digest,
                 preparation.diagram_digest,
                 preparation.max_outer_cycles)
-}
-
-invariant MeasurementKeepsApprovedDenominator {
-    for measurement in CycleMeasurements:
-        measurement.total = measurement.cycle.preparation.selection.items.count
-}
-
-invariant BuilderSessionCannotSeeIndependentGrade {
-    for builder_session in BuilderSessions:
-        not builder_session_can_read_oracle_comparison_evidence(builder_session)
-}
-
-invariant PassingCycleHasCompleteEvidence {
-    for cycle in RegenerationCycles:
-        cycle.status = passed implies
-            cycle.measurement.complete and cycle.measurement.failed = 0
 }
 
 surface RegenerationHarness {
@@ -449,7 +246,7 @@ surface RegenerationHarness {
         ApproveSliceSelection(operator, selection, digest)
         PrepareRegenerationCycle(operator, preparation_identity, selection, scope,
                                  target_stack, execution_profile, cut_digest,
-                                 oracle_digest, diagram_digest, max_outer_cycles)
+                                 grader_digest, diagram_digest, max_outer_cycles)
         ApproveCyclePreparation(operator, preparation, digest)
         SubmitRegenerationCycle(operator, request_identity, preparation, parent_cycle_identity)
         ObserveBuilderSession(operator, builder_session)
@@ -457,20 +254,11 @@ surface RegenerationHarness {
     @guarantee BuilderIsolation
         -- The builder reads a fenced cut, writes only the declared scope, and does not inherit the operator transcript.
 
-    @guarantee CalibratedBuilder
-        -- No builder starts until a fresh harness snapshot covers the complete committed harness,
-        -- binds every runtime asset, and passes carried and uncarried normalized Allure goldens;
-        -- independently, the oracle stage resolves the pinned accepted product oracle, which supplies
-        -- digest-matched approved expected evidence per item.
+    @guarantee ApprovedChoicesOnly
+        -- A cycle runs only from an approved preparation, which binds the cut, the selection,
+        -- the scope, the target stack, and the approved sealed grader digest.
 
     @guarantee IndependentMeasurement
-        -- The builder cannot author the oracle, verifier, evidence collector, comparator, or final measurement used to pass its cycle.
-
-    @guarantee InconclusiveDoesNotPass
-        -- Missing or incomplete required runtime evidence remains in the denominator
-        -- and cannot be interpreted as a passing item.
-
-    @guarantee HonestDenominator
-        -- Missing or unreached items fail and remain in the approved denominator.
+        -- The builder cannot author the gate, the grader, the score, or the measurement used to judge its cycle.
 }
 -- End of observable regeneration-cycle contract.

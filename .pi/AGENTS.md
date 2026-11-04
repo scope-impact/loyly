@@ -2,14 +2,15 @@
 
 ## Architecture
 
-ORC/Clojure is the workflow engine and owns all regeneration behavior. Both routes run one
-slice cycle; the persisted route (`fresh-generation` or `measured-regeneration`) selects what
-the oracle, grade, repair-evaluation, and conclude stages do:
+ORC/Clojure is the workflow engine and owns all regeneration behavior. It runs one cycle in
+the legacy shape (see the root `AGENTS.md`):
 
 ```text
-cut → harness-snapshot → oracle → builder → instrument → verify → repair-verification
-    → affordance-conformance → grade → instrument-conformance → repair-evaluation → conclude
+fence → regenerate → gate → score → scoreboard
 ```
+
+The fence and the gate are the harness and feed the build loop; the score and the scoreboard
+are the instrument and never do.
 
 TypeScript is adapter code only. It may provide:
 
@@ -27,11 +28,7 @@ Project-specific execution and build configuration lives at the repository root 
 each project's VM configuration and supported-stack Dockerfiles; derive conventional paths
 from the project ID and stack instead of adding a per-project `harness.json`. Product truth
 and behavioral contracts stay under `model/<project-id>/`, and project-agnostic harness
-configuration stays under `.pi/harness/config/`. A product-oracle reference is optional before
-first generation and must not be fabricated. First generation independently grades the complete
-approved denominator and may propose its normalized successful evidence; only exact manual
-approval and immutable publication create the accepted pin used by later comparison cycles.
-Do not create a second project-config tree under `.pi/harness/config/projects/`
+configuration stays under `.pi/harness/config/`. Do not create a second project-config tree under `.pi/harness/config/projects/`
 or `projects/<project-id>/`.
 
 ## Domain model boundary
@@ -61,38 +58,38 @@ Use strict Grain Event Model validation to reconcile declared topology with live
 ## Regeneration boundary
 
 - The cut is pinned before a cycle starts.
-- The pinned OCI instrument oracle must resolve, match the harness source digest, and pass
-  carried and uncarried calibration before the builder runs.
+- The harness self-check must pass before any clean room is built; a passing self-check is
+  reused only for an identical harness digest.
+- The fence is physical and proved: prior implementations, measurements, reports, graders,
+  calibration fixtures, and the grading harness are absent from the clean room and its history.
 - `/cut` is read-only.
 - Builder writes are limited to the declared `/workspace` scope.
 - Builder sessions use Codex through Pi and never inherit the root Pi transcript.
 - Host credentials and host environment are not mounted into Gondolin.
-- Oracle and verification are independent of the builder.
-- Verification repair is ORC-owned, limited to three total verification attempts, and uses a
-  fresh Pi/Codex builder session for each repair round.
-- A repair builder may receive the preceding candidate plus that attempt's verifier evidence
-  root read-only. It must never receive grader or instrument-conformance evidence.
-- Independent grading starts only after the effective final candidate passes verification.
+- The gate and the score are independent of the builder.
+- Gate repair is ORC-owned, limited to three regenerate attempts, and uses a fresh Pi/Codex
+  builder session for each attempt.
+- A repair builder may receive the preceding candidate plus that attempt's gate evidence
+  root read-only. It must never receive score evidence.
+- The score starts only after the candidate passes the gate.
 - Supported target stacks select language-specific offline Gondolin builder rooms and are
-  independently checked during verification; unknown or mismatched stacks fail closed.
+  independently checked by the gate; unknown or mismatched stacks fail closed.
 - Generated output is persisted only from an ORC stage.
 
-## Oracle evidence lifecycle
+## Instrument lifecycle
 
-- The first black-box grade is authored by an independent judge from the pinned observable
-  contract and drives only the candidate's public seam. It must not read candidate source,
-  builder transcripts, prior measurements, or verifier implementation.
-- A complete passing first grade produces a normalized evidence proposal, not an accepted
-  oracle. Failed, missing, inconclusive, or non-conformant evidence cannot be promoted.
-- Promotion requires the operator to approve the exact proposal digest. An independently
-  managed publisher then creates the immutable product OCI oracle and returns its descriptor.
-- Keep raw judge sessions, normalization machinery, validators, calibration fixtures, and
-  oracle publication assets out of the product Git repository.
-- Later regeneration collects fresh evidence and compares it with the pinned promoted oracle.
-  The oracle contains approved expected evidence; probes and validators are measurement
-  machinery and are not themselves the oracle.
-- Reuse one accepted oracle digest across compared cycles. A red comparison never silently
-  records a new golden; changed expected behavior requires a new approved promotion.
+- The grader is authored by an independent author from the selected Gherkin and the public
+  calibration protocol only. It drives only the candidate's public seam and must not read
+  candidate source, builder transcripts, prior measurements, or gate implementation.
+- A grader is calibrated against carried and uncarried behavior and sealed by digest. An
+  uncalibrated grader is discarded and re-authored from the failing calibration cases, at
+  most three attempts.
+- Only an operator approves a sealed grader, and only its exact digest. A cycle refuses to
+  score with a grader nobody approved.
+- Reuse one approved grader across cycles until its scenarios change. A failing score never
+  replaces a grader; a replacement records its reason (instrument behavior changed, wording
+  replaced, or spec grew with additions only).
+- The scoreboard compares cycles on shared items in both directions and never computes a net.
 
 ## Migration rule
 
@@ -122,7 +119,7 @@ generated candidate one implementation produced from those inputs
 Use the following evidence rules:
 
 - If the specification, model, and grader disagree about an observable result, treat it as
-  a specification/model or instrument-oracle defect. Resolve the disagreement and
+  a specification/model or grader defect. Resolve the disagreement and
   recalibrate before running GEPA.
 - If a declared command, event, aggregate, projection, or invariant is absent or
   contradictory, correct the Grain Event Model. Do not compensate in the builder prompt.
@@ -132,7 +129,7 @@ Use the following evidence rules:
   revision improves the measured result without changing the model or grader, classify it
   as a builder-prompt defect and make it eligible for GEPA optimization.
 - If carried or uncarried calibration fails, stop before the builder. Repair the instrument
-  or oracle rather than optimizing against it.
+  or grader rather than optimizing against it.
 
 GEPA optimizes implementation reliability for a coherent, calibrated contract. It must not
 be used to resolve ambiguity between Allium/Gherkin, Grain, runtime-evidence contracts, and
