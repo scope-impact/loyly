@@ -86,11 +86,11 @@ function shellQuote(value: string): string {
 function fenceCommand(sourceCommit: string, hidden: readonly string[]): string {
   return [
     "set -eu",
-    // Git's global config lives in the staging root, never the operator's ~/.gitconfig:
-    // concurrent cuts otherwise contend on its lock and leave safe.directory entries behind.
-    "export GIT_CONFIG_GLOBAL=/output/.gitconfig",
+    // Trust the cut per invocation, never through a config file: git honours safe.directory
+    // only from system, global, or command-line config, and GIT_CONFIG_* is command-line
+    // scope. Writing ~/.gitconfig made concurrent cuts contend on its lock and leave entries.
+    "export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0=/output/cut",
     "git clone --quiet --depth 1 file:///source /output/cut",
-    "git config --global --add safe.directory /output/cut",
     `test \"$(git -C /output/cut rev-parse HEAD)\" = '${sourceCommit}'`,
     "CUT_DATE=\"$(git -C /output/cut show -s --format=%cI HEAD)\"",
     "export GIT_AUTHOR_DATE=\"$CUT_DATE\" GIT_COMMITTER_DATE=\"$CUT_DATE\"",
