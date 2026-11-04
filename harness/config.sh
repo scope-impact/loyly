@@ -7,8 +7,8 @@
 APP_DIR=harness-impl
 PORT=8902
 
-# The spec root the Babashka tools read; exported so they resolve the same path.
-export PLAN_DIR=.pi/model/plan
+# The spec root. harness/hjson.clj reads this line, so the tools and modules.sh agree.
+PLAN_DIR=.pi/model/plan
 
 # What the identity probe expects the served surface to carry.
 APP_MARKER=pi-harness
@@ -23,5 +23,5 @@ APP_PROBE=harness/probe.sh
 #   archive/legacy-harness/cycles  recorded legacy measurements
 FENCED_PATHS=".pi/harness .pi/architecture.md reports archive/legacy-harness/cycles"
 
-# No sibling repositories carry this harness here, so modules.sh compares nothing.
-SIBLING_REPOS=""
+# SIBLING_REPOS is not declared: no other repository carries this harness, so modules.sh
+# names no sibling and compares nothing, and says so.

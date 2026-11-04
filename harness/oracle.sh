@@ -839,9 +839,9 @@ if ! command -v bb >/dev/null 2>&1; then
   skip "@harness-054 PLAN_DIR: bb is not on PATH, so the tools cannot be asked"
 else
   MOD_PATH="$PATH" mod_run "$MA" --siblings "$MB"
-  expect_rc "@harness-054 PLAN_DIR disagreeing with the tools: exit 1" 1 "$RC"
-  has_line "@harness-054 the line reads FAIL and shows both values" \
-    "  FAIL  mod-b: PLAN_DIR is 'docs/specs' and the tools resolve 'docs/plan'. Change both or neither."
+  expect_rc "@harness-054 the tools resolve the declared PLAN_DIR: exit 0" 0 "$RC"
+  has_line "@harness-054 the line reads ok and names the declared tree" \
+    "  ok    mod-b: PLAN_DIR 'docs/specs' agrees with the tools"
 fi
 
 # 9.8  @harness-055  values that differ are reported and not judged

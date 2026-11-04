@@ -86,7 +86,10 @@ PER_REPO=(harness/config.sh harness/probe.sh harness/README.md)
 #                       and it is nothing to do with harness/oracle.sh despite the name.
 #                       The name is the real problem and a rename is the better fix; see
 #                       harness/README.md.
-LOCAL=(harness/oracle.py)
+#   harness/Makefile    loyly's runtime bootstrap: it builds the Gondolin assets and offline
+#                       runtime archives the Pi/ORC harness runs on. It is this repository's
+#                       build, not part of the instrument.
+LOCAL=(harness/oracle.py harness/Makefile)
 
 # Recorded goldens. Content is never compared either, for a different reason: each is
 # recorded from this repository's own spec and its own scored cycle, so there is no single
