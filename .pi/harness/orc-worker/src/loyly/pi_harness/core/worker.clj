@@ -1675,6 +1675,16 @@
    (.getBytes (str "pi-harness:" prefix ":" request-id)
               java.nio.charset.StandardCharsets/UTF_8)))
 
+;; One slice cycle may build, repair verification three times, grade, and (fresh generation)
+;; resample up to three evaluation rounds, each with its own builder and VMs. ORC rules a run
+;; wedged once it is past this budget and silent, so the budget must cover the slowest
+;; legitimate cycle (Rust or Java compiles under load), not the typical one.
+(def default-cycle-timeout-ms (* 90 60 1000))
+
+(defn cycle-timeout-ms []
+  (or (some-> (System/getenv "PI_HARNESS_CYCLE_TIMEOUT_MS") parse-long)
+      default-cycle-timeout-ms))
+
 (defn- submit-slice-cycle!
   "Start one slice cycle on its persisted route. Only submit-approved-slice! calls this."
   [{:keys [requestId selectionContract scope targetStack executionBackend
@@ -1715,7 +1725,7 @@
                                                   :parent-candidate-digest parentCandidateDigest))
                                :tick-id tick-id
                                :correlation-id correlation-id
-                               :timeout-ms 900000))
+                               :timeout-ms (cycle-timeout-ms)))
           receipt (cond-> {:operation route :operationId requestId
                            :cycleId requestId :selectionId (:selectionId selectionContract)
                            :tickId (str tick-id) :correlationId (str correlation-id)
