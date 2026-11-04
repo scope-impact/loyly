@@ -1,6 +1,10 @@
 -- allium: 3
 -- Fresh Slice Generation captures a complete independent first grade, proposes its normalized
 -- evidence as the first product oracle, and waits for exact operator approval before promotion.
+-- It runs the shared slice-cycle stage order (execution-pipeline.allium) on the fresh_generation
+-- route: cut, harness snapshot, oracle, builder, instrument, verify, repair verification,
+-- affordance conformance, grade, instrument conformance, repair evaluation, conclude. The
+-- cycle oracle is authored, calibrated, and sealed in the oracle stage, before any builder.
 
 enum FreshSliceGenerationStatus {
     requested | running | awaiting_oracle_approval | oracle_promoted | failed
@@ -86,10 +90,11 @@ entity SealedCycleOracle {
 }
 
 rule BuildCalibrateAndSealCycleOracle {
-    when: FreshSliceGenerationVerificationPassed(generation)
+    when: FreshSliceGenerationOracleStageStarted(generation)
     requires: generation.status = running
     requires: generation.harness_snapshot.sealed
     requires: generation.harness_snapshot.calibrated
+    requires: no_builder_has_started(generation)
     requires: oracle_author_can_read_only_approved_cut_and_public_calibration_protocol(generation)
     requires: oracle_author_cannot_read_candidate_or_evaluation_material(generation)
     requires: cycle_oracle_contains_only_applicable_behavior_affordance_and_runtime_evaluators(generation)
@@ -125,6 +130,7 @@ rule FailAfterThreeUncalibratedCycleOracles {
     requires: attempt = 3
     ensures: discard_cycle_oracle(generation, attempt)
     ensures: generation.status = failed
+    ensures: no_builder_has_started(generation)
 }
 
 entity ProductOracleProposal {
@@ -394,6 +400,8 @@ invariant FreshSliceGenerationHasNoParentCandidate {
 surface FreshSliceGenerationWorkflow {
     provides:
         ApprovedFreshSliceGenerationRequested(generation)
+        FreshSliceGenerationOracleStageStarted(generation)
+        CycleOracleCalibrationFailed(generation, attempt, failed_cases)
         FreshSliceGenerationVerificationFailed(generation, candidate, evidence, attempts)
         FreshSliceGenerationGradeCompleted(generation, grade, scenario_digests)
         OperatorApprovesOracleProposal(operator, proposal, supplied_digest)
@@ -410,7 +418,8 @@ surface FreshSliceGenerationWorkflow {
         -- no published instrument oracle or manually configured validator directory is required.
 
     @guarantee CandidateBlindCycleOracle
-        -- Grade builds and calibrates one fresh cycle oracle from the approved cut without candidate access.
+        -- The oracle stage builds, calibrates, and seals one fresh cycle oracle from the approved
+        -- cut without candidate access before any builder starts; Grade uses only that sealed oracle.
 
     @guarantee ExactManualApproval
         -- Only the exact operator-approved proposal digest can be published and bind the candidate.

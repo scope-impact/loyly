@@ -1,6 +1,8 @@
 Feature: A Fresh Slice Generation Cycle captures and promotes its first independent grade
   A Fresh Slice Generation Cycle starts from a fresh fenced source cut with no parent candidate and no
-  accepted product oracle. After independent verification, it black-box grades every
+  accepted product oracle. It follows the shared slice-cycle stage order on the
+  fresh-generation route: a candidate-blind cycle oracle is authored, calibrated, and sealed
+  before the builder starts. After independent verification, it black-box grades every
   approved item through the public seam and proposes the normalized successful evidence
   as the first product oracle. Publication and candidate promotion require an operator's
   approval of that exact proposal digest.
@@ -18,8 +20,9 @@ Feature: A Fresh Slice Generation Cycle captures and promotes its first independ
       When the operator explicitly submits Fresh Generate for the approved slice
       Then ORC persists a fresh-generation route for that request
       And ORC starts the pi-harness-fresh-generation workflow
-      And its automated stages are cut, harness snapshot, fenced build, verify, repair verification, and grade
-      And Grade builds, calibrates, and seals a fresh candidate-blind cycle oracle before black-box evaluation
+      And its automated stages are cut, harness snapshot, oracle, builder, instrument, verify, repair verification, affordance conformance, grade, instrument conformance, repair evaluation, and conclude
+      And the oracle stage builds, calibrates, and seals a fresh candidate-blind cycle oracle before the builder starts
+      And Grade uses only that sealed cycle oracle for black-box evaluation
       And the builder receives no parent candidate, grader evidence, or host credentials
       And writes remain confined to the approved workspace scope
 
@@ -28,11 +31,11 @@ Feature: A Fresh Slice Generation Cycle captures and promotes its first independ
     @item-01-044 @skip
     Scenario: A successful first grade proposes evidence for oracle promotion
       Given a Fresh Slice Generation Cycle is running for an approved selection
-      When the builder produces workspace output and independent verification passes
-      And ORC asks a fresh oracle-author agent to derive one cycle oracle from only the selected Gherkin and public calibration protocol
+      When ORC asks a fresh oracle-author agent to derive one cycle oracle from only the selected Gherkin and public calibration protocol before the builder starts
       And the author cannot read candidate files, builder transcripts, verifier evidence, prior verdicts, or host credentials
       And the cycle oracle contains the black-box grader and every applicable affordance and runtime-conformance evaluator
       And ORC calibrates the cycle oracle against carried and uncarried behavior and seals its binding digest
+      And the builder then produces workspace output and independent verification passes
       And the sealed cycle oracle grades every approved item through the public seam
       And every item passes with complete evidence
       And instrument conformance passes for the same candidate subject
@@ -43,13 +46,13 @@ Feature: A Fresh Slice Generation Cycle captures and promotes its first independ
 
     @item-01-062 @skip
     Scenario: An uncalibrated cycle oracle is discarded and re-authored
-      Given a Fresh Slice Generation Cycle has passed independent verification
+      Given a Fresh Slice Generation Cycle has sealed its harness snapshot and entered the oracle stage
       When an authored cycle oracle fails carried or uncarried calibration
       Then ORC discards that cycle oracle without sealing or reusing it
       And ORC asks a fresh oracle-author agent for a new cycle oracle
       And the new author receives only the failed calibration cases from the public calibration protocol
-      And the cycle stops as failed after three uncalibrated authoring attempts
-      And no uncalibrated cycle oracle grades the candidate
+      And the cycle stops as failed after three uncalibrated authoring attempts before any builder starts
+      And no uncalibrated cycle oracle grades any candidate
 
     @item-01-052 @skip
     Scenario: Manual approval promotes exactly the reviewed oracle evidence
@@ -74,7 +77,7 @@ Feature: A Fresh Slice Generation Cycle captures and promotes its first independ
     Scenario: Failed independent evaluation can only request another clean sample
       Given a Fresh Slice Generation Cycle has produced a verified candidate
       When baseline grading or instrument conformance fails
-      Then ORC may continue by starting a fresh builder session from the approved cut
+      Then the repair-evaluation stage may continue by starting a fresh builder session from the approved cut
       And the builder receives no candidate workspace, grader evidence, or instrument evidence
       And the new candidate receives its own bounded verification-repair loop
       And only a candidate that passes that loop is independently evaluated from the beginning
@@ -88,7 +91,7 @@ Feature: A Fresh Slice Generation Cycle captures and promotes its first independ
       Then ORC starts a fresh Gondolin builder session from that candidate
       And the repair builder receives only verifier evidence
       And ORC verifies the repaired candidate again
-      And no Grade, cycle oracle, or oracle proposal runs while verification still fails
+      And no Grade, cycle-oracle evaluation, or oracle proposal runs while verification still fails
 
     @item-01-045 @skip
     Scenario: Fresh Slice Generation fails when the builder produces no candidate
@@ -117,5 +120,6 @@ Feature: A Fresh Slice Generation Cycle captures and promotes its first independ
       When the operator explicitly submits Regenerate with that candidate as parent
       Then ORC persists a regeneration route with the named candidate as parent
       And the builder receives that candidate root and verifies its digest before use
-      And independent evidence collection compares the regenerated candidate with the promoted oracle
+      And the oracle stage resolves the promoted oracle by digest before the builder starts
+      And Grade compares the regenerated candidate's fresh evidence with the promoted oracle
       And instrument conformance runs in the regeneration workflow

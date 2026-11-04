@@ -96,7 +96,7 @@ afterAll(async () => {
 
 // Keep scenario tests at module root: allure-vitest installs its runtime with root hooks.
 // Component ownership is projected through scenarioLabels instead of nested describe blocks.
-test.skip("A regeneration cycle follows the declared stage order", () => {});
+test.skip("A slice cycle follows the declared stage order", () => {});
 test.skip("A slice without a human affordance contract does not invent a UI", () => {});
 test.skip("Startup refuses a harness topology that differs from its Grain Event Model", () => {});
 test.skip("A successful first grade preserves its Playwright trace", () => {});
@@ -116,7 +116,7 @@ test.skip("An invalid runtime build fails the Makefile target", () => {});
 test.skip("Löyly resolves its Gondolin config and Dockerfile for each supported stack", () => {});
 test.skip("An unsupported or missing project stack Dockerfile is refused", () => {});
 
-test.skip("ORC exposes the declared regeneration stage order", async () => {
+test.skip("ORC exposes the declared slice-cycle stage order", async () => {
   const context = scenarioContext();
   await scenarioLabels("execution-pipeline", "item-01-024", ["e2e"]);
 
@@ -133,28 +133,36 @@ test.skip("ORC exposes the declared regeneration stage order", async () => {
     assert.deepEqual(required(context.contract).stages, expectedStages);
   }, [
     ["cut"],
-    ["harness-calibration"],
+    ["harness-snapshot"],
+    ["oracle"],
     ["builder"],
     ["instrument"],
     ["verify"],
     ["repair-verification"],
-    ["collect-evidence"],
-    ["compare-oracle"],
+    ["affordance-conformance"],
+    ["grade"],
     ["instrument-conformance"],
-    ["record-cycle"],
-    ["grade-gate"],
+    ["repair-evaluation"],
+    ["conclude"],
   ]);
 });
 
 test.skip("Instrumentation records the subject without changing it", () => {});
 test.skip("The whole-system product oracle supplies approved expected evidence", () => {});
+test.skip("The fresh-generation oracle stage authors and seals a cycle oracle before the builder", () => {});
+test.skip("The measured-regeneration oracle stage resolves the pinned accepted oracle", () => {});
+test.skip("Only fresh generation may resample after a failed evaluation", () => {});
+test.skip("A fresh-generation cycle concludes by proposing its oracle", () => {});
+test.skip("A measured-regeneration cycle concludes by recording its gated measurement", () => {});
 test.skip("Evidence identity cannot be reused for different content", () => {});
 test.skip("Evidence reports are derived projections", () => {});
+test.skip("A non-successful stage cannot disappear from the result [harness snapshot]", () => {});
+test.skip("A non-successful stage cannot disappear from the result [oracle]", () => {});
 test.skip("A non-successful stage cannot disappear from the result [builder]", () => {});
 test.skip("A non-successful stage cannot disappear from the result [instrument]", () => {});
 test.skip("A non-successful stage cannot disappear from the result [verify]", () => {});
-test.skip("A non-successful stage cannot disappear from the result [evidence collection]", () => {});
-test.skip("A non-successful stage cannot disappear from the result [oracle comparison]", () => {});
+test.skip("A non-successful stage cannot disappear from the result [affordance conformance]", () => {});
+test.skip("A non-successful stage cannot disappear from the result [grade]", () => {});
 test.skip("A non-successful stage cannot disappear from the result [instrument conformance]", () => {});
 test.skip("Cut preparation refuses an invalid or colliding identity", () => {});
 

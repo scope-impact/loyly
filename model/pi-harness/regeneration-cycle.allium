@@ -264,6 +264,9 @@ rule StartCycle {
     ensures: ValidatePinnedContract(cycle: cycle)
 }
 
+-- Stage order is owned by execution-pipeline.allium (the shared slice cycle). On the
+-- measured_regeneration route this rule spans its harness-snapshot and oracle stages: the
+-- pinned accepted product oracle is resolved by digest before the builder starts.
 rule CalibrateHarnessAndBuildCandidate {
     when: PinnedContractValidated(cycle, product_contract_digest,
                                   harness_snapshot_digest, harness_source_digest)
@@ -325,6 +328,8 @@ rule CandidateVerified {
     ensures: CollectProductEvidence(cycle: cycle)
 }
 
+-- CollectCandidateEvidence and CompareCandidateEvidenceWithOracle together form the
+-- measured-regeneration grade stage; the measured route never resamples after it.
 rule CollectCandidateEvidence {
     when: ProductEvidenceCollected(cycle, subject_digest, evidence_digest, complete)
     requires: cycle.status = running
@@ -455,7 +460,8 @@ surface RegenerationHarness {
     @guarantee CalibratedBuilder
         -- No builder starts until a fresh harness snapshot covers the complete committed harness,
         -- binds every runtime asset, and passes carried and uncarried normalized Allure goldens;
-        -- independently, the product oracle supplies digest-matched approved expected evidence per item.
+        -- independently, the oracle stage resolves the pinned accepted product oracle, which supplies
+        -- digest-matched approved expected evidence per item.
 
     @guarantee IndependentMeasurement
         -- The builder cannot author the oracle, verifier, evidence collector, comparator, or final measurement used to pass its cycle.

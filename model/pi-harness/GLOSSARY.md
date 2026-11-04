@@ -1,7 +1,8 @@
 # Pi harness regeneration context
 
-The Pi harness separates first-time baseline measurement and oracle promotion from
-later oracle-comparison regeneration.
+The Pi harness runs one slice-cycle workflow for both first-time measurement with oracle
+promotion and later oracle-comparison regeneration; the persisted route selects the
+route-specific steps.
 
 ## Language
 
@@ -34,26 +35,69 @@ A Pi-harness read model derived from authoritative ORC `:sheet/*` events for obs
 reconnection. It cannot advance execution and introduces no duplicate progress event.
 _Avoid_: Harness progress event, workflow authority
 
+**Slice cycle**:
+The single ORC-owned workflow shared by the Fresh Slice Generation Cycle and the Measured Slice
+Regeneration Cycle, with stages cut → harness-snapshot → oracle → builder → instrument → verify →
+repair-verification → affordance-conformance → grade → instrument-conformance →
+repair-evaluation (fresh-generation only) → conclude. Its route selects the oracle, grade,
+repair-evaluation, and conclude behavior; every other stage is identical in both routes.
+Adapter completion cannot reorder or skip a stage.
+_Avoid_: Generation pipeline, regeneration pipeline, two workflows.
+Superseded stage names: harness-calibration (now harness-snapshot); cycle-oracle (now the
+fresh-generation oracle stage); collect-evidence, compare-oracle, graders, baseline-grade (now
+grade); record-cycle, grade-gate, propose-oracle, materialize-allure (now conclude).
+
+**Route**:
+The `fresh-generation` or `measured-regeneration` value ORC persists for an approved slice:
+fresh-generation when no measured parent candidate is named, measured-regeneration otherwise. It
+is an attribute of one slice cycle that selects its route-specific steps, not a separate workflow.
+_Avoid_: Mode inferred from candidate history, pipeline type
+
+**Oracle stage**:
+The slice-cycle stage after harness-snapshot and before builder that binds the candidate-blind
+oracle used by Grade. On fresh-generation a fresh oracle author derives a cycle oracle from only
+the selected Gherkin and public calibration protocol; ORC calibrates it carried and uncarried,
+re-authors an uncalibrated one up to three attempts, and seals it. On measured-regeneration ORC
+resolves the pinned accepted product oracle and its calibration by immutable digest and never
+authors one.
+_Avoid_: Cycle-oracle stage, harness calibration, grade
+
+**Repair-evaluation stage**:
+The fresh-generation-only stage after instrument-conformance in which a failed grade or
+conformance may start one clean new sample from the approved cut. Measured regeneration skips it
+and reports its single measurement.
+_Avoid_: Verification repair, grader feedback
+
+**Conclude stage**:
+The final route-selected slice-cycle stage. On fresh-generation it materializes Allure evidence
+and records the oracle proposal, which still needs manual approval of its exact digest. On
+measured-regeneration it records the measured cycle and applies the grade gate, which passes only
+when every independent gate passes.
+_Avoid_: Record-cycle, grade-gate, propose-oracle, materialize-allure
+
 **Fresh Slice Generation Cycle**:
 An explicitly requested creation of a candidate from an approved fresh source cut and sealed
 harness snapshot. Existing candidate history does not change this operation into regeneration.
-It has no parent candidate or accepted product oracle: after verification, Grade builds and
-seals a candidate-blind cycle oracle, measures the complete approved denominator, and proposes
-the normalized successful evidence as the first accepted-oracle candidate.
+It is the slice cycle on the fresh-generation route. It has no parent candidate or accepted
+product oracle: before the builder, the oracle stage builds and seals a candidate-blind cycle
+oracle; after verification, Grade measures the complete approved denominator with it, and
+conclude proposes the normalized successful evidence as the first accepted-oracle candidate.
 _Avoid_: Initial generation, baseline generation, regeneration, ungraded build
 
 **Grade**:
-The ORC-owned evaluation phase. For Fresh Slice Generation it builds, calibrates, and seals a
-fresh cycle oracle from the approved cut without candidate access, then uses that bundle for the
-first complete black-box measurement through the public seam. It produces proposed oracle
-evidence, not an accepted oracle, and cannot feed a builder or verification-repair session.
+The ORC-owned slice-cycle stage that black-box grades the complete approved denominator through
+the public seam with the oracle bound in the oracle stage. For Fresh Slice Generation it uses the
+sealed cycle oracle and normalizes the evidence as an oracle-proposal basis, not an accepted
+oracle; for measured regeneration it compares fresh evidence with the accepted oracle's expected
+evidence. It cannot feed a builder or verification-repair session.
 _Avoid_: Candidate tests, verification, promoted oracle
 
 **Cycle oracle**:
 A provisional candidate-blind bundle built from the approved cut and public calibration
-protocol. It contains the behavioral grader and only the applicable affordance and runtime-
-conformance evaluators. It is calibrated against carried and uncarried behavior and sealed to
-the cut, selection, harness snapshot, and oracle-author model before grading the candidate.
+protocol in the fresh-generation oracle stage, before any builder starts. It contains the
+behavioral grader and only the applicable affordance and runtime-conformance evaluators. It is
+calibrated against carried and uncarried behavior and sealed to the cut, selection, harness
+snapshot, and oracle-author model before grading the candidate.
 _Avoid_: Accepted product oracle, external validator directory, candidate test suite
 
 **Oracle proposal**:
@@ -111,8 +155,10 @@ _Avoid_: Builder, ORC worker, root agent
 
 **Measured Slice Regeneration Cycle**:
 One explicitly requested, idempotently identified, oracle-backed ORC execution that builds and
-independently measures an approved selection from a named measured parent candidate. It is
-distinct from Fresh Slice Generation and owns its own measurement.
+independently measures an approved selection from a named measured parent candidate. It is the
+slice cycle on the measured-regeneration route: its oracle stage resolves the pinned accepted
+oracle, and it never resamples. It is distinct from Fresh Slice Generation and owns its own
+measurement.
 _Avoid_: Fresh generation, run, session, job
 
 **Builder**:
@@ -149,8 +195,11 @@ remote publication is an optional cache, not a cycle prerequisite.
 _Avoid_: Instrument oracle, product oracle, source cut, candidate result
 
 **Harness calibration**:
-The pre-builder proof that the fresh harness snapshot covers every required harness component,
-matches its committed revision and runtime assets, and passes its calibration fixtures.
+The proof, made in the harness-snapshot stage before the oracle and builder stages, that the
+fresh harness snapshot covers every required harness component, matches its committed revision
+and runtime assets, and passes its calibration fixtures. A passing calibration may be reused only
+for an identical snapshot digest. "harness-calibration" as a stage name is superseded by
+harness-snapshot.
 _Avoid_: Candidate verification, generated test suite
 
 **Oracle**:
@@ -250,10 +299,11 @@ session. Its digest is recorded before an adapter transports it unchanged.
 _Avoid_: TypeScript literal, ambient system prompt, operator transcript
 
 **Execution stage**:
-One ordered, ORC-owned transition. Fresh Slice Generation builds and verifies a candidate, then
-Grade builds and seals a cycle oracle, measures the candidate, and proposes accepted-oracle
-evidence. Measured regeneration performs fresh evidence collection and comparison against the
-accepted product oracle.
+One ordered, ORC-owned transition of the slice cycle. Both routes share every stage except the
+route-selected oracle, grade, repair-evaluation, and conclude steps: Fresh Slice Generation seals
+a cycle oracle before building, grades, may resample, and proposes accepted-oracle evidence;
+measured regeneration resolves the accepted product oracle, grades by comparison against it, and
+records its single gated measurement.
 _Avoid_: Tool call, adapter process
 
 **Verification attempt**:

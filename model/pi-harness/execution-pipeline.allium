@@ -1,16 +1,21 @@
 -- allium: 3
--- Full ordered regeneration execution and evidence pipeline.
+-- One ordered slice-cycle execution and evidence pipeline shared by the Fresh Slice
+-- Generation Cycle and the Measured Slice Regeneration Cycle. The route ORC persisted for
+-- the approved slice selects the oracle, grade, repair-evaluation, and conclude rules;
+-- every other stage is identical in both routes.
 
-enum PipelineStage { cut | harness_calibration | builder | instrument | affordance_conformance | verify | repair_verification | collect_evidence | compare_oracle | instrument_conformance | record_cycle | result }
+enum PipelineStage { cut | harness_snapshot | oracle | builder | instrument | verify | repair_verification | affordance_conformance | grade | instrument_conformance | repair_evaluation | conclude | result }
+enum PipelineRoute { fresh_generation | measured_regeneration }
 enum PipelineStatus { submitted | running | passed | failed }
 enum PipelineVerdict { pass | fail | inconclusive }
-enum StageFailureKind { refused | skipped | timed_out | errored }
+enum StageFailureKind { refused | skipped | timed_out | errored | missing | inconclusive }
 enum PipelineProducerAuthority { candidate | harness_observer | independent_validator }
 enum PipelineEvidencePurpose { assertion | diagnostic | calibration }
 
 entity PipelineCycle {
     identity: String
     selection_identity: String
+    route: PipelineRoute
     approved_items: List<String>
     stage: PipelineStage
     status: PipelineStatus
@@ -19,17 +24,20 @@ entity PipelineCycle {
     failure_reason: String?
 
     transitions stage {
-        cut -> harness_calibration
-        harness_calibration -> builder
+        cut -> harness_snapshot
+        harness_snapshot -> oracle
+        oracle -> builder
         builder -> instrument
-        instrument -> affordance_conformance
-        affordance_conformance -> verify
+        instrument -> verify
         verify -> repair_verification
-        repair_verification -> collect_evidence
-        collect_evidence -> compare_oracle
-        compare_oracle -> instrument_conformance
-        instrument_conformance -> record_cycle
-        record_cycle -> result
+        repair_verification -> affordance_conformance
+        affordance_conformance -> grade
+        grade -> instrument_conformance
+        instrument_conformance -> repair_evaluation
+        instrument_conformance -> conclude
+        repair_evaluation -> builder
+        repair_evaluation -> conclude
+        conclude -> result
         terminal: result
     }
 
@@ -63,6 +71,23 @@ entity HarnessCalibration {
     harness_source_digest: String
     passed: Boolean
     fixture_identities: List<String>
+}
+
+entity PipelineOracleBinding {
+    cycle: PipelineCycle
+    route: PipelineRoute
+    oracle_digest: String
+    calibration_digest: String
+    harness_snapshot_digest: String
+    authored_in_cycle: Boolean
+    candidate_blind: Boolean
+}
+
+entity CleanSampleRequest {
+    cycle: PipelineCycle
+    sample: Integer
+    cut_digest: String
+    oracle_digest: String
 }
 
 entity InstrumentationRecord {
@@ -125,6 +150,14 @@ entity PipelineMeasurement {
     item_results: List<PipelineObservation>
 }
 
+entity PipelineOracleProposalBasis {
+    cycle: PipelineCycle
+    oracle_digest: String
+    subject_digest: String
+    normalized_evidence_digest: String
+    allure_evidence_root: String
+}
+
 entity InstrumentConformanceEvaluation {
     cycle: PipelineCycle
     producer: String
@@ -145,29 +178,86 @@ rule ValidatePipelineCut {
     requires: cycle.status = running
     requires: cycle.stage = cut
     requires: complete_model_contract_resolved_once(cycle.selection_identity, cut_digest)
-    ensures: cycle.stage = harness_calibration
+    ensures: cycle.stage = harness_snapshot
 }
 
+-- Both routes: build, calibrate, and seal a fresh local harness snapshot from the committed
+-- harness revision before the oracle and builder stages. The snapshot is content-addressed,
+-- so a passing calibration may be reused only for an identical snapshot digest.
 rule CalibratePipelineHarness {
     when: FullHarnessCalibrated(cycle, harness_snapshot_digest,
                                 harness_source_digest, fixture_identities)
     requires: cycle.status = running
-    requires: cycle.stage = harness_calibration
+    requires: cycle.stage = harness_snapshot
     requires: fresh_harness_snapshot_sealed(cycle, harness_snapshot_digest)
     requires: complete_harness_snapshot_component_coverage(cycle, harness_snapshot_digest)
-    requires: product_oracle_resolved_by_descriptor_digest(cycle)
-    requires: product_oracle_contains_selected_items_exactly_once(cycle)
-    requires: selected_item_scenario_digests_match_product_oracle(cycle)
-    requires: selected_product_oracle_entries_have_approved_expected_evidence(cycle)
-    requires: evidence_collector_and_comparator_are_calibrated(cycle)
     requires: harness_source_digest = discovered_harness_source_digest(cycle)
-    requires: carried_and_uncarried_goldens_passed(cycle, fixture_identities)
+    requires: carried_and_uncarried_goldens_passed(cycle, fixture_identities) or
+              calibration_passed_for_identical_snapshot_digest(harness_snapshot_digest)
     ensures: HarnessCalibration.created(
         cycle: cycle,
         harness_snapshot_digest: harness_snapshot_digest,
         harness_source_digest: harness_source_digest,
         passed: true,
         fixture_identities: fixture_identities
+    )
+    ensures: cycle.stage = oracle
+}
+
+-- Oracle stage, fresh-generation route: a fresh candidate-blind oracle author derives the
+-- cycle oracle from only the selected Gherkin and public calibration protocol. ORC calibrates
+-- it carried and uncarried and seals it before any builder starts. Re-authoring of an
+-- uncalibrated cycle oracle (at most three attempts) is specified in fresh-slice-generation.allium;
+-- exhausting it fails the cycle through FailPipelineStage at the oracle stage.
+rule SealFreshGenerationCycleOracle {
+    when: CycleOracleSealed(cycle, oracle_digest, calibration_digest, author_session_identity,
+                            attempt)
+    requires: cycle.status = running
+    requires: cycle.stage = oracle
+    requires: cycle.route = fresh_generation
+    requires: attempt >= 1
+    requires: attempt <= 3
+    requires: not exists CandidateSubject{cycle: cycle}
+    requires: oracle_author_reads_only_selected_gherkin_and_public_calibration_protocol(
+        cycle, author_session_identity)
+    requires: oracle_author_cannot_read_candidate_transcripts_verdicts_or_credentials(
+        cycle, author_session_identity)
+    requires: cycle_oracle_passed_carried_and_uncarried_calibration(cycle, oracle_digest)
+    requires: not requires_preexisting_product_or_instrument_oracle(cycle)
+    ensures: PipelineOracleBinding.created(
+        cycle: cycle,
+        route: fresh_generation,
+        oracle_digest: oracle_digest,
+        calibration_digest: calibration_digest,
+        harness_snapshot_digest: harness_snapshot_digest(cycle),
+        authored_in_cycle: true,
+        candidate_blind: true
+    )
+    ensures: cycle.stage = builder
+}
+
+-- Oracle stage, measured-regeneration route: resolve the pinned accepted product oracle and
+-- its calibration by immutable digest. No oracle is authored; compared cycles reuse one
+-- accepted oracle digest.
+rule ResolveMeasuredRegenerationOracle {
+    when: AcceptedOracleResolved(cycle, oracle_digest, calibration_digest)
+    requires: cycle.status = running
+    requires: cycle.stage = oracle
+    requires: cycle.route = measured_regeneration
+    requires: oracle_digest = pinned_accepted_oracle_digest(cycle)
+    requires: product_oracle_resolved_by_descriptor_digest(cycle)
+    requires: product_oracle_contains_selected_items_exactly_once(cycle)
+    requires: selected_item_scenario_digests_match_product_oracle(cycle)
+    requires: selected_product_oracle_entries_have_approved_expected_evidence(cycle)
+    requires: calibration_digest = accepted_oracle_calibration_digest(oracle_digest)
+    ensures: PipelineOracleBinding.created(
+        cycle: cycle,
+        route: measured_regeneration,
+        oracle_digest: oracle_digest,
+        calibration_digest: calibration_digest,
+        harness_snapshot_digest: harness_snapshot_digest(cycle),
+        authored_in_cycle: false,
+        candidate_blind: true
     )
     ensures: cycle.stage = builder
 }
@@ -211,7 +301,7 @@ rule InstrumentPipelineCandidate {
         runtime_signal_identities: runtime_signal_identities,
         collection_complete: collection_complete
     )
-    ensures: cycle.stage = affordance_conformance
+    ensures: cycle.stage = verify
 }
 
 rule EvaluateCandidateAffordances {
@@ -219,6 +309,7 @@ rule EvaluateCandidateAffordances {
                                                     total, passed_count, evidence)
     requires: cycle.status = running
     requires: cycle.stage = affordance_conformance
+    requires: producer_belongs_to_cycle_oracle(cycle, producer)
     requires: applicable implies total > 0
     requires: not applicable implies (passed and total = 0)
     requires: passed_count >= 0
@@ -233,7 +324,7 @@ rule EvaluateCandidateAffordances {
         passed_count: passed_count,
         evidence: evidence
     )
-    ensures: cycle.stage = verify
+    ensures: cycle.stage = grade
 }
 
 rule RecordInitialVerification {
@@ -293,41 +384,39 @@ rule CompleteVerificationRepair {
         cycle: cycle,
         subject_digest: final_subject_digest
     }
-    ensures: cycle.stage = collect_evidence
+    ensures: cycle.stage = affordance_conformance
 }
 
-rule CollectPipelineProductEvidence {
-    when: IndependentProductEvidenceCollected(cycle, evidence_items)
+-- Grade, both routes: black-box grade the complete approved denominator through the public
+-- seam with the oracle bound in the oracle stage. The fresh-generation route normalizes the
+-- evidence as an oracle-proposal basis; measured regeneration compares fresh evidence with the
+-- accepted oracle's expected evidence.
+rule GradeFreshGenerationCandidate {
+    when: IndependentGradeReturned(cycle, evidence_items, observations)
     requires: cycle.status = running
-    requires: cycle.stage = collect_evidence
-    requires: evidence_items.count > 0
+    requires: cycle.stage = grade
+    requires: cycle.route = fresh_generation
+    requires: observations.count > 0
+    requires: observations.all(o => o.item_identity in cycle.approved_items)
+    requires: observations.all(o => o.subject_digest = instrumented_subject_digest(cycle))
+    requires: observations.all(o => o.oracle_digest = combined_oracle_digest(
+        harness_snapshot_digest(cycle),
+        pipeline_oracle_binding(cycle).oracle_digest
+    ))
     requires: evidence_items.all(e => e.item_identity in cycle.approved_items)
     requires: evidence_items.all(e => e.subject_digest = instrumented_subject_digest(cycle))
+    requires: graded_through_public_seam_only(cycle)
     ensures:
         for item in evidence_items:
             CollectedProductEvidence.created(
                 cycle: cycle,
                 item_identity: item.item_identity,
                 producer: item.producer,
-                evidence: item.evidence,
+                evidence: normalized_proposal_evidence(item.evidence),
                 evidence_digest: item.evidence_digest,
                 cut_digest: item.cut_digest,
                 subject_digest: item.subject_digest
             )
-    ensures: cycle.stage = compare_oracle
-}
-
-rule ComparePipelineEvidenceWithOracle {
-    when: IndependentOracleComparisonReturned(cycle, observations)
-    requires: cycle.status = running
-    requires: cycle.stage = compare_oracle
-    requires: observations.count > 0
-    requires: observations.all(o => o.item_identity in cycle.approved_items)
-    requires: observations.all(o => o.subject_digest = instrumented_subject_digest(cycle))
-    requires: observations.all(o => o.oracle_digest = combined_oracle_digest(
-        harness_snapshot_digest(cycle),
-        resolved_product_oracle_descriptor_digest(cycle)
-    ))
     ensures:
         for observation in observations:
             PipelineObservation.created(
@@ -346,10 +435,56 @@ rule ComparePipelineEvidenceWithOracle {
     ensures: cycle.stage = instrument_conformance
 }
 
-rule EvaluatePipelineInstrumentConformance {
+rule GradeMeasuredRegenerationCandidate {
+    when: IndependentGradeReturned(cycle, evidence_items, observations)
+    requires: cycle.status = running
+    requires: cycle.stage = grade
+    requires: cycle.route = measured_regeneration
+    requires: observations.count > 0
+    requires: observations.all(o => o.item_identity in cycle.approved_items)
+    requires: observations.all(o => o.subject_digest = instrumented_subject_digest(cycle))
+    requires: observations.all(o => o.oracle_digest = combined_oracle_digest(
+        harness_snapshot_digest(cycle),
+        resolved_product_oracle_descriptor_digest(cycle)
+    ))
+    requires: observations.all(o => compared_with_accepted_expected_evidence(cycle, o))
+    requires: evidence_items.all(e => e.item_identity in cycle.approved_items)
+    requires: evidence_items.all(e => e.subject_digest = instrumented_subject_digest(cycle))
+    requires: graded_through_public_seam_only(cycle)
+    ensures:
+        for item in evidence_items:
+            CollectedProductEvidence.created(
+                cycle: cycle,
+                item_identity: item.item_identity,
+                producer: item.producer,
+                evidence: item.evidence,
+                evidence_digest: item.evidence_digest,
+                cut_digest: item.cut_digest,
+                subject_digest: item.subject_digest
+            )
+    ensures:
+        for observation in observations:
+            PipelineObservation.created(
+                cycle: cycle,
+                item_identity: observation.item_identity,
+                producer: observation.producer,
+                authority: observation.authority,
+                evidence_purpose: observation.evidence_purpose,
+                verdict: observation.verdict,
+                reached: observation.reached,
+                evidence: observation.evidence,
+                cut_digest: observation.cut_digest,
+                subject_digest: observation.subject_digest,
+                oracle_digest: observation.oracle_digest
+            )
+    ensures: cycle.stage = instrument_conformance
+}
+
+rule EvaluateFreshGenerationInstrumentConformance {
     when: IndependentInstrumentConformanceReturned(cycle, observations, passed)
     requires: cycle.status = running
     requires: cycle.stage = instrument_conformance
+    requires: cycle.route = fresh_generation
     requires: observations.count > 0
     requires: observations.all(o => o.item_identity in cycle.approved_items)
     requires: observations.all(o => o.subject_digest = instrumented_subject_digest(cycle))
@@ -359,13 +494,69 @@ rule EvaluatePipelineInstrumentConformance {
         passed: passed,
         item_results: observations
     )
-    ensures: cycle.stage = record_cycle
+    ensures: cycle.stage = repair_evaluation
 }
 
-rule RecordPipelineMeasurement {
+-- Measured regeneration never resamples: it skips repair evaluation and reports its single
+-- measurement.
+rule EvaluateMeasuredRegenerationInstrumentConformance {
+    when: IndependentInstrumentConformanceReturned(cycle, observations, passed)
+    requires: cycle.status = running
+    requires: cycle.stage = instrument_conformance
+    requires: cycle.route = measured_regeneration
+    requires: observations.count > 0
+    requires: observations.all(o => o.item_identity in cycle.approved_items)
+    requires: observations.all(o => o.subject_digest = instrumented_subject_digest(cycle))
+    ensures: InstrumentConformanceEvaluation.created(
+        cycle: cycle,
+        producer: "runtime-instrument-conformance",
+        passed: passed,
+        item_results: observations
+    )
+    ensures: cycle.stage = conclude
+}
+
+-- Repair evaluation, fresh-generation route only: a failed grade, affordance conformance, or
+-- instrument conformance may start a clean new sample from the approved cut, for at most three
+-- evaluation rounds in total. The new builder
+-- receives no candidate workspace or evaluation evidence, gets its own bounded
+-- verification-repair loop, and is evaluated from the beginning with the same sealed oracle.
+rule StartCleanSampleAfterFailedEvaluation {
+    when: CleanSampleRequested(cycle, sample)
+    requires: cycle.status = running
+    requires: cycle.stage = repair_evaluation
+    requires: cycle.route = fresh_generation
+    requires: latest_evaluation_failed(cycle)
+    requires: sample = clean_samples_started(cycle) + 1
+    -- At most three evaluation rounds in total: the original sample and two clean samples.
+    requires: sample <= 2
+    requires: evaluation_evidence_hidden_from_every_builder(cycle)
+    ensures: CleanSampleRequest.created(
+        cycle: cycle,
+        sample: sample,
+        cut_digest: approved_cut_digest(cycle),
+        oracle_digest: pipeline_oracle_binding(cycle).oracle_digest
+    )
+    ensures: cycle.stage = builder
+}
+
+rule CompleteRepairEvaluation {
+    when: RepairEvaluationCompleted(cycle)
+    requires: cycle.status = running
+    requires: cycle.stage = repair_evaluation
+    requires: cycle.route = fresh_generation
+    requires: not latest_evaluation_failed(cycle) or
+              clean_samples_started(cycle) = 2
+    ensures: cycle.stage = conclude
+}
+
+-- Conclude, both routes: reduce the latest sample's measurement over the complete denominator.
+-- The route-specific conclusion follows.
+rule ConcludeFreshGenerationCycle {
     when: ReducePipelineMeasurement(cycle)
     requires: cycle.status = running
-    requires: cycle.stage = record_cycle
+    requires: cycle.stage = conclude
+    requires: cycle.route = fresh_generation
     let reached = PipelineObservations where cycle = cycle and reached
     let passed_items = reached where verdict = pass
     let total = cycle.approved_items.count
@@ -377,6 +568,36 @@ rule RecordPipelineMeasurement {
         complete: reached.count = total,
         item_results: results_for_every_approved_item(cycle, reached)
     )
+    ensures: PipelineOracleProposalBasis.created(
+        cycle: cycle,
+        oracle_digest: pipeline_oracle_binding(cycle).oracle_digest,
+        subject_digest: instrumented_subject_digest(cycle),
+        normalized_evidence_digest: normalized_evidence_digest(cycle),
+        allure_evidence_root: materialized_allure_evidence_root(cycle)
+    )
+    -- Publication and promotion still require manual approval of the exact proposal digest
+    -- (fresh-slice-generation.allium ApproveExactOracleProposal).
+    ensures: OracleProposalRequested(cycle: cycle)
+    ensures: cycle.stage = result
+}
+
+rule ConcludeMeasuredRegenerationCycle {
+    when: ReducePipelineMeasurement(cycle)
+    requires: cycle.status = running
+    requires: cycle.stage = conclude
+    requires: cycle.route = measured_regeneration
+    let reached = PipelineObservations where cycle = cycle and reached
+    let passed_items = reached where verdict = pass
+    let total = cycle.approved_items.count
+    ensures: PipelineMeasurement.created(
+        cycle: cycle,
+        total: total,
+        passed: passed_items.count,
+        failed: total - passed_items.count,
+        complete: reached.count = total,
+        item_results: results_for_every_approved_item(cycle, reached)
+    )
+    ensures: MeasuredCycleRecorded(cycle: cycle)
     ensures: cycle.stage = result
 }
 
@@ -417,6 +638,31 @@ invariant PipelineOrderCannotSkip {
         cycle.status = running implies stage_was_reached_in_declared_order(cycle)
 }
 
+invariant RepairEvaluationOnlyForFreshGeneration {
+    for cycle in PipelineCycles:
+        cycle.stage = repair_evaluation implies cycle.route = fresh_generation
+}
+
+invariant MeasuredRegenerationNeverResamples {
+    for request in CleanSampleRequests:
+        request.cycle.route = fresh_generation
+}
+
+invariant OracleBoundBeforeBuilder {
+    for subject in CandidateSubjects:
+        exists PipelineOracleBinding{cycle: subject.cycle}
+}
+
+invariant MeasuredRegenerationNeverAuthorsOracle {
+    for binding in PipelineOracleBindings:
+        binding.route = measured_regeneration implies not binding.authored_in_cycle
+}
+
+invariant OracleBindingIsCandidateBlind {
+    for binding in PipelineOracleBindings:
+        binding.candidate_blind
+}
+
 invariant IndependentRoomsPreserveSubject {
     for observation in PipelineObservations:
         observation.subject_digest = instrumented_subject_digest(observation.cycle)
@@ -450,11 +696,13 @@ invariant BuilderWorkspaceMatchesCommittedSession {
             committed_workspace_generation(builder_session.identity)
 }
 
-surface RegenerationExecutionPipeline {
+surface SliceCycleExecutionPipeline {
     provides:
         ApprovedCycleStarted(cycle)
         PinnedCutValidated(cycle, cut_digest)
         FullHarnessCalibrated(cycle, harness_snapshot_digest, harness_source_digest, fixture_identities)
+        CycleOracleSealed(cycle, oracle_digest, calibration_digest, author_session_identity, attempt)
+        AcceptedOracleResolved(cycle, oracle_digest, calibration_digest)
         FreshBuilderCompleted(cycle, builder_session_identity, operation_identity,
                               workspace_generation, assisted, subject_digest,
                               generated_paths, tool_calls)
@@ -467,15 +715,25 @@ surface RegenerationExecutionPipeline {
         VerificationRepairBuilderCompleted(cycle, attempt, builder_session_identity,
                                            operation_identity, workspace_generation, assisted)
         VerificationRepairCompleted(cycle, attempts, final_subject_digest)
-        IndependentProductEvidenceCollected(cycle, evidence_items)
-        IndependentOracleComparisonReturned(cycle, observations)
+        IndependentGradeReturned(cycle, evidence_items, observations)
         IndependentInstrumentConformanceReturned(cycle, observations, passed)
+        CleanSampleRequested(cycle, sample)
+        RepairEvaluationCompleted(cycle)
         ReducePipelineMeasurement(cycle)
         DerivePipelineResult(cycle)
 
     @guarantee ExactStageOrder
-        -- ORC alone advances cut, harness calibration, builder, instrument, verify, evidence
-        -- collection, oracle comparison, instrument conformance, record cycle, and result.
+        -- ORC alone advances cut, harness snapshot, oracle, builder, instrument, verify, repair
+        -- verification, affordance conformance, grade, instrument conformance, repair evaluation
+        -- (fresh generation only), conclude, and result. Adapter completion cannot reorder or skip a stage.
+
+    @guarantee RouteSelectsVariant
+        -- The route ORC persisted for the approved slice selects the oracle, grade,
+        -- repair-evaluation, and conclude rules; all other stages are identical in both routes.
+
+    @guarantee OracleBeforeBuilder
+        -- The candidate-blind oracle is sealed (fresh generation) or resolved by digest
+        -- (measured regeneration) before any builder starts.
 
     @guarantee ReadOnlyIndependentObservation
         -- Verification and grading observe the instrumented candidate without modifying it.

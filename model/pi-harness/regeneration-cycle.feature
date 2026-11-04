@@ -1,9 +1,11 @@
 Feature: Oracle-backed regeneration through an operator session and ORC
   An operator session prepares a fenced specification cut, reviews and approves a
   deterministic cycle preparation, and submits an idempotent ORC regeneration
-  cycle. A fresh builder produces a candidate in a confined workspace. Independent
-  verification, evidence collection, and oracle comparison determine the result, and the approved denominator can
-  never shrink because an item was missed.
+  cycle. It follows the shared slice-cycle stage order on the measured-regeneration
+  route: the oracle stage resolves the pinned accepted oracle before a fresh builder produces a
+  candidate in a confined workspace. Independent verification, conformance, and a grade that
+  compares fresh evidence with the accepted oracle determine the result, and the approved
+  denominator can never shrink because an item was missed.
 
   Rule: The neutral source cut is pinned and physically fenced
 
@@ -95,13 +97,13 @@ Feature: Oracle-backed regeneration through an operator session and ORC
     Scenario: Independent oracle comparison fails closed when no readable verdict exists
       Given an approved selection with at least one item
       When the independent comparator returns no readable observation
-      Then the oracle comparison stage fails
+      Then the grade stage fails
       And no passing cycle measurement is recorded
 
     @item-01-010 @skip
     Scenario: An unreached approved item remains a failed denominator item
       Given the approved selection contains three items
-      And the evidence collector reaches only one item
+      And the grade stage reaches only one item
       When the cycle measurement is reduced
       Then the measurement total remains three
       And each unreached item is recorded as failed and not graded
@@ -135,6 +137,6 @@ Feature: Oracle-backed regeneration through an operator session and ORC
     @item-01-014 @skip
     Scenario: Host execution cannot be reported as independently graded
       Given a regeneration cycle uses the host backend
-      When it reaches independent evidence collection and oracle comparison
+      When it reaches the independent grade stage
       Then the collector reports that independent comparison requires Gondolin
       And the cycle cannot pass as a complete independently graded measurement
