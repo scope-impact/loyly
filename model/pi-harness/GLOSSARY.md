@@ -204,16 +204,50 @@ Slice Regeneration Cycle identified by a receipt and observed until one terminal
 _Avoid_: Process, thread, future
 
 **Builder instruction**:
-The ORC-owned direction given to a fresh builder for one approved regeneration scope.
-_Avoid_: User prompt, TypeScript prompt, root transcript
+The complete ORC-owned model-directed strategy given to a builder for exactly one purpose:
+fresh generation or verification repair. GEPA mutates this complete strategy; an adapter cannot
+append hidden behavioral instructions to it.
+_Avoid_: User prompt, TypeScript prompt, runtime context, root transcript
+
+**Runtime task context**:
+The deterministic cycle facts rendered beside a builder instruction, including the cut, approved
+selection, scope, target stack, contract locations, and applicable read-only verification-evidence
+location. It is not part of the GEPA candidate and contains no implementation strategy.
+_Avoid_: Builder instruction, prompt suffix, optimization candidate
+
+**Generation instruction**:
+The active builder instruction whose sole purpose is producing a fresh candidate from an approved
+cut without a parent candidate or grader evidence.
+_Avoid_: Verification-repair instruction, cycle preparation
+
+**Verification-repair instruction**:
+The independently selected builder instruction whose sole purpose is repairing a preceding
+candidate from that attempt's read-only verifier evidence. Its measurement starts from fixed
+failed-verification inputs so generation behavior cannot mask repair quality.
+_Avoid_: Grader feedback, generation instruction, outer-cycle regeneration
 
 **Prompt optimization**:
-The selection of a builder instruction by comparing instruction candidates with independent regeneration measurements over training and validation examples.
+The durable selection of a complete purpose-specific builder instruction by comparing instruction
+candidates with independent measurements over training and validation examples. Reflection uses
+an explicitly pinned Bedrock provider and model; candidate execution remains a separate builder.
 _Avoid_: Prompt editing, builder self-evaluation
 
 **Instruction candidate**:
-One proposed builder instruction evaluated during prompt optimization.
+One complete generation or verification-repair strategy proposed by GEPA, bound to its Bedrock
+reflection call and evaluated using the exact rendered prompt digest.
 _Avoid_: Candidate application, generated implementation
+
+**Reflection model binding**:
+The immutable Bedrock provider and model identity used to propose instruction candidates in one
+optimization. Its model-call evidence records sanitized provenance and usage but excludes AWS
+credentials.
+_Avoid_: Builder model, grader-author model, ambient provider default
+
+**Production prompt**:
+The exact ORC-rendered combination of an ORC-owned system instruction, an ORC-owned task
+instruction, and deterministic runtime task context for a builder or cycle-oracle grader-author
+session. Its digest is recorded before an adapter transports it unchanged.
+_Avoid_: TypeScript literal, ambient system prompt, operator transcript
 
 **Execution stage**:
 One ordered, ORC-owned transition. Fresh Slice Generation builds and verifies a candidate, then

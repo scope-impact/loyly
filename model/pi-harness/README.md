@@ -39,6 +39,14 @@ unclassified or doubly classified scenarios.
 - `operator-control-plane.feature`, `prompt-optimization.feature`,
   `execution-pipeline.feature`, and `runtime-evidence.feature` own acceptance behavior for
   their corresponding model components.
+- `prompt-optimization.allium` treats the complete model-directed strategy as the GEPA mutation
+  unit. Fresh generation and verification repair have separate active instructions and separate
+  measurements. ORC renders deterministic runtime facts beside the selected strategy through one
+  prompt seam; ORC also owns the system and task instructions used by the cycle-oracle grader
+  author. Adapters transport exact rendered digests without adding instructions. Execution rooms
+  and verifiers enforce capability and candidate contracts independently of model compliance.
+  GEPA reflection is bound to an explicit Bedrock provider and model, while Pi/Codex builder
+  execution and independent grading remain separate roles.
 - Tagged acceptance scenarios retain stable `@item-*` identities so Allure results can be
   reconciled with the model without a parallel coverage catalogue. Two instrument-conformance
   scenarios still lack identities and remain an explicit traceability gap.
@@ -140,16 +148,21 @@ The contract exposes gaps found while deriving it from the current implementatio
    tick/correlation IDs are derived deterministically from the request.
    Numeric wait-task receipts remain process-local; ORC owns execution state and resumes
    abandoned leaf frontiers on startup.
-4. The activated optimized instruction is held in worker memory rather than durable state.
+4. The activated optimized instruction is held in worker memory rather than durable state. The
+   target contract requires one recoverable active instruction per purpose: fresh generation and
+   verification repair.
 5. Refused, skipped, timed-out, and errored stages currently collapse into failure.
 6. Independent black-box behavior remains project-specific. The target contract makes Fresh
    Slice Generation grade all approved items after verification, propose its normalized
    evidence, and pause for exact manual approval before publishing the first immutable product
    oracle. The current runtime still treats its accepted product OCI as executable grader
    material and does not yet implement proposal, approval, or evidence-oracle publication.
-7. GEPA candidate scoring is gated by full harness calibration and uses independent verification,
-   fresh evidence collection, and comparison with the accepted product oracle. The selected
-   instruction and its metric evidence are not yet durable harness records.
+7. GEPA currently mutates only a short seed while the application-contract renderer appends most
+   model-directed strategy outside the candidate. Candidate scoring also requires an accepted
+   product oracle. The target contract instead measures the complete purpose-specific strategy
+   with the exact rendered prompt digest, independent verification, and a complete candidate-blind
+   black-box grade that does not require a pre-existing product oracle. The selected instruction
+   and its metric evidence are not yet durable harness records.
 8. Full source-commit and candidate-scope validation occurs inside asynchronous cut
    or builder execution, after a task receipt has been created, rather than at submission.
 9. Gondolin provides the declared builder isolation. The host backend executes through
@@ -194,5 +207,9 @@ The contract exposes gaps found while deriving it from the current implementatio
     `:sheet` Event Model required to resolve the harness's cross-area command and event edges.
     These dependencies must converge with the target `:loyly.pi-harness/*` service area before
     the harness is Grain-conformant.
+21. GEPA reflection currently uses the runtime's hardcoded OpenRouter provider. The target contract
+    requires explicit Bedrock provider registration, a pinned reflection model per optimization,
+    and durable sanitized provider/model/call provenance. AWS credentials must remain outside
+    prompts, events, transcripts, and repository state.
 
 These are reconciliation obligations, not alternative sources of truth.
