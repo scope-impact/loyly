@@ -99,3 +99,13 @@ Feature: The regeneration cycle
         | regenerate |
         | gate       |
         | score      |
+
+  Rule: The running harness proves its identity by domain behavior, not by name
+
+    @skip
+    @item-02-010
+    Scenario: The running harness proves its identity by serving its cycle contract
+      Given the harness is started with start.sh on a port
+      When a client requests the root page over HTTP
+      Then the page names the harness "pi-harness"
+      And the page lists the cycle stages fence, regenerate, gate, score, and scoreboard in that order

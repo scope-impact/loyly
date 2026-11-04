@@ -29,3 +29,7 @@ measure the harness spec under `.pi/model/plan/`, so the derived checklist is a 
 (74 items). This is neither an instrument behavior change nor a reworded spec: the measured
 spec itself changed. The golden was re-recorded with `harness/oracle.sh record` for that reason
 and no other.
+
+**2026-11-04: the spec grew.** `@item-02-010` (the running harness proves its identity by
+serving its cycle contract) was added, so the derived checklist gained one item (75). The
+golden's diff is additions plus the one `total` line, which is the test for this case.

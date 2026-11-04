@@ -18,13 +18,13 @@
 (defn config
   "The values harness/config.sh declares, read by bash so the file stays the only source."
   [project-root]
-  (let [keys ["APP_DIR" "PORT" "PLAN_DIR" "APP_MARKER" "FENCED_PATHS"]
+  (let [keys ["APP_DIR" "PORT" "PLAN_DIR" "APP_MARKER" "FENCED_PATHS" "APP_STACK"]
         script (str ". harness/config.sh; "
                     (str/join "; " (map #(str "printf '%s\\n' \"$" % "\"") keys)))
         {:keys [exit out err]} (shell/sh "bash" "-c" script :dir project-root)]
     (when-not (zero? exit)
       (throw (ex-info (str "harness/config.sh could not be read: " (str/trim err)) {})))
-    (zipmap [:app-dir :port :plan-dir :app-marker :fenced-paths]
+    (zipmap [:app-dir :port :plan-dir :app-marker :fenced-paths :app-stack]
             (str/split-lines out))))
 
 (defn- state-dir [project-root & parts]
@@ -62,7 +62,10 @@
         "suite and exit non-zero on any failure and must discover at least one test; then it runs "
         "APP_DIR/start.sh PORT, which must start the product serving HTTP on that port in the foreground, "
         "and it must answer within ten seconds of start.sh launching, with the served root page carrying "
-        "the APP_MARKER text. Slow builds belong in test.sh, which is untimed, not in start.sh. "
+        "the APP_MARKER text. The gate then runs the identity probe the spec defines, so the served page "
+        "must prove the product's identity through its domain behavior, not just its name. "
+        "Slow builds belong in test.sh, which is untimed, not in start.sh. "
+        "Use exactly the target stack in the runtime context. "
         "Both scripts must be executable and must work from any working directory. "
         "Before finishing, run APP_DIR/test.sh, start APP_DIR/start.sh on a free port, fetch the root page, "
         "and confirm it carries the marker. Never weaken or delete a test to obtain green.")
@@ -75,12 +78,13 @@
 
 (defn render-prompt
   "The exact production prompt for one builder purpose, with deterministic runtime context."
-  [purpose {:keys [request-id app-dir port plan-dir app-marker dependencies]}]
+  [purpose {:keys [request-id app-dir port plan-dir app-marker app-stack dependencies]}]
   (let [instruction (seed-instructions purpose)
         context (str/join "\n"
                           (cond-> [(str "Purpose: " (name purpose))
                                    (str "Cycle: " request-id)
-                                   (str "Spec: $HARNESS_CUT_ROOT/" plan-dir "/NN-slug/spec.feature")
+                                   (str "Spec: $HARNESS_CUT_ROOT/" plan-dir "/NN-slug/spec.feature (the only spec; build this product)")
+                                   (str "Target stack: " app-stack)
                                    (str "APP_DIR: " app-dir " (write everything under $HARNESS_WORKSPACE_ROOT/" app-dir ")")
                                    (str "Gate port: " port)
                                    (str "APP_MARKER: " app-marker)]

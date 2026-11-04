@@ -17,16 +17,20 @@
   (let [cfg (legacy-cycle/config project-root)]
     (is (= ".pi/model/plan" (:plan-dir cfg)))
     (is (= "harness-impl" (:app-dir cfg)))
-    (is (str/includes? (:fenced-paths cfg) ".pi/harness"))))
+    (is (str/includes? (:fenced-paths cfg) ".pi/harness"))
+    (is (str/includes? (:fenced-paths cfg) "docs/plan"))
+    (is (str/includes? (:app-stack cfg) "Clojure"))))
 
 (deftest prompts-carry-the-gate-contract-and-are-digested
   (let [cfg {:request-id "cycle-1" :app-dir "harness-impl" :port "8902"
-             :plan-dir ".pi/model/plan" :app-marker "pi-harness"}
+             :plan-dir ".pi/model/plan" :app-marker "pi-harness" :app-stack "Clojure on ORC"}
         regenerate (legacy-cycle/render-prompt :regeneration cfg)
         repair (legacy-cycle/render-prompt :gate-repair cfg)]
     (is (re-find #"APP_DIR/test.sh" (:prompt regenerate)))
     (is (re-find #"within ten seconds" (:prompt regenerate)))
     (is (re-find #"APP_MARKER: pi-harness" (:prompt regenerate)))
+    (is (re-find #"Target stack: Clojure on ORC" (:prompt regenerate)))
+    (is (re-find #"identity probe" (:prompt regenerate)))
     (is (re-find #"Gate log: \$HARNESS_VERIFICATION_EVIDENCE_ROOT/gate.log" (:prompt repair)))
     (is (not (re-find #"Gate log" (:prompt regenerate))))
     (is (str/starts-with? (:prompt-digest regenerate) "sha256:"))

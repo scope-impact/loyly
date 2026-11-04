@@ -145,6 +145,12 @@
    "source": ".pi/model/plan/02-execution-pipeline/spec.feature:90"
   },
   {
+   "id": "02-010",
+   "name": "The running harness proves its identity by serving its cycle contract",
+   "rule": "The running harness proves its identity by domain behavior, not by name",
+   "source": ".pi/model/plan/02-execution-pipeline/spec.feature:107"
+  },
+  {
    "id": "03-001",
    "name": "The checklist is one item per stamped scenario of the approved selection",
    "rule": "The checklist is derived from the spec and its denominator never drifts",
@@ -446,6 +452,6 @@
   }
  ],
  "counts": {
-  "total": 74
+  "total": 75
  }
 }
