@@ -1,8 +1,8 @@
-# The Next Body — single-page visual essay
+# Löyly Factory — The Next Body visual essay
 
 > **Prototype verdict:** the architecture becomes clearer as one authored post than as a world the reader must learn to navigate.
 
-The published experience is one self-contained `index.html`. It explains Phoenix through human anatomy, one concrete Löyly verification failure, the two explicit lifecycle contracts, candidate-blind Grade, oracle ratification, historical evidence, and language × platform expressions.
+**Löyly Factory** is the product name. **The Next Body** is its narrative essay. The published experience is one self-contained `index.html`. It explains Phoenix through human anatomy, one concrete Löyly verification failure, the two explicit lifecycle contracts, candidate-blind Grade, oracle ratification, historical evidence, and language × platform expressions.
 
 The essay follows Phoenix authority transitions rather than a generic “what/why/how” template:
 
