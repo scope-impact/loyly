@@ -54,7 +54,7 @@ from what precedes it.
 | 2 | `docs/wiki/` | the domain, distilled from the sources. Every claim footnotes the source it came from. Start at `index.md` |
 | 3 | `docs/wow/` | the method itself: the way of working, five invariants each with a named enforcement point, and the agent harness |
 | 4 | `docs/plan/01-booking-core/` | one slice of work: a plan, an executable Gherkin spec, tickets, and recorded decisions |
-| 5 | `model/pi-harness/` | the executable contract for regeneration, grading, runtime evidence, and the Pi control plane |
+| 5 | `.pi/model/` | the executable contract for regeneration, grading, runtime evidence, and the Pi control plane |
 | 6 | `.pi/harness/` | the active ORC/Pi harness. Start at its `README.md`; Pi loads its tools from `.pi/settings.json` |
 | 7 | `impl/` | the build product. Intentionally empty: ORC regenerates it from a pinned cut |
 | 8 | `archive/legacy-harness/` | the retired shell harness, preserved only as a behavioral-parity reference |

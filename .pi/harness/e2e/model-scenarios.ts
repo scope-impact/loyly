@@ -12,17 +12,19 @@ export type ModelScenario = {
 };
 
 const harnessRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const modelRoot = path.resolve(harnessRoot, "../../model/pi-harness");
+const modelRoot = path.resolve(harnessRoot, "../model/plan");
 
 export async function loadModelScenarios(): Promise<ModelScenario[]> {
-  const featureFiles = (await readdir(modelRoot)).filter((name) => name.endsWith(".feature")).sort();
+  // Legacy layout: one spec per slice at plan/NN-slug/spec.feature.
+  const featureFiles = (await readdir(modelRoot)).filter((name) => /^[0-9]/.test(name)).sort()
+    .map((slice) => path.join(slice, "spec.feature"));
   const scenarios: ModelScenario[] = [];
 
   for (const featureFile of featureFiles) {
     const source = await readFile(path.join(modelRoot, featureFile), "utf8");
     const envelopes = generateMessages(
       source,
-      path.join("model/pi-harness", featureFile),
+      path.join(".pi/model/plan", featureFile),
       SourceMediaType.TEXT_X_CUCUMBER_GHERKIN_PLAIN,
       {
         includeSource: false,
@@ -35,7 +37,7 @@ export async function loadModelScenarios(): Promise<ModelScenario[]> {
     for (const envelope of envelopes) {
       if (!envelope.pickle) continue;
       scenarios.push({
-        component: featureFile.replace(/\.feature$/, ""),
+        component: path.dirname(featureFile).replace(/^[0-9]+-/, ""),
         featureFile,
         pickle: envelope.pickle,
         tags: envelope.pickle.tags.map(({ name }) => name),

@@ -5,7 +5,8 @@ Feature: Bootstrap the Pi harness runtime
 
   Rule: The Makefile builds and verifies all configured Gondolin runtimes without graders
 
-    @item-01-047 @skip
+    @skip
+    @item-07-001
     Scenario: make bootstrap builds every harness and supported-stack runtime
       Given the repository checkout and its harness runtime configurations
       And no sealed grader is available
@@ -20,7 +21,8 @@ Feature: Bootstrap the Pi harness runtime
 
   Rule: Harness bootstrap does not build or grade the product
 
-    @item-01-048 @skip
+    @skip
+    @item-07-002
     Scenario: make bootstrap does not run Löyly application or instrument workflows
       Given the operator runs make -C harness bootstrap
       When bootstrap completes
@@ -30,7 +32,8 @@ Feature: Bootstrap the Pi harness runtime
 
   Rule: Bootstrap failure is surfaced to the operator
 
-    @item-01-049 @skip
+    @skip
+    @item-07-003
     Scenario: An invalid runtime build fails the Makefile target
       Given Docker or Gondolin cannot build or verify a configured runtime
       When the operator runs make -C harness bootstrap

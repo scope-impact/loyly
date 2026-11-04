@@ -4,7 +4,7 @@ This is the active regeneration harness. Pi provides the operator and builder se
 ORC owns workflow state and stage ordering, Gondolin supplies isolated execution rooms,
 and a pinned OCI instrument oracle supplies independent calibration and grading assets.
 
-The target contract lives in [`../../model/pi-harness/`](../../model/pi-harness/). The
+The target contract lives in [`../../.pi/model/`](../../.pi/model/). The
 architecture and current gaps live in [`../architecture.md`](../architecture.md). The
 retired shell implementation is preserved in
 [`../../archive/legacy-harness/`](../../archive/legacy-harness/) as a parity reference,

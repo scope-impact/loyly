@@ -65,7 +65,7 @@ instrument combines:
 4. an independent invariant evaluation that becomes `inconclusive` whenever required collection
    is sampled, lost, unbounded, or outside the declared observation scope.
 
-That final rule is already present in the Pi [runtime evidence model](../../model/pi-harness/runtime-evidence.allium)
+That final rule is already present in the Pi [runtime evidence model](../../.pi/model/runtime-evidence.allium)
 and should remain non-negotiable.
 
 ## Candidate additions

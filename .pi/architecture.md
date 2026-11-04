@@ -1,6 +1,6 @@
 # Session-hosted ORC regeneration harness architecture
 
-Status: regenerated from `model/pi-harness` with explicit current-implementation annotations, 2026-11-03
+Status: regenerated from `.pi/model` with explicit current-implementation annotations, 2026-11-03
 
 Audience: engineers evolving or reviewing the Pi regeneration harness
 
@@ -20,7 +20,7 @@ OCI registry, Compose runtime, and generated candidate application.
 This document uses C4 terminology. A container is a runnable process or data store, not
 necessarily a Docker container. The diagrams distinguish normative target behavior from
 the current implementation. Observable behavior remains authoritative in
-[`model/pi-harness`](../model/pi-harness/README.md), and the implementation
+[`.pi/model`](../.pi/model/README.md), and the implementation
 conformance inventory is retained in Appendix A below.
 
 The System Context, Container, and ORC component views are the structural C4 views. The
@@ -551,8 +551,8 @@ groups, and stable `@item-*` identities remain the measurement keys.
 - Builder isolation: [`harness/src/builder-room.ts`](harness/src/builder-room.ts)
 - Grader isolation: [`harness/src/grader-room.ts`](harness/src/grader-room.ts)
 - Cut fence: [`harness/src/cut.ts`](harness/src/cut.ts)
-- Observable model: [`model/pi-harness/README.md`](../model/pi-harness/README.md)
-- Session and cycle ownership decision: [`ADR 0001`](../model/pi-harness/docs/adr/0001-session-and-cycle-ownership.md)
+- Observable model: [`.pi/model/README.md`](../.pi/model/README.md)
+- Session and cycle ownership decision: [`ADR 0001`](../.pi/model/docs/adr/0001-session-and-cycle-ownership.md)
 
 ## Assumptions and open questions
 

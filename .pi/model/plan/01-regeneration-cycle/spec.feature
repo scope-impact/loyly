@@ -7,7 +7,8 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
 
   Rule: The neutral source cut is pinned and physically fenced
 
-    @item-01-001 @e2e
+    @e2e
+    @item-01-001
     Scenario: Preparing a cut returns immutable commit and tree identities
       Given the operator names a full source commit and an execution backend
       When the Pi harness prepares the source cut
@@ -15,7 +16,8 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       And its fenced tree identity is recorded
       And prior implementation and measurement paths are absent from the reachable cut history
 
-    @item-01-002 @skip
+    @skip
+    @item-01-002
     Scenario: The builder cannot modify or escape the cut
       Given a prepared cut and a declared candidate scope
       When a builder session is opened in Gondolin
@@ -23,7 +25,8 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       And writes outside the declared candidate scope are denied
       And network access, judge material, host credentials, and host session resources are unavailable
 
-    @item-01-080 @skip
+    @skip
+    @item-01-003
     Scenario: The clean room holds the spec, not an answer or a judge
       Given the repository holds implementations, measurements, reports, and the instrument
       When the fence builds the clean room
@@ -32,7 +35,8 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       And the instrument, its calibration fixtures, and the harness that grades are absent from the room
       And a fenced path that matches nothing stops the fence instead of passing silently
 
-    @item-01-042 @skip
+    @skip
+    @item-01-004
     Scenario: Slice mappings reconstruct the complete cut-bound system view
       Given a prepared cut contains Gherkin behavior items grouped into slices, components, and containers
       When the harness maps each item and reduces those mappings into a system view
@@ -42,7 +46,8 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
 
   Rule: Selection is deterministic and approval binds the reviewed identity
 
-    @item-01-003 @e2e
+    @e2e
+    @item-01-005
     Scenario: Previewing the same slice produces the same selection identity
       Given the same pinned cut, project, slice, and requested item subset
       And the selection has not already been approved
@@ -51,7 +56,8 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       And each preview has the same selection identity and digest
       And its status is awaiting approval
 
-    @item-01-004 @e2e
+    @e2e
+    @item-01-006
     Scenario: Approval refuses a digest other than the reviewed digest
       Given a selection contract is awaiting approval
       When approval names its selection identity with a different digest
@@ -60,13 +66,15 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
 
   Rule: Cycle submission is approved, scoped, and idempotent
 
-    @item-01-005 @e2e
+    @e2e
+    @item-01-007
     Scenario: An unapproved selection cannot start a regeneration cycle
       Given a recorded selection has not been approved
       When the operator submits a regeneration cycle for that selection
       Then submission is refused before a builder starts
 
-    @item-01-006 @skip
+    @skip
+    @item-01-008
     Scenario: Repeating the same request identity returns the original receipt
       Given a regeneration request has already been submitted
       When the identical request is submitted with the same request identity
@@ -75,7 +83,8 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
 
   Rule: The builder produces a new candidate from the pinned contract
 
-    @item-01-007 @skip
+    @skip
+    @item-01-009
     Scenario: The builder starts fresh and must produce workspace output
       Given an approved selection and a prepared cut
       When the builder stage runs
@@ -84,7 +93,8 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       And it executes at least one confined workspace tool
       And a cycle with no generated workspace output fails
 
-    @item-01-007 @e2e
+    @e2e
+    @item-01-010
     Scenario: ORC exposes builder session identity in its executable contract
       Given the Pi harness ORC worker is running
       When Pi requests the executable regeneration workflow contract
@@ -92,7 +102,8 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
 
   Rule: Independent checks determine whether the cycle passes
 
-    @item-01-008 @skip
+    @skip
+    @item-01-011
     Scenario: Verification rejects an incomplete runnable application contract
       Given the builder has produced a candidate
       When the gate inspects and runs it
@@ -100,7 +111,8 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       And the app must define a healthcheck without publishing host ports
       And every required compose operation and candidate test command must succeed
 
-    @item-01-011 @skip @playback
+    @skip @playback
+    @item-01-012
     Scenario: A final result requires every independent gate to pass
       Given the gate, the score, and the measurement have completed
       When the final result is derived
@@ -110,14 +122,16 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
 
   Rule: Evidence and measurement survive workflow process restarts
 
-    @item-01-012 @skip
+    @skip
+    @item-01-013
     Scenario: Recording the same evidence twice is idempotent
       Given an observation or cycle measurement has already been recorded
       When the exact same identity and content are recorded again
       Then the existing durable record is returned
       But the same identity with different evidence is refused
 
-    @item-01-013 @skip
+    @skip
+    @item-01-014
     Scenario: A completed measurement is readable after the harness restarts
       Given a cycle measurement was recorded through its validated command
       When the harness restarts against the same event store
@@ -125,7 +139,8 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
 
   Rule: Backend limitations remain explicit
 
-    @item-01-014 @skip
+    @skip
+    @item-01-015
     Scenario: Host execution cannot be reported as independently graded
       Given a regeneration cycle uses the host backend
       When it reaches the independent grade stage

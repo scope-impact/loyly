@@ -1,6 +1,8 @@
 # Session-hosted regeneration harness contract
 
-This directory is the canonical **target contract** for the regeneration cycle, exposed through `.pi/harness/extension.ts` and executed by ORC under
+This directory is the canonical **target contract** for the regeneration cycle. Its Gherkin
+spec uses the legacy layout, one slice per `plan/NN-slug/spec.feature` stamped with
+`@item-NN-SSS` by `harness/stamp_item_ids.clj`; the Allium files sit beside it, exposed through `.pi/harness/extension.ts` and executed by ORC under
 `.pi/harness/orc-worker/`. It is separate from `model/loyly`, which describes the
 product being regenerated.
 
@@ -21,24 +23,24 @@ implemented. Every scenario is classified as either `@e2e` or `@skip`. Scenarios
 Vitest's native `test.skip` and do not claim executable conformance. A tag gate rejects
 unclassified or doubly classified scenarios.
 
-- `harness-bootstrap.feature` and `harness-bootstrap.allium` specify the local
+- `plan/07-harness-bootstrap/spec.feature` and `harness-bootstrap.allium` specify the local
   `harness/Makefile` bootstrap; it builds and verifies harness and supported-stack runtime assets without
   requiring a grader and does not regenerate the product.
-- `project-vm-config.feature` and `project-vm-config.allium` require project-specific VM
+- `plan/08-project-vm-config/spec.feature` and `project-vm-config.allium` require project-specific VM
   config and supported-stack Dockerfiles under root `harness/<project-id>/`, resolved by
   convention without a per-project profile JSON; shared harness config remains under
   `.pi/harness/config/`.
-- `execution-pipeline.feature` and `execution-pipeline.allium` define the one regeneration
+- `plan/02-execution-pipeline/spec.feature` and `execution-pipeline.allium` define the one regeneration
   cycle in the legacy shape: fence, regenerate, gate, score, scoreboard. The fence and the gate
   are the harness and feed the build loop; the score and the scoreboard are the instrument and
   never do.
-- `instrument.feature` and `instrument.allium` define the instrument: a checklist derived from
+- `plan/03-instrument/spec.feature` and `instrument.allium` define the instrument: a checklist derived from
   the spec, a grader written once, calibrated carried/uncarried, sealed, and approved by exact
   digest, an honest score, and a scoreboard that compares shared items in both directions.
-- `regeneration-cycle.feature` and `regeneration-cycle.allium` define cut preparation,
+- `plan/01-regeneration-cycle/spec.feature` and `regeneration-cycle.allium` define cut preparation,
   composition, selection, preparation approval, and idempotent submission.
-- `operator-control-plane.feature`, `prompt-optimization.feature`,
-  `execution-pipeline.feature`, and `runtime-evidence.feature` own acceptance behavior for
+- `plan/04-operator-control-plane/spec.feature`, `plan/06-prompt-optimization/spec.feature`,
+  `plan/02-execution-pipeline/spec.feature`, and `plan/05-runtime-evidence/spec.feature` own acceptance behavior for
   their corresponding model components.
 - `prompt-optimization.allium` treats the complete model-directed strategy as the GEPA mutation
   unit. Regeneration and gate repair have separate active instructions and separate

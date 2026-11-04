@@ -6,7 +6,8 @@ Feature: The regeneration cycle
 
   Rule: ORC owns the complete ordered cycle
 
-    @item-01-024 @skip
+    @skip
+    @item-02-001
     Scenario: A regeneration cycle follows the declared stage order
       Given an approved selection starts a cycle
       When ORC advances the cycle
@@ -14,7 +15,8 @@ Feature: The regeneration cycle
       And adapter completion cannot reorder or skip an ORC stage
       And missing, skipped, timed-out, or inconclusive evidence remains its own outcome
 
-    @item-01-024 @skip
+    @skip
+    @item-02-002
     Scenario: ORC exposes the declared stage order
       Given the Pi harness ORC worker is running
       When Pi requests the executable cycle workflow contract
@@ -27,7 +29,8 @@ Feature: The regeneration cycle
 
   Rule: The fence and the gate feed the build loop; the score never does
 
-    @item-01-068 @skip
+    @skip
+    @item-02-003
     Scenario: The fence refuses to build a room for an instrument nobody checked
       Given the harness and the sealed instrument for the approved selection
       When the fence stage starts
@@ -35,7 +38,8 @@ Feature: The regeneration cycle
       And a passing self-check is reused only for an identical harness digest
       And a failing self-check stops the cycle before regeneration with the failing check named
 
-    @item-01-069 @skip
+    @skip
+    @item-02-004
     Scenario: The gate ratifies done; the builder cannot
       Given the builder reports that the candidate is complete
       When the gate stage runs in an independent room
@@ -44,7 +48,8 @@ Feature: The regeneration cycle
       And a failed gate starts a fresh builder session with only the preceding candidate and the gate's evidence
       And the cycle fails at the gate after three regenerate attempts
 
-    @item-01-070 @skip
+    @skip
+    @item-02-005
     Scenario: The score reports to a person and never into the loop
       Given a candidate passed the gate
       When the score stage runs the sealed instrument against the checklist
@@ -52,7 +57,8 @@ Feature: The regeneration cycle
       And no score verdict, evidence, or failure reaches any builder session
       And a failed score never starts another regeneration within the cycle
 
-    @item-01-024 @skip
+    @skip
+    @item-02-006
     Scenario: A slice without a human affordance contract does not invent a UI
       Given the approved slice is not selected by the project's affordance contract
       When the score stage runs the affordance evaluator
@@ -61,14 +67,16 @@ Feature: The regeneration cycle
 
   Rule: Independent rooms and evidence preserve provenance
 
-    @item-01-028 @skip
+    @skip
+    @item-02-007
     Scenario: Evidence identity cannot be reused for different content
       Given an observation exists for one cycle, item, kind, and producer
       When different evidence is recorded with that identity
       Then recording is refused as a conflict
       And the original observation remains authoritative
 
-    @item-01-029 @skip
+    @skip
+    @item-02-008
     Scenario: Evidence reports are derived projections
       Given a validated observation was recorded
       When an Allure or other report is emitted
@@ -77,7 +85,8 @@ Feature: The regeneration cycle
 
   Rule: Non-success outcomes remain explicit and measurable
 
-    @item-01-030 @skip
+    @skip
+    @item-02-009
     Scenario Outline: A non-successful stage cannot disappear from the result
       Given the <stage> stage is refused, skipped, times out, or returns inconclusive evidence
       When the cycle reaches a terminal outcome

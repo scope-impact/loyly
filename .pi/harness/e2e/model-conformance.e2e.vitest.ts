@@ -120,7 +120,7 @@ test.skip("An unsupported or missing project stack Dockerfile is refused", () =>
 
 test.skip("ORC exposes the declared stage order", async () => {
   const context = scenarioContext();
-  await scenarioLabels("execution-pipeline", "item-01-024", ["e2e"]);
+  await scenarioLabels("execution-pipeline", "item-02-002", ["e2e"]);
 
   await given("the Pi harness ORC worker is running", async () => {
     assert.ok(worker, "the ORC worker must be started by the E2E harness");
@@ -152,7 +152,7 @@ test.skip("Cut preparation refuses an invalid or colliding identity", () => {});
 
 test("Selection preview refuses an empty or ambiguous denominator", async () => {
   const context = scenarioContext();
-  await scenarioLabels("operator-control-plane", "item-01-016", ["e2e"]);
+  await scenarioLabels("operator-control-plane", "item-04-006", ["e2e"]);
 
   await given("the requested slice has missing, duplicate, unstamped, or unknown items", async () => {
     context.invalidSelections = await invalidSelectionRequests();
@@ -185,7 +185,7 @@ test.skip("Submission refuses an unsafe candidate scope", () => {});
 
 test("Waiting for a known task returns its one terminal outcome", async () => {
   const context = scenarioContext();
-  await scenarioLabels("operator-control-plane", "item-01-018", ["e2e"]);
+  await scenarioLabels("operator-control-plane", "item-04-008", ["e2e"]);
 
   await given("a source-cut, generation, or regeneration task receipt was returned", async () => {
     context.cut = await preparedCut();
@@ -207,7 +207,7 @@ test("Waiting for a known task returns its one terminal outcome", async () => {
 
 test("Waiting refuses an unknown task identity", async () => {
   const context = scenarioContext();
-  await scenarioLabels("operator-control-plane", "item-01-019", ["e2e"]);
+  await scenarioLabels("operator-control-plane", "item-04-009", ["e2e"]);
 
   await given("no task receipt has the supplied identity", async () => {
     context.taskId = Number.MAX_SAFE_INTEGER;
@@ -235,7 +235,7 @@ test.skip("The control plane does not depend on one interactive session implemen
 test.skip("Live progress reconciles with durable ORC execution state", () => {});
 test("An operator observes a builder session read-only", async () => {
   const context = scenarioContext();
-  await scenarioLabels("operator-control-plane", "item-01-038", ["e2e"]);
+  await scenarioLabels("operator-control-plane", "item-04-014", ["e2e"]);
 
   await given("ORC opened a separately identified builder session for one build attempt", async () => {
     const builderSessionRef = "e2e-builder-session-38";
@@ -294,7 +294,7 @@ test.skip("Intervention is explicit and provenance-recorded", () => {});
 test.skip("A builder transcript is restored with its matching workspace generation", () => {});
 test("Prompt optimization requires training and validation examples", async () => {
   const context = scenarioContext();
-  await scenarioLabels("prompt-optimization", "item-01-021", ["e2e"]);
+  await scenarioLabels("prompt-optimization", "item-04-017", ["e2e"]);
 
   await given("either example set is missing or not a collection", async () => {});
   await when("the operator requests builder-prompt optimization", async () => {
@@ -325,7 +325,7 @@ test.skip("Harness enforcement does not depend on model compliance", () => {});
 test.skip("Bedrock reflection and candidate execution remain separate roles", () => {});
 test("Preparing a cut returns immutable commit and tree identities", async () => {
   const context = scenarioContext();
-  await scenarioLabels("regeneration-cycle", "item-01-001", ["e2e"]);
+  await scenarioLabels("regeneration-cycle", "item-06-009", ["e2e"]);
 
   await given("the operator names a full source commit and an execution backend", async () => {
     context.cut = await preparedCut();
@@ -359,7 +359,7 @@ test.skip("The clean room holds the spec, not an answer or a judge", () => {});
 
 test("Previewing the same slice produces the same selection identity", async () => {
   const context = scenarioContext();
-  await scenarioLabels("regeneration-cycle", "item-01-003", ["e2e"]);
+  await scenarioLabels("regeneration-cycle", "item-01-005", ["e2e"]);
 
   await given("the same pinned cut, project, slice, and requested item subset", async () => {
     context.cut = await preparedCut();
@@ -389,7 +389,7 @@ test("Previewing the same slice produces the same selection identity", async () 
 
 test("Approval refuses a digest other than the reviewed digest", async () => {
   const context = scenarioContext();
-  await scenarioLabels("regeneration-cycle", "item-01-004", ["e2e"]);
+  await scenarioLabels("regeneration-cycle", "item-01-006", ["e2e"]);
 
   await given("a selection contract is awaiting approval", async () => {
     const cut = await preparedCut();
@@ -421,7 +421,7 @@ test("Approval refuses a digest other than the reviewed digest", async () => {
 
 test("An unapproved selection cannot start a regeneration cycle", async () => {
   const context = scenarioContext();
-  await scenarioLabels("regeneration-cycle", "item-01-005", ["e2e"]);
+  await scenarioLabels("regeneration-cycle", "item-01-007", ["e2e"]);
 
   await given("a recorded selection has not been approved", async () => {
     const cut = await preparedCut();
@@ -453,7 +453,7 @@ test.skip("The builder starts fresh and must produce workspace output", () => {}
 
 test("ORC exposes builder session identity in its executable contract", async () => {
   const context = scenarioContext();
-  await scenarioLabels("regeneration-cycle", "item-01-007", ["e2e"]);
+  await scenarioLabels("regeneration-cycle", "item-01-010", ["e2e"]);
 
   await given("the Pi harness ORC worker is running", async () => {
     assert.ok(worker, "the ORC worker must be started by the E2E harness");
@@ -471,7 +471,7 @@ test.skip("Verification rejects an incomplete runnable application contract", ()
 
 test.skip("A final result requires every independent gate to pass", async () => {
   const context = scenarioContext();
-  await scenarioLabels("regeneration-cycle", "item-01-011", ["e2e", "playback"]);
+  await scenarioLabels("regeneration-cycle", "item-01-012", ["e2e", "playback"]);
 
   await given("the oracle comparator, verifier, instrument conformance, and measurement have completed", async () => {
     const completed = await fullCycle();
@@ -504,7 +504,7 @@ test.skip("A passing invariant uses one correlated candidate subject", () => {})
 
 test("ORC exposes artifact provenance in its executable contract", async () => {
   const context = scenarioContext();
-  await scenarioLabels("runtime-evidence", "item-01-033", ["e2e"]);
+  await scenarioLabels("runtime-evidence", "item-05-005", ["e2e"]);
 
   await given("the Pi harness ORC worker is running", async () => {
     assert.ok(worker, "the ORC worker must be started by the E2E harness");
@@ -523,7 +523,7 @@ test.skip("Runtime evidence is selected entirely from the pinned project model",
 test.skip("An operator Pi session profiles a Gondolin VM directly", () => {});
 test("OTel and Allure project the persisted invariant evaluation", async () => {
   const context = scenarioContext();
-  await scenarioLabels("runtime-evidence", "item-01-034", ["e2e"]);
+  await scenarioLabels("runtime-evidence", "item-05-009", ["e2e"]);
 
   await given("an independent invariant evaluation and its evidence digest were persisted", async () => {
     context.persistedEvaluation = {
@@ -596,7 +596,7 @@ test("OTel and Allure project the persisted invariant evaluation", async () => {
 
 test.skip("Each comparison cycle isolates evidence from its pinned OTel capture policy", async () => {
   const context = scenarioContext();
-  await scenarioLabels("runtime-evidence", "item-01-042", ["skip", "gondolin"]);
+  await scenarioLabels("runtime-evidence", "item-05-010", ["skip", "gondolin"]);
 
   await given("the pinned instrument-oracle OCI supplies a declarative OTel capture policy", async () => {
     const root = mkdtempSync(path.join(os.tmpdir(), "loyly-grading-probe-e2e-"));

@@ -5,7 +5,8 @@ Feature: Conventional project-scoped VM and stack build configuration
 
   Rule: A selected project resolves its own VM and target-stack build files by convention
 
-    @item-01-050 @skip
+    @skip
+    @item-08-001
     Scenario: Löyly resolves its Gondolin config and Dockerfile for each supported stack
       Given the selected project is loyly
       When the harness resolves its project runtime files
@@ -15,7 +16,8 @@ Feature: Conventional project-scoped VM and stack build configuration
 
   Rule: Missing project runtime config fails closed
 
-    @item-01-051 @skip
+    @skip
+    @item-08-002
     Scenario: An unsupported or missing project stack Dockerfile is refused
       Given the selected project has no Dockerfile for the requested target stack
       When the harness resolves its project runtime files

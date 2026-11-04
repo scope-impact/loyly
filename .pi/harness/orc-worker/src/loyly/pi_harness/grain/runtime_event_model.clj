@@ -14,7 +14,7 @@
   ([] (load-and-verify! nil))
   ([event-store]
    (load-file (str (project-root)
-                   "/model/pi-harness/regeneration_event_model.clj"))
+                   "/.pi/model/regeneration_event_model.clj"))
    ;; Command envelopes in the model intentionally use :map while the live
    ;; schemas refine their contents. Lenient comparison accepts that refinement;
    ;; strict coverage and wiring checks remain fatal.

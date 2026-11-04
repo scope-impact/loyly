@@ -15,7 +15,7 @@
      :schema [:map [:contract :map]]
      :reads #{:loyly.pi-harness/selections}
      :produces #{:loyly.pi-harness/selection-recorded}
-     :grain/allium [{:spec "model/pi-harness/regeneration-cycle.allium"
+     :grain/allium [{:spec ".pi/model/regeneration-cycle.allium"
                      :kind :rule :name "PreviewSelection"}]}
 
     :loyly.pi-harness/approve-selection
@@ -23,7 +23,7 @@
      :schema [:map [:selection-id :string] [:selection-digest :string]]
      :reads #{:loyly.pi-harness/selections}
      :produces #{:loyly.pi-harness/selection-approved}
-     :grain/allium [{:spec "model/pi-harness/regeneration-cycle.allium"
+     :grain/allium [{:spec ".pi/model/regeneration-cycle.allium"
                      :kind :rule :name "ApproveSelection"}]}
 
     :loyly.pi-harness/record-cycle-preparation
@@ -31,7 +31,7 @@
      :schema [:map [:preparation :map]]
      :reads #{:loyly.pi-harness/cycle-preparations}
      :produces #{:loyly.pi-harness/cycle-preparation-recorded}
-     :grain/allium [{:spec "model/pi-harness/regeneration-cycle.allium"
+     :grain/allium [{:spec ".pi/model/regeneration-cycle.allium"
                      :kind :rule :name "PrepareCycle"}]}
 
     :loyly.pi-harness/approve-cycle-preparation
@@ -39,7 +39,7 @@
      :schema [:map [:preparation-id :string] [:preparation-digest :string]]
      :reads #{:loyly.pi-harness/cycle-preparations}
      :produces #{:loyly.pi-harness/cycle-preparation-approved}
-     :grain/allium [{:spec "model/pi-harness/regeneration-cycle.allium"
+     :grain/allium [{:spec ".pi/model/regeneration-cycle.allium"
                      :kind :rule :name "ApprovePreparation"}]}
 
     :loyly.pi-harness/record-approved-slice-route
@@ -47,9 +47,9 @@
      :schema [:map [:route :map]]
      :reads #{:loyly.pi-harness/approved-slice-operation-routes}
      :produces #{:loyly.pi-harness/approved-slice-operation-routed}
-     :grain/allium [{:spec "model/pi-harness/fresh-slice-generation.allium"
+     :grain/allium [{:spec ".pi/model/instrument.allium"
                      :kind :rule :name "RouteApprovedSliceToFreshSliceGeneration"}
-                    {:spec "model/pi-harness/fresh-slice-generation.allium"
+                    {:spec ".pi/model/instrument.allium"
                      :kind :rule :name "RouteApprovedSliceToMeasuredRegeneration"}]}
 
     :loyly.pi-harness/record-generated-candidate
@@ -57,7 +57,7 @@
      :schema [:map [:candidate :map]]
      :reads #{:loyly.pi-harness/component-candidates}
      :produces #{:loyly.pi-harness/generated-candidate-recorded}
-     :grain/allium [{:spec "model/pi-harness/fresh-slice-generation.allium"
+     :grain/allium [{:spec ".pi/model/instrument.allium"
                      :kind :rule :name "RecordPublishedOracleAndCandidate"}]}
 
     :loyly.pi-harness/record-oracle-proposal
@@ -65,7 +65,7 @@
      :schema [:map [:proposal :map]]
      :reads #{:loyly.pi-harness/oracle-proposals}
      :produces #{:loyly.pi-harness/oracle-proposal-recorded}
-     :grain/allium [{:spec "model/pi-harness/fresh-slice-generation.allium"
+     :grain/allium [{:spec ".pi/model/instrument.allium"
                      :kind :rule :name "ProposeOracleFromSuccessfulGrade"}]}
 
     :loyly.pi-harness/approve-oracle-proposal
@@ -73,7 +73,7 @@
      :schema [:map [:proposal-id :string] [:proposal-digest :string] [:approved-by :string]]
      :reads #{:loyly.pi-harness/oracle-proposals}
      :produces #{:loyly.pi-harness/oracle-proposal-approved}
-     :grain/allium [{:spec "model/pi-harness/fresh-slice-generation.allium"
+     :grain/allium [{:spec ".pi/model/instrument.allium"
                      :kind :rule :name "ApproveExactOracleProposal"}]}
 
     :loyly.pi-harness/record-accepted-product-oracle
@@ -81,7 +81,7 @@
      :schema [:map [:accepted-oracle :map]]
      :reads #{:loyly.pi-harness/oracle-proposals}
      :produces #{:loyly.pi-harness/product-oracle-accepted}
-     :grain/allium [{:spec "model/pi-harness/fresh-slice-generation.allium"
+     :grain/allium [{:spec ".pi/model/instrument.allium"
                      :kind :rule :name "RecordPublishedOracleAndCandidate"}]}
 
     :loyly.pi-harness/record-observation
@@ -89,7 +89,7 @@
      :schema [:map [:observation :map]]
      :reads #{:loyly.pi-harness/cycle-observations}
      :produces #{:loyly.pi-harness/observation-recorded}
-     :grain/allium [{:spec "model/pi-harness/regeneration-cycle.allium"
+     :grain/allium [{:spec ".pi/model/regeneration-cycle.allium"
                      :kind :rule :name "CompareCandidateEvidenceWithOracle"}]}
 
     :loyly.pi-harness/record-cycle-measurement
@@ -97,7 +97,7 @@
      :schema [:map [:measurement :map]]
      :reads #{:loyly.pi-harness/cycle-measurements}
      :produces #{:loyly.pi-harness/cycle-measurement-recorded}
-     :grain/allium [{:spec "model/pi-harness/regeneration-cycle.allium"
+     :grain/allium [{:spec ".pi/model/regeneration-cycle.allium"
                      :kind :rule :name "RecordMeasurement"}]}}
 
    :events
@@ -291,7 +291,7 @@
                  :sheet/tree-tick-completed
                  :sheet/tick-cancelled}
      :version 1
-     :grain/allium [{:spec "model/pi-harness/operator-control-plane.allium"
+     :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
                      :kind :rule :name "ProjectCycleProgress"}]}
 
     :loyly.pi-harness/cycle-observations
@@ -351,7 +351,7 @@
      :subscribes #{:loyly.pi-harness/cycle-preparation-approved}
      :reads #{:loyly.pi-harness/cycle-preparation}
      :produces #{:sheet/tick-tree}
-     :grain/allium [{:spec "model/pi-harness/operator-control-plane.allium"
+     :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
                      :kind :rule :name "DispatchApprovedPreparationToOrc"}]}}
 
    :screens
@@ -372,7 +372,7 @@
                  :loyly.pi-harness/approve-cycle-preparation
                  :loyly.pi-harness/record-observation
                  :loyly.pi-harness/record-cycle-measurement}
-     :grain/allium [{:spec "model/pi-harness/operator-control-plane.allium"
+     :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
                      :kind :surface :name "RegenerationControlPlane"}]}}
 
    :flows

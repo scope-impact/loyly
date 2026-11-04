@@ -121,7 +121,7 @@ cd .pi/harness
 npm run test:e2e
 ```
 
-It parses every component-owned scenario directly from `model/pi-harness/`—there is no
+It parses every component-owned scenario directly from `.pi/model/`—there is no
 duplicate E2E or coverage feature—and lints it against one explicit native Vitest test per
 scenario. Translated `@e2e` scenarios query the real `workflow-contract` JSON boundary and
 emit Given/When/Then `allure.step` records; untranslated scenarios use native `test.skip` and
