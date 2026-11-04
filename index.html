@@ -158,13 +158,13 @@
         <header class="c4-heading"><span>C4 level 2</span><h3>Container view</h3><p>ORC owns workflow authority. Narrow adapters perform physical work. Durable stores preserve facts, projections, cuts, Candidates, and evidence.</p></header>
         <div class="c4-boundary" aria-label="Containers inside the ORC regeneration harness"><span class="boundary-label">Session-hosted ORC Regeneration Harness</span>
           <div class="runtime-rail">
-            <div class="c4-node"><b>Pi extension adapter</b><small>TypeScript in Pi process · JSON transport</small></div><div class="c4-arrow" aria-hidden="true">›</div>
+            <div class="c4-node"><b>Pi extension adapter</b><small>TypeScript in Pi process · exploration tools and approved ORC request transport</small></div><div class="c4-arrow" aria-hidden="true">›</div>
             <div class="c4-node primary"><b>ORC worker</b><small>Clojure process · workflows, gates, durable event facts</small></div><div class="c4-arrow" aria-hidden="true">›</div>
             <div class="adapter-cluster"><div class="c4-node"><b>Cut adapter</b><small>Node · pinned fenced cuts</small></div><div class="c4-node"><b>Builder adapter</b><small>Node · fresh builder session</small></div><div class="c4-node"><b>Execution adapter</b><small>Node · verifier and grader commands</small></div></div>
           </div>
           <div class="store-rail"><div class="c4-node store"><b>ORC + Grain events</b><small>SQLite · authoritative harness facts</small></div><div class="c4-node store"><b>Projection cache</b><small>LMDB · selection, progress, measurement views</small></div><div class="c4-node store"><b>Cut store</b><small>Filesystem · immutable fenced cuts</small></div><div class="c4-node store"><b>Candidate + evidence</b><small>Filesystem · generated output and raw evidence</small></div></div>
         </div>
-        <p class="c4-relationship">Key relationships: Pi invokes the extension over tools; the extension speaks JSON-lines RPC to ORC; ORC calls each adapter over standard I/O; the builder reads only the cut; the execution adapter reads the cut and Candidate, writes evidence, and cannot change the subject.</p>
+        <p class="c4-relationship">Key relationships: Pi explores and previews through the extension, but only an immutable approved request crosses its JSON-lines RPC seam into ORC. ORC calls each adapter over standard I/O; the builder reads only the cut; the execution adapter reads the cut and Candidate, writes evidence, and cannot change the subject.</p>
       </article>
       <article class="c4-level">
         <header class="c4-heading"><span>C4 level 3</span><h3>Inside the ORC worker</h3><p>The worker serializes execution and delegates selection, building, oracle handling, grading, evidence, runtime composition, and Grain projections to explicit components.</p></header>
