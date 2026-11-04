@@ -86,7 +86,7 @@
                         {:slice slice :duplicates duplicates})))
       (let [digest (sha256 (pr-str [project-id container-id component-id cut slice items]))]
         {:selectionId (str "selection-" (subs digest 0 24))
-         :selectionDigest digest
+         :selectionDigest (str "sha256:" digest)
          :status "awaiting-approval"
          :projectId project-id
          :containerId container-id

@@ -516,7 +516,7 @@
         author-request (atom nil)
         fixture-request (atom nil)
         inputs {:execution-backend "gondolin"
-                :selection approved-selection
+                :selection (assoc approved-selection :selectionDigest "sha256:digest-1")
                 :harness-snapshot-result {:harness-snapshot-digest "sha256:instrument"}}]
     (.mkdirs (.getParentFile fixture))
     (spit fixture "fixture")
@@ -540,7 +540,7 @@
         (is (not (contains? @author-request :evidenceRoot)))
         (is (= ["@item-01-007"] (:itemIds @author-request)))
         (is (= "sha256:instrument" (:harnessSnapshotDigest @author-request)))
-        (is (= "digest-1" (:selectionDigest @author-request)))
+        (is (= "sha256:digest-1" (:selectionDigest @author-request)))
         (is (re-find #"carried.*must pass" (:prompt @author-request)))
         (is (re-find #"context.close.*no dispose" (:prompt @author-request)))
         (is (= ["carried" "uncarried"] (mapv :role (:cases @fixture-request))))))))

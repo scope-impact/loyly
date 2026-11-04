@@ -30,7 +30,7 @@
         (is (every? #(re-matches #"[0-9a-f]{64}" (:scenario-digest %))
                     (:items first-contract)))
         (is (= "awaiting-approval" (:status first-contract)))
-        (is (re-matches #"[0-9a-f]{64}" (:selectionDigest first-contract)))))))
+        (is (re-matches #"sha256:[0-9a-f]{64}" (:selectionDigest first-contract)))))))
 
 (deftest scenario-digest-changes-when-the-scenario-body-changes
   (let [digest (atom nil)]
