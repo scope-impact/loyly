@@ -1206,12 +1206,14 @@
                                  :subject-digest (subject/digest (:output-root raw-builder))})
               repaired-inputs (-> inputs
                                   (assoc :request-id repair-id
-                                         :builder-result repaired-builder
-                                         :repair-verification-result
-                                         {:builder repaired-builder
-                                          :instrument instrument
-                                          :verify verification})
-                                  (dissoc :repair-evaluation-result))
+                                         :builder-result repaired-builder)
+                                  (dissoc :instrument-result
+                                          :affordance-conformance-result
+                                          :verify-result
+                                          :repair-verification-result
+                                          :baseline-grade-result
+                                          :instrument-conformance-result
+                                          :repair-evaluation-result))
               repaired-context {:inputs repaired-inputs
                                 :tick-id (:tick-id context)
                                 :cycle-id (:request-id inputs)}
@@ -1221,19 +1223,23 @@
                                            (assoc repaired-inputs
                                                   :builder-result repaired-builder
                                                   :instrument-result repaired-instrument)))
-              evaluation-inputs (assoc repaired-inputs
+              verification-inputs (assoc repaired-inputs
+                                         :builder-result repaired-builder
+                                         :instrument-result repaired-instrument
+                                         :affordance-conformance-result repaired-affordance)
+              initial-verification (verify-stage
+                                    (assoc repaired-context :inputs verification-inputs))
+              verification-repair (repair-verification-stage
+                                   (assoc repaired-context :inputs
+                                          (assoc verification-inputs
+                                                 :verify-result initial-verification)))
+              evaluated-builder (:builder verification-repair)
+              evaluated-instrument (:instrument verification-repair)
+              evaluated-affordance (:affordance verification-repair)
+              repaired-verification (:verify verification-repair)
+              evaluation-inputs (assoc verification-inputs
                                        :repair-verification-result
-                                       {:builder repaired-builder
-                                        :instrument repaired-instrument
-                                        :affordance repaired-affordance
-                                        :verify verification})
-              repaired-verification (verify-stage
-                                     (assoc repaired-context :inputs evaluation-inputs))
-              evaluation-inputs (assoc evaluation-inputs
-                                       :repair-verification-result
-                                       {:builder repaired-builder
-                                        :instrument repaired-instrument
-                                        :verify repaired-verification})
+                                       verification-repair)
               repaired-grade (when (:passed repaired-verification)
                                (baseline-grade-stage
                                 (assoc repaired-context :inputs evaluation-inputs)))
@@ -1243,9 +1249,9 @@
                                      (instrument-conformance-stage
                                       (assoc repaired-context :inputs conformance-inputs)))]
           (recur next-round
-                 repaired-builder
-                 repaired-instrument
-                 repaired-affordance
+                 evaluated-builder
+                 evaluated-instrument
+                 evaluated-affordance
                  repaired-verification
                  (or repaired-grade {:passed false})
                  (or repaired-conformance {:passed false})

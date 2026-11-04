@@ -18,4 +18,5 @@ record slice 02 as explicitly non-applicable rather than inventing a UI requirem
 Black-box grader and instrument-conformance evidence never enters a builder prompt.
 If independent evaluation fails, ORC may continue its loop only by starting another
 fresh builder session from this approved cut. Candidate-local verification failures
-may still use the candidate and verifier evidence for repair.
+may still use the candidate and verifier evidence for repair. Each fresh sample receives
+that bounded verification-repair loop before independent evaluation.

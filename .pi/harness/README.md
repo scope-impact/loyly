@@ -117,7 +117,8 @@ Failed verification starts a fresh Gondolin builder session from the preceding c
 read-only verifier evidence. Failed black-box grading or instrument conformance can only start
 another clean sample from the approved cut; that builder receives neither the candidate nor any
 evaluation evidence. A generated candidate becomes routable lineage only after exact manual
-approval and publication of the resulting oracle proposal.
+approval and publication of the resulting oracle proposal. Every fresh evaluation sample gets
+its own bounded verification-repair loop before black-box grading can run.
 
 Measured regeneration requires pinned oracles and executes:
 

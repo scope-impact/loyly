@@ -762,8 +762,10 @@
            (worker/graders-stage context))))
     (is (false? @called?))))
 
-(deftest failed-independent-evaluation-starts-a-fresh-clean-room-generation
-  (let [builder-call (atom nil)
+(deftest fresh-evaluation-sample-gets-its-own-bounded-verification-repair
+  (let [builder-calls (atom [])
+        verify-calls (atom 0)
+        grade-builder (atom nil)
         context {:inputs {:request-id "generation-conformance-repair"
                           :selection approved-selection
                           :scope ["impl"]
@@ -779,28 +781,44 @@
                           :instrument-conformance-result {:passed false}}}
         result (with-redefs [worker/run-builder-adapter
                              (fn [request]
-                               (reset! builder-call request)
-                               {:output-root "/state/candidate-evaluation-repair-02"
-                                :builder "openai-codex/test"})
+                               (let [call (swap! builder-calls conj request)
+                                     repair? (= 2 (count call))]
+                                 {:output-root (if repair?
+                                                 "/state/fresh-sample-repair-02"
+                                                 "/state/fresh-sample")
+                                  :builder "openai-codex/test"}))
                              subject/digest (constantly "subject-two")
                              worker/instrument-stage
                              (fn [{:keys [inputs]}]
-                               (is (= "/state/candidate-evaluation-repair-02"
-                                      (get-in inputs [:builder-result :output-root])))
-                               {:evidence-root "/state/candidate-evaluation-repair-02.evidence"
-                                :subject-digest "subject-two"})
+                               (let [output-root (get-in inputs [:builder-result :output-root])]
+                                 {:evidence-root (str output-root ".evidence")
+                                  :subject-digest "subject-two"}))
                              worker/affordance-conformance-stage
                              (fn [_] {:passed true :applicable true :total 1
                                       :passed-count 1 :evidence "green"})
-                             worker/verify-stage (fn [_] {:passed true})
-                             worker/baseline-grade-stage (fn [_] {:passed true})
+                             worker/verify-stage
+                             (fn [_]
+                               {:passed (> (swap! verify-calls inc) 1)})
+                             worker/baseline-grade-stage
+                             (fn [{:keys [inputs]}]
+                               (reset! grade-builder
+                                       (get-in inputs [:repair-verification-result
+                                                       :builder :output-root]))
+                               {:passed true})
                              worker/instrument-conformance-stage (fn [_] {:passed true})]
                  (worker/repair-evaluation-stage context))]
     (is (true? (:passed result)))
     (is (= 2 (:rounds result)))
-    (is (nil? (:initial-workspace-root @builder-call)))
-    (is (nil? (:verification-evidence-root @builder-call)))
-    (is (= 2 (:round @builder-call)))
+    (is (= 2 (count @builder-calls)))
+    (is (nil? (:initial-workspace-root (first @builder-calls))))
+    (is (nil? (:verification-evidence-root (first @builder-calls))))
+    (is (= "/state/fresh-sample"
+           (:initial-workspace-root (second @builder-calls))))
+    (is (= "/state/fresh-sample.evidence"
+           (:verification-evidence-root (second @builder-calls))))
+    (is (= 2 (:round (first @builder-calls))))
+    (is (= 2 (:round (second @builder-calls))))
+    (is (= "/state/fresh-sample-repair-02" @grade-builder))
     (is (= "subject-two" (get-in result [:builder :subject-digest])))
     (is (true? (get-in result [:instrument-conformance :passed])))))
 

@@ -28,6 +28,7 @@ behavior requires a new approved specification and a separately reviewed oracle 
 - Baseline grade or oracle evidence never enters the builder or verification-repair loop.
 - A failed baseline grade or instrument-conformance check may trigger another bounded attempt,
   but that attempt is a fresh generation from the approved cut with no candidate or evidence input.
+  Each fresh sample receives the same bounded verification-repair loop before evaluation.
 - Failed, missing, inconclusive, or non-conformant evidence cannot be proposed or promoted.
 - The generated candidate becomes routable lineage only after exact manual approval and immutable
   oracle publication.
