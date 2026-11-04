@@ -9,6 +9,7 @@ The essay first establishes the human reason for the factory, then introduces th
 ```text
 why: plausible output can still fail in the world
 what: creative intelligence embodied by an accountable harness
+builders: repository C4 context → containers → ORC components
 how: direction → build and verify → independent Grade
                → durable measurement → measured lineage
 ```
