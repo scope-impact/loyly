@@ -142,7 +142,15 @@
                                    [suite (select-keys value [:exit-code :timed-out?])]))
                             (:suites result))]
     (when-not (:passed result)
-      (throw (ex-info "full harness calibration failed"
+      ;; ORC persists only the message, so it names the failing suites and the record
+      ;; that holds their output.
+      (throw (ex-info (str "full harness calibration failed: "
+                           (str/join ", " (for [[suite value] (sort-by key (:suites result))
+                                                :when (not (zero? (or (:exit-code value) 1)))]
+                                            (str (name suite) " exit " (:exit-code value)
+                                                 (when (:timed-out? value) " (timed out)"))))
+                           (when-let [record (:failure-record result)]
+                             (str "; details in " record)))
                       {:harness-snapshot-digest (:harness-snapshot-digest result)
                        :mismatches (:mismatches result)
                        :suites suite-summary})))

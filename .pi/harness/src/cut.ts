@@ -86,12 +86,14 @@ function shellQuote(value: string): string {
 function fenceCommand(sourceCommit: string, hidden: readonly string[]): string {
   return [
     "set -eu",
+    // Git's global config lives in the staging root, never the operator's ~/.gitconfig:
+    // concurrent cuts otherwise contend on its lock and leave safe.directory entries behind.
+    "export GIT_CONFIG_GLOBAL=/output/.gitconfig",
     "git clone --quiet --depth 1 file:///source /output/cut",
     "git config --global --add safe.directory /output/cut",
     `test \"$(git -C /output/cut rev-parse HEAD)\" = '${sourceCommit}'`,
     "CUT_DATE=\"$(git -C /output/cut show -s --format=%cI HEAD)\"",
     "export GIT_AUTHOR_DATE=\"$CUT_DATE\" GIT_COMMITTER_DATE=\"$CUT_DATE\"",
-    "git config --global --add safe.directory /output/cut",
     ...hidden.map((entry) => `test -e /output/cut/${entry} || { echo 'FENCE FAILED: ${entry} matches nothing' >&2; exit 1; }`),
     ...hidden.map((entry) => `rm -rf /output/cut/${entry}`),
     "git -C /output/cut add -A",

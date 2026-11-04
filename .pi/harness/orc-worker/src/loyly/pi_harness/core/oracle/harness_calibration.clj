@@ -1,5 +1,6 @@
 (ns loyly.pi-harness.core.oracle.harness-calibration
-  (:require [clojure.java.io :as io]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [loyly.pi-harness.core.oracle.harness-snapshot :as harness-snapshot]))
 
@@ -110,13 +111,56 @@
      :suites {:clojure-worker clojure-result
               :node-adapters node-result}}))
 
+;; A calibration certifies one harness snapshot, which is content-addressed by its manifest
+;; digest. A passing result is recorded under that digest and reused by later cycles, so
+;; concurrent or repeated cycles do not rerun the suites for an unchanged harness. A failure
+;; is recorded with each suite's output tail, because ORC keeps only the exception message.
+(defn- calibration-record [project-root digest suffix]
+  (io/file project-root ".pi/harness/.state/harness-calibrations"
+           (str (str/replace digest #"^sha256:" "") suffix)))
+
+(defn- write-record! [file value]
+  (.mkdirs (.getParentFile file))
+  (let [tmp (io/file (.getParentFile file) (str "." (.getName file) "." (random-uuid) ".tmp"))]
+    (spit tmp (pr-str value))
+    (when-not (.renameTo tmp file)
+      (.delete tmp))))
+
+(defn- read-record [file]
+  (when (.isFile file)
+    (try (edn/read-string (slurp file)) (catch Exception _ nil))))
+
+(defn- output-tail [output]
+  (let [text (str output)]
+    (subs text (max 0 (- (count text) 4000)))))
+
+(defn- summarize-suites [suites keep-output?]
+  (into {}
+        (map (fn [[suite value]]
+               [suite (cond-> (select-keys value [:exit-code :timed-out?])
+                        keep-output? (assoc :output-tail (output-tail (:output value))))]))
+        suites))
+
 (defn calibrate! [project-root]
   (let [pack (-> (harness-snapshot/build! project-root)
                  harness-snapshot/validate!
                  validate-component-coverage!)
-        suites (run-suites project-root (:fixtures pack))
-        evaluation (evaluate pack (:fixture-results suites))]
-    (assoc evaluation
-           :harness-revision (:harness-revision pack)
-           :harness-snapshot-digest (:manifest-digest pack)
-           :suites (:suites suites))))
+        digest (:manifest-digest pack)
+        passed-file (calibration-record project-root digest ".edn")
+        cached (read-record passed-file)]
+    (if (and (:passed cached) (= digest (:harness-snapshot-digest cached)))
+      (assoc cached :harness-revision (:harness-revision pack) :cached true)
+      (let [suites (run-suites project-root (:fixtures pack))
+            evaluation (assoc (evaluate pack (:fixture-results suites))
+                              :harness-revision (:harness-revision pack)
+                              :harness-snapshot-digest digest)]
+        (if (:passed evaluation)
+          (let [result (assoc evaluation :suites (summarize-suites (:suites suites) false))]
+            (write-record! passed-file result)
+            (assoc result :cached false))
+          (let [failed-file (calibration-record project-root digest ".failed.edn")
+                result (assoc evaluation
+                              :suites (summarize-suites (:suites suites) true)
+                              :failure-record (.getPath failed-file))]
+            (write-record! failed-file result)
+            result))))))

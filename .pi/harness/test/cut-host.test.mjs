@@ -25,12 +25,19 @@ test("host cut preparation preserves the fence contract", async () => {
   assert.equal(initialized.exitCode, 0, initialized.stderr);
   const revision = await execOnHost("git rev-parse HEAD", sourceRoot);
   const sourceCommit = revision.stdout.trim();
+  // Any write to the operator's global git config would land in this sentinel instead.
+  const sentinel = path.join(root, "operator.gitconfig");
+  const previousGlobal = process.env.GIT_CONFIG_GLOBAL;
+  process.env.GIT_CONFIG_GLOBAL = sentinel;
   try {
     const receipt = await createCutPreparer({ backend: "host", sourceRoot, cutsRoot })(sourceCommit);
+    await assert.rejects(access(sentinel), "cut preparation must not write global git config");
     assert.equal(receipt.sourceCommit, sourceCommit);
     assert.equal(await readFile(path.join(cutsRoot, receipt.cutId, "contract.txt"), "utf8"), "keep me\n");
     await assert.rejects(access(path.join(cutsRoot, receipt.cutId, "legacy")));
   } finally {
+    if (previousGlobal === undefined) delete process.env.GIT_CONFIG_GLOBAL;
+    else process.env.GIT_CONFIG_GLOBAL = previousGlobal;
     await rm(root, { recursive: true, force: true });
   }
 });

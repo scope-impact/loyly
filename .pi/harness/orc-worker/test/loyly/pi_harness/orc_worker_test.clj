@@ -63,6 +63,20 @@
       (is (= "harness-snapshot" (:stage result)))
       (is (= "sha256:snapshot" (:harness-snapshot-digest result))))))
 
+(deftest failed-harness-calibration-names-the-failing-suite-and-its-record
+  ;; ORC persists only the exception message, so it must identify what failed.
+  (with-redefs [harness-calibration/calibrate!
+                (constantly {:passed false :mismatches ["full-harness-known-carried"]
+                             :harness-snapshot-digest "sha256:snapshot"
+                             :failure-record "/state/harness-calibrations/snapshot.failed.edn"
+                             :suites {:clojure-worker {:exit-code 1}
+                                      :node-adapters {:exit-code 0}}})
+                worker/project-root (constantly "/repo")]
+    (is (thrown-with-msg?
+         clojure.lang.ExceptionInfo
+         #"full harness calibration failed: clojure-worker exit 1; details in /state/harness-calibrations/snapshot\.failed\.edn"
+         (worker/calibrate-harness!)))))
+
 (deftest affordance-conformance-preserves-a-flexible-independent-browser-verdict
   (let [request (atom nil)]
     (with-redefs [worker/baseline-grader-root (constantly "/judge")
@@ -212,7 +226,7 @@
                                             :options (apply hash-map options)})
                                   {:status :success :outputs {} :trace-id tick-id})]
         (let [receipt (worker/start-cycle! request)
-              invoked (deref execution 1000 ::timeout)]
+              invoked (deref execution 10000 ::timeout)]
           (is (= {:cycleId "cycle-1"
                   :tickId (str tick-id)
                   :correlationId (str correlation-id)
@@ -302,12 +316,12 @@
         (worker/stop-runtime! system/stop!)))))
 
 (deftest approved-slice-routes-to-initial-generation-without-prior-lineage
-  (let [executed (atom nil)]
+  (let [executed (promise)]
     (worker/start-runtime! system/start!)
     (try
       (with-redefs [model/find-latest-candidate (fn [_ & _] nil)
                     orc/execute (fn [_ sheet-id inputs & _]
-                                  (reset! executed {:sheet-id sheet-id :inputs inputs})
+                                  (deliver executed {:sheet-id sheet-id :inputs inputs})
                                   {:status :success})]
         (let [request {:requestId "route-generation-1"
                        :selectionContract approved-selection
@@ -324,12 +338,12 @@
           (is (= "fresh-generation"
                  (:operation (model/find-approved-slice-route
                               (worker/runtime-context) "route-generation-1"))))
-          (is (instance? java.util.UUID (:sheet-id @executed)))
-          (is (not (contains? (:inputs @executed) :parent-candidate-root)))))
+          (is (instance? java.util.UUID (:sheet-id (deref executed 10000 nil))))
+          (is (not (contains? (:inputs (deref executed 10000 nil)) :parent-candidate-root)))))
       (finally (worker/stop-runtime! system/stop!)))))
 
 (deftest approved-slice-routes-to-regeneration-from-latest-candidate
-  (let [executed (atom nil)
+  (let [executed (promise)
         prior {:candidate-id "candidate-previous"
                :output-root "/state/candidates/previous"
                :subject-digest "sha256:parent"}]
@@ -337,7 +351,7 @@
     (try
       (with-redefs [model/find-latest-candidate (fn [_ & _] prior)
                     orc/execute (fn [_ sheet-id inputs & _]
-                                  (reset! executed {:sheet-id sheet-id :inputs inputs})
+                                  (deliver executed {:sheet-id sheet-id :inputs inputs})
                                   {:status :success})]
         (let [receipt (worker/submit-approved-slice!
                        {:requestId "route-regeneration-1"
@@ -349,13 +363,13 @@
                  (:parent-candidate-id
                   (model/find-approved-slice-route
                    (worker/runtime-context) "route-regeneration-1"))))
-          (is (instance? java.util.UUID (:sheet-id @executed)))
+          (is (instance? java.util.UUID (:sheet-id (deref executed 10000 nil))))
           (is (= "candidate-previous"
-                 (get-in @executed [:inputs :parent-candidate-id])))
+                 (get-in (deref executed 10000 nil) [:inputs :parent-candidate-id])))
           (is (= "/state/candidates/previous"
-                 (get-in @executed [:inputs :parent-candidate-root])))
+                 (get-in (deref executed 10000 nil) [:inputs :parent-candidate-root])))
           (is (= "sha256:parent"
-                 (get-in @executed [:inputs :parent-candidate-digest])))))
+                 (get-in (deref executed 10000 nil) [:inputs :parent-candidate-digest])))))
       (finally (worker/stop-runtime! system/stop!)))))
 
 (deftest initial-generation-rejects-a-parent-candidate
