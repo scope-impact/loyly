@@ -129,7 +129,7 @@
       (spit (java.io.File. impl "server.js") "console.log('substitute')\n")
       (let [result (stack-conformance/check (.getAbsolutePath root) "rust")]
         (is (false? (:passed result)))
-        (is (str/includes? (:stderr result) "rust:1.91-alpine"))
+        (is (str/includes? (:stderr result) "pi-harness/rust:1.91-web"))
         (is (str/includes? (:stderr result) "requested rust stack")))
       (finally
         (doseq [file (reverse (file-seq root))] (.delete file))))))
@@ -140,7 +140,7 @@
                        (make-array java.nio.file.attribute.FileAttribute 0)))
         impl (doto (java.io.File. root "impl") .mkdirs)]
     (try
-      (spit (java.io.File. impl "Dockerfile") "# generated\nFROM rust:1.91-alpine\n")
+      (spit (java.io.File. impl "Dockerfile") "# generated\nFROM pi-harness/rust:1.91-web\n")
       (spit (java.io.File. impl "main.rs") "fn main() {}\n")
       (is (true? (:passed (stack-conformance/check (.getAbsolutePath root) "rust"))))
       (finally

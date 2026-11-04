@@ -1,0 +1,17 @@
+# Offline Rust runtime for building and grading (`pi-harness/rust:1.91-web`). The crates in
+# platform/rust/Cargo.toml are vendored under /opt/platform/vendor and Cargo is pinned to
+# them offline, so candidates can use axum, tokio, serde, serde_json, and reqwest (tests)
+# without registry access. /opt/platform/Cargo.toml documents the exact versions.
+FROM rust:1.91-alpine
+RUN apk add --no-cache musl-dev
+WORKDIR /opt/platform
+COPY platform/rust/Cargo.toml platform/rust/Cargo.lock ./
+COPY platform/rust/src ./src
+RUN cargo vendor --locked --versioned-dirs vendor > /dev/null \
+ && printf '%s\n' \
+    '[source.crates-io]' 'replace-with = "vendored-sources"' \
+    '[source.vendored-sources]' 'directory = "/opt/platform/vendor"' \
+    '[net]' 'offline = true' > /usr/local/cargo/config.toml \
+ && cargo test --offline --quiet \
+ && rm -rf target /usr/local/cargo/registry
+WORKDIR /app

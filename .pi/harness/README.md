@@ -68,6 +68,12 @@ not prove denial. Use `node scripts/verify-platforms.mjs <probe> host` to debug 
 Docker. Overrides: `PI_HARNESS_PROBE_MEMORY` (`4G`), `PI_HARNESS_PROBE_ROOTFS_SIZE` (`12G`),
 `PI_HARNESS_PROBE_CPUS` (`4`).
 
+Rust and Java carry a fixed offline library set (`harness/<project-id>/platform/`):
+`pi-harness/rust:1.91-web` vendors axum, tokio, serde, serde_json, and reqwest (tests) from a
+pinned `Cargo.lock`, and `pi-harness/java:21-web` runs Maven 3.9.11 offline against a
+repository seeded from a template pom (Jackson, JUnit 5, and pinned plugins). The builder room
+and the grading archive use the same image, and the manifest sits at `/opt/platform/` in both.
+
 Known gaps, not yet wired into ORC (the production prompt and stack registry still know only
 bare language stacks):
 
@@ -76,8 +82,7 @@ bare language stacks):
   them with commas (2.0) or adding `multiValue*` fields (1.0).
 - A candidate's own `impl/**/node_modules` would shadow the platform package set; conformance
   must reject it.
-- Rust and Java archives are standard library only (no crate registry, Maven, or Gradle), and
-  the Rails offline image ships no app server (no puma or webrick).
+- The Rails offline image ships no app server (no puma or webrick).
 - `config/build/sam-gateway/` is grading machinery but is not yet an instrument-oracle input.
 - Archives are not byte-reproducible across rebuilds; pin images by digest, not archive checksum.
 

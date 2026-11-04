@@ -1,0 +1,26 @@
+# Offline Java runtime for building and grading (`pi-harness/java:21-web`). Maven 3.9.11 runs
+# offline against a repository seeded by building platform/java, so candidates can use Jackson
+# and JUnit 5 with the plugins pinned in /opt/platform/pom.xml (copy it as the starting pom).
+# The JDK supplies the HTTP server (com.sun.net.httpserver) and client (java.net.http).
+FROM eclipse-temurin:21-jdk-alpine
+ARG MAVEN_VERSION=3.9.11
+ARG MAVEN_SHA512=bcfe4fe305c962ace56ac7b5fc7a08b87d5abd8b7e89027ab251069faebee516b0ded8961445d6d91ec1985dfe30f8153268843c89aa392733d1a3ec956c9978
+RUN apk add --no-cache bash \
+ && wget -q -O /tmp/maven.tar.gz \
+    https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz \
+ && echo "${MAVEN_SHA512}  /tmp/maven.tar.gz" | sha512sum -c - \
+ && tar -xzf /tmp/maven.tar.gz -C /opt \
+ && ln -s /opt/apache-maven-${MAVEN_VERSION}/bin/mvn /usr/local/bin/mvn \
+ && rm /tmp/maven.tar.gz
+WORKDIR /opt/platform
+COPY platform/java/pom.xml ./pom.xml
+COPY platform/java/src ./src
+# Global settings (not ~/.m2) so the repository and offline mode hold for any user or HOME.
+RUN settings=/opt/apache-maven-${MAVEN_VERSION}/conf/settings.xml \
+ && printf '%s\n' '<settings><localRepository>/opt/m2</localRepository></settings>' > "$settings" \
+ && mvn -B -q package \
+ && mvn -B -q clean \
+ && printf '%s\n' '<settings><localRepository>/opt/m2</localRepository><offline>true</offline></settings>' > "$settings" \
+ && mvn -B -q package \
+ && mvn -B -q clean
+WORKDIR /app

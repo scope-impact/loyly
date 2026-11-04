@@ -1063,7 +1063,7 @@
                        :target-stack "rust"
                        :model-root "model/loyly"
                        :selection approved-selection}))]
-    (is (re-find #"Base image: rust:1.91-alpine" instruction))
+    (is (re-find #"Base image: pi-harness/rust:1.91-web" instruction))
     (is (re-find #"Rust \.rs source files" instruction))
     (is (not (re-find #"Base image: node:22-alpine" instruction)))))
 

@@ -9,14 +9,17 @@
     (cond
       (str/includes? stack "rust")
       {:id "rust"
-       :base "rust:1.91-alpine"
-       :archive "rust-1.91-alpine.tar"
-       :source "Rust .rs source files"}
+       :base "pi-harness/rust:1.91-web"
+       :archive "rust-1.91-web.tar"
+       :source (str "Rust .rs source files built with Cargo; the offline crate set "
+                    "(axum, tokio, serde, serde_json, and reqwest for tests) is pinned in "
+                    "/opt/platform/Cargo.toml and no other crate resolves")}
       (str/includes? stack "java")
       {:id "java"
-       :base "eclipse-temurin:21-jdk-alpine"
-       :archive "eclipse-temurin-21-jdk-alpine.tar"
-       :source "Java .java source files"}
+       :base "pi-harness/java:21-web"
+       :archive "java-21-web.tar"
+       :source (str "Java .java source files built with Maven; start from /opt/platform/pom.xml, "
+                    "whose Jackson, JUnit 5, and plugin versions are the only ones that resolve offline")}
       (or (str/includes? stack "rails") (str/includes? stack "ruby"))
       {:id "rails"
        :base "pi-harness/rails:8-offline"
