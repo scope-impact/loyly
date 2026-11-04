@@ -13,6 +13,9 @@
        :scope [:vector :string]
        :target-stack :string
        :execution-backend :string
+       :parent-candidate-id :string
+       :parent-candidate-root :string
+       :parent-candidate-digest :string
        :cut-result [:map
                     [:stage :string]
                     [:request-id :string]
@@ -25,7 +28,8 @@
                                     [:scope [:vector :string]]
                                     [:execution-backend :string]
                                     [:passed :boolean]
-                                    [:instrument-oracle-digest :string]
+                                    [:harness-revision :string]
+                                    [:harness-snapshot-digest :string]
                                     [:calibration-results :string]
                                     [:evidence :string]]
        :builder-result [:map
@@ -53,11 +57,22 @@
                        [:passed :boolean]
                        [:oracle-digest :string]
                        [:accepted-contract-digest :string]
-                       [:instrument-oracle-digest :string]
+                       [:harness-snapshot-digest :string]
                        [:grader-root :string]
                        [:grader-producer :string]
                        [:grader-id :string]
                        [:evidence :string]]
+       :affordance-conformance-result [:map
+                                       [:stage :string]
+                                       [:request-id :string]
+                                       [:cut :string]
+                                       [:scope [:vector :string]]
+                                       [:execution-backend :string]
+                                       [:passed :boolean]
+                                       [:applicable :boolean]
+                                       [:total :int]
+                                       [:passed-count :int]
+                                       [:evidence :string]]
        :verify-result [:map
                        [:stage :string]
                        [:request-id :string]
@@ -90,6 +105,12 @@
                                                   [:subject-digest :string]
                                                   [:evidence-root :string]
                                                   [:evidence-locations [:vector :string]]]]
+                                    [:affordance [:map
+                                                  [:passed :boolean]
+                                                  [:applicable :boolean]
+                                                  [:total :int]
+                                                  [:passed-count :int]
+                                                  [:evidence :string]]]
                                     [:verify [:map
                                               [:stage :string]
                                               [:request-id :string]
@@ -127,6 +148,7 @@
        :cycle-result schemas/measurement-schema
        :result-result [:map
                        [:stage :string]
+                       [:operation :string]
                        [:request-id :string]
                        [:cut :string]
                        [:scope [:vector :string]]
@@ -145,7 +167,9 @@
         :writes [:harness-calibration-result])
       (orc/code "builder"
         :fn "loyly.pi-harness.core.worker/builder-stage"
-        :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend :harness-calibration-result]
+        :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend
+                :parent-candidate-id :parent-candidate-root :parent-candidate-digest
+                :harness-calibration-result]
         :writes [:builder-result])
       (orc/code "instrument"
         :fn "loyly.pi-harness.core.worker/instrument-stage"
@@ -157,16 +181,21 @@
         :reads [:request-id :orc-tick-id :selection :scope :execution-backend :instrument-result
                 :harness-calibration-result]
         :writes [:oracle-result])
+      (orc/code "affordance-conformance"
+        :fn "loyly.pi-harness.core.worker/affordance-conformance-stage"
+        :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend
+                :builder-result :instrument-result :oracle-result]
+        :writes [:affordance-conformance-result])
       (orc/code "verify"
         :fn "loyly.pi-harness.core.worker/verify-stage"
         :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend
-                :builder-result :instrument-result :oracle-result]
+                :builder-result :instrument-result :oracle-result :affordance-conformance-result]
         :writes [:verify-result])
       (orc/code "repair-verification"
         :fn "loyly.pi-harness.core.worker/repair-verification-stage"
         :reads [:request-id :orc-tick-id :selection :scope :target-stack :execution-backend
                 :harness-calibration-result :builder-result :instrument-result
-                :oracle-result :verify-result]
+                :oracle-result :affordance-conformance-result :verify-result]
         :writes [:repair-verification-result])
       (orc/code "graders"
         :fn "loyly.pi-harness.core.worker/graders-stage"
@@ -201,7 +230,8 @@
   "Transport-safe description of the executable regeneration workflow."
   []
   (let [{:keys [workflow-name blackboard-schema root-node]} (workflow)]
-    {:workflowName workflow-name
+    {:operation "measured-regeneration"
+     :workflowName workflow-name
      :rootType (name (:node-type root-node))
      :stages (mapv :name (:children root-node))
      :builderResultFields (schema-field-names (:builder-result blackboard-schema))

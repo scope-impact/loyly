@@ -6,8 +6,4 @@ node_modules/
 allure-results/
 allure-report/
 coverage/
-
-# Generated harness assets and local OCI payload data (published artifacts live in GHCR)
-config/assets/
-config/**/ingest/
-config/**/blobs/
+cdk.out/

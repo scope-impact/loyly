@@ -2,12 +2,18 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://loyly.example/schema/affordances.schema.json",
   "title": "Affordance contract",
-  "description": "Framework-neutral human UX, agent-tool, local-projection, and test-step contract.",
+  "description": "Extensible minimum vocabulary for a framework-neutral human UX, agent-tool, local-projection, and test-step contract.",
   "type": "object",
-  "required": ["slice", "version", "audience", "actions", "types", "screens", "ui", "conformance", "steps"],
-  "additionalProperties": false,
+  "required": ["version", "audience", "actions", "types", "screens", "ui", "conformance", "steps"],
+  "additionalProperties": true,
   "properties": {
     "slice": { "type": "string", "minLength": 1 },
+    "slices": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
     "version": { "type": "integer", "minimum": 1 },
     "audience": {
       "type": "object",
@@ -44,7 +50,7 @@
     "action": {
       "type": "object",
       "required": ["intent", "submit", "audience", "input"],
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "intent": { "type": "string", "minLength": 1 },
         "submit": { "type": "string", "minLength": 1 },
@@ -94,13 +100,13 @@
     "message": {
       "type": "object",
       "required": ["must"],
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": { "must": { "type": "string", "minLength": 1 } }
     },
     "rejection": {
       "type": "object",
       "required": ["must"],
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "must": { "type": "string", "minLength": 1 },
         "offers": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
@@ -116,7 +122,7 @@
     "call": {
       "type": "object",
       "required": ["method", "path"],
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
         "path": { "type": "string", "pattern": "^/" },
@@ -127,7 +133,7 @@
     "tool": {
       "type": "object",
       "required": ["name"],
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": { "name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" } }
     },
     "effect": {
@@ -155,7 +161,7 @@
         "reachedFrom": { "type": "string" },
         "must": {
           "type": "object",
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "heading": { "type": "string" },
             "buttons": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
@@ -188,7 +194,7 @@
     "ui": {
       "type": "object",
       "required": ["action", "submit", "outcome", "refusal"],
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "action": { "type": "string" },
         "submit": { "type": "string" },

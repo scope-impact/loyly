@@ -10,7 +10,8 @@
   {:selectionId "selection-1" :selectionDigest "digest-1"
    :projectId "loyly" :containerId "loyly" :componentId "booking-core"
    :status "awaiting-approval" :cut "cut-1" :slice "01-booking-core"
-   :items [{:id "@item-01-001" :name "First" :rule "Availability" :source "spec.feature:6"}]})
+   :items [{:id "@item-01-001" :scenario-digest "sha256:scenario-1"
+            :name "First" :rule "Availability" :source "spec.feature:6"}]})
 
 (deftest approval-survives-an-event-store-restart
   (let [db (.getAbsolutePath (java.io.File/createTempFile "loyly-registry-" ".sqlite"))
@@ -49,6 +50,6 @@
              (:status (model/approve-selection!
                        context "selection-projection" "projection-digest"))))
       (is (= "approved"
-             (:status (model/find-selection context "selection-projection"))))
+             (:status (model/query-selection context "selection-projection"))))
       (finally
         (system/stop! runtime)))))

@@ -13,5 +13,9 @@ clojure -Sdeps "{:deps {clj-kondo/clj-kondo {:mvn/version \"$CLJ_KONDO_VERSION\"
   --lint "$WORKER_ROOT/src" "$WORKER_ROOT/test"
 
 cd "$ORC_ROOT"
-clojure -Sdeps "{:paths [\"$WORKER_ROOT/src\" \"$WORKER_ROOT/test\"]}" \
+clojure -Sdeps "{:paths [\"$WORKER_ROOT/src\" \"$WORKER_ROOT/test\"]
+                 :deps {tech.unravel/litellm-clj-bedrock
+                        {:git/url \"https://github.com/ObneyAI/litellm-clj.git\"
+                         :git/sha \"0570e9459b8751d4a0c3dc1cd48595804426a84d\"
+                         :deps/root \"contrib/bedrock\"}}}" \
   -M:dev -m loyly.pi-harness.test-runner

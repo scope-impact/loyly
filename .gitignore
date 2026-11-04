@@ -8,3 +8,6 @@ allure-report/
 
 # preserved Loyly reference tree
 /.reference/
+
+# private black-box oracle grader sources
+/model/loyly/graders/

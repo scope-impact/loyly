@@ -11,7 +11,7 @@ enum ExecutionProfile { host_development | gondolin_isolated | automatic }
 enum CycleStatus { submitted | running | passed | failed }
 enum BuilderSessionStatus { opening | active | paused | completed | failed }
 enum Verdict { pass | fail | inconclusive }
-enum ProducerAuthority { candidate | harness_observer | independent_grader }
+enum ProducerAuthority { candidate | harness_observer | independent_validator }
 enum EvidencePurpose { assertion | diagnostic | calibration }
 
 value Digest { value: String }
@@ -27,6 +27,7 @@ entity RegenerationCut {
 }
 entity SelectionItem {
     identity: String
+    scenario_digest: Digest
     name: String
     rule_name: String
     source: String
@@ -46,6 +47,11 @@ entity SliceSelection {
         awaiting_approval -> approved
         terminal: approved
     }
+}
+entity SystemComposition {
+    cut: RegenerationCut
+    digest: Digest
+    slice_mappings: List<String>
 }
 entity CyclePreparation {
     identity: String
@@ -96,7 +102,7 @@ entity BuilderSession {
 
 entity HarnessCalibration {
     cycle: RegenerationCycle
-    instrument_oracle_digest: Digest
+    harness_snapshot_digest: Digest
     harness_source_digest: Digest
     carried_fixture_passed: Boolean
     uncarried_fixture_passed: Boolean
@@ -124,6 +130,13 @@ entity CycleMeasurement {
     item_results: List<ItemObservation>
 }
 
+entity CollectedProductEvidence {
+    cycle: RegenerationCycle
+    subject_digest: Digest
+    evidence_digest: Digest
+    complete: Boolean
+}
+
 rule PrepareCut {
     when: PrepareRegenerationCut(operator, source_commit, backend)
     ensures: RegenerationCut.created(
@@ -135,9 +148,24 @@ rule PrepareCut {
     )
 }
 
+rule ComposeCutSystemView {
+    when: ComposeSystemView(operator, cut)
+    requires: cut.fenced
+    let slice_mappings = map_behavior_items_to_slices_components_and_containers(cut)
+    requires: every_gherkin_behavior_item_appears_exactly_once(cut, slice_mappings)
+    requires: reduce_to_system_view(slice_mappings) = complete_system_view(cut)
+    requires: decompose_system_view(complete_system_view(cut)) = slice_mappings
+    ensures: SystemComposition.created(
+        cut: cut,
+        digest: deterministic_composition_digest(cut, slice_mappings),
+        slice_mappings: slice_mappings
+    )
+}
+
 rule PreviewSelection {
     when: PreviewSliceSelection(operator, cut, project_identity, slice_identity, requested_items)
     requires: cut.fenced
+    requires: slice_identity in valid_system_composition(cut)
     let resolved_items = resolve_items(cut, project_identity, slice_identity, requested_items)
     requires: resolved_items.count > 0
     ensures: SliceSelection.created(
@@ -146,9 +174,33 @@ rule PreviewSelection {
         status: awaiting_approval,
         cut: cut,
         project_identity: project_identity,
-        container_identity: project_identity,
-        component_identity: component_for(slice_identity),
+        container_identity: container_for(cut, slice_identity),
+        component_identity: component_for(cut, slice_identity),
         slice_identity: slice_identity,
+        items: resolved_items
+    )
+}
+
+rule ProposeSelectionFromIntent {
+    when: ProposeSliceSelection(operator, cut, project_identity, operator_intent)
+    requires: cut.fenced
+    let proposed_scope = llm_propose_existing_slice_and_items(
+        cut, project_identity, operator_intent)
+    requires: proposed_scope.belongs_to(valid_system_composition(cut))
+    let resolved_items = resolve_items(
+        cut, project_identity, proposed_scope.slice_identity, proposed_scope.item_identities)
+    requires: resolved_items.count > 0
+    ensures: SliceSelection.created(
+        identity: deterministic_selection_identity(
+            cut, project_identity, proposed_scope.slice_identity, resolved_items),
+        digest: deterministic_selection_digest(
+            cut, project_identity, proposed_scope.slice_identity, resolved_items),
+        status: awaiting_approval,
+        cut: cut,
+        project_identity: project_identity,
+        container_identity: container_for(cut, proposed_scope.slice_identity),
+        component_identity: component_for(cut, proposed_scope.slice_identity),
+        slice_identity: proposed_scope.slice_identity,
         items: resolved_items
     )
 }
@@ -214,24 +266,22 @@ rule StartCycle {
 
 rule CalibrateHarnessAndBuildCandidate {
     when: PinnedContractValidated(cycle, product_contract_digest,
-                                  instrument_oracle_digest, harness_source_digest)
+                                  harness_snapshot_digest, harness_source_digest)
     requires: cycle.status = running
     requires: cycle.preparation.selection.cut.fenced
-    requires: pinned_instrument_oracle_resolved(instrument_oracle_digest)
-    requires: complete_harness_component_coverage(instrument_oracle_digest)
+    requires: fresh_harness_snapshot_sealed(harness_snapshot_digest)
+    requires: complete_harness_snapshot_component_coverage(harness_snapshot_digest)
     requires: product_oracle_resolved_by_descriptor_digest(cycle)
-    requires: product_oracle_matches_commit_and_tree(
-        cycle,
-        cycle.preparation.selection.cut.source_commit,
-        cycle.preparation.selection.cut.tree_digest)
     requires: product_oracle_contains_selected_items_exactly_once(cycle)
-    requires: product_oracle_names_instrument_oracle(cycle, instrument_oracle_digest)
+    requires: cycle.preparation.selection.items.all(item =>
+        product_oracle_has_approved_expected_evidence(
+            cycle, item.identity, item.scenario_digest))
     requires: harness_source_digest = discovered_complete_harness_source_digest(cycle)
-    requires: normalized_carried_golden_passed(instrument_oracle_digest)
-    requires: normalized_uncarried_golden_passed(instrument_oracle_digest)
+    requires: normalized_carried_golden_passed(harness_snapshot_digest)
+    requires: normalized_uncarried_golden_passed(harness_snapshot_digest)
     ensures: HarnessCalibration.created(
         cycle: cycle,
-        instrument_oracle_digest: instrument_oracle_digest,
+        harness_snapshot_digest: harness_snapshot_digest,
         harness_source_digest: harness_source_digest,
         carried_fixture_passed: true,
         uncarried_fixture_passed: true
@@ -272,12 +322,26 @@ rule CandidateVerified {
     when: CandidateApplicationVerified(cycle)
     requires: cycle.status = running
     requires: cycle.candidate_digest != null
-    ensures: GradeCandidateIndependently(cycle: cycle)
+    ensures: CollectProductEvidence(cycle: cycle)
 }
 
-rule CandidateGraded {
-    when: IndependentVerdictsReturned(cycle, observations)
+rule CollectCandidateEvidence {
+    when: ProductEvidenceCollected(cycle, subject_digest, evidence_digest, complete)
     requires: cycle.status = running
+    requires: cycle.candidate_digest = subject_digest
+    ensures: CollectedProductEvidence.created(
+        cycle: cycle,
+        subject_digest: subject_digest,
+        evidence_digest: evidence_digest,
+        complete: complete
+    )
+    ensures: CompareCollectedEvidenceWithOracle(cycle: cycle)
+}
+
+rule CompareCandidateEvidenceWithOracle {
+    when: OracleComparisonVerdictsReturned(cycle, observations)
+    requires: cycle.status = running
+    requires: exists CollectedProductEvidence{cycle: cycle, complete: true}
     requires: observations.count > 0
     requires: observations.all(o => o.item in cycle.preparation.selection.items)
     ensures:
@@ -286,7 +350,7 @@ rule CandidateGraded {
                 cycle: cycle,
                 item: observation.item,
                 producer: observation.producer,
-                authority: independent_grader,
+                authority: independent_validator,
                 evidence_purpose: assertion,
                 verdict: observation.verdict,
                 reached: true,
@@ -360,7 +424,7 @@ invariant MeasurementKeepsApprovedDenominator {
 
 invariant BuilderSessionCannotSeeIndependentGrade {
     for builder_session in BuilderSessions:
-        not builder_session_can_read_independent_grade(builder_session)
+        not builder_session_can_read_oracle_comparison_evidence(builder_session)
 }
 
 invariant PassingCycleHasCompleteEvidence {
@@ -374,6 +438,8 @@ surface RegenerationHarness {
 
     provides:
         PrepareRegenerationCut(operator, source_commit, backend)
+        ComposeSystemView(operator, cut)
+        ProposeSliceSelection(operator, cut, project_identity, operator_intent)
         PreviewSliceSelection(operator, cut, project_identity, slice_identity, requested_items)
         ApproveSliceSelection(operator, selection, digest)
         PrepareRegenerationCycle(operator, preparation_identity, selection, scope,
@@ -387,11 +453,12 @@ surface RegenerationHarness {
         -- The builder reads a fenced cut, writes only the declared scope, and does not inherit the operator transcript.
 
     @guarantee CalibratedBuilder
-        -- No builder starts until the pinned OCI instrument oracle covers the complete harness,
-        -- matches its source digest, and passes carried and uncarried normalized Allure goldens.
+        -- No builder starts until a fresh harness snapshot covers the complete committed harness,
+        -- binds every runtime asset, and passes carried and uncarried normalized Allure goldens;
+        -- independently, the product oracle supplies digest-matched approved expected evidence per item.
 
     @guarantee IndependentMeasurement
-        -- The builder cannot author the oracle, verifier, grader, or final measurement used to pass its cycle.
+        -- The builder cannot author the oracle, verifier, evidence collector, comparator, or final measurement used to pass its cycle.
 
     @guarantee InconclusiveDoesNotPass
         -- Missing or incomplete required runtime evidence remains in the denominator

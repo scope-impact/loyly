@@ -1,21 +1,99 @@
 # Pi harness regeneration context
 
-The Pi harness turns a pinned specification cut into an independently measured
-candidate implementation without exposing prior answers to the builder.
+The Pi harness separates first-time baseline measurement and oracle promotion from
+later oracle-comparison regeneration.
 
 ## Language
 
-**Regeneration cut**:
-An immutable, fenced repository snapshot identified by both commit and tree content.
-_Avoid_: Checkout, clone, workspace
+**Source cut**:
+An immutable, fenced repository snapshot identified by source commit and tree content. A cut
+is neutral input to a generation or regeneration workflow; preparing it is not itself either
+operation.
+_Avoid_: Regeneration cut, checkout, clone, workspace
+
+**Slice**:
+A named, coherent set of observable behavior contracts represented by Gherkin scenarios with
+stable item identities. A slice does not contain or select an oracle.
+_Avoid_: Model directory, grader bundle, implementation component
+
+**System composition**:
+The deterministic, cut-bound system view reconstructed by mapping every Gherkin behavior item
+to its slice, component, and container, then reducing those mappings into one hierarchy. It is
+complete only when every behavior item appears exactly once and decomposing the hierarchy
+reproduces the same slice mappings.
+_Avoid_: File concatenation, OCI assembly, candidate build
+
+**Pi harness service area**:
+The `:loyly.pi-harness` Grain service area running inside ORC's existing Grain runtime. It owns
+durable regeneration-domain facts and projections but does not copy ORC's `:sheet/*` execution
+facts or the generated product's events.
+_Avoid_: Separate event system, ORC adapter, product service area
+
+**ORC execution projection**:
+A Pi-harness read model derived from authoritative ORC `:sheet/*` events for observation and
+reconnection. It cannot advance execution and introduces no duplicate progress event.
+_Avoid_: Harness progress event, workflow authority
+
+**Fresh Slice Generation Cycle**:
+An explicitly requested creation of a candidate from an approved fresh source cut and sealed
+harness snapshot. Existing candidate history does not change this operation into regeneration.
+It has no parent candidate or accepted product oracle: after verification, Grade builds and
+seals a candidate-blind cycle oracle, measures the complete approved denominator, and proposes
+the normalized successful evidence as the first accepted-oracle candidate.
+_Avoid_: Initial generation, baseline generation, regeneration, ungraded build
+
+**Grade**:
+The ORC-owned evaluation phase. For Fresh Slice Generation it builds, calibrates, and seals a
+fresh cycle oracle from the approved cut without candidate access, then uses that bundle for the
+first complete black-box measurement through the public seam. It produces proposed oracle
+evidence, not an accepted oracle, and cannot feed a builder or verification-repair session.
+_Avoid_: Candidate tests, verification, promoted oracle
+
+**Cycle oracle**:
+A provisional candidate-blind bundle built from the approved cut and public calibration
+protocol. It contains the behavioral grader and only the applicable affordance and runtime-
+conformance evaluators. It is calibrated against carried and uncarried behavior and sealed to
+the cut, selection, harness snapshot, and oracle-author model before grading the candidate.
+_Avoid_: Accepted product oracle, external validator directory, candidate test suite
+
+**Oracle proposal**:
+The normalized evidence from one completely passing Grade, bound to the selection,
+scenario digests, candidate subject, judge, denominator, and its own stable digest. It remains
+non-authoritative until an operator approves that exact digest.
+_Avoid_: Mutable golden, accepted oracle
+
+**Oracle promotion**:
+The manual approval and independent publication of one exact oracle proposal as an immutable
+OCI descriptor. A stale or different proposal digest cannot be approved, and failed, missing,
+or inconclusive grade evidence cannot be promoted.
+_Avoid_: Automatic recording, re-grading
 
 **Selection contract**:
-The exact project, slice, item denominator, and cut identity reviewed for one regeneration scope.
+The exact project, composed slice identity, item identities and scenario digests, and cut identity
+reviewed before ORC routes the approved slice to generation or regeneration.
 _Avoid_: Filter, task list, scope file
+
+**Slice proposal**:
+A non-authoritative LLM suggestion of an existing slice and item subset derived from operator
+intent. ORC resolves every proposed identity against the source cut before presenting a selection
+contract; the proposal cannot approve itself or invent specification items.
+_Avoid_: Approved selection, generated specification
 
 **Approved selection**:
 A selection contract whose exact digest has been explicitly accepted.
 _Avoid_: Confirmed prompt, chosen tests
+
+**Scenario digest**:
+The digest of one complete normalized Gherkin scenario contract, including its Rule and Scenario
+names, Given/When/Then steps and arguments, and Examples. It changes when the observable behavior
+changes even if the separately keyed stable item identity is retained.
+_Avoid_: File hash, model-tree digest, item identity
+
+**Approved-slice operation route**:
+The Generate or Regenerate operation explicitly requested with an approved slice and pinned by
+request identity. Generate forbids a parent candidate. Regenerate requires an explicitly named
+parent candidate. ORC validates and persists the request; candidate history never changes its mode.
+_Avoid_: Inferred workflow, automatic latest-candidate routing
 
 **Cycle preparation**:
 The reviewed plan binding an approved selection, candidate scope, target stack, execution
@@ -31,16 +109,18 @@ The Codex, Pi, or other interactive session through which an operator prepares, 
 observes, and evaluates regeneration cycles.
 _Avoid_: Builder, ORC worker, root agent
 
-**Regeneration cycle**:
-One idempotently identified attempt to build and independently measure an approved selection.
-_Avoid_: Run, session, job
+**Measured Slice Regeneration Cycle**:
+One explicitly requested, idempotently identified, oracle-backed ORC execution that builds and
+independently measures an approved selection from a named measured parent candidate. It is
+distinct from Fresh Slice Generation and owns its own measurement.
+_Avoid_: Fresh generation, run, session, job
 
 **Builder**:
-A fresh agent that can read the regeneration cut and write only within the declared candidate scope.
+A fresh agent that can read the source cut and write only within the declared candidate scope.
 _Avoid_: Root agent, implementer session
 
 **Builder session**:
-One separately identified builder conversation for an initial build or verification-repair
+One separately identified builder conversation for a fresh build or verification-repair
 attempt, isolated from the operator session and forbidden independent grader evidence.
 _Avoid_: Operator session, regeneration cycle
 
@@ -55,24 +135,37 @@ therefore marks the resulting candidate as assisted.
 _Avoid_: Observation, invisible edit
 
 **Candidate**:
-The generated application output produced by the builder for one regeneration cycle.
+The generated application output bound to one fresh-generation or measured-regeneration
+operation, its cut, selection, builder session, and subject digest. A fresh-generation candidate
+becomes durable lineage only after its complete Grade evidence is manually promoted to an
+accepted oracle.
 _Avoid_: Implementation, answer, workspace
 
-**Instrument oracle**:
-A pinned OCI artifact that binds the complete verdict-affecting harness source digest,
-required logical components, and normalized carried and uncarried Allure goldens.
-_Avoid_: Product contract, candidate result
+**Harness snapshot**:
+A fresh immutable build of one committed harness revision, binding its verdict-affecting source,
+runtime assets, public application contract, calibration fixtures, and generic execution
+machinery in one manifest digest. It is calibrated and sealed locally before a builder starts;
+remote publication is an optional cache, not a cycle prerequisite.
+_Avoid_: Instrument oracle, product oracle, source cut, candidate result
 
 **Harness calibration**:
-The pre-builder proof that the instrument oracle resolves, covers every required harness
-component, matches the checked-in harness source, and passes its calibration fixtures.
+The pre-builder proof that the fresh harness snapshot covers every required harness component,
+matches its committed revision and runtime assets, and passes its calibration fixtures.
 _Avoid_: Candidate verification, generated test suite
 
 **Oracle**:
-The immutable OCI descriptor digest for the executable product contract built from an exact Git
-commit and tree, bound to the calibrated instrument-oracle digest. A Git-commit OCI tag is a
-lookup alias only; the regeneration cycle pins the descriptor digest.
-_Avoid_: Grader, verifier
+A whole-system catalogue of manually approved normalized expected evidence, published as an
+immutable OCI descriptor. Each entry is keyed by stable Gherkin item identity and full scenario
+digest. Fresh Slice Generation proposes it from one complete independent Grade; later cycles
+collect fresh evidence and compare it with the selected entries. The oracle is not a grader,
+source tree, candidate verdict, cycle oracle, or harness snapshot.
+_Avoid_: Grader, verifier, raw transcript
+
+**Oracle binding**:
+The cycle-owned record of the approved item identities and scenario digests, selected product-
+oracle descriptor when regeneration requires one, sealed cycle-oracle digest, and harness-
+snapshot digest. Combining them in cycle evidence does not make one artifact authority for another.
+_Avoid_: Slice, oracle catalogue
 
 **Verifier**:
 An independent check that the candidate satisfies the runnable application contract.
@@ -87,7 +180,7 @@ Evidence from one named producer about one approved item in one cycle.
 _Avoid_: Score, log line
 
 **Cycle measurement**:
-The immutable reduction of the approved denominator and grader verdicts, including explicit failures for unreached items.
+The immutable reduction of the approved denominator and oracle-comparison verdicts, including explicit failures for unreached items.
 _Avoid_: Test report, average score
 
 **Cycle progress view**:
@@ -126,25 +219,61 @@ Gondolin isolation.
 _Avoid_: Shell command, VM configuration
 
 **Workflow task**:
-An asynchronously executed cut preparation or regeneration cycle identified by a receipt and observed until one terminal outcome.
+An asynchronously executed source-cut preparation, Fresh Slice Generation Cycle, or Measured
+Slice Regeneration Cycle identified by a receipt and observed until one terminal outcome.
 _Avoid_: Process, thread, future
 
 **Builder instruction**:
-The ORC-owned direction given to a fresh builder for one approved regeneration scope.
-_Avoid_: User prompt, TypeScript prompt, root transcript
+The complete ORC-owned model-directed strategy given to a builder for exactly one purpose:
+fresh generation or verification repair. GEPA mutates this complete strategy; an adapter cannot
+append hidden behavioral instructions to it.
+_Avoid_: User prompt, TypeScript prompt, runtime context, root transcript
+
+**Runtime task context**:
+The deterministic cycle facts rendered beside a builder instruction, including the cut, approved
+selection, scope, target stack, contract locations, and applicable read-only verification-evidence
+location. It is not part of the GEPA candidate and contains no implementation strategy.
+_Avoid_: Builder instruction, prompt suffix, optimization candidate
+
+**Generation instruction**:
+The active builder instruction whose sole purpose is producing a fresh candidate from an approved
+cut without a parent candidate or grader evidence.
+_Avoid_: Verification-repair instruction, cycle preparation
+
+**Verification-repair instruction**:
+The independently selected builder instruction whose sole purpose is repairing a preceding
+candidate from that attempt's read-only verifier evidence. Its measurement starts from fixed
+failed-verification inputs so generation behavior cannot mask repair quality.
+_Avoid_: Grader feedback, generation instruction, outer-cycle regeneration
 
 **Prompt optimization**:
-The selection of a builder instruction by comparing instruction candidates with independent regeneration measurements over training and validation examples.
+The durable selection of a complete purpose-specific builder instruction by comparing instruction
+candidates with independent measurements over training and validation examples. Reflection uses
+an explicitly pinned Bedrock provider and model; candidate execution remains a separate builder.
 _Avoid_: Prompt editing, builder self-evaluation
 
 **Instruction candidate**:
-One proposed builder instruction evaluated during prompt optimization.
+One complete generation or verification-repair strategy proposed by GEPA, bound to its Bedrock
+reflection call and evaluated using the exact rendered prompt digest.
 _Avoid_: Candidate application, generated implementation
 
+**Reflection model binding**:
+The immutable Bedrock provider and model identity used to propose instruction candidates in one
+optimization. Its model-call evidence records sanitized provenance and usage but excludes AWS
+credentials.
+_Avoid_: Builder model, grader-author model, ambient provider default
+
+**Production prompt**:
+The exact ORC-rendered combination of an ORC-owned system instruction, an ORC-owned task
+instruction, and deterministic runtime task context for a builder or cycle-oracle grader-author
+session. Its digest is recorded before an adapter transports it unchanged.
+_Avoid_: TypeScript literal, ambient system prompt, operator transcript
+
 **Execution stage**:
-One ordered, ORC-owned transition in a regeneration cycle: cut, harness calibration, builder,
-instrument, oracle, verify, repair verification, graders, instrument conformance, record cycle,
-or result.
+One ordered, ORC-owned transition. Fresh Slice Generation builds and verifies a candidate, then
+Grade builds and seals a cycle oracle, measures the candidate, and proposes accepted-oracle
+evidence. Measured regeneration performs fresh evidence collection and comparison against the
+accepted product oracle.
 _Avoid_: Tool call, adapter process
 
 **Verification attempt**:
@@ -155,7 +284,7 @@ _Avoid_: Grader result, candidate test claim
 **Verification repair**:
 The bounded ORC-owned loop that may give a fresh builder the previous candidate and the failed
 verification evidence read-only, then re-instrument and re-verify the repaired candidate. It
-permits at most three verification attempts and never exposes grader evidence to the builder.
+permits at most three verification attempts and never exposes baseline-grade or oracle-comparison evidence to the builder.
 _Avoid_: Grader feedback, unlimited retry, in-place host edit
 
 **Instrumentation record**:
@@ -175,7 +304,7 @@ One producer's correlated observation about a candidate execution, including its
 _Avoid_: Proof, verdict, log file
 
 **Independent invariant evaluation**:
-A grader-owned comparison of complete runtime signals against a named product invariant.
+An independent-validator-owned comparison of complete runtime signals against a named product invariant.
 _Avoid_: Candidate assertion, telemetry status
 
 **Collection completeness**:
@@ -184,7 +313,7 @@ _Avoid_: Test coverage, confidence score
 
 **Runtime probe package**:
 The digest-bound probe plan, evidence schema, and language-agnostic probe programs supplied by
-the pinned product-oracle OCI artifact and mounted read-only for independent grading.
+the sealed harness snapshot and mounted read-only for independent validation.
 _Avoid_: Profiler installation, candidate telemetry
 
 **Cycle evidence volume**:

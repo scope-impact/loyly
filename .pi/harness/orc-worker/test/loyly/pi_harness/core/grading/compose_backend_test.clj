@@ -46,6 +46,18 @@
        (grader-commands/commands "instrument" "gondolin"
                                  {:project-id ".." :item-ids ["@item-alpha-001"]}))))
 
+(deftest project-runtime-profile-is-derived-from-conventional-files
+  (let [project-root ".."
+        profile (project-profile/load! project-root "loyly")]
+    (is (= "model/loyly" (:modelRoot profile)))
+    (is (= "loyly-black-box" (:graderProducer profile)))
+    (is (= "harness/loyly/gondolin.json" (:gondolinVmConfig profile)))
+    (is (= "harness/loyly/Dockerfile.rust" (get-in profile [:stackDockerfiles :rust])))
+    (is (= "booking-core-01-008.sh"
+           (project-profile/grader-script
+            (project-profile/resolved project-root {:projectId "loyly" :componentId "booking-core"})
+            "@item-01-008")))))
+
 (deftest behavioral-grader-is-selected-by-project-and-item
   (is (= "booking-core-01-008.sh"
          (project-profile/grader-script
@@ -61,6 +73,12 @@
     (is (str/includes? command
                        "docker load -i /runtime-images/rust-1.91-alpine.tar"))
     (is (not (str/includes? command "unsupported offline base image")))))
+
+(deftest gondolin-node-fallback-imports-only-transitive-runtime-libraries
+  (is (str/includes? grader-commands/gondolin-runtime
+                     "for executable in /bin/* /usr/bin/node /usr/bin/dirname"))
+  (is (str/includes? grader-commands/gondolin-runtime
+                     "tar -ch bin tmp usr/bin/node usr/bin/dirname $libs")))
 
 (deftest independent-grading-starts-the-candidate-through-its-compose-container
   (let [commands (grader-commands/commands

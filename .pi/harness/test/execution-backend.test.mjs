@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { executionBackend } from "../src/execution-backend.ts";
-import { openBuilderRoom } from "../src/builder-room.ts";
+import { commandWithTimeout, openBuilderRoom } from "../src/builder-room.ts";
 import { openGraderRoom } from "../src/grader-room.ts";
 import { openOracleFixtureRoom } from "../src/oracle-fixture-room.ts";
 
@@ -53,6 +53,17 @@ test("gondolin builder selects the requested language image", async () => {
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("gondolin builder enforces Pi tool timeouts inside the VM", () => {
+  assert.equal(
+    commandWithTimeout("PORT=8080 node server.js", 2),
+    "timeout -s TERM 2s /bin/sh -lc 'PORT=8080 node server.js'",
+  );
+  assert.equal(
+    commandWithTimeout("printf '%s' ready", 3),
+    "timeout -s TERM 3s /bin/sh -lc 'printf '\"'\"'%s'\"'\"' ready'",
+  );
 });
 
 test("gondolin repair builder starts from the candidate and points at shared verification evidence", async () => {
@@ -150,6 +161,30 @@ test("gondolin grader isolates cycle evidence and mounts OCI probes read-only", 
     assert.deepEqual(vmOptions.rootfs, { mode: "cow", size: "4G" });
     assert.match(vmCommand, /HARNESS_EVIDENCE_ROOT=\/evidence/);
     assert.match(vmCommand, /HARNESS_OBSERVABILITY_ROOT=\/observability/);
+  } finally {
+    await room.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("gondolin compose verification does not require product-oracle assets", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "loyly-gondolin-verifier-test-"));
+  const cutsRoot = path.join(root, "cuts");
+  const outputRoot = path.join(root, "output");
+  const evidenceRoot = path.join(root, "evidence");
+  await mkdir(path.join(cutsRoot, "cut-1"), { recursive: true });
+  await mkdir(path.join(outputRoot, "impl"), { recursive: true });
+  let vmOptions;
+  const room = await openGraderRoom({
+    backend: "gondolin", cutsRoot, cutId: "cut-1", outputRoot, evidenceRoot,
+    createVm: async (options) => {
+      vmOptions = options;
+      return { exec: async () => ({ exitCode: 0, stdout: "", stderr: "" }), close: async () => {} };
+    },
+  });
+  try {
+    await room.exec("true");
+    assert.deepEqual(Object.keys(vmOptions.vfs.mounts).sort(), ["/evidence", "/workspace"]);
   } finally {
     await room.close();
     await rm(root, { recursive: true, force: true });

@@ -9,8 +9,8 @@ test("oracle fixture runner preserves grader verdicts from one Gondolin room", a
     fixtureSource: "fixture source",
     graderRoot: "/grader-root",
     cases: [
-      { itemId: "@item-01-007", role: "carried", graderPath: "01-007.sh" },
-      { itemId: "@item-01-007", role: "uncarried", graderPath: "01-007.sh" },
+      { itemId: "@item-01-007", role: "carried", graderPath: "grade.mjs" },
+      { itemId: "@item-01-007", role: "uncarried", graderPath: "grade.mjs" },
     ],
   }, {
     writeFixture: async () => ({ fixtureRoot: "/fixture-root", cleanup: async () => {} }),
@@ -29,6 +29,8 @@ test("oracle fixture runner preserves grader verdicts from one Gondolin room", a
   });
 
   assert.equal(commands.length, 2);
+  assert.match(commands[0], /node '\/grader\/grade\.mjs'/);
+  assert.match(commands[0], /--item '@item-01-007'/);
   assert.equal(result.backend, "gondolin");
   assert.deepEqual(result.cases.map(({ itemId, role, exitCode }) => ({ itemId, role, exitCode })), [
     { itemId: "@item-01-007", role: "carried", exitCode: 0 },

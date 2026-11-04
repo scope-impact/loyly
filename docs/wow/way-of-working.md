@@ -126,8 +126,8 @@ is a measurement. The demo is built around this loop:
    full of invented rules.
 2. **Capture**: extract the real domain knowledge into `raw/` and
    `docs/wiki/`.
-3. **Regenerate**: build again, this time from the docs, through the gate,
-   inside the fence (`harness/fence.sh`).
+3. **Regenerate**: build again from a pinned cut of the docs through the ORC/Pi harness,
+   inside a Gondolin room with a read-only cut and scope-limited workspace.
 4. **Study the delta**: every difference between run 1 and run 3 is either
    a rule the vibe run invented or a rule the docs captured. The delta *is*
    the argument for the method.

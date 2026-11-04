@@ -38,6 +38,8 @@ const promptExampleSchema = {
     scope: { type: "array", minItems: 1, items: { type: "string" } },
     "target-stack": { type: "string" },
     "execution-backend": { type: "string", const: "gondolin" },
+    "initial-workspace-root": { type: "string" },
+    "verification-evidence-root": { type: "string" },
   },
   required: ["task", "request-id", "selection", "scope", "execution-backend"],
   additionalProperties: false,
@@ -52,8 +54,8 @@ export default function register(pi: {
   const getWorker = () => worker ??= spawnOrcClient({ projectRoot });
 
   pi.registerTool({
-    name: "prepare_regeneration_cut",
-    description: "Prepare a pinned, fenced regeneration cut on the host or in a deny-egress Gondolin VM.",
+    name: "prepare_source_cut",
+    description: "Prepare a pinned, fenced source cut on the host or in a deny-egress Gondolin VM. A cut is neutral input for generation or regeneration.",
     parameters: {
       type: "object",
       properties: { sourceCommit: { type: "string" }, executionBackend: { type: "string", enum: ["host", "gondolin"] } },
@@ -75,14 +77,23 @@ export default function register(pi: {
     parameters: {
       type: "object",
       properties: {
+        purpose: { type: "string", enum: ["fresh-generation", "verification-repair"] },
+        reflectionProvider: { type: "string", const: "bedrock" },
+        reflectionModel: { type: "string", minLength: 1 },
         trainset: { type: "array", minItems: 1, items: promptExampleSchema },
         valset: { type: "array", minItems: 1, items: promptExampleSchema },
       },
-      required: ["trainset", "valset"],
+      required: ["purpose", "reflectionProvider", "reflectionModel", "trainset", "valset"],
       additionalProperties: false,
     },
-    execute: async (_toolCallId: string, args: { trainset: unknown[]; valset: unknown[] }) => {
-      const result = await getWorker().client.optimizePrompt(args.trainset, args.valset);
+    execute: async (_toolCallId: string, args: {
+      purpose: "fresh-generation" | "verification-repair";
+      reflectionProvider: "bedrock";
+      reflectionModel: string;
+      trainset: unknown[];
+      valset: unknown[];
+    }) => {
+      const result = await getWorker().client.optimizePrompt(args);
       return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
     },
   });
@@ -93,14 +104,19 @@ export default function register(pi: {
     parameters: {
       type: "object",
       properties: {
+        purpose: { type: "string", enum: ["fresh-generation", "verification-repair"] },
         trainset: { type: "array", minItems: 1, items: promptExampleSchema },
         valset: { type: "array", minItems: 1, items: promptExampleSchema },
       },
-      required: ["trainset", "valset"],
+      required: ["purpose", "trainset", "valset"],
       additionalProperties: false,
     },
-    execute: async (_toolCallId: string, args: { trainset: unknown[]; valset: unknown[] }) => {
-      const result = await getWorker().client.startExternalPromptOptimization(args.trainset, args.valset);
+    execute: async (_toolCallId: string, args: {
+      purpose: "fresh-generation" | "verification-repair";
+      trainset: unknown[];
+      valset: unknown[];
+    }) => {
+      const result = await getWorker().client.startExternalPromptOptimization(args);
       return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
     },
   });
@@ -125,8 +141,23 @@ export default function register(pi: {
   });
 
   pi.registerTool({
+    name: "inspect_slice_composition",
+    description: "List every existing slice and stable Gherkin item in an immutable cut so the active Pi session can explore operator intent. This read-only tool never proposes, records, approves, or executes a selection.",
+    parameters: {
+      type: "object",
+      properties: { cut: { type: "string" } },
+      required: ["cut"],
+      additionalProperties: false,
+    },
+    execute: async (_id: string, args: { cut: string }) => {
+      const result = await getWorker().client.sliceComposition(args.cut);
+      return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
+    },
+  });
+
+  pi.registerTool({
     name: "preview_slice_selection",
-    description: "Resolve a deterministic slice contract for this Pi session to diagram and confirm.",
+    description: "Deterministically resolve a slice and optional stable item subset proposed by the active Pi session. The result awaits exact operator approval and does not start ORC.",
     parameters: {
       type: "object",
       properties: {
@@ -154,14 +185,48 @@ export default function register(pi: {
   });
 
   pi.registerTool({
-    name: "submit_regeneration_cycle",
-    description: "Submit one idempotent regeneration cycle on the host or in Gondolin for an approved slice selection.",
+    name: "get_oracle_proposal",
+    description: "Read the exact first-grade evidence proposal and its approval/publication status.",
+    parameters: {
+      type: "object",
+      properties: { proposalId: { type: "string" } },
+      required: ["proposalId"],
+      additionalProperties: false,
+    },
+    execute: async (_id: string, args: { proposalId: string }) => {
+      const result = await getWorker().client.oracleProposal(args.proposalId);
+      return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
+    },
+  });
+
+  pi.registerTool({
+    name: "approve_oracle_proposal",
+    description: "Manually approve the exact digest of a reviewed first-grade evidence proposal. Approval does not publish or pin an oracle.",
+    parameters: {
+      type: "object",
+      properties: {
+        proposalId: { type: "string" },
+        proposalDigest: { type: "string" },
+        approvedBy: { type: "string", minLength: 1 },
+      },
+      required: ["proposalId", "proposalDigest", "approvedBy"],
+      additionalProperties: false,
+    },
+    execute: async (_id: string, args: { proposalId: string; proposalDigest: string; approvedBy: string }) => {
+      const result = await getWorker().client.approveOracleProposal(args.proposalId, args.proposalDigest, args.approvedBy);
+      return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
+    },
+  });
+
+  pi.registerTool({
+    name: "submit_approved_slice",
+    description: "Submit one operator-approved fixed execution contract directly to ORC. ORC durably owns the bounded generation or regeneration cycle; the Pi session remains exploratory and non-authoritative.",
     parameters: {
       type: "object",
       properties: {
         requestId: { type: "string" },
         selectionId: { type: "string" },
-        scope: { type: "array", items: { type: "string" } },
+        scope: { type: "array", minItems: 1, items: { type: "string" } },
         targetStack: { type: "string", minLength: 1 },
         executionBackend: { type: "string", enum: ["host", "gondolin"] },
       },
@@ -169,14 +234,14 @@ export default function register(pi: {
       additionalProperties: false,
     },
     execute: async (_toolCallId: string, args: { requestId: string; selectionId: string; scope: string[]; targetStack: string; executionBackend: "host" | "gondolin" }) => {
-      const result = await getWorker().client.submit(args);
+      const result = await getWorker().client.submitApprovedSlice(args);
       return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
     },
   });
 
   pi.registerTool({
-    name: "wait_regeneration_cycle",
-    description: "Wait for a durable ORC regeneration cycle task.",
+    name: "wait_harness_operation",
+    description: "Wait for the ORC-selected generation or regeneration operation to finish.",
     parameters: {
       type: "object",
       properties: { taskId: { type: "number" } },
@@ -190,7 +255,7 @@ export default function register(pi: {
   });
 
   pi.registerTool({
-    name: "get_regeneration_cycle_status",
+    name: "get_harness_operation_status",
     description: "Reconcile a progress view from ORC's durable tick state and the harness stage projection. This read never advances the workflow.",
     parameters: {
       type: "object",

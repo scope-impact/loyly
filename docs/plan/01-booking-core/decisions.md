@@ -48,3 +48,7 @@ views are therefore derived from the booking record at read time. A view that is
 written separately from the record it claims to reflect is the defect this project
 exists to remove. *Pruned:* any write path that updates a view directly, and any
 "sync" mechanism between views (there is nothing to sync when there is one record).
+
+The executable proof of this decision is cut as slice `02-projection-integrity`.
+The stable acceptance identities remain `@item-01-007` and `@item-01-008` so moving
+the scenarios does not erase their history or create duplicate behavior.

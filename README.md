@@ -54,8 +54,10 @@ from what precedes it.
 | 2 | `docs/wiki/` | the domain, distilled from the sources. Every claim footnotes the source it came from. Start at `index.md` |
 | 3 | `docs/wow/` | the method itself: the way of working, five invariants each with a named enforcement point, and the agent harness |
 | 4 | `docs/plan/01-booking-core/` | one slice of work: a plan, an executable Gherkin spec, tickets, and recorded decisions |
-| 5 | `harness/` | the instrument: the fence, the gate, the derived checklist, the scorer, the scoreboard. Start at its `README.md` |
-| 6 | `impl/` | the build product. Intentionally empty: you generate it |
+| 5 | `model/pi-harness/` | the executable contract for regeneration, grading, runtime evidence, and the Pi control plane |
+| 6 | `.pi/harness/` | the active ORC/Pi harness. Start at its `README.md`; Pi loads its tools from `.pi/settings.json` |
+| 7 | `impl/` | the build product. Intentionally empty: ORC regenerates it from a pinned cut |
+| 8 | `archive/legacy-harness/` | the retired shell harness, preserved only as a behavioral-parity reference |
 
 Two conventions you will notice everywhere:
 
@@ -68,63 +70,79 @@ Two conventions you will notice everywhere:
 
 ## The tutorial: one full loop
 
-This is the flow the repo exists to demonstrate. You can walk it with an AI agent doing
-the building (point it at the read order above; `docs/wow/harness.md` says how) or by
-hand. Either way the machinery treats you identically, which is rather the point.
+This is the flow the repo exists to demonstrate. Pi is the operator surface, ORC owns the
+workflow, Gondolin provides isolated execution, and the OCI instrument oracle independently
+calibrates and grades the generated application. See [the harness boundary](docs/orc-harness-boundary.md)
+for the ownership rules.
+
+### 0. Validate the harness
+
+```bash
+cd .pi/harness
+npm ci
+npm test
+./orc-worker/check.sh
+npm run test:e2e
+```
+
+The unit suites are the fast development loop. The end-to-end suite exercises the modeled
+control plane, real Gondolin rooms, OCI oracle fixtures, grading, and Allure evidence. Some
+environment-dependent scenarios skip when their external runtime is unavailable; a skip is
+recorded and is never treated as a pass.
 
 ### 1. Build from the docs
 
 Read the slice (`docs/plan/01-booking-core/`): eight Gherkin scenarios covering the
 weekly schedule, standing-slot booking with reasoned refusals, and the
-single-source-of-truth rule from the story above. Build it into `impl/`, in any stack,
-test-first (the harness doc's RED/GREEN discipline). The only hard requirement is the
-gate's contract: `impl/test.sh` and `impl/start.sh PORT`.
+single-source-of-truth rule from the story above. In a Pi session, ask the harness to:
 
-### 2. Ratify
+1. `prepare_source_cut` from an explicit Git commit and execution backend;
+2. `preview_slice_selection`, then `approve_slice_selection` for the intended scope;
+3. `submit_approved_slice` with the approved selection, target stack, and backend. The
+   approved operation selects a Fresh Slice Generation Cycle with no parent or accepted
+   product oracle, or a Measured Slice Regeneration Cycle with named measured lineage;
+4. `wait_harness_operation` and inspect the operation receipt and any returned evidence.
 
-```bash
-./harness/verify.sh
+The checked-in `.pi/settings.json` loads these tools automatically when Pi opens this
+repository. `host` is useful for harness development; measured regeneration uses the
+`gondolin` backend.
+
+### 2. Ratify and measure
+
+ORC runs one of two fixed contracts:
+
+```text
+Fresh Slice Generation:
+cut → sealed harness snapshot → fenced build → verify/repair
+    → Grade [build + calibrate + seal cycle oracle → black-box grade]
+    → oracle proposal
+
+Measured Slice Regeneration:
+cut → sealed harness snapshot → fenced build → verify/repair
+    → Grade [accepted product-oracle comparison] → measurement
 ```
 
-"Done" is a claim, and claims are ratified by a script the claimant does not control:
-the gate runs your suite, boots your app, and proves the surface actually answers. If
-you built nothing yet, it says so and fails, which is correct behaviour for a gate.
+The builder never declares itself done. Verification and grading run outside its session,
+against a read-only candidate. The checklist remains derived from stable `@item-*` scenario
+IDs, while runtime evidence records whether the expected application path actually occurred:
+browser exchanges, trace spans, domain events, projection snapshots, invariant results, and
+runtime diagnostics. Evidence and reports are written under `.pi/harness/.state/`; they are
+generated artifacts and are not committed.
 
-### 3. Measure
+### 3. Regenerate
 
-```bash
-bb harness/gen_checklist.clj --out harness/cycles/01/checklist.json
-# grade each item against the running app, however you grade, then:
-bb harness/score.clj 01 --verdicts your-verdicts.json
-bb harness/scoreboard.clj 01
-```
+Start another cycle from the same pinned specification and oracle digest. ORC creates a
+fresh cut and a fresh Pi/Codex builder session; Gondolin exposes the cut read-only and
+limits writes to the declared workspace scope. The previous implementation, transcript,
+grader evidence, host credentials, and host environment are not available to the builder.
 
-The checklist is derived from the spec (never hand-kept), one item per stamped scenario.
-The scorer enforces the instrument's honesty rules: zero verdicts means the grading did not happen
-and nothing is written, and an item the grader never reached is filed as a fail so the
-denominator cannot quietly shrink. The scoreboard compares cycles on the items both
-scored, prints got-better and got-worse counts rather than a net, and says out loud when
-the denominator moved. (A seeded holdback lived here too until 2026-09-02;
-`harness/README.md` says why it went.)
-
-### 4. Regenerate
-
-```bash
-./harness/fence.sh /tmp/clean-room
-```
-
-This is the heart of the method. The fence makes a clean-room clone in which `impl/` and
-all measurements are deleted from the working tree **and from git history**, then proves
-it (single root commit, object-graph probes). Point a fresh agent, or a fresh you, at
-the clean room and build the slice again from the docs alone.
-
-### 5. Study the delta
+### 4. Study the delta
 
 Score the regeneration with the same checklist and compare. Every difference between the
 two builds is information: a rule the docs failed to carry, a decision the spec left
 open, an invention that crept in. **The delta measures the spec, not the builder.**
 
-### 6. Fold the learning back
+### 5. Fold the learning back
 
 Whatever the delta taught you goes into `raw/` (if it is new source knowledge),
 `docs/wiki/` (if it is domain), or the slice (if it is scope), as a recorded decision.
@@ -136,8 +154,8 @@ Then cut, regenerate, and measure again. On a production project this loop runs 
 
 ## What to steal
 
-If you take nothing else from this repo, take these five, each of which exists because
-its absence produced a specific silent lie (the stories are in `harness/README.md`):
+If you take nothing else from this repo, take these five. The retired implementation and
+the stories behind these rules remain in `archive/legacy-harness/README.md`:
 
 1. The checklist is **derived** from the spec, never written by hand.
 2. A "done" claim is **ratified** by a script the claimant does not control.

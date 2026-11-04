@@ -1,4 +1,5 @@
 import { cp, mkdir, readdir } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { getModel } from "@earendil-works/pi-ai/compat";
 import { createAgentSession, createBashToolDefinition, createExtensionRuntime, getAgentDir, ModelRuntime, SessionManager, SettingsManager, type ResourceLoader } from "@earendil-works/pi-coding-agent";
 import { openBuilderRoom } from "./builder-room.ts";
@@ -10,6 +11,9 @@ const request = JSON.parse(await readStdin()) as {
   cutId: string;
   scope: string[];
   prompt: string;
+  systemPrompt: string;
+  promptDigest: string;
+  systemPromptDigest: string;
   cutsRoot: string;
   outputRoot: string;
   targetStack: string;
@@ -34,6 +38,8 @@ await writeBuilderSessionState(request.builderSessionsRoot, {
 });
 let stateWrites = Promise.resolve();
 try {
+  assertDigest(request.prompt, request.promptDigest, "task prompt");
+  assertDigest(request.systemPrompt, request.systemPromptDigest, "system prompt");
   room = await openBuilderRoom({
     backend: executionBackend(request.backend),
     cutsRoot: request.cutsRoot,
@@ -52,9 +58,15 @@ try {
   const bash = createBashToolDefinition("/workspace", {
     operations: {
       exec: async (command, _cwd, options) => {
-        const result = await room.exec(command, { signal: options.signal });
+        const result = await room.exec(command, {
+          signal: options.signal,
+          timeout: options.timeout,
+        });
         if (result.stdout) options.onData(Buffer.from(result.stdout));
         if (result.stderr) options.onData(Buffer.from(result.stderr));
+        if (options.timeout !== undefined && result.exitCode === 124) {
+          throw new Error(`timeout:${options.timeout}`);
+        }
         return { exitCode: result.exitCode };
       },
     },
@@ -66,7 +78,7 @@ try {
     getPrompts: () => ({ prompts: [], diagnostics: [] }),
     getThemes: () => ({ themes: [], diagnostics: [] }),
     getAgentsFiles: () => ({ agentsFiles: [] }),
-    getSystemPrompt: () => "You are a regeneration builder. Read only from $HARNESS_CUT_ROOT. Write generated code only under $HARNESS_WORKSPACE_ROOT. Do not access paths outside those roots.",
+    getSystemPrompt: () => request.systemPrompt,
     getSystemPromptSource: () => undefined,
     getAppendSystemPrompt: () => [],
     getAppendSystemPromptSources: () => [],
@@ -123,7 +135,14 @@ try {
   });
   process.stdout.write(JSON.stringify({
     ok: true,
-    result: { outputRoot: request.outputRoot, builderSessionId, toolCalls, generated },
+    result: {
+      outputRoot: request.outputRoot,
+      builderSessionId,
+      toolCalls,
+      generated,
+      promptDigest: request.promptDigest,
+      systemPromptDigest: request.systemPromptDigest,
+    },
   }) + "\n");
 } catch (error) {
   await stateWrites.catch(() => undefined);
@@ -139,6 +158,11 @@ try {
   process.exitCode = 1;
 } finally {
   await room?.close();
+}
+
+function assertDigest(value: string, expected: string, label: string) {
+  const actual = `sha256:${createHash("sha256").update(value, "utf8").digest("hex")}`;
+  if (actual !== expected) throw new Error(`${label} digest mismatch`);
 }
 
 function readStdin(): Promise<string> {

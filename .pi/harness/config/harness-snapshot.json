@@ -1,0 +1,49 @@
+{
+  "snapshotId": "full-pi-harness",
+  "roots": [
+    ".pi/harness/orc-worker/src",
+    ".pi/harness/orc-worker/test",
+    ".pi/harness/src",
+    ".pi/harness/test",
+    ".pi/harness/conformance"
+  ],
+  "files": [
+    ".pi/harness/package.json",
+    ".pi/harness/package-lock.json",
+    ".pi/harness/orc-worker/run.sh",
+    "harness/loyly/gondolin.json",
+    "harness/loyly/Dockerfile",
+    "harness/loyly/Dockerfile.typescript",
+    "harness/loyly/Dockerfile.rust",
+    "harness/loyly/Dockerfile.java",
+    "harness/loyly/Dockerfile.rails",
+    "harness/loyly/grader-profile-init.sh",
+    "harness/loyly/install-otel-ebpf.sh",
+    "harness/loyly/lsof",
+    "harness/loyly/otel-collector.yaml",
+    "harness/loyly/otel-profiler.yaml"
+  ],
+  "components": [
+    "accepted-contract-eligibility",
+    "affordance-conformance",
+    "allure-evidence-projection",
+    "allure-golden-normalizer",
+    "production-prompt-renderer",
+    "black-box-grader",
+    "builder-room",
+    "candidate-subject-seal",
+    "compose-verifier",
+    "cut-preparer",
+    "cycle-measurement",
+    "durable-task-boundary",
+    "evidence-manifest",
+    "execution-room",
+    "grader-evidence-interpreter",
+    "harness-snapshot-builder",
+    "observation-persistence",
+    "prompt-optimizer",
+    "runtime-conformance-evaluator",
+    "selection-contract",
+    "workflow-orchestrator"
+  ]
+}

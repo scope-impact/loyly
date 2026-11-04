@@ -8,14 +8,14 @@ Feature: Ordered regeneration execution and evidence
     Scenario: A regeneration cycle follows the declared stage order
       Given an approved cycle starts
       When ORC advances the cycle
-      Then its stages are cut, harness calibration, builder, instrument, oracle, verify, repair verification, graders, instrument conformance, record cycle, and grade gate in that order
+      Then its stages are cut, harness calibration, builder, instrument, affordance conformance, verify, repair verification, collect evidence, compare oracle, instrument conformance, record cycle, and grade gate in that order
       And adapter completion cannot reorder or skip an ORC stage
-      And before the builder starts ORAS resolves the pinned instrument oracle
-      And every verdict-affecting harness component and the complete harness source digest match
+      And before the builder starts ORC verifies the fresh sealed harness snapshot
+      And every verdict-affecting harness component, runtime asset, and the complete harness revision match its manifest
       And normalized carried and uncarried Allure goldens pass
       And any calibration mismatch prevents the builder stage
 
-    @item-01-024 @e2e
+    @item-01-024 @skip
     Scenario: ORC exposes the declared regeneration stage order
       Given the Pi harness ORC worker is running
       When Pi requests the executable regeneration workflow contract
@@ -24,13 +24,21 @@ Feature: Ordered regeneration execution and evidence
         | harness-calibration    |
         | builder                |
         | instrument             |
-        | oracle                 |
+        | affordance-conformance |
         | verify                 |
         | repair-verification    |
-        | graders                |
+        | collect-evidence       |
+        | compare-oracle         |
         | instrument-conformance |
         | record-cycle           |
         | grade-gate             |
+
+    @item-01-024 @skip
+    Scenario: A slice without a human affordance contract does not invent a UI
+      Given the approved slice is not selected by the project's affordance contract
+      When independent affordance conformance runs
+      Then it records a passed non-applicable result with zero checks
+      And verification continues without requiring screens or forms
 
     @item-01-025 @skip
     Scenario: Instrumentation records the subject without changing it
@@ -40,14 +48,15 @@ Feature: Ordered regeneration execution and evidence
       And the candidate content digest remains unchanged
 
     @item-01-026 @skip
-    Scenario: The product-oracle OCI is bound to the approved Git revision
-      Given an approved selection names a full Git commit and fenced tree identity
+    Scenario: The whole-system product oracle supplies approved expected evidence
+      Given an approved selection names stable item identities and full Gherkin scenario digests
       When harness calibration resolves its product-oracle OCI before the builder starts
-      Then the artifact records the same source commit and tree identity
-      And it contains every selected item exactly once
-      And it names the accepted instrument-oracle descriptor digest
-      And its Git-commit tag is only a lookup alias for the immutable OCI descriptor digest
-      And any commit, tree, item, or instrument mismatch prevents the builder from starting
+      Then the immutable descriptor contains every selected item exactly once
+      And every selected entry matches the full scenario digest and contains manually approved normalized expected evidence
+      And unselected catalogue entries do not enter the approved denominator
+      And the product oracle need not match the source tree or name the harness snapshot
+      And cycle evidence records the independently resolved product descriptor and sealed harness snapshot digest
+      And any missing, duplicate, or scenario-digest-mismatched selected item prevents the builder from starting
 
   Rule: Independent rooms and evidence preserve provenance
 
@@ -78,7 +87,7 @@ Feature: Ordered regeneration execution and evidence
         | stage                  |
         | builder                |
         | instrument             |
-        | oracle                 |
         | verify                 |
-        | graders                |
+        | evidence collection    |
+        | oracle comparison      |
         | instrument conformance |

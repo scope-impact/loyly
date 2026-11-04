@@ -5,20 +5,25 @@
   "Runs a newline-delimited JSON worker and returns its decoded response and
   process diagnostics. Stdout and stderr are drained concurrently so a noisy
   child cannot block while filling either process pipe."
-  [script request]
-  (let [command ["node" "--experimental-strip-types" script]
-        process (.start (ProcessBuilder. ^java.util.List command))]
-    (with-open [writer (java.io.OutputStreamWriter. (.getOutputStream process))]
-      (.write writer (json/write-str request))
-      (.write writer "\n"))
-    (let [stdout (future (slurp (.getInputStream process)))
-          stderr (future (slurp (.getErrorStream process)))
-          exit-code (.waitFor process)
-          stdout-value @stdout
-          stderr-value @stderr]
-      {:exit-code exit-code
-       :stdout stdout-value
-       :stderr stderr-value
-       :response (try
-                   (json/read-str stdout-value :key-fn keyword)
-                   (catch Exception _ nil))})))
+  ([script request]
+   (invoke! script request nil))
+  ([script request {:keys [working-directory]}]
+   (let [command ["node" "--experimental-strip-types" script]
+         process-builder (ProcessBuilder. ^java.util.List command)
+         _ (when working-directory
+             (.directory process-builder (java.io.File. working-directory)))
+         process (.start process-builder)]
+     (with-open [writer (java.io.OutputStreamWriter. (.getOutputStream process))]
+       (.write writer (json/write-str request))
+       (.write writer "\n"))
+     (let [stdout (future (slurp (.getInputStream process)))
+           stderr (future (slurp (.getErrorStream process)))
+           exit-code (.waitFor process)
+           stdout-value @stdout
+           stderr-value @stderr]
+       {:exit-code exit-code
+        :stdout stdout-value
+        :stderr stderr-value
+        :response (try
+                    (json/read-str stdout-value :key-fn keyword)
+                    (catch Exception _ nil))}))))

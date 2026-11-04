@@ -9,19 +9,54 @@ test("Pi/Codex proposals cross only the ORC external-proposer boundary", async (
     return { status: "running" };
   });
 
-  await client.startExternalPromptOptimization([{ task: "train" }], [{ task: "validate" }]);
+  await client.startExternalPromptOptimization({
+    purpose: "fresh-generation",
+    trainset: [{ task: "train" }],
+    valset: [{ task: "validate" }],
+  });
   await client.submitExternalPromptCandidate("optimization-1", "improved prompt", "pi-codex");
 
   assert.deepEqual(calls, [
     {
       method: "start-external-prompt-optimization",
-      params: { trainset: [{ task: "train" }], valset: [{ task: "validate" }] },
+      params: {
+        purpose: "fresh-generation",
+        trainset: [{ task: "train" }],
+        valset: [{ task: "validate" }],
+      },
     },
     {
       method: "submit-external-prompt-candidate",
       params: { optimizationId: "optimization-1", prompt: "improved prompt", proposer: "pi-codex" },
     },
   ]);
+});
+
+test("GEPA optimization pins a purpose and Bedrock reflection model", async () => {
+  const calls = [];
+  const client = new OrcClient(async (method, params) => {
+    calls.push({ method, params });
+    return { status: "completed" };
+  });
+
+  await client.optimizePrompt({
+    purpose: "verification-repair",
+    reflectionProvider: "bedrock",
+    reflectionModel: "eu.amazon.nova-2-lite-v1:0",
+    trainset: [{ task: "train" }],
+    valset: [{ task: "validate" }],
+  });
+
+  assert.deepEqual(calls, [{
+    method: "optimize-prompt",
+    params: {
+      purpose: "verification-repair",
+      reflectionProvider: "bedrock",
+      reflectionModel: "eu.amazon.nova-2-lite-v1:0",
+      trainset: [{ task: "train" }],
+      valset: [{ task: "validate" }],
+    },
+  }]);
 });
 
 test("Pi reads durable execution progress and builder sessions without mutation methods", async () => {
@@ -48,24 +83,36 @@ test("Pi reads durable execution progress and builder sessions without mutation 
   assert.equal("promptBuilderSession" in client, false);
 });
 
-test("Pi starts a cycle with caller-owned durable ORC identities", async () => {
+test("approved slices dispatch through one ORC operation selector", async () => {
   const calls = [];
   const client = new OrcClient(async (method, params) => {
     calls.push({ method, params });
-    return { ...params, sheetId: "sheet-1", status: "running" };
+    return { taskId: calls.length };
   });
   const request = {
-    cycleId: "cycle-37",
-    tickId: "00000000-0000-0000-0000-000000000037",
-    correlationId: "00000000-0000-0000-0000-000000000137",
+    requestId: "run-1",
     selectionId: "selection-1",
-    scope: ["workspace"],
+    scope: ["impl"],
     targetStack: "typescript",
     executionBackend: "gondolin",
   };
 
-  await client.startCycle(request);
-  assert.deepEqual(calls, [{ method: "start-cycle", params: request }]);
+  await client.submitApprovedSlice(request);
+  await client.submitApprovedSlice(request);
+
+  assert.deepEqual(calls.map(({ method }) => method), ["submit-approved-slice", "submit-approved-slice"]);
+});
+
+test("Pi explores immutable cut composition before previewing a selection", async () => {
+  const calls = [];
+  const client = new OrcClient(async (method, params) => {
+    calls.push({ method, params });
+    return { cut: params.cut, slices: [] };
+  });
+
+  await client.sliceComposition("cut-42");
+
+  assert.deepEqual(calls, [{ method: "slice-composition", params: { cut: "cut-42" } }]);
 });
 
 test("Pi adapter submits and waits through the ORC worker", async () => {
@@ -74,7 +121,7 @@ test("Pi adapter submits and waits through the ORC worker", async () => {
     command: new URL("../fixtures/fake-worker.mjs", import.meta.url).pathname,
   });
   try {
-    const receipt = await worker.client.submit({
+    const receipt = await worker.client.submitApprovedSlice({
       requestId: `smoke-${Date.now()}`,
       cut: "cut-smoke",
       scope: ["workspace"],

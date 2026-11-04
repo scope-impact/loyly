@@ -18,7 +18,7 @@ test("Pi adapter requires an approved slice selection before regeneration", asyn
     );
     assert.equal(approved.status, "approved");
 
-    const receipt = await worker.client.submit({
+    const receipt = await worker.client.submitApprovedSlice({
       requestId: `selection-${Date.now()}`,
       selectionId: approved.selectionId,
       scope: ["workspace"],

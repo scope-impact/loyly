@@ -1,6 +1,7 @@
 -- allium: 3
 -- Löyly booking-core behavioral model.
--- The executable acceptance source is docs/plan/01-booking-core/spec.feature.
+-- The executable acceptance sources are docs/plan/01-booking-core/spec.feature and
+-- docs/plan/02-projection-integrity/spec.feature.
 
 enum Weekday { monday | tuesday | wednesday | thursday | friday | saturday | sunday }
 
@@ -10,10 +11,15 @@ enum RefusalReason { closed_day | held | no_room | nothing_yet }
 
 entity Household {
     apartment: String
+    standing_slots: StandingSlot with household = this
 }
 
 entity Sauna {
     name: String
+    dressing_rooms: DressingRoom with sauna = this
+    standing_slots: StandingSlot with dressing_room.sauna = this
+    configured_standing_slot_count: configured_standing_slot_count(dressing_rooms)
+    free_standing_slot_count: configured_standing_slot_count - standing_slots.count
 }
 
 entity DressingRoom {
@@ -21,6 +27,8 @@ entity DressingRoom {
     sauna: Sauna
     open_weekdays: Set<Weekday>
     slot_starts: List<String>
+    standing_slots: StandingSlot with dressing_room = this
+    is_held(weekday, start_time): standing_slots.any(s => s.weekday = weekday and s.start_time = start_time)
 }
 
 entity StandingSlot {
@@ -66,7 +74,8 @@ rule RequestStandingSlot {
     requires: exists household
     requires: exists dressing_room
     requires: weekday in dressing_room.open_weekdays
-    requires: not exists StandingSlots where dressing_room = dressing_room and weekday = weekday and start_time = start_time
+    requires: start_time in dressing_room.slot_starts
+    requires: not dressing_room.is_held(weekday, start_time)
     let slot_identity = standing_slot_identity(household, dressing_room, weekday, start_time)
     ensures: SlotRequest.created(household: household, dressing_room: dressing_room,
                                 weekday: weekday, start_time: start_time, status: confirmed)
@@ -95,10 +104,25 @@ rule RefuseHeldSlot {
     requires: exists household
     requires: exists dressing_room
     requires: weekday in dressing_room.open_weekdays
-    requires: exists StandingSlots where dressing_room = dressing_room and weekday = weekday and start_time = start_time
+    requires: dressing_room.is_held(weekday, start_time)
+    requires: household.standing_slots.count != 1 or dressing_room.sauna.free_standing_slot_count > 0
     ensures: SlotRequest.created(household: household, dressing_room: dressing_room,
                                 weekday: weekday, start_time: start_time,
                                 status: refused, refusal_reason: held)
+}
+
+rule RefuseNoRoomForSecondSlot {
+    when: RequestStandingSlot(household, dressing_room, weekday, start_time)
+    requires: exists household
+    requires: exists dressing_room
+    requires: household.standing_slots.count = 1
+    requires: weekday in dressing_room.open_weekdays
+    requires: start_time in dressing_room.slot_starts
+    requires: dressing_room.sauna.free_standing_slot_count = 0
+    requires: dressing_room.is_held(weekday, start_time)
+    ensures: SlotRequest.created(household: household, dressing_room: dressing_room,
+                                weekday: weekday, start_time: start_time,
+                                status: refused, refusal_reason: no_room)
 }
 
 rule ReleaseStandingSlot {
@@ -153,6 +177,7 @@ surface ResidentBooking {
     exposes:
         DressingRoom
         StandingSlot
+        SlotRequest
         HeaterPeriod
         BillingSignal
 
@@ -168,4 +193,9 @@ surface ResidentBooking {
 
     @guarantee RefusalIsActionable
         -- A refusal gives the resident enough information to act without asking again.
+
+    @guarantee FullScheduleRefusesASecondSlotAsNoRoom
+        -- When a household holds exactly one standing slot and no configured standing
+        -- slot remains free, its request for a second configured slot is refused as
+        -- no_room before the requested slot's held state is considered.
 }

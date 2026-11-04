@@ -1,6 +1,7 @@
 (ns loyly.pi-harness.core.evidence.allure-evidence-test
   (:require [clojure.data.json :as json]
             [clojure.java.io :as io]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is]]
             [loyly.pi-harness.core.evidence.allure-evidence :as allure]
             [loyly.pi-harness.core.evidence.allure-golden :as allure-golden]
@@ -241,5 +242,44 @@
                (set (:parameters (by-item "@item-01-007")))))
         (is (= #{{:name "reached" :value "false"} {:name "scope" :value "impl"}}
                (set (:parameters (by-item "@item-01-008"))))))
+      (finally
+        (doseq [file (reverse (file-seq root))] (.delete file))))))
+
+(deftest successful-initial-grade-materializes-allure-before-oracle-proposal
+  (let [root (.toFile (java.nio.file.Files/createTempDirectory
+                       "loyly-initial-allure-"
+                       (make-array java.nio.file.attribute.FileAttribute 0)))
+        evidence-root (io/file root "candidate.evidence")
+        item {:id "@item-01-007" :scenario-digest "scenario-007"}
+        measured {:item-id "@item-01-007" :verdict "pass"
+                  :evidence "all views agree" :graded? true}
+        inputs {:request-id "generation-1"
+                :selection {:projectId "loyly" :containerId "loyly"
+                            :componentId "booking-core" :cut "cut-1"
+                            :items [item]}
+                :scope ["impl"] :execution-backend "gondolin"
+                :builder-result {:builder "openai-codex/test"
+                                 :output-root (.getAbsolutePath root)
+                                 :subject-digest "subject-1"}
+                :instrument-result {:evidence-root (.getAbsolutePath evidence-root)
+                                    :subject-digest "subject-1"}
+                :baseline-grade-result
+                {:passed true :grader-producer "independent-baseline-judge"
+                 :judge-id "sha256:judge" :normalized-evidence-digest "evidence-digest"
+                 :measurement {:passed 1 :items [measured]}}
+                :instrument-conformance-result
+                {:passed true :items [measured]}
+                :affordance-conformance-result
+                {:passed false :applicable true :total 1 :passed-count 0
+                 :evidence "initial candidate had no UI"}
+                :repair-verification-result
+                {:affordance
+                {:passed true :total 30 :passed-count 30
+                 :evidence "{\"checks\":[{\"id\":\"screen:Home\",\"passed\":true}]}"}}}]
+    (try
+      (let [result (worker/initial-allure-stage {:inputs inputs})
+            files (file-seq (io/file evidence-root "allure-results"))]
+        (is (= 3 (:result-count result)))
+        (is (= 3 (count (filter #(str/ends-with? (.getName %) "-result.json") files)))))
       (finally
         (doseq [file (reverse (file-seq root))] (.delete file))))))

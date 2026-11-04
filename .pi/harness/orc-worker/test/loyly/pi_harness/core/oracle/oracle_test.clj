@@ -3,6 +3,8 @@
             [clojure.java.io :as io]
             [clojure.java.shell :as shell]
             [clojure.test :refer [deftest is]]
+            [loyly.pi-harness.core.oracle.model-resolver :as model-resolver]
+            [loyly.pi-harness.core.oracle.oci-oracle :as oci-oracle]
             [loyly.pi-harness.core.oracle.oracle :as oracle]))
 
 (def required-model-files
@@ -52,20 +54,8 @@
               (recur))))))
     (format "%064x" (BigInteger. 1 (.digest digest)))))
 
-(defn project-artifacts [root]
-  (let [model-root (io/file root "model" "loyly")]
-    (->> (file-seq model-root)
-         (filter #(.isFile %))
-         (sort-by #(.getPath %))
-         (mapv (fn [file]
-                 {:path (str "model/loyly/" (.getName file))
-                  :digest (file-digest file)})))))
-
 (def oracle-layer-types
-  [["policy.json" "application/vnd.loyly.oracle.policy.v1+json"]
-   ["project.json" "application/vnd.loyly.oracle.project.v1+json"]
-   ["slice.json" "application/vnd.loyly.oracle.slice.v1+json"]
-   ["calibration.json" "application/vnd.loyly.oracle.calibration.v1+json"]])
+  [["catalog.json" "application/vnd.loyly.product-oracle.catalog.v1+json"]])
 
 (def fixture-server-layer
   ["fixture-server.mjs" "application/vnd.loyly.oracle.fixture-server.v1+javascript"])
@@ -77,25 +67,78 @@
 (def grader-layer
   ["grader/grader.sh" "application/vnd.loyly.oracle.grader-file.v1"])
 
+(defn- oracle-layer [title media-type]
+  {:mediaType media-type
+   :digest (str "sha256:" (apply str (repeat 64 "a")))
+   :size 1
+   :annotations {:org.opencontainers.image.title title}})
+
+(deftest registry-artifact-resolves-a-product-oracle
+  (let [pack-ref (str "ghcr.io/scope-impact/loyly/product-oracle@sha256:"
+                      (apply str (repeat 64 "b")))
+        layer-types (conj oracle-layer-types fixture-server-layer
+                          otel-capture-policy-layer grader-layer)
+        layers (mapv (fn [[title media-type]] (oracle-layer title media-type)) layer-types)
+        descriptor {:digest (str "sha256:" (apply str (repeat 64 "b")))}
+        manifest {:artifactType oci-oracle/artifact-type :layers layers}]
+    (with-redefs [shell/sh
+                  (fn [& arguments]
+                    (let [arguments (vec arguments)]
+                      (cond
+                        (some #{"--oci-layout"} arguments)
+                        {:exit 1 :out "" :err "registry reference used local OCI layout mode"}
+
+                        (= "--descriptor" (last arguments))
+                        {:exit 0 :out (json/write-str descriptor) :err ""}
+
+                        (= "manifest" (second arguments))
+                        {:exit 0 :out (json/write-str manifest) :err ""}
+
+                        (= "pull" (second arguments))
+                        (let [output-index (.indexOf arguments "--output")
+                              output (io/file (get arguments (inc output-index)))]
+                          (doseq [[title media-type] layer-types]
+                            (let [file (io/file output title)]
+                              (some-> file .getParentFile .mkdirs)
+                              (spit file
+                                    (if (contains? #{oci-oracle/fixture-server-type
+                                                     oci-oracle/grader-file-type}
+                                                   media-type)
+                                      "payload"
+                                      (json/write-str {:version 1})))))
+                          {:exit 0 :out "" :err ""})
+
+                        :else
+                        {:exit 1 :out "" :err (str "unexpected ORAS arguments " arguments)})))]
+      (let [pack (oci-oracle/resolve-pack pack-ref)]
+        (is (= (:digest descriptor) (:digest pack)))
+        (is (= (mapv first layer-types) (mapv :title (:layers pack))))))))
+
 (def test-fixture-server-source
   (str "import http from 'node:http';\n"
        "const role=process.argv[3];\n"
        "const server=http.createServer((_q,r)=>{r.end(role==='carried'?'pass':'fail')});\n"
        "server.listen(0,'127.0.0.1',()=>console.log('http://127.0.0.1:'+server.address().port));\n"))
 
-(defn calibration-entry
-  ([item-id] (calibration-entry item-id ["carried" "uncarried"]))
-  ([item-id roles]
+(defn scenario-digest [root item-id]
+  (->> (:items (model-resolver/resolve-contract
+                root {:projectId "loyly" :items [{:id item-id}]}))
+       (some #(when (= item-id (:id %)) (:scenario-digest %)))))
+
+(defn selection-for [root item-id]
+  {:projectId "loyly"
+   :slice "01-booking-core"
+   :items [{:id item-id :scenario-digest (scenario-digest root item-id)}]})
+
+(defn catalog-entry
+  ([root item-id] (catalog-entry root item-id ["carried" "uncarried"]))
+  ([root item-id roles]
    {:itemId item-id
+    :scenarioDigest (scenario-digest root item-id)
     :grader {:path "grader.sh"
              :digest (value-digest test-grader-source)}
     :fixtures (mapv (fn [role] {:role role :expected (if (= role "carried") "pass" "fail")})
                     roles)}))
-
-(defn slice-entry
-  ([item-id] (slice-entry item-id "Book a slot" nil))
-  ([item-id name rule]
-   {:id item-id :name name :rule rule}))
 
 (defn fixture-result [request verdict-for]
   {:backend "gondolin"
@@ -109,6 +152,51 @@
 
 (defn calibrated-fixture-runner [request]
   (fixture-result request #(if (= "carried" %) "pass" "fail")))
+
+(deftest whole-system-catalogue-selects-only-the-approved-item
+  (let [scenario-digest (apply str (repeat 64 "1"))
+        selected {:id "@item-01-001" :scenario-digest scenario-digest}
+        pack {:digest (str "sha256:" (apply str (repeat 64 "b")))
+              :layers [{:media-type "application/vnd.loyly.product-oracle.catalog.v1+json"
+                        :content {:version 1
+                                  :projectId "loyly"
+                                  :minimumCalibrationFixtures 2
+                                  :entries [{:itemId "@item-01-001"
+                                             :scenarioDigest scenario-digest
+                                             :grader {:path "grader.sh"
+                                                      :digest (value-digest test-grader-source)}
+                                             :fixtures [{:role "carried" :expected "pass"}
+                                                        {:role "uncarried" :expected "fail"}]}
+                                            {:itemId "@item-99-999"
+                                             :scenarioDigest (apply str (repeat 64 "9"))
+                                             :grader {:path "other.sh"
+                                                      :digest (apply str (repeat 64 "9"))}
+                                             :fixtures [{:role "carried" :expected "pass"}
+                                                        {:role "uncarried" :expected "fail"}]}]}}]}
+        result (oci-oracle/validate-pack!
+                pack
+                {:projectId "loyly" :items [selected]}
+                {:items [selected] :artifacts []})]
+    (is (= ["@item-01-001"] (:selected-item-ids result)))
+    (is (= 1 (count (:selected-entries result))))))
+
+(deftest only-selected-grader-files-are-materialized
+  (let [root (.toFile (java.nio.file.Files/createTempDirectory
+                       "loyly-selected-graders-"
+                       (make-array java.nio.file.attribute.FileAttribute 0)))
+        encode #(.encodeToString (java.util.Base64/getEncoder) (.getBytes % "UTF-8"))
+        pack {:digest (str "sha256:" (apply str (repeat 64 "b")))
+              :layers [{:media-type oci-oracle/grader-file-type
+                        :title "grader/selected.sh" :content (encode "selected")}
+                       {:media-type oci-oracle/grader-file-type
+                        :title "grader/unselected.sh" :content (encode "unselected")}] }]
+    (try
+      (let [grader-root (oci-oracle/materialize-grader!
+                         pack root #{"selected.sh"})]
+        (is (.isFile (io/file grader-root "selected.sh")))
+        (is (not (.exists (io/file grader-root "unselected.sh")))))
+      (finally
+        (doseq [file (reverse (file-seq root))] (.delete file))))))
 
 (defn with-oras-pack
   ([layers f] (with-oras-pack layers true f))
@@ -137,6 +225,10 @@
                 (json/write-str
                  (get layers name
                       (case name
+                        "catalog.json"
+                        {:version 1 :projectId "loyly"
+                         :minimumCalibrationFixtures 2 :entries []}
+
                         "runtime-observability/capture-policy.json"
                         {:version 1
                          :standard "opentelemetry"
@@ -148,7 +240,7 @@
                         {}))))))
       (let [result (apply shell/sh
                           (concat ["oras" "push" "--oci-layout" (str layout ":accepted")
-                                   "--artifact-type" "application/vnd.loyly.oracle.pack.v1"]
+                                   "--artifact-type" oci-oracle/artifact-type]
                                   (map (fn [[name media-type]] (str name ":" media-type))
                                        layer-types)
                                   [:dir (.getPath source)]))]
@@ -161,16 +253,14 @@
   (with-cut "Feature: Booking\n\n  @item-01-001\n  Scenario: Book a slot\n"
     (fn [root]
       (with-oras-pack
-        {"policy.json" {:version 1}
-         "project.json" {:projectId "loyly" :artifacts (project-artifacts root)}
-         "slice.json" {:sliceId "01-booking-core" :items [(slice-entry "@item-01-001")]}
-         "calibration.json" {:items [(calibration-entry "@item-01-001")]}}
+        {"catalog.json" {:version 1 :projectId "loyly"
+                         :minimumCalibrationFixtures 2
+                         :entries [(catalog-entry root "@item-01-001")]}}
         (fn [pack-ref]
           (let [oracle-cache (io/file root ".pi" "harness" ".state" "oracles")
                 result (oracle/evaluate-cut
                         root
-                        {:projectId "loyly" :slice "01-booking-core"
-                         :items [{:id "@item-01-001"}]}
+                        (selection-for root "@item-01-001")
                         {:oracle-pack-ref pack-ref
                          :oracle-cache-root oracle-cache
                          :fixture-runner calibrated-fixture-runner})]
@@ -198,70 +288,65 @@
   (with-cut "Feature: Booking\n\n  @item-01-001\n  Scenario: Book a slot\n"
     (fn [root]
       (with-oras-pack
-        {"policy.json" {:version 1}
-         "project.json" {:projectId "another-project" :artifacts (project-artifacts root)}
-         "slice.json" {:sliceId "01-booking-core" :items [(slice-entry "@item-01-001")]}
-         "calibration.json" {:items [(calibration-entry "@item-01-001")]}}
+        {"catalog.json" {:version 1 :projectId "another-project"
+                         :minimumCalibrationFixtures 2
+                         :entries [(catalog-entry root "@item-01-001")]}}
         (fn [pack-ref]
           (let [result (oracle/evaluate-cut
                         root
-                        {:projectId "loyly" :slice "01-booking-core"
-                         :items [{:id "@item-01-001"}]}
+                        (selection-for root "@item-01-001")
                         {:oracle-pack-ref pack-ref})]
             (is (false? (:passed result)))
-            (is (re-find #"project layer.*another-project.*loyly" (:stderr result)))))))))
+            (is (re-find #"catalogue names project.*another-project.*loyly" (:stderr result)))))))))
 
 (deftest oracle-rejects-a-pack-that-omits-a-selected-item
   (with-cut "Feature: Booking\n\n  @item-01-001\n  Scenario: Book a slot\n"
     (fn [root]
       (with-oras-pack
-        {"policy.json" {:version 1}
-         "project.json" {:projectId "loyly" :artifacts (project-artifacts root)}
-         "slice.json" {:sliceId "01-booking-core" :items [(slice-entry "@item-01-999")]}
-         "calibration.json" {:items [(calibration-entry "@item-01-999")]}}
+        {"catalog.json" {:version 1 :projectId "loyly"
+                         :minimumCalibrationFixtures 2
+                         :entries [{:itemId "@item-01-999"
+                                    :scenarioDigest (apply str (repeat 64 "9"))
+                                    :grader {:path "grader.sh"
+                                             :digest (value-digest test-grader-source)}
+                                    :fixtures [{:role "carried" :expected "pass"}
+                                               {:role "uncarried" :expected "fail"}]}]}}
         (fn [pack-ref]
           (let [result (oracle/evaluate-cut
                         root
-                        {:projectId "loyly" :slice "01-booking-core"
-                         :items [{:id "@item-01-001"}]}
+                        (selection-for root "@item-01-001")
                         {:oracle-pack-ref pack-ref})]
             (is (false? (:passed result)))
-            (is (re-find #"selected item.*@item-01-001.*slice layer"
+            (is (re-find #"selected item.*@item-01-001.*product catalogue"
                          (:stderr result)))))))))
 
-(deftest oracle-rejects-a-pack-with-a-stale-model-artifact
+(deftest product-oracle-is-not-bound-to-unrelated-model-files
   (with-cut "Feature: Booking\n\n  @item-01-001\n  Scenario: Book a slot\n"
     (fn [root]
-      (let [artifacts (assoc-in (project-artifacts root) [0 :digest]
-                                (apply str (repeat 64 "0")))]
-        (with-oras-pack
-          {"policy.json" {:version 1}
-           "project.json" {:projectId "loyly" :artifacts artifacts}
-           "slice.json" {:sliceId "01-booking-core" :items [(slice-entry "@item-01-001")]}
-           "calibration.json" {:items [(calibration-entry "@item-01-001")]}}
-          (fn [pack-ref]
-            (let [result (oracle/evaluate-cut
-                          root
-                          {:projectId "loyly" :slice "01-booking-core"
-                           :items [{:id "@item-01-001"}]}
-                          {:oracle-pack-ref pack-ref})]
-              (is (false? (:passed result)))
-              (is (re-find #"project artifacts do not match the pinned model contract"
-                           (:stderr result))))))))))
+      (with-oras-pack
+        {"catalog.json" {:version 1 :projectId "loyly"
+                         :minimumCalibrationFixtures 2
+                         :entries [(catalog-entry root "@item-01-001")]}}
+        (fn [pack-ref]
+          (spit (io/file root "model" "loyly" "tokens.json") "unrelated change\n")
+          (let [result (oracle/evaluate-cut
+                        root
+                        (selection-for root "@item-01-001")
+                        {:oracle-pack-ref pack-ref
+                         :fixture-runner calibrated-fixture-runner})]
+            (is (true? (:passed result)))))))))
 
 (deftest oracle-rejects-an-item-without-both-calibration-roles
   (with-cut "Feature: Booking\n\n  @item-01-001\n  Scenario: Book a slot\n"
     (fn [root]
       (with-oras-pack
-        {"policy.json" {:version 1 :minimumCalibrationFixtures 2}
-         "project.json" {:projectId "loyly" :artifacts (project-artifacts root)}
-         "slice.json" {:sliceId "01-booking-core" :items [(slice-entry "@item-01-001")]}
-         "calibration.json" {:items [(calibration-entry "@item-01-001" ["carried"])]}}
+        {"catalog.json" {:version 1 :projectId "loyly"
+                         :minimumCalibrationFixtures 2
+                         :entries [(catalog-entry root "@item-01-001" ["carried"])]}}
         (fn [pack-ref]
           (let [result (oracle/evaluate-cut
                         root
-                        {:projectId "loyly" :slice "01-booking-core"
-                         :items [{:id "@item-01-001"}]}
+                        (selection-for root "@item-01-001")
                         {:oracle-pack-ref pack-ref})]
             (is (false? (:passed result)))
             (is (re-find #"@item-01-001.*carried and uncarried calibration fixtures"
@@ -270,50 +355,44 @@
 (deftest oracle-rejects-a-pack-with-a-stale-grader-digest
   (with-cut "Feature: Booking\n\n  @item-01-001\n  Scenario: Book a slot\n"
     (fn [root]
-      (let [entry (assoc-in (calibration-entry "@item-01-001")
+      (let [entry (assoc-in (catalog-entry root "@item-01-001")
                             [:grader :digest]
                             (apply str (repeat 64 "0")))]
         (with-oras-pack
-          {"policy.json" {:version 1 :minimumCalibrationFixtures 2}
-           "project.json" {:projectId "loyly" :artifacts (project-artifacts root)}
-           "slice.json" {:sliceId "01-booking-core" :items [(slice-entry "@item-01-001")]}
-           "calibration.json" {:items [entry]}}
+          {"catalog.json" {:version 1 :projectId "loyly"
+                           :minimumCalibrationFixtures 2 :entries [entry]}}
           (fn [pack-ref]
             (let [result (oracle/evaluate-cut
                           root
-                          {:projectId "loyly" :slice "01-booking-core"
-                           :items [{:id "@item-01-001"}]}
+                          (selection-for root "@item-01-001")
                           {:oracle-pack-ref pack-ref})]
               (is (false? (:passed result)))
               (is (re-find #"grader digest mismatch.*grader.sh" (:stderr result))))))))))
 
-(deftest oracle-rejects-stale-slice-semantics-for-a-selected-item
+(deftest oracle-rejects-a-stale-scenario-digest-for-a-selected-item
   (with-cut "Feature: Booking\n\n  Rule: One source\n\n    @item-01-001\n    Scenario: Book a slot\n"
     (fn [root]
       (with-oras-pack
-        {"policy.json" {:version 1 :minimumCalibrationFixtures 2}
-         "project.json" {:projectId "loyly" :artifacts (project-artifacts root)}
-         "slice.json" {:sliceId "01-booking-core"
-                       :items [(slice-entry "@item-01-001" "Stale name" "One source")]}
-         "calibration.json" {:items [(calibration-entry "@item-01-001")]}}
+        {"catalog.json" {:version 1 :projectId "loyly"
+                         :minimumCalibrationFixtures 2
+                         :entries [(assoc (catalog-entry root "@item-01-001")
+                                          :scenarioDigest (apply str (repeat 64 "0")))]}}
         (fn [pack-ref]
           (let [result (oracle/evaluate-cut
                         root
-                        {:projectId "loyly" :slice "01-booking-core"
-                         :items [{:id "@item-01-001"}]}
+                        (selection-for root "@item-01-001")
                         {:oracle-pack-ref pack-ref})]
             (is (false? (:passed result)))
-            (is (re-find #"slice semantics.*@item-01-001.*pinned model contract"
+            (is (re-find #"catalogue scenario digest.*@item-01-001.*approved selection"
                          (:stderr result)))))))))
 
 (deftest oracle-executes-runnable-fixtures-instead-of-trusting-declarations
   (with-cut "Feature: Booking\n\n  @item-01-001\n  Scenario: Book a slot\n"
     (fn [root]
       (with-oras-pack
-        {"policy.json" {:version 1 :minimumCalibrationFixtures 2}
-         "project.json" {:projectId "loyly" :artifacts (project-artifacts root)}
-         "slice.json" {:sliceId "01-booking-core" :items [(slice-entry "@item-01-001")]}
-         "calibration.json" {:items [(calibration-entry "@item-01-001")]}
+        {"catalog.json" {:version 1 :projectId "loyly"
+                         :minimumCalibrationFixtures 2
+                         :entries [(catalog-entry root "@item-01-001")]}
          "fixture-server.mjs"
          (str "import http from 'node:http';\n"
               "const server=http.createServer((_q,r)=>{r.end('pass')});\n"
@@ -321,8 +400,7 @@
         (fn [pack-ref]
           (let [result (oracle/evaluate-cut
                         root
-                        {:projectId "loyly" :slice "01-booking-core"
-                         :items [{:id "@item-01-001"}]}
+                        (selection-for root "@item-01-001")
                         {:oracle-pack-ref pack-ref
                          :fixture-runner #(fixture-result % (constantly "pass"))})]
             (is (false? (:passed result)))
@@ -333,15 +411,13 @@
   (with-cut "Feature: Booking\n\n  @item-01-001\n  Scenario: Book a slot\n"
     (fn [root]
       (with-oras-pack
-        {"policy.json" {:version 1}
-         "project.json" {:projectId "loyly" :artifacts (project-artifacts root)}
-         "slice.json" {:sliceId "01-booking-core" :items [(slice-entry "@item-01-001")]}
-         "calibration.json" {:items [(calibration-entry "@item-01-001")]}}
+        {"catalog.json" {:version 1 :projectId "loyly"
+                         :minimumCalibrationFixtures 2
+                         :entries [(catalog-entry root "@item-01-001")]}}
         (fn [pack-ref]
           (let [result (oracle/evaluate-cut
                         root
-                        {:projectId "loyly" :slice "01-booking-core"
-                         :items [{:id "@item-01-001"}]}
+                        (selection-for root "@item-01-001")
                         {:oracle-pack-ref pack-ref})]
             (is (false? (:passed result)))
             (is (re-find #"Gondolin fixture runner is required" (:stderr result)))))))))
@@ -350,16 +426,14 @@
   (with-cut "Feature: Booking\n\n  @item-01-001\n  Scenario: Book a slot\n"
     (fn [root]
       (with-oras-pack
-        {"policy.json" {:version 1 :minimumCalibrationFixtures 2}
-         "project.json" {:projectId "loyly" :artifacts (project-artifacts root)}
-         "slice.json" {:sliceId "01-booking-core" :items [(slice-entry "@item-01-001")]}
-         "calibration.json" {:items [(calibration-entry "@item-01-001")]}}
+        {"catalog.json" {:version 1 :projectId "loyly"
+                         :minimumCalibrationFixtures 2
+                         :entries [(catalog-entry root "@item-01-001")]}}
         false
         (fn [pack-ref]
           (let [result (oracle/evaluate-cut
                         root
-                        {:projectId "loyly" :slice "01-booking-core"
-                         :items [{:id "@item-01-001"}]}
+                        (selection-for root "@item-01-001")
                         {:oracle-pack-ref pack-ref})]
             (is (false? (:passed result)))
             (is (re-find #"runnable fixture server layer" (:stderr result)))))))))
@@ -367,14 +441,12 @@
 (deftest oracle-rejects-inverted-carried-and-uncarried-expectations
   (with-cut "Feature: Booking\n\n  @item-01-001\n  Scenario: Book a slot\n"
     (fn [root]
-      (let [entry (update (calibration-entry "@item-01-001") :fixtures
+      (let [entry (update (catalog-entry root "@item-01-001") :fixtures
                           (fn [fixtures]
                             (mapv #(assoc % :expected "fail") fixtures)))]
         (with-oras-pack
-          {"policy.json" {:version 1 :minimumCalibrationFixtures 2}
-           "project.json" {:projectId "loyly" :artifacts (project-artifacts root)}
-           "slice.json" {:sliceId "01-booking-core" :items [(slice-entry "@item-01-001")]}
-           "calibration.json" {:items [entry]}
+          {"catalog.json" {:version 1 :projectId "loyly"
+                           :minimumCalibrationFixtures 2 :entries [entry]}
            "fixture-server.mjs"
            (str "import http from 'node:http';\n"
                 "const server=http.createServer((_q,r)=>{r.end('fail')});\n"
@@ -382,30 +454,25 @@
           (fn [pack-ref]
             (let [result (oracle/evaluate-cut
                           root
-                          {:projectId "loyly" :slice "01-booking-core"
-                           :items [{:id "@item-01-001"}]}
+                          (selection-for root "@item-01-001")
                           {:oracle-pack-ref pack-ref})]
               (is (false? (:passed result)))
               (is (re-find #"carried fixture.*must expect pass" (:stderr result))))))))))
 
-(deftest pinned-model-is-the-native-oracle-contract
+(deftest measured-oracle-evaluation-requires-a-pinned-product-catalogue
   (with-cut "Feature: Booking\n\n  @item-01-001\n  Scenario: Book a slot\n"
     (fn [root]
-      (let [result (oracle/evaluate-cut root {:projectId "loyly"
-                                              :items [{:id "@item-01-001"}]})]
-        (is (= true (:passed result)))
-        (is (= ["@item-01-001"] (:item-ids result)))
-        (is (= 5 (count (:artifacts result))))
-        (is (re-matches #"[0-9a-f]{64}" (:oracle-digest result)))))))
+      (let [result (oracle/evaluate-cut root (selection-for root "@item-01-001"))]
+        (is (false? (:passed result)))
+        (is (re-find #"pinned product oracle is required for measured regeneration"
+                     (:stderr result)))))))
 
-(deftest oracle-digest-covers-every-project-model-artifact
+(deftest scenario-digest-does-not-cover-unrelated-project-model-artifacts
   (with-cut "Feature: Booking\n\n  @item-01-001\n  Scenario: Book a slot\n"
     (fn [root]
-      (let [selection {:projectId "loyly" :items [{:id "@item-01-001"}]}
-            first-digest (:oracle-digest (oracle/evaluate-cut root selection))]
+      (let [first-digest (scenario-digest root "@item-01-001")]
         (spit (io/file root "model" "loyly" "tokens.json") "changed\n")
-        (let [second-digest (:oracle-digest (oracle/evaluate-cut root selection))]
-          (is (not= first-digest second-digest)))))))
+        (is (= first-digest (scenario-digest root "@item-01-001")))))))
 
 (deftest native-oracle-rejects-duplicate-item-identities
   (with-cut "Feature: Booking\n\n  @item-01-001\n  Scenario: First\n\n  @item-01-001\n  Scenario: Second\n"

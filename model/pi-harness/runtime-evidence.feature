@@ -4,21 +4,30 @@ Feature: Authoritative and complete runtime evidence
 
   Rule: Runtime evidence preserves authority and collection quality
 
+    @skip @gondolin
+    Scenario: A successful first grade preserves its Playwright trace
+      Given the independent baseline judge drives the candidate only through its public seam
+      When the complete selected denominator passes
+      Then the cycle evidence contains a non-empty Playwright trace archive
+      And the normalized evidence proposal binds the trace archive digest
+      And a missing Playwright trace prevents oracle proposal
+
     @item-01-031 @skip
     Scenario: Candidate telemetry cannot author an independent verdict
       Given the candidate emits a runtime signal claiming an invariant passed
-      But no independent grader evaluated the invariant
+      But no independent validator evaluated the invariant
       When the cycle measurement is reduced
       Then the candidate signal is retained as evidence
       But it cannot produce a passing item observation
 
     @item-01-032 @skip
     Scenario: Missing or dropped required signals are inconclusive
-      Given the pinned product-oracle OCI declares the exact runtime signals required by an approved item
+      Given the pinned product-oracle OCI contains the approved normalized evidence for an item
+      And the sealed harness snapshot carries the generic evaluator for the runtime signals declared by the approved project model
       And one required signal is missing, incomplete, sampled, or reported as dropped
-      When the independent grader compares the captured signals with that requirement
+      When the independent validator compares the captured evidence with the product oracle entry
       Then it persists an inconclusive invariant evaluation
-      And the approved item cannot pass the grade gate
+      And the approved item cannot pass the comparison gate
       And collection status identifies the affected signal kind and reason
       And diagnostic profiles remain available but cannot author a verdict
 
@@ -26,7 +35,7 @@ Feature: Authoritative and complete runtime evidence
     Scenario: A passing invariant uses one correlated candidate subject
       Given an accepted domain event and every required projection snapshot
       And every signal names the same cycle, operation, event, aggregate, and subject digest
-      When the independent grader evaluates the named product invariant
+      When the independent validator evaluates the named product invariant
       Then it may record an evidence-backed passing observation
       And the observation identifies every input artifact digest
 
@@ -34,12 +43,12 @@ Feature: Authoritative and complete runtime evidence
     Scenario: ORC exposes artifact provenance in its executable contract
       Given the Pi harness ORC worker is running
       When Pi requests the executable regeneration workflow contract
-      Then the observation includes the field "artifactDigests"
+      Then the observation includes the field "artifacts"
 
     @skip
     Scenario: Instrument conformance is independent of the behavioral grade
       Given the independent execution emitted runtime evidence
-      And the black-box behavioral grader returned a failure
+      And the black-box oracle comparator returned a failure
       When the instrument conformance stage evaluates the runtime evidence
       Then it records its own pass, fail, or inconclusive observation
       And the behavioral failure cannot skip or author the instrument verdict
@@ -68,12 +77,12 @@ Feature: Authoritative and complete runtime evidence
       Then its profile artifacts are recorded as operator-invoked evidence
       And the profile cannot become an authoritative grade without deterministic validation
 
-    @item-01-042 @e2e
-    Scenario: Each grading cycle isolates evidence from its pinned OTel capture policy
-      Given the pinned product-oracle OCI supplies a declarative OTel capture policy
-      When an independent Gondolin grader room opens for one regeneration cycle
+    @item-01-042 @skip @gondolin
+    Scenario: Each comparison cycle isolates evidence from its pinned OTel capture policy
+      Given the sealed harness snapshot supplies a declarative OTel capture policy
+      When an independent Gondolin validator room opens for one regeneration cycle
       Then the candidate and OTel capture policy are mounted read-only
       And the candidate subject digest remains unchanged after observation
       And a fresh cycle evidence volume is the only writable grading mount
-      And the grader image supplies OBI and the OTel eBPF profiler with tracefs and BPF FS mounted
+      And the validator image supplies OBI and the OTel eBPF profiler with tracefs and BPF FS mounted
       And native OTLP traces, metrics, and profiles are cycle-scoped diagnostic evidence

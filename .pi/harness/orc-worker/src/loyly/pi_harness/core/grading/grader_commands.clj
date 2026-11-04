@@ -6,7 +6,7 @@
 
 (def gondolin-runtime
   (str gondolin-daemon
-       "; base=$(head -n 1 impl/Dockerfile); base=${base#FROM }; case \"$base\" in node:*) (cd / && tar -c bin tmp lib/ld-musl-aarch64.so.1 usr/bin/node usr/bin/dirname usr/lib/*.so*) | docker import - \"$base\" >/dev/null ;; python:*) (cd / && tar -c bin tmp lib/ld-musl-aarch64.so.1 usr/bin/env usr/bin/dirname usr/bin/python3 usr/bin/python3.12 usr/lib/python3.12 usr/lib/*.so*) | docker import - \"$base\" >/dev/null ;; *) echo \"unsupported offline base image: $base\" >&2; exit 1 ;; esac"))
+       "; base=$(head -n 1 impl/Dockerfile); base=${base#FROM }; case \"$base\" in node:*) libs=$(for executable in /bin/* /usr/bin/node /usr/bin/dirname; do ldd \"$executable\" 2>/dev/null || true; done | awk '{for (i=1;i<=NF;i++) if ($i ~ /^\\//) print substr($i,2)}' | sort -u); (cd / && tar -ch bin tmp usr/bin/node usr/bin/dirname $libs) | docker import - \"$base\" >/dev/null ;; python:*) (cd / && tar -c bin tmp lib/ld-musl-aarch64.so.1 usr/bin/env usr/bin/dirname usr/bin/python3 usr/bin/python3.12 usr/lib/python3.12 usr/lib/*.so*) | docker import - \"$base\" >/dev/null ;; *) echo \"unsupported offline base image: $base\" >&2; exit 1 ;; esac"))
 
 (defn- runtime-command [backend runtime-image-archive]
   (if (= "gondolin" backend)
@@ -38,7 +38,7 @@
 
 (defn commands
   ([mode backend] (commands mode backend {:grader-script independent-grader-script}))
-  ([mode backend {:keys [grader-script project-id item-ids runtime-image-archive]
+  ([mode backend {:keys [grader-script project-id slice item-ids runtime-image-archive]
                   :or {grader-script independent-grader-script}}]
   (case mode
     "compose"
@@ -118,6 +118,96 @@
                       "; find " runtime-root " -maxdepth 1 -type f -print -exec wc -c {} \\;")}
        {:name "independent-logs" :command (str "docker compose " independent-compose-files " logs --no-color")}
        {:name "independent-down" :command (str "docker compose " independent-compose-files " down --volumes --remove-orphans")}]))
+
+    "baseline"
+    (do
+      (when-not (= "gondolin" backend)
+        (throw (ex-info "baseline grading currently requires Gondolin" {:backend backend})))
+      (when-not (and (seq item-ids)
+                     (every? #(re-matches #"@item-[A-Za-z0-9._-]+" %) item-ids))
+        (throw (ex-info "baseline grading requires safe selected item identities"
+                        {:item-ids item-ids})))
+      (let [runtime-root "/evidence/otel/independent/baseline"
+            baseline-overlay "/tmp/pi-harness-baseline-evidence-compose.json"
+            baseline-compose-files (str compose-files " -f " baseline-overlay)
+            item-arguments (apply str (map #(str " --item " %) item-ids))
+            baseline-compose-json
+            (json/write-str
+             {:services {:app {:environment {"OTEL_FILE_EXPORT_DIR" runtime-root}}}}
+             :escape-slash false)]
+        [{:name "baseline-runtime" :command (runtime-command backend runtime-image-archive)}
+         {:name "baseline-evidence" :command evidence-compose}
+         {:name "baseline-up"
+          :command (str "echo " (pr-str baseline-compose-json) " > " baseline-overlay
+                        "; mkdir -p " runtime-root
+                        "; docker compose " baseline-compose-files
+                        " up --detach --build --wait --wait-timeout 10 app"
+                        "; container=$(docker compose " baseline-compose-files " ps -q app)"
+                        "; ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' \"$container\")"
+                        "; test -n \"$ip\"; echo http://$ip:8080 >/tmp/pi-harness-baseline-base-url")}
+         {:name "baseline-observe-start"
+          :command (str "OTEL_FILE_EXPORT_DIR=" runtime-root
+                        " nohup /usr/local/bin/otelcol-contrib --config=/etc/loyly/otel/collector.yaml"
+                        " >" runtime-root "/collector.log 2>&1 & echo $! >/tmp/pi-harness-otel-collector.pid"
+                        "; OTEL_EBPF_OPEN_PORT=8080"
+                        " OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318"
+                        " OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf"
+                        " OTEL_METRIC_EXPORT_INTERVAL=5000"
+                        " nohup /usr/local/bin/obi"
+                        " >" runtime-root "/obi.log 2>&1 & echo $! >/tmp/pi-harness-obi.pid"
+                        "; sleep 2"
+                        "; kill -0 \"$(cat /tmp/pi-harness-otel-collector.pid)\""
+                        "; kill -0 \"$(cat /tmp/pi-harness-obi.pid)\"")}
+         {:name "baseline-grade"
+          :command (str "mkdir -p /tmp/pi-harness-black-box; cd /tmp"
+                        "; mount --bind /tmp/pi-harness-black-box /workspace"
+                        "; trap 'umount /workspace' EXIT TERM INT"
+                        "; OTEL_FILE_EXPORT_DIR=" runtime-root
+                        " node /grader/grade.mjs \"$(cat /tmp/pi-harness-baseline-base-url)\""
+                        item-arguments)}
+         {:name "baseline-observe-stop"
+          :command (str "kill -INT \"$(cat /tmp/pi-harness-obi.pid)\" 2>/dev/null || true"
+                        "; sleep 2"
+                        "; kill -INT \"$(cat /tmp/pi-harness-otel-collector.pid)\" 2>/dev/null || true"
+                        "; sleep 2"
+                        "; find " runtime-root " -maxdepth 1 -type f -print -exec wc -c {} \\;")}
+         {:name "baseline-logs"
+          :command (str "docker compose " baseline-compose-files " logs --no-color")}
+         {:name "baseline-down"
+          :command (str "docker compose " baseline-compose-files
+                        " down --volumes --remove-orphans")}]))
+
+    "affordance"
+    (do
+      (when-not (= "gondolin" backend)
+        (throw (ex-info "affordance conformance currently requires Gondolin"
+                        {:backend backend})))
+      (when-not (and (re-matches #"[A-Za-z0-9._-]+" (or project-id ""))
+                     (not (#{"." ".."} project-id)))
+        (throw (ex-info "affordance conformance requires a safe project identity"
+                        {:project-id project-id})))
+      (when-not (re-matches #"[A-Za-z0-9._-]+" (or slice ""))
+        (throw (ex-info "affordance conformance requires a safe slice identity"
+                        {:slice slice})))
+      (let [base-file "/tmp/pi-harness-affordance-base-url"]
+        [{:name "affordance-runtime" :command (runtime-command backend runtime-image-archive)}
+         {:name "affordance-evidence" :command evidence-compose}
+         {:name "affordance-up"
+          :command (str "docker compose " compose-files
+                        " up --detach --build --wait --wait-timeout 10 app"
+                        "; container=$(docker compose " compose-files " ps -q app)"
+                        "; ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' \"$container\")"
+                        "; test -n \"$ip\"; echo http://$ip:8080 >" base-file)}
+         {:name "affordance-grade"
+          :command (str "mkdir -p /evidence/playwright/affordance"
+                        "; node /grader/affordance-conformance.mjs"
+                        " --contract /workspace/model/" project-id "/affordances.yaml"
+                        " --slice " slice
+                        " --base-url \"$(cat " base-file ")\""
+                        " --evidence-root /evidence/playwright/affordance")}
+         {:name "affordance-down"
+          :command (str "docker compose " compose-files
+                        " down --volumes --remove-orphans")}]))
 
     "instrument"
     (do

@@ -49,7 +49,7 @@ try {
     const requestId = `${runId}-${stack.id}`;
     const startedAt = new Date().toISOString();
     console.log(`[${runId}] regenerating whole app as ${stack.label}`);
-    const receipt = await worker.client.submit({
+    const receipt = await worker.client.submitApprovedSlice({
       requestId,
       selectionId: selection.selectionId,
       scope: ["impl"],

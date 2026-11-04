@@ -18,6 +18,20 @@ TypeScript is adapter code only. It may provide:
 TypeScript must not own workflow state, stage ordering, retries, scoring, or prompt
 construction.
 
+## Project configuration boundary
+
+Project-specific execution and build configuration lives at the repository root under
+`harness/<project-id>/` (for example, `harness/loyly/`). This is the canonical location for
+each project's VM configuration and supported-stack Dockerfiles; derive conventional paths
+from the project ID and stack instead of adding a per-project `harness.json`. Product truth
+and behavioral contracts stay under `model/<project-id>/`, and project-agnostic harness
+configuration stays under `.pi/harness/config/`. A product-oracle reference is optional before
+first generation and must not be fabricated. First generation independently grades the complete
+approved denominator and may propose its normalized successful evidence; only exact manual
+approval and immutable publication create the accepted pin used by later comparison cycles.
+Do not create a second project-config tree under `.pi/harness/config/projects/`
+or `projects/<project-id>/`.
+
 ## Domain model boundary
 
 Grain is the source of truth for Löyly's event-first application model; Allium is the source
@@ -61,23 +75,29 @@ Use strict Grain Event Model validation to reconcile declared topology with live
   independently checked during verification; unknown or mismatched stacks fail closed.
 - Generated output is persisted only from an ORC stage.
 
-## Grader lifecycle
+## Oracle evidence lifecycle
 
-- Author each new black-box grader revision in a fresh Pi/Codex session from the pinned
-  observable contract. The authoring session must not read a candidate or a previous grader.
-- Calibrate the generated grader against carried and uncarried fixtures before accepting it.
-- Package the calibrated grader programs, shared evaluator, runtime-conformance evaluator,
-  fixture server, semantics, and digests in the product OCI oracle.
-- A regeneration cycle resolves its grader only from that pinned OCI oracle and mounts the
-  extracted grader read-only in Gondolin. Never resolve graders from the project tree.
-- Reuse one accepted oracle digest across compared cycles. Generate from scratch when
-  authoring a new oracle revision, not independently inside every measured cycle.
+- The first black-box grade is authored by an independent judge from the pinned observable
+  contract and drives only the candidate's public seam. It must not read candidate source,
+  builder transcripts, prior measurements, or verifier implementation.
+- A complete passing first grade produces a normalized evidence proposal, not an accepted
+  oracle. Failed, missing, inconclusive, or non-conformant evidence cannot be promoted.
+- Promotion requires the operator to approve the exact proposal digest. An independently
+  managed publisher then creates the immutable product OCI oracle and returns its descriptor.
+- Keep raw judge sessions, normalization machinery, validators, calibration fixtures, and
+  oracle publication assets out of the product Git repository.
+- Later regeneration collects fresh evidence and compares it with the pinned promoted oracle.
+  The oracle contains approved expected evidence; probes and validators are measurement
+  machinery and are not themselves the oracle.
+- Reuse one accepted oracle digest across compared cycles. A red comparison never silently
+  records a new golden; changed expected behavior requires a new approved promotion.
 
 ## Migration rule
 
-The original Löyly harness remains the behavioral parity reference while its behavior moves
-into ORC. Do not remove or silently weaken the reference until ORC output matches it,
-including refusal, skip, timeout, and evidence behavior.
+The original Löyly harness is archived at `archive/legacy-harness/` and remains the
+behavioral parity reference while its behavior moves into ORC. Do not rewrite it as if it
+were active or silently weaken the reference until ORC output matches it, including
+refusal, skip, timeout, and evidence behavior.
 
 ## Prompt rule
 

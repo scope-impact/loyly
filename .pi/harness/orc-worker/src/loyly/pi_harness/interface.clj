@@ -5,6 +5,7 @@
    consumers should depend on this namespace, matching ORC's component style."
   (:require [loyly.pi-harness.core.worker :as worker]
             [loyly.pi-harness.workflows.cut :as cut]
+            [loyly.pi-harness.workflows.generation :as generation]
             [loyly.pi-harness.workflows.regeneration :as regeneration]))
 
 (def start-runtime! worker/start-runtime!)
@@ -13,8 +14,7 @@
 (def stop-runtime! worker/stop-runtime!)
 
 (def prepare-cut! worker/prepare-cut!)
-(def submit! worker/submit!)
-(def start-cycle! worker/start-cycle!)
+(def submit-approved-slice! worker/submit-approved-slice!)
 (def execution-status! worker/execution-status!)
 (def builder-session! worker/builder-session!)
 (def wait! worker/wait!)
@@ -24,5 +24,6 @@
 (def submit-external-prompt-candidate! worker/submit-external-prompt-candidate!)
 
 (def cut-workflow cut/workflow)
+(def generation-workflow generation/workflow)
 (def regeneration-workflow regeneration/workflow)
 (def respond! worker/respond!)

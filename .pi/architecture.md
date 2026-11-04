@@ -78,7 +78,7 @@ flowchart TB
     subject["Candidate application<br/>[External Software System]"]
 
     subgraph system["Session-hosted ORC Regeneration Harness — Software System"]
-        extension["Pi extension adapter<br/>[Container · TypeScript in Pi process]<br/>Registers tools and transports JSON requests"]
+        extension["Pi extension adapter<br/>[Container · TypeScript in Pi process]<br/>Exposes exploration tools and transports approved ORC requests"]
         worker["ORC worker<br/>[Container · Clojure process]<br/>Owns workflows and durable event facts; task receipts and prompt activation are currently in memory"]
         cutworker["Cut adapter<br/>[Container · Node process]<br/>Creates pinned fenced cuts"]
         builder["Builder adapter<br/>[Container · Node process]<br/>Runs one fresh Pi/Codex builder session"]
@@ -118,7 +118,7 @@ flowchart TB
 
 | Runtime element | C4 type | Owns | Must not own |
 |---|---|---|---|
-| Session control adapter | Container | Preparation, approval, cycle control, progress, and session-reference schemas; worker lifecycle; JSON transport | Stage ordering, retries, scoring, prompts, workflow state |
+| Session control adapter | Container | Read-only composition inspection, deterministic selection preview, approval transport, worker lifecycle, and JSON transport | ORC stage ordering, inner retries, scoring, prompts, or exploratory transcript authority |
 | ORC worker | Container | Cut, prompt, and cycle workflows; selection approval; stage gates; evidence reduction. ORC/Grain facts are durable, but task receipts and prompt activation currently are not | VM implementation or Pi UI behavior |
 | Cut adapter | Container | Physical fence, commit/tree pins, immutable cut manifest | Selecting the regeneration scope |
 | Builder adapter | Container | Fresh builder session and confined workspace tools; target session references and workspace generations | Grading, oracle, final measurement, production prompt selection |
@@ -640,7 +640,7 @@ identities and therefore remain a traceability defect outside the 41-item denomi
 | 01-021 | Implemented | Missing or non-vector GEPA example collections are refused. |
 | 01-022 | Implemented | GEPA scoring is gated by full harness calibration, requires an approved selection, runs a fresh digest-identified candidate, validates the product oracle and Compose contract, and scores the complete independent per-item measurement. |
 | 01-023 | Partial | A winner is independently selected, but activation remains only in worker memory and metric evidence is not yet sealed into a harness evidence manifest. |
-| 01-024 | Implemented | ORC runs `cut → harness-calibration → builder → instrument → oracle → verify → repair-verification → graders → instrument-conformance → record-cycle → grade-gate`; calibration must pass before candidate construction, repair is limited to three verification attempts, and grading cannot start until the effective final verification passes. |
+| 01-024 | Implemented | ORC runs `cut → harness-calibration → builder → instrument → oracle → affordance-conformance → verify → repair-verification → graders → instrument-conformance → record-cycle → grade-gate`; affordance conformance is capability-based, renderer-neutral, and non-applicable for slices not selected by the contract, calibration must pass before candidate construction, repair is limited to three verification attempts, and grading cannot start until the effective final verification passes. |
 | 01-025 | Implemented | Instrumentation rechecks the builder digest and binds a sibling evidence root without modifying the candidate. |
 | 01-026 | Partial | Product-oracle OCI validation exists, but the sharpened contract still needs E2E proof that commit, fenced tree, exact denominator, and instrument-oracle descriptor are verified before builder startup; mutable tags must never become authority. |
 | 01-027 | Merged | Removed from the denominator; read-only mounts and before/after subject-digest preservation are exercised by active `01-042`. |
@@ -693,13 +693,13 @@ identities and therefore remain a traceability defect outside the 41-item denomi
   exposes the failed verifier evidence root read-only. Grader evidence is never a repair input.
 - Generalized JSONL instrument conformance: **implemented through project-owned contracts; live Löyly coverage is `@item-01-007` and `@item-01-008`**.
 - Host isolation equivalent to Gondolin: **no**.
-- Durable cycle receipt: **yes for `start-cycle` when the caller retains ORC tick and correlation identities; legacy `submit`/`wait` remains process-local**.
+- Durable cycle receipt: **yes when the caller retains ORC tick and correlation identities; legacy numeric `submit`/`wait` receipts remain process-local internals**.
 - Durable optimized instruction: **no**.
 - Complete cycle-preparation approval: **no; selection-only approval today**.
 - Reconnect-safe progress view: **ORC tick status plus durable stage, attempt, and builder-session projection are queryable; push notifications and automatic live rendering are not yet implemented**.
 - Durable builder-session inspection and intervention: **read-only inspection is implemented; pause, steer, fork, and assisted provenance are not**.
 - Transcript/workspace generation binding: **no; completed candidate output only**.
-- Parent-cycle lineage and bounded outer continuation: **no**.
+- Parent-cycle lineage and bounded outer continuation: **not yet implemented**. The target contract requires a newly approved child preparation and Grain-recorded parent lineage.
 - Evidence projection after durable persistence: **yes for Allure and OTLP JSON invariant-result spans**; both identify the persisted evaluation and sealed evidence-manifest digest.
 - Regeneration-enforced runtime-signal contract: **generic JSONL evaluator; not OTLP**.
 - Harness-owned OBI/eBPF observer: **the grader image, mounts, and diagnostic policy are

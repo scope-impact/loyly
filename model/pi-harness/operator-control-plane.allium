@@ -10,17 +10,19 @@ enum PreparationStatus { awaiting_approval | approved }
 enum ExecutionProfile { host_development | gondolin_isolated | automatic }
 enum BuilderSessionStatus { opening | active | paused | completed | failed }
 enum InterventionKind { pause | steer | fork }
+enum ControlOracleProposalStatus { proposed | approved | published }
 
 value RequestDigest { value: String }
 value SelectionDigest { value: String }
 value PreparationDigest { value: String }
+value SelectedItemContract { identity: String, scenario_digest: String }
 
 entity ControlSelection {
     identity: String
     digest: SelectionDigest
     status: ControlSelectionStatus
     cut_identity: String
-    item_identities: List<String>
+    items: List<SelectedItemContract>
 
     transitions status {
         awaiting_approval -> approved
@@ -95,6 +97,38 @@ entity DurableMeasurementReceipt {
     complete: Boolean
 }
 
+entity ControlOracleProposal {
+    identity: String
+    digest: String
+    status: ControlOracleProposalStatus
+
+    transitions status {
+        proposed -> approved
+        approved -> published
+        terminal: published
+    }
+}
+
+rule ValidateHarnessGrainServiceArea {
+    when: StartPiHarnessGrainServiceArea(runtime)
+    requires: runtime = orc_grain_runtime()
+    requires: registered_service_area_loaded(":loyly.pi-harness")
+    requires: strict_event_model_matches_live_registries(runtime, ":loyly.pi-harness")
+    requires: every_required_allium_trace_link_resolves(":loyly.pi-harness")
+    ensures: PiHarnessControlPlaneAvailable(runtime: runtime)
+}
+
+rule DispatchApprovedPreparationToOrc {
+    when: CyclePreparationApproved(preparation)
+    requires: preparation.status = approved
+    requires: not orc_tick_dispatched_for(preparation.identity)
+    ensures: OrcGrainCommandDispatched(
+        preparation_identity: preparation.identity,
+        command_identity: deterministic_orc_command_identity(preparation),
+        preparation_digest: preparation.digest
+    )
+}
+
 rule PrepareCutTask {
     when: PrepareRegenerationCut(operator_session, request_identity, request_digest, source_commit, backend)
     requires: full_source_commit(source_commit)
@@ -113,6 +147,7 @@ rule PrepareCutTask {
 
 rule PreviewControlSelection {
     when: PreviewSliceSelection(operator_session, cut_identity, slice_identity, requested_items)
+    requires: slice_identity in valid_system_composition(cut_identity)
     let resolved_items = resolve_items_once(cut_identity, slice_identity, requested_items)
     requires: resolved_items.count > 0
     ensures: ControlSelection.created(
@@ -120,7 +155,26 @@ rule PreviewControlSelection {
         digest: deterministic_selection_digest(cut_identity, slice_identity, resolved_items),
         status: awaiting_approval,
         cut_identity: cut_identity,
-        item_identities: resolved_items
+        items: resolved_items
+    )
+}
+
+rule ProposeControlSelectionFromIntent {
+    when: ProposeSliceSelection(operator_session, cut_identity, operator_intent)
+    requires: operator_session_owns_exploratory_transcript(operator_session)
+    let proposed_scope = llm_propose_existing_slice_and_items(cut_identity, operator_intent)
+    requires: proposed_scope.belongs_to(valid_system_composition(cut_identity))
+    let resolved_items = resolve_items_once(
+        cut_identity, proposed_scope.slice_identity, proposed_scope.item_identities)
+    requires: resolved_items.count > 0
+    ensures: ControlSelection.created(
+        identity: deterministic_selection_identity(
+            cut_identity, proposed_scope.slice_identity, resolved_items),
+        digest: deterministic_selection_digest(
+            cut_identity, proposed_scope.slice_identity, resolved_items),
+        status: awaiting_approval,
+        cut_identity: cut_identity,
+        items: resolved_items
     )
 }
 
@@ -163,11 +217,20 @@ rule ApproveCyclePreparation {
     ensures: preparation.status = approved
 }
 
+rule ApproveExactOracleProposal {
+    when: ApproveOracleProposal(operator_session, proposal, supplied_digest)
+    requires: proposal.status = proposed
+    requires: supplied_digest = proposal.digest
+    ensures: proposal.status = approved
+    ensures: ImmutableProductOraclePublicationRequested(proposal: proposal)
+}
+
 rule SubmitCycleTask {
     when: SubmitRegenerationCycle(operator_session, request_identity, request_digest,
                                   preparation, parent_cycle_identity)
     requires: preparation.status = approved
-    requires: preparation.selection.item_identities.count > 0
+    requires: fixed_bounded_execution_contract(preparation)
+    requires: preparation.selection.items.count > 0
     requires: not exists HarnessTask{request_identity: request_identity}
     ensures: HarnessTask.created(
         identity: next_task_identity(),
@@ -229,7 +292,7 @@ rule ReadDurableMeasurement {
 }
 
 rule ProjectCycleProgress {
-    when: OrcExecutionStateObserved(task, stage, status, builder_session_identity, durable_cursor)
+    when: OrcExecutionEventProjected(task, stage, status, builder_session_identity, durable_cursor)
     requires: task.kind = regeneration_cycle
     requires: task.trace_identity != null
     ensures: CycleProgressProjected(
@@ -240,6 +303,12 @@ rule ProjectCycleProgress {
         builder_session_identity: builder_session_identity,
         durable_cursor: durable_cursor
     )
+}
+
+invariant HarnessDoesNotDuplicateOrcExecutionFacts {
+    for progress in CycleProgressViews:
+        projection_source(progress) = authoritative_orc_sheet_events(progress.trace_identity) and
+        not exists HarnessProgressEvent{cycle_identity: progress.cycle_identity}
 }
 
 rule ReadCycleProgress {
@@ -343,12 +412,14 @@ surface RegenerationControlPlane {
 
     provides:
         PrepareRegenerationCut(operator_session, request_identity, request_digest, source_commit, backend)
+        ProposeSliceSelection(operator_session, cut_identity, operator_intent)
         PreviewSliceSelection(operator_session, cut_identity, slice_identity, requested_items)
         ApproveSliceSelection(operator_session, selection, supplied_digest)
         PrepareRegenerationCycle(operator_session, preparation_identity, selection,
                                  candidate_scope, target_stack, execution_profile,
                                  cut_digest, oracle_digest, diagram_digest, max_outer_cycles)
         ApprovePreparedCycle(operator_session, preparation, supplied_digest)
+        ApproveOracleProposal(operator_session, proposal, supplied_digest)
         SubmitRegenerationCycle(operator_session, request_identity, request_digest,
                                 preparation, parent_cycle_identity)
         WaitRegenerationTask(operator_session, task)
@@ -366,6 +437,15 @@ surface RegenerationControlPlane {
 
     @guarantee SessionAgnosticControl
         -- ORC cycle state outlives the Codex, Pi, or other operator session that requested it.
+
+    @guarantee ExploratorySessionOwnership
+        -- Skills, dynamic tools, branching, and human steering remain in the operator session.
+
+    @guarantee ImmutableHandoff
+        -- Only the approved preparation crosses into ORC; the exploratory transcript never becomes builder input.
+
+    @guarantee FixedContractOwnership
+        -- ORC owns bounded prompt execution, constrained tools, retries, termination, grading, and measurement.
 
     @guarantee ObservableNotAuthoritative
         -- Live notifications and builder-session views aid operators but never advance ORC state.

@@ -9,21 +9,35 @@ export type CycleRequest = {
   executionBackend: "host" | "gondolin";
 };
 
-export type DurableCycleRequest = Omit<CycleRequest, "requestId"> & {
-  cycleId: string;
-  tickId: string;
-  correlationId: string;
+export type BuilderInstructionPurpose = "fresh-generation" | "verification-repair";
+
+export type PromptOptimizationRequest = {
+  purpose: BuilderInstructionPurpose;
+  reflectionProvider: "bedrock";
+  reflectionModel: string;
+  trainset: unknown[];
+  valset: unknown[];
 };
 
-export type DurableCycleReceipt = {
-  cycleId: string;
-  tickId: string;
-  correlationId: string;
-  sheetId: string;
-  status: string;
+export type ExternalPromptOptimizationRequest = {
+  purpose: BuilderInstructionPurpose;
+  trainset: unknown[];
+  valset: unknown[];
 };
 
-export type CycleReceipt = { cycleId: string; taskId: number };
+export type CutReceipt = { cutId: string; taskId: number; executionBackend: "host" | "gondolin" };
+
+export type OperationReceipt = {
+  operation: "fresh-generation" | "measured-regeneration";
+  operationId: string;
+  selectionId: string;
+  parentCandidateId?: string;
+  tickId: string;
+  correlationId: string;
+  taskId: number;
+  targetStack: string;
+  executionBackend: "host" | "gondolin";
+};
 export type CycleOutcome = {
   status: "completed" | "failed";
   result?: unknown;
@@ -46,6 +60,22 @@ export type BuilderSessionView = {
   toolCalls: number;
   workspaceGeneration: readonly string[];
   progress: { stage: string; attempt: number };
+};
+
+export type OracleProposal = {
+  "proposal-id": string;
+  "proposal-digest": string;
+  "generation-id": string;
+  "selection-id": string;
+  "selection-digest": string;
+  "scenario-digests": readonly string[];
+  "subject-digest": string;
+  "judge-id": string;
+  denominator: number;
+  "normalized-evidence-digest": string;
+  status: "proposed" | "approved" | "published";
+  "approved-by"?: string;
+  "descriptor-digest"?: string;
 };
 
 export type WorkflowContract = {
@@ -73,20 +103,24 @@ export class OrcClient {
     this.invokeRequest = invoke;
   }
 
-  prepareCut(sourceCommit: string, executionBackend: "host" | "gondolin"): Promise<CycleReceipt> {
-    return this.invoke("prepare-cut", { sourceCommit, executionBackend }) as Promise<CycleReceipt>;
+  prepareCut(sourceCommit: string, executionBackend: "host" | "gondolin"): Promise<CutReceipt> {
+    return this.invoke("prepare-cut", { sourceCommit, executionBackend }) as Promise<CutReceipt>;
   }
 
-  optimizePrompt(trainset: unknown[], valset: unknown[]): Promise<unknown> {
-    return this.invoke("optimize-prompt", { trainset, valset });
+  optimizePrompt(request: PromptOptimizationRequest): Promise<unknown> {
+    return this.invoke("optimize-prompt", request);
   }
 
-  startExternalPromptOptimization(trainset: unknown[], valset: unknown[]): Promise<any> {
-    return this.invoke("start-external-prompt-optimization", { trainset, valset });
+  startExternalPromptOptimization(request: ExternalPromptOptimizationRequest): Promise<any> {
+    return this.invoke("start-external-prompt-optimization", request);
   }
 
   submitExternalPromptCandidate(optimizationId: string, prompt: string, proposer: string): Promise<any> {
     return this.invoke("submit-external-prompt-candidate", { optimizationId, prompt, proposer });
+  }
+
+  sliceComposition(cut: string): Promise<any> {
+    return this.invoke("slice-composition", { cut });
   }
 
   previewSelection(cut: string, slice: string, itemIds?: string[]): Promise<any> {
@@ -97,12 +131,16 @@ export class OrcClient {
     return this.invoke("approve-selection", { selectionId, selectionDigest });
   }
 
-  submit(request: CycleRequest): Promise<CycleReceipt> {
-    return this.invoke("submit", request) as Promise<CycleReceipt>;
+  oracleProposal(proposalId: string): Promise<OracleProposal | null> {
+    return this.invoke("oracle-proposal", { proposalId }) as Promise<OracleProposal | null>;
   }
 
-  startCycle(request: DurableCycleRequest): Promise<DurableCycleReceipt> {
-    return this.invoke("start-cycle", request) as Promise<DurableCycleReceipt>;
+  approveOracleProposal(proposalId: string, proposalDigest: string, approvedBy: string): Promise<OracleProposal> {
+    return this.invoke("approve-oracle-proposal", { proposalId, proposalDigest, approvedBy }) as Promise<OracleProposal>;
+  }
+
+  submitApprovedSlice(request: CycleRequest): Promise<OperationReceipt> {
+    return this.invoke("submit-approved-slice", request) as Promise<OperationReceipt>;
   }
 
   wait(taskId: number): Promise<CycleOutcome> {

@@ -1,0 +1,35 @@
+# Platform container-postgres: the candidate's own HTTP server is the public seam (app:8080),
+# backed by a Postgres sidecar. No host ports are published.
+services:
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 1s
+      retries: 120
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "app"]
+      interval: 1s
+      retries: 60
+
+  test:
+    image: pi-harness/node22-postgres:platform
+    entrypoint: ["node", "/probe/test.mjs"]
+    environment:
+      BASE_URL: http://app:8080
+    volumes:
+      - ../../probe-test.mjs:/probe/test.mjs:ro
+    depends_on:
+      app:
+        condition: service_healthy

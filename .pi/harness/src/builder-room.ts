@@ -6,7 +6,7 @@ import { ReadonlyProvider, RealFSProvider, ShadowProvider, VM } from "./gondolin
 import { execOnHost } from "./host-exec.ts";
 
 export type BuilderRoom = {
-  exec(command: string, options?: { signal?: AbortSignal }): Promise<{ exitCode: number; stdout: string; stderr: string }>;
+  exec(command: string, options?: { signal?: AbortSignal; timeout?: number }): Promise<{ exitCode: number; stdout: string; stderr: string }>;
   workspaceRoot: string;
   close(): Promise<void>;
 };
@@ -44,7 +44,7 @@ export async function openBuilderRoom(options: {
     return {
       workspaceRoot,
       exec: (command, execOptions) => execOnHost(command, workspaceRoot, {
-        ...execOptions,
+        signal: combinedSignal(execOptions?.signal, execOptions?.timeout),
         env: {
           ...process.env,
           HARNESS_CUT_ROOT: cutRoot,
@@ -67,7 +67,7 @@ export async function openBuilderRoom(options: {
   });
   const createVm = options.createVm ?? (VM.create as unknown as typeof options.createVm);
   if (!createVm) throw new Error("Gondolin VM factory is unavailable");
-  const assetsRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../config/assets");
+  const assetsRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../.state/assets");
   const targetStack = options.targetStack ?? "typescript";
   const imageDirectory = builderImageDirectory(targetStack);
   const runtimeEnvironment = builderRuntimeEnvironment(targetStack);
@@ -87,14 +87,35 @@ export async function openBuilderRoom(options: {
   });
   return {
     exec: (command, execOptions) => vm.exec(
-      `export HARNESS_CUT_ROOT=/cut HARNESS_WORKSPACE_ROOT=/workspace${evidenceRoot ? " HARNESS_VERIFICATION_EVIDENCE_ROOT=/evidence" : ""} ${runtimeEnvironment}; ${command}`,
-      execOptions,
+      `export HARNESS_CUT_ROOT=/cut HARNESS_WORKSPACE_ROOT=/workspace${evidenceRoot ? " HARNESS_VERIFICATION_EVIDENCE_ROOT=/evidence" : ""} ${runtimeEnvironment}; ${commandWithTimeout(command, execOptions?.timeout)}`,
+      { signal: execOptions?.signal },
     ),
     workspaceRoot,
     async close() {
       try { await vm.close(); } finally { await rm(workspaceRoot, { recursive: true, force: true }); }
     },
   };
+}
+
+export function commandWithTimeout(command: string, timeout?: number): string {
+  if (timeout === undefined) return command;
+  if (!Number.isFinite(timeout) || timeout <= 0) {
+    throw new Error("invalid builder command timeout");
+  }
+  return `timeout -s TERM ${timeout}s /bin/sh -lc ${shellQuote(command)}`;
+}
+
+function combinedSignal(signal?: AbortSignal, timeout?: number): AbortSignal | undefined {
+  if (timeout === undefined) return signal;
+  if (!Number.isFinite(timeout) || timeout <= 0) {
+    throw new Error("invalid builder command timeout");
+  }
+  const timeoutSignal = AbortSignal.timeout(timeout * 1000);
+  return signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
 function builderRuntimeEnvironment(targetStack: string): string {

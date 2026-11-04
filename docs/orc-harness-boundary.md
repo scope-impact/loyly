@@ -9,7 +9,9 @@ execution or evaluation boundaries.
 ## Decision
 
 Use ORC as the primary workflow engine. Keep Gondolin as the physical isolation boundary,
-Pi/Codex as the builder intelligence, and the independent black-box grader as the behavioral boundary. The legacy shell harness is no longer a runtime dependency.
+Pi/Codex as the builder intelligence, and the independent black-box grader as the behavioral
+boundary. The legacy shell harness is no longer a runtime dependency and is preserved at
+`archive/legacy-harness/` only for migration evidence and behavioral-parity comparison.
 
 ```text
 ORC workflow

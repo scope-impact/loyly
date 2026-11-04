@@ -5,7 +5,11 @@
             [loyly.pi-harness.core.evidence.evidence-projection-test]
             [loyly.pi-harness.core.grading.compose-backend-test]
             [loyly.pi-harness.grain.cycle-progress-test]
+            [loyly.pi-harness.grain.cycle-preparation-test]
+            [loyly.pi-harness.grain.event-model-test]
             [loyly.pi-harness.grain.cycle-measurement-test]
+            [loyly.pi-harness.grain.candidate-lineage-test]
+            [loyly.pi-harness.grain.oracle-proposal-test]
             [loyly.pi-harness.entrypoint-test]
             [loyly.pi-harness.core.oracle.harness-calibration-test]
             [loyly.pi-harness.core.grading.independent-grader-test]
@@ -17,6 +21,7 @@
             [loyly.pi-harness.orc-worker-test]
             [loyly.pi-harness.core.build.prompt-evaluation-test]
             [loyly.pi-harness.grain.selection-test]
+            [loyly.pi-harness.grain.start-approved-cycle-test]
             [loyly.pi-harness.core.selection.slice-selection-test]))
 
 (def test-namespaces
@@ -25,7 +30,11 @@
     loyly.pi-harness.core.evidence.evidence-projection-test
     loyly.pi-harness.core.grading.compose-backend-test
     loyly.pi-harness.grain.cycle-progress-test
+    loyly.pi-harness.grain.cycle-preparation-test
+    loyly.pi-harness.grain.event-model-test
     loyly.pi-harness.grain.cycle-measurement-test
+    loyly.pi-harness.grain.candidate-lineage-test
+    loyly.pi-harness.grain.oracle-proposal-test
     loyly.pi-harness.entrypoint-test
     loyly.pi-harness.core.oracle.harness-calibration-test
     loyly.pi-harness.core.grading.independent-grader-test
@@ -37,6 +46,7 @@
     loyly.pi-harness.orc-worker-test
     loyly.pi-harness.core.build.prompt-evaluation-test
     loyly.pi-harness.grain.selection-test
+    loyly.pi-harness.grain.start-approved-cycle-test
     loyly.pi-harness.core.selection.slice-selection-test])
 
 (defn -main [& _]

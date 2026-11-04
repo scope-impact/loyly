@@ -8,10 +8,10 @@
     "krunfwVersion": "v5.2.1"
   },
   "oci": {
-    "image": "rust:1.91-alpine",
+    "image": "pi-harness/builder-rust:oci",
     "runtime": "docker",
     "platform": "linux/arm64",
     "pullPolicy": "never"
   },
-  "rootfs": {"label": "loyly-builder-rust"}
+  "rootfs": {"label": "pi-harness-builder-rust"}
 }

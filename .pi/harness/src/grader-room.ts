@@ -62,14 +62,17 @@ export async function openGraderRoom(options: {
 
   const createVm = options.createVm ?? (VM.create as unknown as typeof options.createVm);
   if (!createVm) throw new Error("Gondolin VM factory is unavailable");
-  if (!options.graderAssetsRoot) throw new Error("OCI oracle grader assets are required");
-  const graderAssetsRoot = await realpath(options.graderAssetsRoot);
+  const graderAssetsRoot = options.graderAssetsRoot
+    ? await realpath(options.graderAssetsRoot)
+    : undefined;
   const runtimeImagesRoot = options.runtimeImagesRoot
     ? await realpath(options.runtimeImagesRoot)
     : undefined;
   const mounts = {
     "/workspace": new ReadonlyProvider(new RealFSProvider(candidateRoot)),
-    "/grader": new ReadonlyProvider(new RealFSProvider(graderAssetsRoot)),
+    ...(graderAssetsRoot
+      ? { "/grader": new ReadonlyProvider(new RealFSProvider(graderAssetsRoot)) }
+      : {}),
     "/evidence": new RealFSProvider(evidenceRoot),
     ...(observabilityAssetsRoot
       ? { "/observability": new ReadonlyProvider(new RealFSProvider(observabilityAssetsRoot)) }
@@ -88,7 +91,7 @@ export async function openGraderRoom(options: {
     vfs: { mounts },
     sandbox: {
       imagePath: process.env.PI_HARNESS_GRADER_IMAGE ?? process.env.LOYLEY_GRADER_IMAGE
-        ?? path.resolve(path.dirname(new URL(import.meta.url).pathname), "../config/assets/grader"),
+        ?? path.resolve(path.dirname(new URL(import.meta.url).pathname), "../.state/assets/grader"),
     },
   });
   return {

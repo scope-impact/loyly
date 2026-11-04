@@ -1,13 +1,13 @@
 (ns loyly.pi-harness.core.oracle.harness-calibration
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
-            [loyly.pi-harness.core.oracle.instrument-oracle :as instrument-oracle]))
+            [loyly.pi-harness.core.oracle.harness-snapshot :as harness-snapshot]))
 
 (def required-components
   #{"accepted-contract-eligibility"
     "allure-evidence-projection"
     "allure-golden-normalizer"
-    "application-contract"
+    "production-prompt-renderer"
     "black-box-grader"
     "builder-room"
     "candidate-subject-seal"
@@ -18,17 +18,16 @@
     "evidence-manifest"
     "execution-room"
     "grader-evidence-interpreter"
-    "instrument-oracle-loader"
+    "harness-snapshot-builder"
     "observation-persistence"
     "prompt-optimizer"
     "runtime-conformance-evaluator"
     "selection-contract"
     "workflow-orchestrator"})
 
-(def required-instrument-ids #{"full-pi-harness"})
-
 (defn validate-component-coverage! [pack]
-  (let [actual (->> (:instruments pack) (mapcat :components) set)
+  (let [actual (set (or (:components pack)
+                        (->> (:instruments pack) (mapcat :components))))
         missing (sort (remove actual required-components))]
     (when (seq missing)
       (throw (ex-info (str "instrument oracle is missing calibrated harness components: "
@@ -49,7 +48,7 @@
      :attachments []}))
 
 (defn evaluate [pack fixture-results]
-  (instrument-oracle/validate! pack required-instrument-ids)
+  (when (:manifest-digest pack) (harness-snapshot/validate! pack))
   (validate-component-coverage! pack)
   (let [expected-by-fixture (into {}
                                   (map (fn [golden]
@@ -106,13 +105,13 @@
      :suites {:clojure-worker clojure-result
               :node-adapters node-result}}))
 
-(defn calibrate! [project-root pack-ref]
-  (let [pack (-> (instrument-oracle/resolve-pack pack-ref)
-                 (instrument-oracle/validate! required-instrument-ids)
-                 validate-component-coverage!
-                 (instrument-oracle/verify-instrument-files! project-root))
+(defn calibrate! [project-root]
+  (let [pack (-> (harness-snapshot/build! project-root)
+                 harness-snapshot/validate!
+                 validate-component-coverage!)
         suites (run-suites project-root (:fixtures pack))
         evaluation (evaluate pack (:fixture-results suites))]
     (assoc evaluation
-           :oracle-digest (:digest pack)
+           :harness-revision (:harness-revision pack)
+           :harness-snapshot-digest (:manifest-digest pack)
            :suites (:suites suites))))

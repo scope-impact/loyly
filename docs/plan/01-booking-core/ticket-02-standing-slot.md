@@ -1,4 +1,4 @@
-# Ticket 02: Standing slot lifecycle and the derived views
+# Ticket 02: Standing slot lifecycle
 
 Slice: `01-booking-core` (`plan.md`)
 Status: OPEN
@@ -12,10 +12,9 @@ the holder beyond that it is held). A household holding one slot can gain a seco
 while free slots remain, and is refused when none do. A household can give up a slot
 it holds.
 
-The whole vertical for these behaviours, including the three derived views: the
-posted slot list, the heater schedule and the invoicing signal are read models over
-the booking record. Confirming or giving up a slot changes the record once, and all
-three views follow, because none of them stores its own copy (decision D5).
+This ticket owns the booking lifecycle. Cross-projection consistency for the posted
+list, heater schedule, and invoicing signal is accepted separately by slice
+`02-projection-integrity`.
 
 ## Acceptance criteria
 
@@ -26,8 +25,6 @@ From `spec.feature`:
 - "A held slot cannot be confirmed for another household"
 - "A second standing slot is granted while there is room"
 - "A second standing slot is refused when the schedule is full"
-- "Confirming a booking updates all three derived views together"
-- "Giving up a slot leaves no derived view still claiming it"
 
 Constraints from `docs/wow/invariants.md`:
 

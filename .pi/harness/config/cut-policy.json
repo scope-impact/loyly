@@ -1,4 +1,4 @@
 {
   "version": 1,
-  "fencedPaths": ["impl", "harness/cycles"]
+  "fencedPaths": ["impl", "archive/legacy-harness/cycles"]
 }

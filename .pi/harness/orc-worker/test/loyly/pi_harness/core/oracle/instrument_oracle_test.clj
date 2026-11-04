@@ -12,6 +12,69 @@
    ["black-box--carried.golden.json" "application/vnd.loyly.allure-golden.v1+json"]
    ["black-box--uncarried.golden.json" "application/vnd.loyly.allure-golden.v1+json"]])
 
+(defn- instrument-layer [title media-type]
+  {:mediaType media-type
+   :digest (str "sha256:" (apply str (repeat 64 "a")))
+   :size 1
+   :annotations {:org.opencontainers.image.title title}})
+
+(deftest registry-artifact-resolves-an-instrument-oracle
+  (let [pack-ref (str "ghcr.io/scope-impact/loyly/instrument-oracle@sha256:"
+                      (apply str (repeat 64 "b")))
+        layers (mapv (fn [[title media-type]] (instrument-layer title media-type)) layer-files)
+        descriptor {:digest (str "sha256:" (apply str (repeat 64 "b")))}
+        manifest {:artifactType instrument-oracle/artifact-type :layers layers}]
+    (with-redefs [shell/sh
+                  (fn [& arguments]
+                    (let [arguments (vec arguments)]
+                      (cond
+                        (some #{"--oci-layout"} arguments)
+                        {:exit 1 :out "" :err "registry reference used local OCI layout mode"}
+
+                        (= "--descriptor" (last arguments))
+                        {:exit 0 :out (json/write-str descriptor) :err ""}
+
+                        (= "manifest" (second arguments))
+                        {:exit 0 :out (json/write-str manifest) :err ""}
+
+                        (= "pull" (second arguments))
+                        (let [output-index (.indexOf arguments "--output")
+                              output (io/file (get arguments (inc output-index)))
+                              contents {"policy.json"
+                                        {:version 1 :minimumFixturesPerInstrument 2}
+                                        "instruments.json"
+                                        {:instruments [{:id "black-box"
+                                                        :digest (str "sha256:"
+                                                                     (apply str (repeat 64 "a")))}]}
+                                        "fixtures.json"
+                                        {:fixtures [{:id "known-carried" :instrumentId "black-box"
+                                                     :role "carried"}
+                                                    {:id "known-uncarried" :instrumentId "black-box"
+                                                     :role "uncarried"}]}
+                                        "black-box--carried.golden.json"
+                                        {:schemaVersion 1 :name "known-carried"
+                                         :fullName "black-box.known-carried" :status "passed"
+                                         :stage "finished"
+                                         :labels {:instrument_id "black-box"
+                                                  :fixture_id "known-carried"}
+                                         :parameters [] :attachments []}
+                                        "black-box--uncarried.golden.json"
+                                        {:schemaVersion 1 :name "known-uncarried"
+                                         :fullName "black-box.known-uncarried" :status "passed"
+                                         :stage "finished"
+                                         :labels {:instrument_id "black-box"
+                                                  :fixture_id "known-uncarried"}
+                                         :parameters [] :attachments []}}]
+                          (doseq [[title content] contents]
+                            (spit (io/file output title) (json/write-str content)))
+                          {:exit 0 :out "" :err ""})
+
+                        :else
+                        {:exit 1 :out "" :err (str "unexpected ORAS arguments " arguments)})))]
+      (let [oracle (instrument-oracle/resolve-pack pack-ref)]
+        (is (= (:digest descriptor) (:digest oracle)))
+        (is (= "black-box" (get-in oracle [:instruments 0 :id])))))))
+
 (deftest oras-artifact-resolves-an-instrument-oracle-with-allure-goldens
   (let [root (.toFile (java.nio.file.Files/createTempDirectory
                        "loyly-instrument-oracle-"
