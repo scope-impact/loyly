@@ -64,3 +64,9 @@ submit. It now names the slice path ("An unapproved partial selection cannot sta
 cycle"), and `rpc.yaml` states that `submit-cycle` regenerates the whole plan as its approved
 selection. That is wording replaced, a recorded reason; the golden's diff is that one name line.
 The approved grader does not cover `01-007`, so it stays approved.
+
+**2026-11-05: the spec grew.** Cycle 08's nine slice builders stopped after 6 to 26 tool calls
+each, leaving most of their slices listed in `UNCARRIED.md`. `@item-02-014` was appended to the
+end of slice 02: ORC continues a slice builder's session, at most three times, while it lists
+its own slice's items uncarried. The golden's diff is additions plus the one `total` line
+(82 → 83). No approved grader's scenarios changed, so all three stay approved.

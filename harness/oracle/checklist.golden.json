@@ -169,6 +169,12 @@
    "source": ".pi/model/plan/02-execution-pipeline/spec.feature:135"
   },
   {
+   "id": "02-014",
+   "name": "A slice builder continues while it lists its own slice's items uncarried",
+   "rule": "The first regenerate attempt builds one slice at a time",
+   "source": ".pi/model/plan/02-execution-pipeline/spec.feature:143"
+  },
+  {
    "id": "03-001",
    "name": "The checklist is one item per stamped scenario of the approved selection",
    "rule": "The checklist is derived from the spec and its denominator never drifts",
@@ -494,6 +500,6 @@
   }
  ],
  "counts": {
-  "total": 82
+  "total": 83
  }
 }

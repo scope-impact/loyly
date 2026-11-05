@@ -375,6 +375,12 @@ surface RegenerationCycleExecution {
         -- The first regenerate attempt runs one fresh builder per selected slice in plan order;
         -- each sees the clean room and this cycle's candidate so far, and nothing else.
 
+    @guarantee BoundedSliceContinuation
+        -- A slice builder whose turn ends while its own UNCARRIED.md names items of its slice is
+        -- continued in the same session, naming only those items, at most three times; a
+        -- continuation that leaves the candidate unchanged ends it. The listing is the builder's
+        -- claim, never a verdict.
+
     @guarantee PhysicalFence
         -- The clean room is a single-commit clone in which every fenced path is absent from the
         -- working tree and the object graph, proved before any builder starts.
