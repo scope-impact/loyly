@@ -47,3 +47,8 @@ identity over the stdio seam instead of an HTTP page, so its name changed; that 
 change to what the spec requires, not an instrument change. Five items were added
 (`@item-02-011`, `@item-09-001` to `@item-09-004`). The golden's diff removes only that one
 name line and the `total` line (75 → 80).
+
+**2026-11-05: the first scored cycle.** Cycle 01 (`harness-regen-5`) was scored by the approved
+grader `sha256:b9db122a…` (7 items, calibrated carried/uncarried): 6/80 pass, 73 unreached and
+recorded as fail. `harness/oracle.sh record` recorded `oracle/scoreboard-01.golden` for it; the
+checklist golden did not move.
