@@ -2,36 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { OrcClient, spawnOrcClient } from "../src/orc-client.ts";
 
-test("Pi/Codex proposals cross only the ORC external-proposer boundary", async () => {
-  const calls = [];
-  const client = new OrcClient(async (method, params) => {
-    calls.push({ method, params });
-    return { status: "running" };
-  });
-
-  await client.startExternalPromptOptimization({
-    purpose: "fresh-generation",
-    trainset: [{ task: "train" }],
-    valset: [{ task: "validate" }],
-  });
-  await client.submitExternalPromptCandidate("optimization-1", "improved prompt", "pi-codex");
-
-  assert.deepEqual(calls, [
-    {
-      method: "start-external-prompt-optimization",
-      params: {
-        purpose: "fresh-generation",
-        trainset: [{ task: "train" }],
-        valset: [{ task: "validate" }],
-      },
-    },
-    {
-      method: "submit-external-prompt-candidate",
-      params: { optimizationId: "optimization-1", prompt: "improved prompt", proposer: "pi-codex" },
-    },
-  ]);
-});
-
 test("GEPA optimization pins a purpose and Bedrock reflection model", async () => {
   const calls = [];
   const client = new OrcClient(async (method, params) => {

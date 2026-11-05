@@ -10,7 +10,6 @@
             [loyly.pi-harness.grain.event-model-test]
             [loyly.pi-harness.grain.cycle-measurement-test]
             [loyly.pi-harness.grain.candidate-lineage-test]
-            [loyly.pi-harness.grain.oracle-proposal-test]
             [loyly.pi-harness.entrypoint-test]
             [loyly.pi-harness.core.oracle.harness-calibration-test]
             [loyly.pi-harness.core.legacy-cycle-test]
@@ -37,7 +36,6 @@
     loyly.pi-harness.grain.event-model-test
     loyly.pi-harness.grain.cycle-measurement-test
     loyly.pi-harness.grain.candidate-lineage-test
-    loyly.pi-harness.grain.oracle-proposal-test
     loyly.pi-harness.entrypoint-test
     loyly.pi-harness.core.oracle.harness-calibration-test
     loyly.pi-harness.core.legacy-cycle-test

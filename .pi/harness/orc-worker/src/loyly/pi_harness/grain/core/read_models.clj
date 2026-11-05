@@ -18,10 +18,6 @@
     :sheet/tree-tick-completed
     :sheet/tick-cancelled})
 (def candidate-event-types #{:loyly.pi-harness/generated-candidate-recorded})
-(def oracle-proposal-event-types
-  #{:loyly.pi-harness/oracle-proposal-recorded
-    :loyly.pi-harness/oracle-proposal-approved
-    :loyly.pi-harness/product-oracle-accepted})
 (def operation-route-event-types #{:loyly.pi-harness/approved-slice-operation-routed})
 (def task-receipt-event-types #{:loyly.pi-harness/task-receipt-issued})
 (def task-receipt-keys [:task-id :tick-id :cycle-id])
@@ -54,11 +50,6 @@
   [:candidate-id :project-id :container-id :component-id :operation :parent-candidate-id :selection-id
    :cut :output-root :subject-digest :disposition :oracle-descriptor-digest])
 
-(def oracle-proposal-keys
-  [:proposal-id :proposal-digest :generation-id :selection-id :selection-digest
-   :scenario-digests :subject-digest :judge-id :denominator
-   :normalized-evidence-digest :status :approved-by :descriptor-digest :published-at])
-
 (def operation-route-keys
   [:request-id :request-digest :project-id :container-id :component-id :selection-id
    :operation :parent-candidate-id :parent-candidate-root :parent-candidate-digest])
@@ -72,7 +63,6 @@
 (defn measurement-tag [cycle-id] (uuid-tag :cycle-measurement cycle-id))
 (defn progress-tag [tick-id] [:tick (java.util.UUID/fromString (str tick-id))])
 (defn candidate-tag [candidate-id] (uuid-tag :generated-candidate candidate-id))
-(defn oracle-proposal-tag [proposal-id] (uuid-tag :oracle-proposal proposal-id))
 (defn operation-route-tag [request-id] (uuid-tag :approved-slice-operation request-id))
 (defn task-receipt-tag [task-id] (uuid-tag :task-receipt (str task-id)))
 (def all-task-receipts-tag (uuid-tag :task-receipts "all"))
@@ -169,22 +159,6 @@
   [state event]
   (candidates-reducer state event))
 
-(defn oracle-proposal-reducer [proposal event]
-  (case (:event/type event)
-    :loyly.pi-harness/oracle-proposal-recorded (select-keys event oracle-proposal-keys)
-    :loyly.pi-harness/oracle-proposal-approved
-    (when proposal (assoc proposal :status "approved" :approved-by (:approved-by event)))
-    :loyly.pi-harness/product-oracle-accepted
-    (when proposal (merge proposal
-                          (select-keys event [:descriptor-digest :approved-by :published-at])
-                          {:status "published"}))
-    proposal))
-
-(defreadmodel :loyly.pi-harness oracle-proposals
-  {:events oracle-proposal-event-types :version 1}
-  [state event]
-  (oracle-proposal-reducer state event))
-
 (defreadmodel :loyly.pi-harness task-receipts
   {:events task-receipt-event-types :version 1}
   [state event]
@@ -256,12 +230,6 @@
 
 (defn find-latest-candidate [context project-id container-id component-id]
   (last (find-component-candidates context project-id container-id component-id)))
-
-(defn find-oracle-proposal [context proposal-id]
-  (let [tags #{(oracle-proposal-tag proposal-id)}]
-    (if (:cache context)
-      (not-empty (rmp/project context :loyly.pi-harness/oracle-proposals {:tags tags}))
-      (direct-project context tags oracle-proposal-reducer nil))))
 
 (defn find-task-receipt [context task-id]
   (let [tags #{(task-receipt-tag task-id)}]

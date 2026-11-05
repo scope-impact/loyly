@@ -422,20 +422,7 @@
                                     :passed true :total 1 :passed-count 1
                                     :items [{:item-id "@item-01-007" :verdict "pass"
                                              :evidence "observed" :graded? true}]
-                                    :observations [] :evidence "{}"})
-                                 worker/propose-oracle!
-                                 (fn [_]
-                                   {:proposal-id "proposal-1"
-                                    :proposal-digest "sha256:proposal"
-                                    :generation-id "generation-1"
-                                    :selection-id "selection-1"
-                                    :selection-digest "digest-1"
-                                    :scenario-digests ["sha256:booking-scenario"]
-                                    :subject-digest "generation-subject"
-                                    :judge-id "sha256:judge"
-                                    :denominator 1
-                                    :normalized-evidence-digest "sha256:evidence"
-                                    :status "proposed"})]
+                                    :observations [] :evidence "{}"})]
                      (orc/execute context sheet-id
                                   {:request-id "generation-1"
                                    :route "fresh-generation"
@@ -448,29 +435,10 @@
         (is (= "cycle-oracle" (get-in outputs [:oracle-result :kind])))
         (is (= "oracle" (get-in outputs [:oracle-result :stage])))
         (is (true? (get-in outputs [:repair-evaluation-result :applicable])))
-        (is (= "proposed" (get-in outputs [:conclude-result :oracle-proposal :status])))
-        (is (not (contains? (:conclude-result outputs) :gate)))
-        (is (= "sha256:evidence"
-               (get-in outputs [:conclude-result :oracle-proposal
-                                :normalized-evidence-digest]))))
+        (is (true? (get-in outputs [:conclude-result :passed])))
+        (is (not (contains? (:conclude-result outputs) :gate))))
       (finally
         (system/stop! runtime)))))
-
-(deftest incomplete-first-grade-cannot-propose-an-oracle
-  (is (thrown-with-msg?
-       clojure.lang.ExceptionInfo
-       #"first black-box grade did not completely pass"
-       (worker/propose-oracle!
-        {:inputs {:request-id "generation-failed"
-                  :selection approved-selection
-                  :scope ["impl"]
-                  :execution-backend "gondolin"
-                  :builder-result {:output-root "/tmp/failed"
-                                   :subject-digest "failed-subject"}
-                  :grade-result
-                  {:passed false
-                   :measurement {:total 1 :passed 0 :failed 1}}
-                  :instrument-conformance-result {:passed true}}}))))
 
 (deftest baseline-grade-authors-and-calibrates-a-fenced-grader-without-candidate-access
   (let [root (.toFile (java.nio.file.Files/createTempDirectory

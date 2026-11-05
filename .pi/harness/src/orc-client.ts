@@ -19,12 +19,6 @@ export type PromptOptimizationRequest = {
   valset: unknown[];
 };
 
-export type ExternalPromptOptimizationRequest = {
-  purpose: BuilderInstructionPurpose;
-  trainset: unknown[];
-  valset: unknown[];
-};
-
 export type CutReceipt = { cutId: string; taskId: number; executionBackend: "host" | "gondolin" };
 
 export type OperationReceipt = {
@@ -62,29 +56,12 @@ export type BuilderSessionView = {
   progress: { stage: string; attempt: number };
 };
 
-export type OracleProposal = {
-  "proposal-id": string;
-  "proposal-digest": string;
-  "generation-id": string;
-  "selection-id": string;
-  "selection-digest": string;
-  "scenario-digests": readonly string[];
-  "subject-digest": string;
-  "judge-id": string;
-  denominator: number;
-  "normalized-evidence-digest": string;
-  status: "proposed" | "approved" | "published";
-  "approved-by"?: string;
-  "descriptor-digest"?: string;
-};
-
 export type WorkflowContract = {
   workflowName: string;
   routes: Array<"fresh-generation" | "measured-regeneration">;
   rootType: string;
   stages: string[];
   builderResultFields: string[];
-  proposalResultFields: string[];
   observationFields: string[];
 };
 
@@ -113,14 +90,6 @@ export class OrcClient {
     return this.invoke("optimize-prompt", request);
   }
 
-  startExternalPromptOptimization(request: ExternalPromptOptimizationRequest): Promise<any> {
-    return this.invoke("start-external-prompt-optimization", request);
-  }
-
-  submitExternalPromptCandidate(optimizationId: string, prompt: string, proposer: string): Promise<any> {
-    return this.invoke("submit-external-prompt-candidate", { optimizationId, prompt, proposer });
-  }
-
   sliceComposition(cut: string): Promise<any> {
     return this.invoke("slice-composition", { cut });
   }
@@ -131,14 +100,6 @@ export class OrcClient {
 
   approveSelection(selectionId: string, selectionDigest: string): Promise<any> {
     return this.invoke("approve-selection", { selectionId, selectionDigest });
-  }
-
-  oracleProposal(proposalId: string): Promise<OracleProposal | null> {
-    return this.invoke("oracle-proposal", { proposalId }) as Promise<OracleProposal | null>;
-  }
-
-  approveOracleProposal(proposalId: string, proposalDigest: string, approvedBy: string): Promise<OracleProposal> {
-    return this.invoke("approve-oracle-proposal", { proposalId, proposalDigest, approvedBy }) as Promise<OracleProposal>;
   }
 
   submitCycle(requestId: string): Promise<{ cycleId: string; tickId: string; taskId: number }> {

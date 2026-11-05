@@ -21,8 +21,6 @@
 (def wait! worker/wait!)
 
 (def optimize-builder-prompt! worker/optimize-builder-prompt!)
-(def start-external-prompt-optimization! worker/start-external-prompt-optimization!)
-(def submit-external-prompt-candidate! worker/submit-external-prompt-candidate!)
 
 (def cut-workflow cut/workflow)
 (def slice-cycle-workflow slice-cycle/workflow)

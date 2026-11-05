@@ -245,7 +245,7 @@
       (finally
         (doseq [file (reverse (file-seq root))] (.delete file))))))
 
-(deftest successful-initial-grade-materializes-allure-before-oracle-proposal
+(deftest successful-initial-grade-materializes-allure
   (let [root (.toFile (java.nio.file.Files/createTempDirectory
                        "loyly-initial-allure-"
                        (make-array java.nio.file.attribute.FileAttribute 0)))

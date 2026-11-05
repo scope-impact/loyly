@@ -99,48 +99,6 @@ export default function register(pi: {
   });
 
   pi.registerTool({
-    name: "start_builder_prompt_optimization",
-    description: "Start a calibrated GEPA optimization in external-proposer mode. Returns the independently scored seed prompt and evidence for this Pi/Codex session to improve.",
-    parameters: {
-      type: "object",
-      properties: {
-        purpose: { type: "string", enum: ["fresh-generation", "verification-repair"] },
-        trainset: { type: "array", minItems: 1, items: promptExampleSchema },
-        valset: { type: "array", minItems: 1, items: promptExampleSchema },
-      },
-      required: ["purpose", "trainset", "valset"],
-      additionalProperties: false,
-    },
-    execute: async (_toolCallId: string, args: {
-      purpose: "fresh-generation" | "verification-repair";
-      trainset: unknown[];
-      valset: unknown[];
-    }) => {
-      const result = await getWorker().client.startExternalPromptOptimization(args);
-      return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
-    },
-  });
-
-  pi.registerTool({
-    name: "submit_builder_prompt_candidate",
-    description: "Submit a prompt authored by this active Pi/Codex session as a durable GEPA candidate. ORC runs the calibrated builder, Gondolin verifier, and independent black-box grader, then returns score and evidence.",
-    parameters: {
-      type: "object",
-      properties: {
-        optimizationId: { type: "string" },
-        prompt: { type: "string", minLength: 1 },
-        proposer: { type: "string", const: "pi-codex" },
-      },
-      required: ["optimizationId", "prompt", "proposer"],
-      additionalProperties: false,
-    },
-    execute: async (_toolCallId: string, args: { optimizationId: string; prompt: string; proposer: "pi-codex" }) => {
-      const result = await getWorker().client.submitExternalPromptCandidate(args.optimizationId, args.prompt, args.proposer);
-      return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
-    },
-  });
-
-  pi.registerTool({
     name: "inspect_slice_composition",
     description: "List every existing slice and stable Gherkin item in an immutable cut so the active Pi session can explore operator intent. This read-only tool never proposes, records, approves, or executes a selection.",
     parameters: {
@@ -180,40 +138,6 @@ export default function register(pi: {
     parameters: { type: "object", properties: { selectionId: { type: "string" }, selectionDigest: { type: "string" } }, required: ["selectionId", "selectionDigest"], additionalProperties: false },
     execute: async (_id: string, args: { selectionId: string; selectionDigest: string }) => {
       const result = await getWorker().client.approveSelection(args.selectionId, args.selectionDigest);
-      return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
-    },
-  });
-
-  pi.registerTool({
-    name: "get_oracle_proposal",
-    description: "Read the exact first-grade evidence proposal and its approval/publication status.",
-    parameters: {
-      type: "object",
-      properties: { proposalId: { type: "string" } },
-      required: ["proposalId"],
-      additionalProperties: false,
-    },
-    execute: async (_id: string, args: { proposalId: string }) => {
-      const result = await getWorker().client.oracleProposal(args.proposalId);
-      return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
-    },
-  });
-
-  pi.registerTool({
-    name: "approve_oracle_proposal",
-    description: "Manually approve the exact digest of a reviewed first-grade evidence proposal. Approval does not publish or pin an oracle.",
-    parameters: {
-      type: "object",
-      properties: {
-        proposalId: { type: "string" },
-        proposalDigest: { type: "string" },
-        approvedBy: { type: "string", minLength: 1 },
-      },
-      required: ["proposalId", "proposalDigest", "approvedBy"],
-      additionalProperties: false,
-    },
-    execute: async (_id: string, args: { proposalId: string; proposalDigest: string; approvedBy: string }) => {
-      const result = await getWorker().client.approveOracleProposal(args.proposalId, args.proposalDigest, args.approvedBy);
       return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
     },
   });

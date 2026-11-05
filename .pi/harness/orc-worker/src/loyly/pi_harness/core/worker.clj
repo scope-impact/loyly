@@ -520,124 +520,6 @@
      :reflection {:provider "bedrock" :model reflectionModel}
      :activation application})))
 
-(defn- await-gepa-candidate! [context optimization-id candidate-id timeout-ms]
-  (let [deadline (+ (System/currentTimeMillis) timeout-ms)]
-    (loop []
-      (let [summary (gepa/get-optimization-summary context optimization-id)
-            candidate (when candidate-id
-                        (get-in (gepa/get-population-state context optimization-id)
-                                [:candidates candidate-id]))]
-        (cond
-          (= :evaluated (:status candidate)) candidate
-          (= :failed (:status summary))
-          (throw (ex-info (or (:error-message summary) "GEPA optimization failed")
-                          {:optimization-id optimization-id}))
-          (> (System/currentTimeMillis) deadline)
-          (throw (ex-info "timed out waiting for GEPA candidate evaluation"
-                          {:optimization-id optimization-id
-                           :candidate-id candidate-id}))
-          :else (do (Thread/sleep 250) (recur)))))))
-
-(defn- await-gepa-terminal-if-budget-exhausted! [context optimization-id]
-  (when (gepa/budget-exhausted? context optimization-id)
-    (loop [remaining 40]
-      (let [summary (gepa/get-optimization-summary context optimization-id)]
-        (when (and (= :running (:status summary)) (pos? remaining))
-          (Thread/sleep 250)
-          (recur (dec remaining)))))))
-
-(defn- external-proposal-result [context optimization-id candidate]
-  (let [proposal-context (gepa/get-external-proposal-context context optimization-id)
-        best (gepa/get-best-candidate context optimization-id)]
-    {:status (name (:status proposal-context))
-     :optimizationId (str optimization-id)
-     :candidateId (some-> (:candidate-id candidate) str)
-     :candidateScore (:aggregate-score candidate)
-     :candidatePrompt (some-> candidate :instructions vals first)
-     :feedback (:feedbacks candidate)
-     :metricCalls (:metric-calls proposal-context)
-     :bestScore (:best-score proposal-context)
-     :bestPrompt (some-> best :instructions vals first)}))
-
-(defn start-external-prompt-optimization! [{:keys [trainset valset] :as request}]
-  (when-not (and (vector? trainset) (seq trainset)
-                 (vector? valset) (seq valset))
-    (throw (ex-info "external prompt optimization requires non-empty trainset and valset vectors"
-                    {:request request})))
-  (let [purpose (request-purpose request)]
-   (doseq [example (concat trainset valset)]
-    (prompt-evaluation-input example))
-  (let [normalized-trainset (mapv stringify-example-keys trainset)
-        normalized-valset (mapv stringify-example-keys valset)
-        _ (calibrate-harness!)
-        _ (ensure-runtime!)
-        {:keys [context sheet-id]} (get @workflows (prompt-registration-key purpose))
-        started (gepa/optimize! context
-                                {:sheet-id sheet-id
-                                 :trainset normalized-trainset
-                                 :valset normalized-valset
-                                 :metric-fn (fn [input output]
-                                              (evaluate-prompt purpose input output))
-                                 :inherit-from-previous false
-                                 :block? false
-                                 ;; One seed plus one proposal authored by the
-                                 ;; active Pi/Codex session.
-                                 :config {:max-metric-calls 2
-                                          :external-proposer? true}})
-        optimization-id (:optimization-id started)
-        seed-id (loop [remaining 7200]
-                  (let [summary (gepa/get-optimization-summary context optimization-id)
-                        population (gepa/get-population-state context optimization-id)
-                        candidate-id (first (:evaluated population))]
-                    (cond
-                      candidate-id candidate-id
-                      (= :failed (:status summary))
-                      (throw (ex-info (or (:error-message summary) "GEPA seed evaluation failed")
-                                      {:optimization-id optimization-id}))
-                      (zero? remaining)
-                      (throw (ex-info "timed out waiting for GEPA seed evaluation"
-                                      {:optimization-id optimization-id}))
-                      :else (do (Thread/sleep 250) (recur (dec remaining))))))
-        seed (get-in (gepa/get-population-state context optimization-id)
-                     [:candidates seed-id])]
-    (assoc (external-proposal-result context optimization-id seed)
-           :purpose (name purpose)))))
-
-(defn- optimization-purpose [context optimization-id]
-  (let [sheet-id (:sheet-id (gepa/get-optimization-summary context optimization-id))]
-    (some (fn [purpose]
-            (when (= sheet-id (:sheet-id (get @workflows (prompt-registration-key purpose))))
-              purpose))
-          prompt/purposes)))
-
-(defn submit-external-prompt-candidate!
-  [{:keys [optimizationId prompt proposer] :as request}]
-  (when-not (and (string? optimizationId) (string? prompt) (not (str/blank? prompt)))
-    (throw (ex-info "external prompt candidate requires optimizationId and a non-empty prompt"
-                    {:request request})))
-  (ensure-runtime!)
-  (let [optimization-id (java.util.UUID/fromString optimizationId)
-        context (:context (get @workflows :generation-prompt))
-        purpose (or (optimization-purpose context optimization-id)
-                    (throw (ex-info "optimization does not belong to a builder purpose"
-                                    {:optimizationId optimizationId})))
-        submitted (gepa/submit-external-candidate!
-                   context optimization-id
-                   {(prompt/component-name purpose) prompt}
-                   (or proposer (builder-id)))
-        candidate (await-gepa-candidate! context optimization-id
-                                         (:candidate-id submitted) 1800000)
-        _ (await-gepa-terminal-if-budget-exhausted! context optimization-id)
-        result (external-proposal-result context optimization-id candidate)
-        summary (gepa/get-optimization-summary context optimization-id)
-        application (when (= :completed (:status summary))
-                      (let [latest (orc/get-latest-version
-                                    context
-                                    (:sheet-id (get @workflows (prompt-registration-key purpose))))]
-                        (gepa/apply-winner! context optimization-id (:version-number latest))))]
-    (assoc result :purpose (name purpose) :reused (:reused? submitted)
-           :activation application)))
-
 (defn run-grader-adapter [request]
   (adapters/run-grader! {:project-root (project-root)
                          :cuts-root (cuts-root)}
@@ -1321,40 +1203,6 @@
                                        :normalized normalized
                                        :playwright-trace playwright-trace})})))
 
-(defn propose-oracle! [{:keys [inputs] :as context}]
-  (let [grade (effective-grade-result inputs)
-        conformance (effective-instrument-conformance-result inputs)
-        selection (:selection inputs)
-        builder (effective-builder-result inputs)
-        denominator (count (:items selection))]
-    (when-not (and (:passed grade)
-                   (:passed conformance)
-                   (= denominator (get-in grade [:measurement :total]))
-                   (= denominator (get-in grade [:measurement :passed]))
-                   (zero? (get-in grade [:measurement :failed])))
-      (throw (ex-info "first black-box grade did not completely pass"
-                      {:grade grade :instrument-conformance conformance
-                       :denominator denominator})))
-    (let [payload (sorted-map
-                   :generation-id (:request-id inputs)
-                   :selection-id (:selectionId selection)
-                   :selection-digest (:selectionDigest selection)
-                   :scenario-digests (mapv :scenario-digest (:items selection))
-                   :subject-digest (:subject-digest builder)
-                   :judge-id (:judge-id grade)
-                   :denominator denominator
-                   :normalized-evidence-digest (:normalized-evidence-digest grade))
-          proposal-digest (str "sha256:" (sha256 (json/write-str payload)))
-          proposal (assoc payload
-                          :proposal-id (str "oracle-proposal-" (subs proposal-digest 7 31))
-                          :proposal-digest proposal-digest
-                          :status "proposed")
-          persisted (model/record-oracle-proposal! (:context @runtime) proposal)]
-      (when-not (= proposal persisted)
-        (throw (ex-info "persisted oracle proposal does not match first-grade evidence" {})))
-      (record-stage-progress! context "propose-oracle" 1 nil "completed")
-      persisted)))
-
 (defn instrument-conformance-stage [{:keys [inputs] :as context}]
   (record-stage-progress! context "instrument-conformance")
   (let [builder (effective-builder-result inputs)
@@ -1639,10 +1487,9 @@
   (record-stage-progress! context "conclude")
   (case (route! inputs)
     "fresh-generation"
-    (let [allure (materialize-allure! context)
-          proposal (propose-oracle! context)]
+    (let [allure (materialize-allure! context)]
       (merge (stage-result "conclude" context)
-             {:passed true :allure allure :oracle-proposal proposal}))
+             {:passed true :allure allure}))
     "measured-regeneration"
     (let [cycle (record-cycle! context)
           gate (grade-gate context)]

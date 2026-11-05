@@ -35,18 +35,6 @@
   "Candidate lineage was recorded for a generated component."
   {:schema schemas/generated-candidate-schema})
 
-(defevent :loyly.pi-harness/oracle-proposal-recorded
-  "A complete first-grade evidence proposal was recorded for review."
-  {:schema schemas/oracle-proposal-schema})
-
-(defevent :loyly.pi-harness/oracle-proposal-approved
-  "The exact digest of an oracle proposal was manually approved."
-  {:schema schemas/oracle-proposal-approval-schema})
-
-(defevent :loyly.pi-harness/product-oracle-accepted
-  "Approved evidence was published as an immutable product oracle."
-  {:schema schemas/accepted-product-oracle-schema})
-
 (defevent :loyly.pi-harness/observation-recorded
   "An independent evidence-backed observation was recorded."
   {:schema schemas/observation-schema})

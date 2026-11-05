@@ -130,13 +130,12 @@
                                                         [:affordance-passed :boolean]
                                                         [:grade-passed :boolean]
                                                         [:instrument-conformance-passed :boolean]]]])
-   ;; fresh-generation: Allure evidence and the oracle proposal (awaiting manual approval).
+   ;; fresh-generation: Allure evidence.
    ;; measured-regeneration: the recorded measurement and the grade gate.
    :conclude-result (stage-schema [:passed :boolean]
                                   [:allure optional [:map
                                                      [:result-count :int]
                                                      [:paths [:vector :string]]]]
-                                  [:oracle-proposal optional schemas/oracle-proposal-schema]
                                   [:cycle optional schemas/measurement-schema]
                                   [:gate optional [:map
                                                    [:operation :string]
@@ -210,5 +209,4 @@
      :rootType (name (:node-type root-node))
      :stages (mapv :name (:children root-node))
      :builderResultFields (schema-field-names (:builder-result blackboard-schema))
-     :proposalResultFields (mapv (comp name first) (rest schemas/oracle-proposal-schema))
      :observationFields (schema-field-names schemas/observation-schema)}))

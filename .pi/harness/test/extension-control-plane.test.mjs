@@ -32,17 +32,3 @@ test("Pi extension exposes progress reconciliation and builder observation as re
     ["inspect_builder_session"],
   );
 });
-
-test("Pi extension separates oracle proposal review from exact manual approval", () => {
-  const tools = [];
-  register({ registerTool: (tool) => tools.push(tool), on: () => {} });
-
-  const review = tools.find(({ name }) => name === "get_oracle_proposal");
-  const approval = tools.find(({ name }) => name === "approve_oracle_proposal");
-  assert.deepEqual(review.parameters.required, ["proposalId"]);
-  assert.deepEqual(
-    approval.parameters.required,
-    ["proposalId", "proposalDigest", "approvedBy"],
-  );
-  assert.match(approval.description, /does not publish or pin/i);
-});
