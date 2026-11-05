@@ -1,10 +1,16 @@
 (require '[clojure.java.io :as io]
+         '[clojure.java.shell :as shell]
          '[clojure.string :as str]
          '[cheshire.core :as json])
 
 (def root (first *command-line-args*))
 (def out (second *command-line-args*))
 (def model-dir (str root "/model/pi-harness"))
+
+(defn sha256 [value]
+  (let [digest (.digest (java.security.MessageDigest/getInstance "SHA-256")
+                        (.getBytes (str value) "UTF-8"))]
+    (apply str (map #(format "%02x" (bit-and % 0xff)) digest))))
 
 (defn name-of [x]
   (cond
@@ -45,6 +51,7 @@
         feature (str/replace filename ".allium" ".feature")]
     {:id (str/replace filename ".allium" "")
      :file (str "model/pi-harness/" filename)
+     :digest (sha256 source)
      :featureFile (when (.exists (io/file (str model-dir "/" feature)))
                     (str "model/pi-harness/" feature))
      :description (->> (str/split-lines source)
@@ -59,8 +66,10 @@
      :rules (mapv (fn [{:keys [name source]}]
                     {:name name
                      :source source
+                     :digest (sha256 source)
                      :when (first (clause-lines source "when"))
                      :requires (clause-lines source "requires")
+                     :requirementDigests (mapv sha256 (clause-lines source "requires"))
                      :ensures (clause-lines source "ensures")})
                   (top-blocks source "rule"))
      :invariants (mapv #(select-keys % [:name :source]) (top-blocks source "invariant"))
@@ -119,7 +128,7 @@
 
 (def architecture-source (slurp (str root "/.pi/architecture.md")))
 (def c4-views
-  (mapv (fn [[_ title source]] {:title title :source (str/trim source)})
+  (mapv (fn [[_ title source]] {:title title :source (str/trim source) :digest (sha256 (str/trim source))})
         (re-seq #"(?s)## (System Context|Container view|ORC worker component view).*?```mermaid\n(.*?)```"
                 architecture-source)))
 
@@ -133,17 +142,24 @@
         (remove #{"booking-core.allium"}
                 (files-with model-dir ".allium"))))
 (def scenarios
-  (vec (mapcat parse-feature (files-with model-dir ".feature"))))
+  (mapv (fn [scenario]
+          (assoc scenario :digest
+                 (sha256 (pr-str (select-keys scenario [:module :rule :title :item :tags :steps])))))
+        (mapcat parse-feature (files-with model-dir ".feature"))))
 
-(spit out
-      (json/generate-string
-       {:title "Pi Harness Event Model"
-        :source "model/pi-harness"
-        :modules modules
-        :eventModel event-model
-        :scenarios scenarios
-        :c4 c4-views
-        :conformance conformance}))
+(def source-commit
+  (str/trim (:out (shell/sh "git" "-C" root "log" "-1" "--format=%H" "--"
+                            "model/pi-harness" ".pi/architecture.md"))))
+(def payload
+  {:title "Pi Harness Event Model"
+   :source "model/pi-harness"
+   :sourceCommit source-commit
+   :modules modules
+   :eventModel event-model
+   :scenarios scenarios
+   :c4 c4-views
+   :conformance conformance})
+(spit out (json/generate-string (assoc payload :modelDigest (sha256 (json/generate-string payload)))))
 
 (println "modules" (count modules)
          "rules" (reduce + (map #(count (:rules %)) modules))
