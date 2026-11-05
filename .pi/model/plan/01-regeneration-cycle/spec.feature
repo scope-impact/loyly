@@ -68,9 +68,9 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
 
     @e2e
     @item-01-007
-    Scenario: An unapproved selection cannot start a regeneration cycle
-      Given a recorded selection has not been approved
-      When the operator submits a regeneration cycle for that selection
+    Scenario: An unapproved partial selection cannot start a slice cycle
+      Given a recorded partial selection has not been approved
+      When the operator submits a slice cycle for that selection
       Then submission is refused before a builder starts
 
     @skip

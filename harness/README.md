@@ -57,3 +57,10 @@ checklist golden did not move.
 selected slice: `@item-02-012` and `@item-02-013` were appended to the end of slice 02. The
 golden's diff is additions plus the one `total` line (80 → 82). The approved grader's scenarios
 did not change, so it stays approved.
+
+**2026-11-05: an item was reworded.** `@item-01-007` read as if `submit-cycle` took a
+selection, which contradicted `rpc.yaml`; cycle 05's builder followed it and refused every bare
+submit. It now names the slice path ("An unapproved partial selection cannot start a slice
+cycle"), and `rpc.yaml` states that `submit-cycle` regenerates the whole plan as its approved
+selection. That is wording replaced, a recorded reason; the golden's diff is that one name line.
+The approved grader does not cover `01-007`, so it stays approved.

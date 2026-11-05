@@ -425,17 +425,17 @@ test("Approval refuses a digest other than the reviewed digest", async () => {
   });
 });
 
-test("An unapproved selection cannot start a regeneration cycle", async () => {
+test("An unapproved partial selection cannot start a slice cycle", async () => {
   const context = scenarioContext();
   await scenarioLabels("regeneration-cycle", "item-01-007", ["e2e"]);
 
-  await given("a recorded selection has not been approved", async () => {
+  await given("a recorded partial selection has not been approved", async () => {
     const cut = await preparedCut();
     context.cut = cut;
     context.selections = [await worker.client.previewSelection(cut.cutId, "01-booking-core")];
     assert.equal(context.selections[0].status, "awaiting-approval");
   });
-  await when("the operator submits a regeneration cycle for that selection", async () => {
+  await when("the operator submits a slice cycle for that selection", async () => {
     const selection = assertRequired(context.selections, "selection preview")[0];
     try {
       await worker.client.submitApprovedSlice({

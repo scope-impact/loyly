@@ -15,6 +15,11 @@ methods:
     params: {requestId: "safe identifier"}
     result: {cycleId: requestId, tickId: string, taskId: integer}
     rule: "repeating a requestId returns the original receipt"
+    selection: >-
+      submit-cycle takes no selection. It regenerates the whole plan of the pinned cut, and that
+      whole-plan selection is the approved selection of the cycle, as in the legacy shape. A
+      partial selection is previewed, approved by exact digest, and submitted as a slice cycle
+      (submit-approved-slice); an unapproved partial selection is refused there, never here.
   wait:
     params: {taskId: integer}
     result: {status: "completed | failed", error: "string when failed", result: "stage outputs"}

@@ -38,7 +38,7 @@
   },
   {
    "id": "01-007",
-   "name": "An unapproved selection cannot start a regeneration cycle",
+   "name": "An unapproved partial selection cannot start a slice cycle",
    "rule": "Cycle submission is approved, scoped, and idempotent",
    "source": ".pi/model/plan/01-regeneration-cycle/spec.feature:71"
   },
