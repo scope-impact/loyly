@@ -15,6 +15,7 @@
 (def prepare-cut! worker/prepare-cut!)
 (def submit-approved-slice! worker/submit-approved-slice!)
 (def submit-cycle! worker/submit-cycle!)
+(def approve-grader! worker/approve-grader!)
 (def execution-status! worker/execution-status!)
 (def builder-session! worker/builder-session!)
 (def wait! worker/wait!)

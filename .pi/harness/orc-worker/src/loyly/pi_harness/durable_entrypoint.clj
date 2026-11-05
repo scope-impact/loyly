@@ -72,6 +72,7 @@
     "submit-external-prompt-candidate" (harness/submit-external-prompt-candidate! params)
     "submit-approved-slice" (submit-approved! params)
     "submit-cycle" (harness/submit-cycle! params)
+    "approve-grader" (harness/approve-grader! params)
     "cycle-contract" (cycle/contract)
     "submit" (submit-approved! params)
     "execution-status" (harness/execution-status! params)
@@ -79,7 +80,7 @@
     "workflow-contract" (slice-cycle/contract)
     "wait" (harness/wait! params)
     "measurement" (model/find-measurement (context) (:cycleId params))
-    (throw (ex-info "unknown method" {:method method}))))
+    (throw (ex-info (str "unknown method: " method) {:method method}))))
 
 (defn -main [& _]
   (harness/start-runtime! durable-system/start!)

@@ -58,13 +58,14 @@
     "optimize-prompt" (harness/optimize-builder-prompt! params)
     "submit-approved-slice" (submit-approved! params)
     "submit-cycle" (harness/submit-cycle! params)
+    "approve-grader" (harness/approve-grader! params)
     "cycle-contract" (cycle/contract)
     "submit" (submit-approved! params)
     "execution-status" (harness/execution-status! params)
     "builder-session" (harness/builder-session! params)
     "workflow-contract" (slice-cycle/contract)
     "wait" (harness/wait! params)
-    (throw (ex-info "unknown method" {:method method}))))
+    (throw (ex-info (str "unknown method: " method) {:method method}))))
 
 (defn -main [& _]
   (harness/start-runtime! system/start!)

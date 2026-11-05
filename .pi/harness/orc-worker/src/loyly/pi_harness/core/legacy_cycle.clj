@@ -220,26 +220,77 @@
             (install-candidate! room (:app-dir cfg) (:output-root next-build))
             (recur (inc attempt) next-build attempts)))))))
 
-(defn- approved-grader-for [project-root checklist-digest]
-  (let [file (io/file (state-dir project-root "graders" "approved" (str checklist-digest ".edn")))]
+;; ------------------------------------------------------------------ the instrument
+
+(defn- graders-dir [project-root & parts]
+  (apply state-dir project-root "graders" parts))
+
+(defn approved-grader
+  "The grader an operator approved by exact digest, or nil. A cycle never scores without one."
+  [project-root]
+  (let [file (io/file (graders-dir project-root "approved.edn"))]
     (when (.isFile file) (read-string (slurp file)))))
 
+(defn approve-grader!
+  "Record an operator's approval of a sealed, calibrated grader's exact digest."
+  [project-root grader-digest approved-by]
+  (let [hex (str/replace (str grader-digest) #"^sha256:" "")
+        dir (io/file (graders-dir project-root "sealed" hex))
+        manifest-file (io/file dir "manifest.json")]
+    (when-not (and (re-matches #"[0-9a-f]{64}" hex) (.isFile manifest-file))
+      (throw (ex-info (str "no sealed grader " grader-digest) {:grader-digest grader-digest})))
+    (when (str/blank? approved-by)
+      (throw (ex-info "approval names its approver" {})))
+    (let [approval {:grader-digest (str "sha256:" hex) :path (.getPath dir)
+                    :approved-by approved-by :approved-at (str (java.time.Instant/now))}]
+      (spit (graders-dir project-root "approved.edn") (pr-str approval))
+      approval)))
+
+(defn- next-cycle-number [project-root]
+  (let [dirs (keep #(when (re-matches #"\d+" (.getName %)) (parse-long (.getName %)))
+                   (or (seq (.listFiles (io/file project-root "harness" "cycles"))) []))]
+    (format "%02d" (inc (reduce max 0 dirs)))))
+
 (defn score
-  "File one verdict per checklist item with the approved sealed grader. Without an approved
-  grader for this exact checklist, the score is refused, never guessed."
-  [project-root evidence]
-  (let [checklist-path (str evidence "/checklist.json")
-        {:keys [exit log]} (run-logged! project-root (str evidence "/checklist.log")
-                                 "bb" "harness/gen_checklist.clj" "--out" checklist-path)
-        _ (when-not (zero? exit)
-            (throw (ex-info (str "score refused: the checklist could not be derived: " (tail log 400)) {})))
-        checklist-digest (prompt/digest (slurp checklist-path))
-        items (count (re-seq #"\"id\"" (slurp checklist-path)))
-        grader (approved-grader-for project-root (subs checklist-digest 7))]
+  "File one verdict per checklist item with the approved sealed grader, through the legacy
+  tools: the checklist is derived into harness/cycles/NN/, the grader drives the candidate
+  through its public seam, and harness/score.clj files the verdicts with an honest
+  denominator. Without an approved grader the score is refused, never guessed."
+  [project-root evidence room]
+  (let [{:keys [grader-digest path] :as grader} (approved-grader project-root)]
     (when-not grader
-      (throw (ex-info (str "score refused: no approved sealed grader covers this checklist ("
-                           items " items, " checklist-digest "). A cycle never scores with a grader "
-                           "nobody approved.")
-                      {:checklist checklist-path :checklist-digest checklist-digest})))
-    ;; Grader execution is the next increment; an approved grader is required first.
-    (throw (ex-info "score refused: grader execution is not implemented yet" {:grader grader}))))
+      (throw (ex-info "score refused: no approved sealed grader. A cycle never scores with a grader nobody approved."
+                      {})))
+    (let [cfg (config project-root)
+          cycle-number (next-cycle-number project-root)
+          checklist (str "harness/cycles/" cycle-number "/checklist.json")
+          derived (run-logged! project-root (str evidence "/checklist.log")
+                               "bb" "harness/gen_checklist.clj" "--out" checklist)
+          _ (when-not (zero? (:exit derived))
+              (throw (ex-info (str "score refused: the checklist could not be derived: " (tail (:log derived) 400)) {})))
+          verdicts-file (str evidence "/verdicts.json")
+          graded (shell/sh "python3" (str path "/grade.py") (str room "/" (:app-dir cfg) "/start.sh")
+                           :dir path)
+          _ (spit verdicts-file (:out graded))
+          _ (spit (str evidence "/grade.log") (:err graded))
+          _ (when-not (zero? (:exit graded))
+              (throw (ex-info (str "score failed: the grader did not run: " (tail (:err graded) 400)) {})))
+          filed (run-logged! project-root (str evidence "/score.log")
+                             "bb" "harness/score.clj" cycle-number "--verdicts" verdicts-file)]
+      (when-not (zero? (:exit filed))
+        (throw (ex-info (str "score refused by harness/score.clj: " (tail (:log filed) 400)) {})))
+      {:passed true
+       :cycle-number cycle-number
+       :grader-digest grader-digest
+       :summary (first (str/split-lines (:log filed)))
+       :scores (str "harness/cycles/" cycle-number "/scores.json")})))
+
+(defn scoreboard
+  "Report the pass rate and the comparison with the previous cycle through
+  harness/scoreboard.clj: shared items, both directions, never a net."
+  [project-root evidence cycle-number]
+  (let [{:keys [exit log]} (run-logged! project-root (str evidence "/scoreboard.log")
+                                        "bb" "harness/scoreboard.clj" cycle-number)]
+    (when-not (zero? exit)
+      (throw (ex-info (str "scoreboard failed: " (tail log 400)) {})))
+    {:passed true :cycle-number cycle-number :report log}))

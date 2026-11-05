@@ -46,3 +46,27 @@
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"a room must be fresh"
                             (legacy-cycle/fence project-root request-id)))
       (finally (.delete room)))))
+
+(defn- temp-project []
+  (.getPath (.toFile (java.nio.file.Files/createTempDirectory
+                      "legacy-cycle-project-"
+                      (make-array java.nio.file.attribute.FileAttribute 0)))))
+
+(deftest a-grader-is-approved-only-by-the-exact-digest-of-a-sealed-grader
+  (let [root (temp-project)
+        hex (apply str (repeat 64 "a"))
+        sealed (io/file root ".pi/harness/.state/graders/sealed" hex)]
+    (is (nil? (legacy-cycle/approved-grader root)))
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"no sealed grader"
+                          (legacy-cycle/approve-grader! root (str "sha256:" hex) "operator")))
+    (.mkdirs sealed)
+    (spit (io/file sealed "manifest.json") "{}")
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"names its approver"
+                          (legacy-cycle/approve-grader! root (str "sha256:" hex) " ")))
+    (let [approval (legacy-cycle/approve-grader! root (str "sha256:" hex) "operator")]
+      (is (= (str "sha256:" hex) (:grader-digest approval)))
+      (is (= approval (legacy-cycle/approved-grader root))))))
+
+(deftest the-score-refuses-without-an-approved-grader
+  (is (thrown-with-msg? clojure.lang.ExceptionInfo #"no approved sealed grader"
+                        (legacy-cycle/score (temp-project) "/tmp/evidence" "/tmp/room"))))

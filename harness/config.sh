@@ -25,10 +25,11 @@ APP_PROBE=harness/probe.sh
 #   .pi/architecture.md    a description of that implementation's internals
 #   reports                recorded measurements and repair notes
 #   archive/legacy-harness/cycles  recorded legacy measurements
+#   harness/cycles         this harness's own recorded measurements (checklists and scores)
 #   docs/plan model/loyly impl raw  the Löyly product: its spec, model, implementation, and
 #                          sources. A room holds one product; with another product's spec in
 #                          it, a builder rebuilt that product instead (harness-regen-2).
-FENCED_PATHS=".pi/harness .pi/architecture.md reports archive/legacy-harness/cycles docs/plan model/loyly impl raw"
+FENCED_PATHS=".pi/harness .pi/architecture.md reports archive/legacy-harness/cycles harness/cycles docs/plan model/loyly impl raw"
 
 # SIBLING_REPOS is not declared: no other repository carries this harness, so modules.sh
 # names no sibling and compares nothing, and says so.

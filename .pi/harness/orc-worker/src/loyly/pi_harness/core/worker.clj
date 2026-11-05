@@ -1657,12 +1657,21 @@
 (defn cycle-score-stage [{:keys [inputs]}]
   (legacy-stage-result "score" inputs
                        (legacy-cycle/score (project-root)
-                                           (get-in inputs [:fence-result :evidence-root]))))
+                                           (get-in inputs [:fence-result :evidence-root])
+                                           (get-in inputs [:fence-result :room]))))
 
 (defn cycle-scoreboard-stage [{:keys [inputs]}]
   (when-not (get-in inputs [:score-result :passed])
     (throw (ex-info "scoreboard requires a filed score" {})))
-  (legacy-stage-result "scoreboard" inputs {:passed true}))
+  (legacy-stage-result "scoreboard" inputs
+                       (legacy-cycle/scoreboard (project-root)
+                                                (get-in inputs [:fence-result :evidence-root])
+                                                (get-in inputs [:score-result :cycle-number]))))
+
+(defn approve-grader!
+  "The operator approves a sealed, calibrated grader by its exact digest."
+  [{:keys [graderDigest approvedBy]}]
+  (legacy-cycle/approve-grader! (project-root) graderDigest approvedBy))
 
 (defn cut-workflow [] (cut-workflow/workflow))
 
