@@ -51,7 +51,8 @@ methods:
     rule: "an invalid or colliding identity is refused before any cut is written"
   slice-composition:
     params: {cut: "a prepared cut's identity"}
-    result: "the cut's product slices, each named by its bare directory (NN-slug), with their stamped items as full tags (@item-NN-SSS)"
+    result: {slices: "list of the cut's product slices, each {slice: bare directory name NN-slug, items: its stamped items, each named by its full tag (@item-NN-SSS)}"}
+    rule: "the result is an object whose slices field holds the list, never a bare list"
   preview-selection:
     params: {cut: "a prepared cut's identity", slice: "bare slice directory name, NN-slug", itemIds: "optional list of full item tags (@item-NN-SSS) as slice-composition returns them; omitted or empty selects the whole slice"}
     result: {selectionId: string, selectionDigest: string, status: "awaiting-approval", items: "list of full item tags"}
