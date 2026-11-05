@@ -27,35 +27,37 @@
    {:keys [request-id cut scope execution-backend system-prompt system-prompt-digest
            prompt prompt-digest target-stack
            initial-workspace-root verification-evidence-root builder-session-ref
-           builder-sessions-root attempt]}]
+           builder-sessions-root attempt resume-session-file]}]
   (let [output-root (str (or (System/getenv "PI_HARNESS_OUTPUT_ROOT")
                              (System/getenv "LOYLEY_OUTPUT_ROOT")
                              (str project-root "/.pi/harness/.state/outputs"))
                          "/" request-id)
         script (str project-root "/.pi/harness/src/builder-worker.ts")
-        request {:backend execution-backend
-                 :cutId cut
-                 :scope scope
-                 :systemPrompt system-prompt
-                 :systemPromptDigest system-prompt-digest
-                 :prompt prompt
-                 :promptDigest prompt-digest
-                 :targetStack target-stack
-                 :initialWorkspaceRoot initial-workspace-root
-                 :verificationEvidenceRoot verification-evidence-root
-                 :builderSessionRef builder-session-ref
-                 :builderSessionsRoot builder-sessions-root
-                 :attempt attempt
-                 :cutsRoot cuts-root
-                 :outputRoot output-root}
+        request (cond-> {:backend execution-backend
+                         :cutId cut
+                         :scope scope
+                         :systemPrompt system-prompt
+                         :systemPromptDigest system-prompt-digest
+                         :prompt prompt
+                         :promptDigest prompt-digest
+                         :targetStack target-stack
+                         :initialWorkspaceRoot initial-workspace-root
+                         :verificationEvidenceRoot verification-evidence-root
+                         :builderSessionRef builder-session-ref
+                         :builderSessionsRoot builder-sessions-root
+                         :attempt attempt
+                         :cutsRoot cuts-root
+                         :outputRoot output-root}
+                  resume-session-file (assoc :resumeSessionFile resume-session-file))
         result (successful-result! "builder adapter"
                                    (json-process/invoke! script request
                                                         {:working-directory project-root}))]
-    {:output-root (:outputRoot result)
-     :builder-session-id (:builderSessionId result)
-     :prompt-digest (:promptDigest result)
-     :system-prompt-digest (:systemPromptDigest result)
-     :builder (builder-id)}))
+    (cond-> {:output-root (:outputRoot result)
+             :builder-session-id (:builderSessionId result)
+             :prompt-digest (:promptDigest result)
+             :system-prompt-digest (:systemPromptDigest result)
+             :builder (builder-id)}
+      (:sessionFile result) (assoc :session-file (:sessionFile result)))))
 
 (defn read-builder-session!
   [project-root builder-sessions-root builder-session-ref]

@@ -95,6 +95,70 @@
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"slice 02-b left the candidate unchanged"
                             (legacy-cycle/regenerate "/unused" "cycle-1" room))))))
 
+(defn- fake-build
+  "A build! stand-in. UNCARRIED gives each call's UNCARRIED.md (nil writes none); DIGESTS each
+  call's subject digest. Records every call."
+  [calls uncarried digests]
+  (fn [_ opts]
+    (let [n (count @calls)
+          out (temp-dir)]
+      (.mkdirs (io/file out "harness-impl"))
+      (when-let [text (nth uncarried n nil)]
+        (spit (io/file out "harness-impl" "UNCARRIED.md") text))
+      (swap! calls conj (assoc opts :out out))
+      {:output-root out :subject-digest (nth digests n) :session-file (str "session-" (:slice opts))})))
+
+(deftest a-slice-builder-is-continued-while-it-lists-its-own-items-uncarried
+  (let [room (room-with-slices "01-a")
+        calls (atom [])]
+    (with-redefs [legacy-cycle/config (fn [_] {:app-dir "harness-impl" :plan-dir ".pi/model/plan"})
+                  legacy-cycle/build! (fake-build calls
+                                                  ["# 01-a\n\nTests cover @item-01-001.\n\n- @item-01-002: no adapter\n- @item-01-003: later\n- @item-02-001: another slice's\n"
+                                                   "# 01-a\n\n- @item-01-003: later\n"
+                                                   "# 01-a\n"]
+                                                  ["d1" "d2" "d3"])]
+      (let [result (legacy-cycle/regenerate "/unused" "cycle-1" room)
+            [first-call c1 c2] @calls]
+        (is (= 3 (count @calls)) "two continuations, then the slice's list is empty")
+        (is (nil? (:resume-session-file first-call)))
+        (is (= "session-01-a" (:resume-session-file c1)) "a continuation resumes the same session")
+        (is (= ["@item-01-002" "@item-01-003"] (:uncarried c1))
+            "only this slice's listed items; prose mentions and other slices' items are not continued")
+        (is (= ["@item-01-003"] (:uncarried c2)))
+        (is (= (:out first-call) (:initial-workspace-root c1)) "a continuation works on the candidate it left")
+        (is (= [1 2] (map :continuation [c1 c2])))
+        (is (= "d3" (:subject-digest result)))
+        (is (= [{:slice "01-a" :continuations 2 :uncarried []}]
+               (map #(select-keys % [:slice :continuations :uncarried]) (:slices result))))))))
+
+(deftest slice-continuation-stops-at-three-and-on-a-continuation-that-changes-nothing
+  (let [left "- @item-01-001: not yet\n"]
+    (let [calls (atom [])]
+      (with-redefs [legacy-cycle/config (fn [_] {:app-dir "harness-impl" :plan-dir ".pi/model/plan"})
+                    legacy-cycle/build! (fake-build calls (repeat 5 left) ["d1" "d2" "d3" "d4" "d5"])]
+        (let [result (legacy-cycle/regenerate "/unused" "cycle-1" (room-with-slices "01-a"))]
+          (is (= 4 (count @calls)) "the first turn and at most three continuations")
+          (is (= "d4" (:subject-digest result)))
+          (is (= ["@item-01-001"] (-> result :slices first :uncarried)) "what is still listed is reported"))))
+    (let [calls (atom [])]
+      (with-redefs [legacy-cycle/config (fn [_] {:app-dir "harness-impl" :plan-dir ".pi/model/plan"})
+                    legacy-cycle/build! (fake-build calls (repeat 5 left) ["d1" "d1" "d9"])]
+        (let [result (legacy-cycle/regenerate "/unused" "cycle-1" (room-with-slices "01-a"))]
+          (is (= 2 (count @calls)) "a continuation that leaves the candidate unchanged ends the slice")
+          (is (= "d1" (:subject-digest result)))
+          (is (= 1 (-> result :slices first :continuations))))))))
+
+(deftest the-continuation-prompt-names-only-the-listed-items
+  (let [p (legacy-cycle/continuation-prompt ["@item-01-002" "@item-01-003"])
+        first-turn (legacy-cycle/render-prompt :slice-regeneration {:slice "01-a"})]
+    (is (re-find #"@item-01-002, @item-01-003" (:prompt p)))
+    (is (re-find #"APP_DIR/UNCARRIED.md" (:prompt p)))
+    (is (re-find #"(?i)failing test" (:prompt p)))
+    (is (= (:system-prompt first-turn) (:system-prompt p)) "the same session keeps its system prompt")
+    (is (str/starts-with? (:prompt-digest p) "sha256:"))
+    (is (re-find #"- @item-NN-SSS: " (:prompt first-turn))
+        "the first turn tells the builder the line form ORC reads")))
+
 (deftest regenerate-refuses-a-room-without-slices
   (with-redefs [legacy-cycle/config (fn [_] {:app-dir "harness-impl" :plan-dir ".pi/model/plan"})]
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"no slice under"

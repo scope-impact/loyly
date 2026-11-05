@@ -96,8 +96,10 @@
        "existing test green, and do not rewrite their work without a failing test that requires it. For each "
        "scenario of your slice, write a failing test that drives it through the public seam and names its "
        "@item id, make it pass with the smallest real change, and keep the whole suite green. Finish only when "
-       "every stamped scenario of your slice has a passing test naming its id; record any you could not carry, "
-       "with the reason, under a heading for your slice in APP_DIR/UNCARRIED.md, keeping earlier slices' entries. "))
+       "every stamped scenario of your slice has a passing test naming its id; record any you could not carry "
+       "under a heading for your slice in APP_DIR/UNCARRIED.md, one line each in the form "
+       "`- @item-NN-SSS: reason`, keeping earlier slices' entries; ORC reads those lines and asks you to go "
+       "on, so name an item there only while it is not carried. "))
 
 (def ^:private seed-instructions
   {:slice-regeneration
@@ -133,6 +135,35 @@
      :system-prompt-digest (prompt/digest system)
      :prompt rendered
      :prompt-digest (prompt/digest rendered)}))
+
+(def max-slice-continuations 3)
+
+(defn continuation-prompt
+  "The task prompt that continues a slice builder's own session, naming only the items of its
+  slice it still lists uncarried. It keeps the session's system prompt."
+  [uncarried]
+  (let [text (str "Your turn ended with these items of your slice still listed in APP_DIR/UNCARRIED.md: "
+                  (str/join ", " uncarried) ". Carry them now. For each, write a failing test that drives "
+                  "it through the public seam and names its id, make it pass with the smallest real change, "
+                  "keep the whole suite green, and remove its line from APP_DIR/UNCARRIED.md. Leave a line "
+                  "only for an item you truly cannot carry, with the reason. Then rerun APP_DIR/test.sh, "
+                  "start APP_DIR/start.sh, and confirm it answers cycle-contract over stdio. "
+                  "Done is decided by the gate and the score, not by you.")
+        system (system-instructions :slice-regeneration)]
+    {:system-prompt system
+     :system-prompt-digest (prompt/digest system)
+     :prompt text
+     :prompt-digest (prompt/digest text)}))
+
+(defn slice-uncarried
+  "The items of SLICE (NN-slug) that the builder's own APP_DIR/UNCARRIED.md lists as
+  `- @item-NN-SSS: reason` lines. Ids mentioned in prose, or another slice's, are not listed."
+  [output-root app-dir slice]
+  (let [file (io/file output-root app-dir "UNCARRIED.md")
+        line (re-pattern (str "(?m)^\\s*[-*]\\s*`?(@item-" (subs slice 0 2) "-\\d{3})"))]
+    (if (.isFile file)
+      (->> (re-seq line (slurp file)) (map second) distinct sort vec)
+      [])))
 
 (defn- dependency-hints
   "Pinned coordinates of the engines the product builds on, taken from this checkout's
@@ -175,11 +206,15 @@
 
 (defn- build!
   "One Pi builder session over the clean room, writing only APP_DIR."
-  [project-root {:keys [request-id room cfg attempt purpose initial-workspace-root gate-log-dir slice]}]
-  (let [rendered (render-prompt purpose (assoc cfg :request-id request-id :slice slice
-                                               :dependencies (dependency-hints project-root)))
+  [project-root {:keys [request-id room cfg attempt purpose initial-workspace-root gate-log-dir slice
+                       continuation uncarried resume-session-file builder-session-ref]}]
+  (let [rendered (if continuation
+                   (continuation-prompt uncarried)
+                   (render-prompt purpose (assoc cfg :request-id request-id :slice slice
+                                                 :dependencies (dependency-hints project-root))))
         run-id (cond-> (format "%s-regenerate-%02d" request-id attempt)
-                 slice (str "-" slice))
+                 slice (str "-" slice)
+                 continuation (str "-c" continuation))
         result (adapters/run-builder!
                 {:project-root project-root
                  :cuts-root (.getParent (io/file room))
@@ -192,7 +227,8 @@
                         :target-stack "clojure"
                         :initial-workspace-root initial-workspace-root
                         :verification-evidence-root gate-log-dir
-                        :builder-session-ref (str (random-uuid))
+                        :builder-session-ref (or builder-session-ref (str (random-uuid)))
+                        :resume-session-file resume-session-file
                         :builder-sessions-root (state-dir project-root "builder-sessions")
                         :attempt attempt}))
         candidate (io/file (:output-root result) (:app-dir cfg))]
@@ -224,6 +260,29 @@
        sort
        vec))
 
+(defn- carry-slice!
+  "One fresh builder for SLICE, continued in its own session while it lists items of its slice
+  uncarried: at most max-slice-continuations times, ending early on a continuation that leaves
+  the candidate unchanged. The listing is the builder's claim; the gate and the score decide."
+  [project-root {:keys [cfg slice] :as opts}]
+  (let [first-build (build! project-root (assoc opts :attempt 1 :purpose :slice-regeneration))
+        uncarried #(slice-uncarried (:output-root %) (:app-dir cfg) slice)]
+    (loop [build first-build
+           continuations 0]
+      (let [left (uncarried build)]
+        (if (or (empty? left) (= continuations max-slice-continuations))
+          (assoc build :continuations continuations :uncarried left)
+          (let [n (inc continuations)
+                next-build (build! project-root
+                                   (assoc opts :attempt 1 :purpose :slice-regeneration
+                                          :continuation n :uncarried left
+                                          :resume-session-file (:session-file build)
+                                          :builder-session-ref (:builder-session-id first-build)
+                                          :initial-workspace-root (:output-root build)))]
+            (if (= (:subject-digest next-build) (:subject-digest build))
+              (assoc build :continuations n :uncarried left)
+              (recur next-build n))))))))
+
 (defn regenerate
   "The first attempt: one fresh builder per slice, in plan order. Each slice builder reads the
   clean room and the candidate the earlier slice builders of this cycle left, nothing else, and
@@ -236,10 +295,9 @@
     (let [builds (reduce
                   (fn [builds slice]
                     (let [previous (peek builds)
-                          build (build! project-root {:request-id request-id :room room :cfg cfg
-                                                      :attempt 1 :purpose :slice-regeneration
-                                                      :slice slice
-                                                      :initial-workspace-root (:output-root previous)})]
+                          build (carry-slice! project-root {:request-id request-id :room room :cfg cfg
+                                                            :slice slice
+                                                            :initial-workspace-root (:output-root previous)})]
                       (when (= (:subject-digest build) (:subject-digest previous))
                         (throw (ex-info (str "regenerate: the builder for slice " slice
                                              " left the candidate unchanged")
@@ -250,7 +308,7 @@
           last-build (peek builds)]
       (install-candidate! room (:app-dir cfg) (:output-root last-build))
       (assoc last-build
-             :slices (mapv #(select-keys % [:slice :builder-session-id :subject-digest]) builds)))))
+             :slices (mapv #(select-keys % [:slice :builder-session-id :subject-digest :continuations :uncarried]) builds)))))
 
 (defn- gate-once [room evidence attempt]
   (let [log-dir (str evidence "/gate-" (format "%02d" attempt))

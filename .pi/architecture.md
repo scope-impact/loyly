@@ -548,7 +548,7 @@ is fenced, so it never reaches a clean room.
 | Slice | Items | Sealed grader covers | Reference implementation |
 |---|---:|---|---|
 | 01 regeneration cycle | 15 | 01-005, 01-006, 01-007, 01-010 | fence, room, gate, and receipts in the self-target cycle; cut, selection, and approval in the Löyly cycle |
-| 02 execution pipeline | 13 | 02-001, 02-002, 02-010 | five ordered stages, stdio identity, 30 s boot budget, gate repair, one builder per slice |
+| 02 execution pipeline | 14 | 02-001, 02-002, 02-010 | five ordered stages, stdio identity, 30 s boot budget, gate repair, one builder per slice, continued at most three times while it lists its own items uncarried |
 | 03 instrument | 9 | — | legacy checklist, stamp, score, scoreboard; sealed and approved grader |
 | 04 operator control plane | 17 | 04-005, 04-006, 04-008, 04-009, 04-010 | Grain service area, wait, receipts across restarts, read-only builder sessions |
 | 05 runtime evidence | 10 | 05-005 | Löyly target: Playwright, OTel/Allure projections, OBI/eBPF image |
@@ -556,13 +556,13 @@ is fenced, so it never reaches a clean room.
 | 07 harness bootstrap | 3 | — | `harness/Makefile` |
 | 08 project VM config | 2 | — | `harness/loyly/` by convention |
 | 09 rpc seam | 4 | 09-001, 09-002, 09-003 | stdio JSON-RPC, idempotent submit, terminal wait |
-| **Total** | **82** | **17** | |
+| **Total** | **83** | **17** | |
 
 ### Verification
 
 - `harness/check.sh --local`: the legacy oracle and adoption check are green; cross-repository
   comparison is skipped when no sibling is named.
-- ORC worker: 157 tests, 562 assertions, 0 failures (`orc-worker/check.sh`).
+- ORC worker: 160 tests, 583 assertions, 0 failures (`orc-worker/check.sh`).
 - Node: 41 passing, 0 failing (`npm test`).
 - Grader calibration: three sealed graders, each carried pass and uncarried fail, no orphaned processes.
 - Promoted harness: 25 tests, 401 assertions, 0 failures (`harness-impl/test.sh`).
