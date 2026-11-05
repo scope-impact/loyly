@@ -2,8 +2,12 @@
 """The uncarried calibration fixture: a proxy that runs a real harness and breaks exactly one
 behavior, named by the item it violates. The carried fixture is the real harness itself.
 usage: uncarried.py ITEM REAL_START_SCRIPT   (started by the grader as a harness)"""
-import json, sys
+import json, signal, sys
 from seam import Harness
+
+# The grader stops this proxy with SIGTERM; exit through finally so the real harness it
+# started in its own session is stopped too, never orphaned.
+signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 
 item, real = sys.argv[1], sys.argv[2]
 h = Harness(real)
