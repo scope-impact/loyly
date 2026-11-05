@@ -37,6 +37,8 @@
     (is (re-find #"Slice: \$HARNESS_CUT_ROOT/.pi/model/plan/02-execution-pipeline/spec.feature" (:prompt regenerate)))
     (is (re-find #"every stamped scenario of your slice has a passing test" (:prompt regenerate)))
     (is (re-find #"Earlier slice builders of this cycle" (:prompt regenerate)))
+    (is (re-find #"do not read the whole spec\s+up front" (:prompt regenerate)))
+    (is (re-find #"\.pi/model/rpc\.yaml" (:prompt regenerate)))
     (is (not (re-find #"Slice:" (:prompt repair))))
     (is (re-find #"Grain, whose durability you use rather than reinvent" (:prompt regenerate)))
     (is (re-find #"Gate log: \$HARNESS_VERIFICATION_EVIDENCE_ROOT/gate.log" (:prompt repair)))

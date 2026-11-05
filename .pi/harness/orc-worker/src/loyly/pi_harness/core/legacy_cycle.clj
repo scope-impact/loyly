@@ -86,8 +86,11 @@
         "request on stdin, and confirm the response. Never weaken or delete a test to obtain green."))
 
 (def ^:private slice-work
-  (str "You carry one slice, named in the runtime context. Read every scenario of that slice, and read the "
-       "rest of the spec for the contracts your slice meets. Earlier slice builders of this cycle carried the "
+  (str "You carry one slice, named in the runtime context. Read every scenario of that slice, then only the "
+       "contracts it meets: the public seam (.pi/model/rpc.yaml), the Grain Event Model "
+       "(.pi/model/regeneration_event_model.clj), the glossary, and the Allium file for your slice's domain. "
+       "Open another slice's feature only when one of your scenarios depends on it; do not read the whole spec "
+       "up front, because everything you read is carried through every later turn. Earlier slice builders of this cycle carried the "
        "slices before yours in plan order and left their candidate in your workspace: extend it, keep every "
        "existing test green, and do not rewrite their work without a failing test that requires it. For each "
        "scenario of your slice, write a failing test that drives it through the public seam and names its "
