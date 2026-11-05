@@ -73,7 +73,7 @@
   (project-profile/resolved (project-root) selection))
 
 (defn builder-id []
-  (str "openai-codex/" (or (System/getenv "PI_BUILDER_MODEL") "gpt-5.6-luna")))
+  (str "openai-codex/" (or (System/getenv "PI_BUILDER_MODEL") "gpt-6.1-sol")))
 
 (defn stage-result [stage {:keys [inputs]}]
   {:stage stage

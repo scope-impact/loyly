@@ -160,7 +160,7 @@
         result (adapters/run-builder!
                 {:project-root project-root
                  :cuts-root (.getParent (io/file room))
-                 :builder-id #(str "openai-codex/" (or (System/getenv "PI_BUILDER_MODEL") "gpt-5.6-luna"))}
+                 :builder-id #(str "openai-codex/" (or (System/getenv "PI_BUILDER_MODEL") "gpt-6.1-sol"))}
                 (merge rendered
                        {:request-id run-id
                         :cut (.getName (io/file room))
