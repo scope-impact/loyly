@@ -77,5 +77,4 @@ repair, Gondolin and resume.
 ## Open
 
 - Grader coverage: 17 of 83 items.
-- Five `:grain/allium` links in the event model name Allium rules that no longer exist.
 - `harness/config.sh` points at the Pi harness contract; regenerating Löyly needs its own config.
