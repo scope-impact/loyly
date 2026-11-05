@@ -27,8 +27,13 @@
     (zipmap [:app-dir :plan-dir :app-marker :fenced-paths :app-stack]
             (str/split-lines out))))
 
-(defn- state-dir [project-root & parts]
-  (str/join "/" (into [project-root ".pi/harness/.state"] parts)))
+(defn- state-dir
+  "Cycle state (rooms, evidence, graders) lives under PI_HARNESS_STATE_ROOT like the rest of the
+  harness state, so a worker run with its own state root never touches another's."
+  [project-root & parts]
+  (str/join "/" (into [(or (not-empty (System/getenv "PI_HARNESS_STATE_ROOT"))
+                           (str project-root "/.pi/harness/.state"))]
+                      parts)))
 
 (defn- tail [text n]
   (let [s (str text)] (subs s (max 0 (- (count s) n)))))

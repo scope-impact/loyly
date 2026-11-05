@@ -23,6 +23,8 @@ try:
             resp["result"]["workflowName"] = "some-other-product"
         if item == "09-002" and method not in ("cycle-contract", "submit-cycle", "wait", "execution-status"):
             resp = {"id": req.get("id"), "ok": True, "result": {}}
+        if item == "02-001" and method == "wait" and resp.get("ok"):
+            resp = {"id": req.get("id"), "ok": True, "result": {"status": "completed"}}
         if item == "04-009" and method == "wait":
             resp = {"id": req.get("id"), "ok": True, "result": {"status": "completed"}}
         if item == "09-003" and method == "submit-cycle" and resp.get("ok"):

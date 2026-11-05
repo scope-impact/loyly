@@ -6,7 +6,7 @@ left out, so harness/score.clj records them as failed and the denominator holds.
 
 usage: grade.py START_SCRIPT > verdicts.json
 It never reads candidate source; it starts the candidate with an isolated state root."""
-import json, sys, tempfile
+import json, os, sys, tempfile
 from seam import Harness
 
 STAGES = ["fence", "regenerate", "gate", "score", "scoreboard"]
@@ -18,6 +18,9 @@ def verdict(item, ok, evidence):
 
 def grade(start):
     state = tempfile.mkdtemp(prefix="pi-harness-grade-")
+    # A clean room must be fresh: an existing room for this request leaves the fence nothing
+    # it may build, so a harness that really runs its stages in order fails at the fence.
+    os.makedirs(os.path.join(state, "rooms", "grade-stage-order"))
     h = Harness(start, env={"PI_HARNESS_STATE_ROOT": state})
     out = []
     try:
@@ -52,6 +55,16 @@ def grade(start):
         same = bool(a and b and a.get("ok") and b.get("ok")) and a.get("result") == b.get("result") \
             and (a.get("result") or {}).get("cycleId") == "grade-idempotence"
         out.append(verdict("09-003", same, f"first {a and a.get('result')!r}, second {b and b.get('result')!r}"))
+
+        s = h.call(13, "submit-cycle", {"requestId": "grade-stage-order"})
+        task = ((s or {}).get("result") or {}).get("taskId")
+        o = h.call(14, "wait", {"taskId": task}, timeout=180) if task is not None else None
+        outcome = (o or {}).get("result") or {}
+        ordered = bool(o and o.get("ok")) and outcome.get("status") == "failed" \
+            and "fence" in str(outcome.get("error", "")).lower()
+        out.append(verdict("02-001", ordered,
+                           "a cycle whose clean room cannot be built must stop at the fence, naming it: "
+                           f"status {outcome.get('status')!r}, error {str(outcome.get('error'))[:160]!r}"))
     finally:
         h.stop()
     return out
