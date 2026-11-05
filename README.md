@@ -89,6 +89,12 @@ harness's self-check.
 ### 1. Regenerate, gate, score
 
 ```bash
+bb harness/regen.clj <run-id>        # the whole loop below, in one go
+```
+
+Step by step, the same loop is:
+
+```bash
 bb harness/stamp_item_ids.clj        # stamp new scenarios (idempotent)
 ./harness/fence.sh <room>            # a proved clean room holding only the spec
 #  a fresh Pi builder (.pi/harness/src/builder-worker.ts) rebuilds APP_DIR in the room

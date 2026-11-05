@@ -18,7 +18,7 @@ built on ORC and Grain.
                                                                    measurements)
 ```
 
-ORC belongs only in the product. The driver keeps its records as committed files:
+`bb harness/regen.clj <run-id>` runs the loop end to end. ORC belongs only in the product. The driver keeps its records as committed files:
 `harness/cycles/NN/` for each cycle and `harness/graders.approved.json` for the approved graders.
 
 ## The loop
@@ -76,7 +76,6 @@ repair, Gondolin and resume.
 
 ## Open
 
-- A driver script that runs the loop end to end (`harness/regen.sh`); today the steps run by hand.
 - Grader coverage: 17 of 83 items.
 - Five `:grain/allium` links in the event model name Allium rules that no longer exist.
 - `harness/config.sh` points at the Pi harness contract; regenerating Löyly needs its own config.

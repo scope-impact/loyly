@@ -93,7 +93,10 @@ PER_REPO=(harness/config.sh harness/probe.sh harness/README.md)
 #                       the sealed graders this repository's operator approved by exact
 #                       digest. An approval is one operator's decision about one spec, so
 #                       no other repository shares it.
-LOCAL=(harness/oracle.py harness/Makefile harness/graders.approved.json)
+#   harness/regen.clj   runs one cycle for this repository's product: the legacy tools in
+#                       order, plus the two steps the legacy README left to a person (the
+#                       builder and the approved graders). Its prompts describe this product.
+LOCAL=(harness/oracle.py harness/Makefile harness/graders.approved.json harness/regen.clj)
 
 # Recorded goldens. Content is never compared either, for a different reason: each is
 # recorded from this repository's own spec and its own scored cycle, so there is no single
