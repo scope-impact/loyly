@@ -522,32 +522,50 @@ unreached until a grader covers them.
 | 02 | `harness-regen-6` | gpt-5.6-luna | 20 | stub, 62 lines | 7/80 | +1 / −0 |
 | 03 | `harness-regen-7` | gpt-6.1-sol | 44 | real ORC pipeline over Grain, legacy tools reused, 32 scenarios listed uncarried | 8/80 | +1 / −0 |
 | 04 | `harness-regen-8` | gpt-6.1-sol | 50 | real core on a fetchable ORC pin, 48 scenarios listed uncarried | 8/80 | +0 / −0 |
+| 05 | `harness-regen-9` | gpt-6.1-sol | — | single builder; three items broken by a spec ambiguity | 5/82 | +0 / −3 |
+| 06 | `harness-regen-10` | gpt-6.1-sol | — | first cycle with one builder per slice; 17 graded items | 6/82 | +1 / −0 |
+| 07 | `harness-regen-11` | gpt-6.1-sol | — | spec names the repository; gate green first attempt | 12/82 | +6 / −0 |
+| 08 | `harness-regen-13` | gpt-6.1-sol | — | spec states slice-composition's shape; **promoted** | 14/82 | +3 / −1 |
 
-Cycles 03 and 04 passed all 8 graded items, so its score is limited by grader coverage, not by the
-builder. The record is under [`harness/cycles/`](../harness/cycles/).
+Cycles 03 and 04 passed all 8 graded items, so their score was limited by grader coverage. From
+cycle 06 three graders cover 17 items; cycle 08 passes 14 of them. The record is under
+[`harness/cycles/`](../harness/cycles/). `harness-regen-12` stopped when the provider timed out a
+slice builder and is not a cycle; builders now fail on a model error instead of looking finished.
+
+### The promoted harness
+
+Cycle 08's candidate (subject digest
+`sha256:f5e1611e11a59493e428cfdebe6fd9ea97455f49f537aaa8d62adfe9b6f2f772`) was promoted on
+2026-11-05 by the operator, unchanged, to [`harness/harness-impl/`](harness/harness-impl/), beside
+the hand-written `orc-worker`. Its own suite is green there (25 tests, 401 assertions).
+`orc-worker` still runs every cycle: the promoted harness lists 60 items in its `UNCARRIED.md`,
+among them sealed scoring, gate repair, Gondolin, and resume after a restart, so a cycle run on it
+would stop at the score. It replaces `orc-worker` once a cycle shows it can score. `.pi/harness`
+is fenced, so it never reaches a clean room.
 
 ### Coverage by slice
 
 | Slice | Items | Sealed grader covers | Reference implementation |
 |---|---:|---|---|
-| 01 regeneration cycle | 15 | — | fence, room, gate, and receipts in the self-target cycle; cut, selection, and approval in the Löyly cycle |
+| 01 regeneration cycle | 15 | 01-005, 01-006, 01-007, 01-010 | fence, room, gate, and receipts in the self-target cycle; cut, selection, and approval in the Löyly cycle |
 | 02 execution pipeline | 13 | 02-001, 02-002, 02-010 | five ordered stages, stdio identity, 30 s boot budget, gate repair, one builder per slice |
 | 03 instrument | 9 | — | legacy checklist, stamp, score, scoreboard; sealed and approved grader |
-| 04 operator control plane | 17 | 04-009, 04-010 | Grain service area, wait, receipts across restarts, read-only builder sessions |
-| 05 runtime evidence | 10 | — | Löyly target: Playwright, OTel/Allure projections, OBI/eBPF image |
-| 06 prompt optimization | 9 | — | ORC-owned prompts; GEPA scoring; activation in memory |
+| 04 operator control plane | 17 | 04-005, 04-006, 04-008, 04-009, 04-010 | Grain service area, wait, receipts across restarts, read-only builder sessions |
+| 05 runtime evidence | 10 | 05-005 | Löyly target: Playwright, OTel/Allure projections, OBI/eBPF image |
+| 06 prompt optimization | 9 | 06-001 | ORC-owned prompts; GEPA scoring; activation in memory |
 | 07 harness bootstrap | 3 | — | `harness/Makefile` |
 | 08 project VM config | 2 | — | `harness/loyly/` by convention |
 | 09 rpc seam | 4 | 09-001, 09-002, 09-003 | stdio JSON-RPC, idempotent submit, terminal wait |
-| **Total** | **82** | **8** | |
+| **Total** | **82** | **17** | |
 
 ### Verification
 
 - `harness/check.sh --local`: the legacy oracle and adoption check are green; cross-repository
   comparison is skipped when no sibling is named.
-- ORC worker: 151 tests, 543 assertions, 0 failures (`orc-worker/check.sh`).
-- Node: 39 passing, 0 failing (`npm test`).
-- Grader calibration: 8 carried pass, 8 uncarried fail, no orphaned processes.
+- ORC worker: 157 tests, 562 assertions, 0 failures (`orc-worker/check.sh`).
+- Node: 41 passing, 0 failing (`npm test`).
+- Grader calibration: three sealed graders, each carried pass and uncarried fail, no orphaned processes.
+- Promoted harness: 25 tests, 401 assertions, 0 failures (`harness-impl/test.sh`).
 
 ### Latest Löyly-target evidence
 

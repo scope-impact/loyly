@@ -7,3 +7,6 @@ allure-results/
 allure-report/
 coverage/
 cdk.out/
+
+# Clojure CLI classpath cache of the promoted harness
+harness-impl/.cpcache/
