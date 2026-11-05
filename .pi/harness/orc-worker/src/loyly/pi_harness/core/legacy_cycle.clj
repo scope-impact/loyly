@@ -320,7 +320,13 @@
   [project-root {:keys [grader-digest entry]} start evidence]
   (let [path (graders-dir project-root "sealed" (str/replace grader-digest #"^sha256:" ""))
         tag (subs (str/replace grader-digest #"^sha256:" "") 0 12)
-        graded (shell/sh "python3" (str path "/" entry) start :dir path)]
+        ;; The candidate inherits the grader's environment through the seam client, so it is told
+        ;; which repository it works on (rpc.yaml: environment.PI_HARNESS_PROJECT_ROOT).
+        graded (shell/sh "python3" (str path "/" entry) start :dir path
+                         :env (assoc (into {} (System/getenv))
+                                     "PI_HARNESS_PROJECT_ROOT" project-root
+                                     "GRADE_SOURCE_COMMIT"
+                                     (str/trim (:out (shell/sh "git" "-C" project-root "rev-parse" "HEAD")))))]
     (spit (str evidence "/grade-" tag ".log") (:err graded))
     (when-not (zero? (:exit graded))
       (throw (ex-info (str "score failed: grader " grader-digest " did not run: "
