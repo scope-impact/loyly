@@ -2,9 +2,9 @@
 
 This directory is the canonical **target contract** for the regeneration cycle. Its Gherkin
 spec uses the legacy layout, one slice per `plan/NN-slug/spec.feature` stamped with
-`@item-NN-SSS` by `harness/stamp_item_ids.clj`; the Allium files sit beside it, exposed through `.pi/harness/extension.ts` and executed by ORC under
-`.pi/harness/orc-worker/`. It is separate from `model/loyly`, which describes the
-product being regenerated.
+`@item-NN-SSS` by `harness/stamp_item_ids.clj`; the Allium files sit beside it. The legacy
+harness in `harness/` regenerates a harness from this contract, built on ORC and Grain. It is
+separate from `model/loyly`, which describes the product being regenerated.
 
 ORC is itself Grain-native. The Pi harness is therefore the `:loyly.pi-harness` Grain service
 area inside ORC's existing tenant-scoped runtime, not a second event system or an adapter around
@@ -18,10 +18,9 @@ The C4 architecture and supporting runtime views derived from this contract are 
 current behavior explicitly; this model remains the observable source of truth.
 
 The target contract must not be read as a claim that every behavior is already
-implemented. Every scenario is classified as either `@e2e` or `@skip`. Scenarios tagged
-`@e2e` are executable conformance checks; scenarios tagged `@skip` are registered with
-Vitest's native `test.skip` and do not claim executable conformance. A tag gate rejects
-unclassified or doubly classified scenarios.
+implemented. A regenerated harness is measured by the sealed graders an operator approved
+(`harness/graders.approved.json`); the `@e2e` and `@skip` tags left on scenarios by an earlier
+executable suite carry no verdict.
 
 - `plan/07-harness-bootstrap/spec.feature` and `harness-bootstrap.allium` specify the local
   `harness/Makefile` bootstrap; it builds and verifies harness and supported-stack runtime assets without
@@ -83,39 +82,6 @@ and processors. Löyly product events remain governed by `model/loyly`. The thre
 share Grain infrastructure without duplicating one another's facts.
 
 ## Implementation namespace map
-
-The model remains the behavioral source of truth; the following map is only a
-maintainer index into the current Clojure implementation.
-
-| Contract responsibility | Implementation boundary |
-|---|---|
-| Public regeneration control and status | [`loyly.pi-harness.interface`](../../.pi/harness/orc-worker/src/loyly/pi_harness/interface.clj) |
-| ORC executor coordination | [`loyly.pi-harness.core.worker`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/worker.clj) |
-| Source-cut and regeneration-cycle behavior trees | [`loyly.pi-harness.workflows`](../../.pi/harness/orc-worker/src/loyly/pi_harness/workflows/slice_cycle.clj) |
-| Builder strategy and rendering, stack checks, and subject sealing | [`loyly.pi-harness.core.build`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/build/prompt.clj) |
-| Compose verification and independent grading | [`loyly.pi-harness.core.grading`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/grading/compose.clj) |
-| Evidence manifests and Allure projections | [`loyly.pi-harness.core.evidence`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/evidence/evidence_manifest.clj) |
-| Harness self-check and grader calibration | [`loyly.pi-harness.core.oracle`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/oracle/oracle.clj) |
-| Process adapters and durable runtime composition | [`loyly.pi-harness.core.runtime`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/runtime/adapters.clj) |
-| Deterministic slice selection | [`loyly.pi-harness.core.selection`](../../.pi/harness/orc-worker/src/loyly/pi_harness/core/selection/slice_selection.clj) |
-| Harness-owned Grain facts | [`loyly.pi-harness.grain.interface`](../../.pi/harness/orc-worker/src/loyly/pi_harness/grain/interface.clj) |
-
-`core.worker` is intentionally the only implementation coordinator. Its executor
-Vars and the root prompt compatibility Var retain the fully qualified names stored
-inside serialized ORC workflow nodes. Supporting components must not depend back
-on `core.worker` or the public interface.
-
-## Executable conformance
-
-The Vitest adapter declares one readable TypeScript test per component-owned scenario. `@e2e`
-scenarios have concrete execution and emit each modeled Given/When/Then step through
-`allure.step`; `@skip` scenarios use Vitest's native `test.skip` until their public-seam
-translation is implemented. A static Gherkin-to-TypeScript lint checks scenario counts, native
-skip classification, component labels, and literal modeled steps before Vitest starts. Missing
-translations and failed `@e2e` scenarios prevent a successful conformance run. Here `@skip`
-means “not yet translated into E2E,” not necessarily “underlying implementation absent.”
-Executable-test evidence under `.pi/harness/allure-results/e2e/` is generated and not checked in;
-the complete skipped inventory remains visible in Vitest's run summary.
 
 ORC tick state remains workflow authority. The Pi-harness Grain service area projects durable
 stage/attempt views directly from ORC events for reconnecting clients and owns preparation
