@@ -5,7 +5,9 @@ Scope: the generated Pi Harness EventStorm HTML on GitHub Pages, with comments c
 
 ## Decision
 
-Build a small **semantic review layer** for the EventStorm page. Treat each review thread as a W3C Web Annotation, anchor it first to a generated stable model identity, and persist it in a separate review store. Use **Supabase Auth + Postgres Row Level Security** for the collaborative deployment because it can be called safely from a static browser application with a publishable key, provided every exposed table has least-privilege RLS. Keep a JSON import/export adapter for local and repository review snapshots.
+Build a small **semantic review layer** for the EventStorm page. Treat each review thread as a W3C Web Annotation, anchor it first to a generated stable model identity, and persist it in a separate **browser SQLite database**. Use the official `@sqlite.org/sqlite-wasm` package in a dedicated worker with SQLite's `opfs-sahpool` VFS. Keep JSON import/export for repository review snapshots and later synchronization.
+
+This is a local-first decision: each browser profile and origin has its own review database. It provides durable offline drafts without an account or remote service, but it does not create shared live comments. Cross-reviewer collaboration must use explicit snapshot exchange, promotion to a GitHub issue, or a later synchronization service.
 
 Do not make text selection, DOM position, screen coordinates, or a GitHub Discussion title the primary anchor. They are useful fallbacks or lower-cost alternatives, but the EventStorm page already has better identities in its source model:
 
@@ -94,7 +96,7 @@ Never use a `requires` array index as its only identity. Inserting an earlier cl
 
 GitHub Pages is a static hosting service and does not support server-side languages, so private credentials cannot live in the page ([GitHub Pages documentation](https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site)). The annotation store must therefore be either an external authenticated service, a separate serverless endpoint, or a user-mediated GitHub workflow.
 
-### Recommended: Supabase adapter
+### Recommended: browser SQLite over OPFS
 
 Use four isolated concerns:
 
@@ -103,10 +105,10 @@ generated event-model.json ──read only──▶ EventStorm renderer
                                           │ stable target key
                                           ▼
                                    review web component
-                                          │ authenticated CRUD
+                                          │ worker messages
                                           ▼
                               review_threads / review_comments
-                                Supabase Auth + Postgres RLS
+                               SQLite WASM · OPFS persistence
 ```
 
 Suggested tables:
@@ -122,15 +124,34 @@ review_comments
   author_id, created_at, edited_at
 ```
 
-The page ships only a Supabase publishable key. Supabase explicitly permits publishable keys in browsers and says access is then limited by Postgres Row Level Security; secret keys bypass RLS and must never be exposed. Auth identifies the user separately from the application key ([Supabase API keys](https://supabase.com/docs/guides/getting-started/api-keys), [securing frontend access](https://supabase.com/docs/guides/database/secure-data), [Supabase Auth](https://supabase.com/docs/guides/auth)).
+The official SQLite package supports browser use through WebAssembly and requires a worker for OPFS persistence ([SQLite WASM package](https://github.com/sqlite/sqlite-wasm)). The standard `opfs` VFS requires COOP/COEP response headers, which the current GitHub Pages response does not emit. SQLite recommends `opfs-sahpool` for clients unable to set those headers; it works across major browsers without cross-origin isolation and offers strong single-connection performance ([SQLite persistent storage options](https://www.sqlite.org/wasm/doc/trunk/persistence.md)).
 
-Minimum policies:
+Operational constraints:
 
-- unauthenticated users: no annotation access unless public review is a deliberate choice;
-- authenticated project reviewers: read threads/comments for the artifact;
-- authenticated reviewer: create comments as self and edit/delete only own comments;
-- maintainers: resolve/reopen threads and record an accepted commit;
-- nobody through the browser: mutate `event-model.json`, specifications, or accepted review snapshots.
+- Run all SQL and OPFS access in one dedicated worker; keep the UI thread database-free.
+- Open one database connection lazily and keep transactions short.
+- `opfs-sahpool` is not a transparent multi-tab database. Detect a second active tab with `BroadcastChannel` or Web Locks and make it read-only or ask the user to close the first tab.
+- Ask for persistent browser storage with `navigator.storage.persist()` and show whether it was granted. OPFS remains quota-managed; clearing site data deletes it ([OPFS](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system), [storage eviction](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria)).
+- Version the schema with `PRAGMA user_version`; back up before migrations.
+- Provide explicit JSON export/import and a database download. Local persistence is not a backup.
+- Store a local reviewer identity as profile metadata, not as authentication. Do not imply that local author names prove identity.
+- Nobody through the review component may mutate `event-model.json`, specifications, or accepted review snapshots.
+
+Suggested local tables remain:
+
+```text
+review_threads
+  id, artifact_id, target_key, source_commit, model_digest,
+  target_snapshot, status, created_by, created_at,
+  resolved_by, resolved_at, accepted_commit
+
+review_comments
+  id, thread_id, parent_comment_id, body,
+  author_id, created_at, edited_at
+
+review_meta
+  key, value
+```
 
 This is the closest match to Claude's access model and gives the page enough data to render marker counts, open/resolved filters, author labels, and “show all” without querying hundreds of unrelated discussion objects.
 
@@ -158,7 +179,8 @@ It is a credible **research-review trial**, especially for prose and rule text. 
 
 | Candidate | Anchoring | Threads / identity / persistence | Static Pages fit | Decision |
 |---|---|---|---|---|
-| **Custom semantic layer + Supabase** | Stable `data-review-id` plus W3C CSS/text selectors | Full control: replies, resolution, roles, model digest, accepted commit; Auth + RLS | Browser-safe publishable key; external managed service | **Recommended durable design** |
+| **Custom semantic layer + SQLite WASM/OPFS** | Stable `data-review-id` plus W3C CSS/text selectors | Full local control: replies, resolution, model digest, accepted commit; no shared identity | Excellent local-first fit; worker plus WASM assets; one-browser storage | **Recommended immediate design** |
+| **Custom semantic layer + Supabase** | Same semantic anchors | Shared threads, authenticated identity, roles, notifications; Auth + RLS | Browser-safe publishable key; external managed service | Optional later sync/collaboration adapter |
 | **giscus** | Stable target can map to a `specific` Discussion term; no native text-range model | GitHub identity, comments, replies, reactions, moderation; stored in Discussions | Excellent; no own server/database | **Best zero-backend prototype**, accept workflow limitations |
 | **Hypothesis** | Mature text-range anchoring and page notes | Hosted accounts, groups, replies, search, moderation | Excellent embed | **Good short research trial**, not primary EventStorm object review |
 | **Recogito Text Annotator** | Text quote + offsets inside a chosen container | Emits create/update/delete events; storage and thread UI remain application concerns | Can run client-side | Useful optional text-selection component, not the whole review system. Its current model aligns closely, but not exactly, with W3C ([official repository](https://github.com/recogito/text-annotator-js)). |
@@ -221,23 +243,28 @@ Do not export directly into `model/`, do not let “Send to agent” bypass a hu
 
 ## Suggested implementation sequence
 
-### Spike 1 — anchoring and local review, no service
+### Spike 1 — anchoring and local SQLite review
 
 1. Add deterministic `data-review-id`, `data-review-kind`, `data-source-file`, and `data-source-digest` attributes during HTML rendering.
-2. Add review mode, focus behavior, marker UI, side panel/bottom sheet, replies, and open/resolved state using a local in-memory repository.
-3. Import/export W3C-shaped annotation JSON.
-4. Regenerate after controlled rule, clause, layout, and label changes; prove attached/changed/orphaned classifications.
-5. Run keyboard, screen-reader, 390px mobile, and reduced-motion exploratory tests.
+2. Add a repository interface with an in-memory implementation for deterministic UI tests.
+3. Add an official SQLite WASM worker using the `opfs-sahpool` VFS and schema migrations.
+4. Add review mode, focus behavior, marker UI, side panel/bottom sheet, replies, and open/resolved state.
+5. Import/export W3C-shaped annotation JSON and provide a visible storage/persistence status.
+6. Regenerate after controlled rule, clause, layout, and label changes; prove attached/changed/orphaned classifications.
+7. Test first-tab/second-tab behavior, storage clearing, denied persistence, migrations, keyboard, screen reader, 390px mobile, and reduced motion.
 
 Pass condition: layout-only changes preserve every semantic anchor; a changed rule is flagged; a removed target is orphaned; no comment silently moves.
 
-### Spike 2 — collaborative persistence
+### Spike 2 — repository handoff
 
-1. Add Supabase Auth and RLS-protected thread/comment tables behind an `AnnotationRepository` interface.
-2. Keep the local JSON adapter for fixtures and offline review.
-3. Add presence-independent polling or Realtime only after basic CRUD and conflict behavior are reliable.
-4. Add moderation, resolve/reopen, accepted-commit linking, and review snapshot export.
-5. Threat-model XSS, markdown rendering, authorization policies, deleted users, and public artifact exposure.
+1. Add review snapshot export keyed by source commit and model digest.
+2. Add prefilled GitHub issue creation for promoted decisions.
+3. Keep unresolved review evidence out of `model/` and builder inputs.
+4. Add optional snapshot import/merge with explicit conflict reporting.
+
+### Optional Spike 3 — shared collaboration
+
+Only if reviewers need live shared threads, add a remote adapter behind the same repository interface. Supabase Auth and RLS are a reasonable managed choice; giscus remains the lowest-operations GitHub-native alternative. SQLite stays the local cache/draft store rather than pretending to be a multi-user server.
 
 ### Optional comparison spike
 
@@ -258,4 +285,4 @@ The annotation library is not the hard part. The durable value is the **anchor c
 
 > Reviewers comment on stable model identities. Regeneration may reveal that a target changed or disappeared, but it never silently moves a comment, and no comment becomes specification until a human accepts a model commit.
 
-Implement that contract with a framework-free review web component and a W3C-shaped schema. Use Supabase for the full Claude-like experience, giscus for the fastest no-backend trial, or Hypothesis for a text-centric research review—but do not let any hosted UI dictate the source-of-truth model.
+Implement that contract with a framework-free review web component, a W3C-shaped schema, and official SQLite WASM persisted through `opfs-sahpool`. Treat it as durable local storage with explicit export—not as shared collaboration or a backup. Add a remote adapter only when multiple reviewers genuinely need live shared threads, and never let the review store dictate the source-of-truth model.
