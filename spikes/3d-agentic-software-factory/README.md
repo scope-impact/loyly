@@ -19,7 +19,7 @@ The earlier visual essay and Three.js experiments remain prototype history, but 
 
 EventStorming is the primary behavioral view. The site therefore follows the Halla Event Model pattern: a Clojure extractor projects the committed specifications into JSON, and a committed HTML template turns that projection into one self-contained, hash-navigated page.
 
-There is no frontend framework or application bundle. The generated HTML contains the model and renderer. Mermaid is used only for the supporting C4 route.
+There is no frontend framework or application bundle. The generated HTML contains only presentation and interaction logic. It fetches the separately generated, deeply frozen `event-model.json` projection; routing, filtering, and diagram state never mutate the model. Mermaid is used only for the supporting C4 route.
 
 ## Model boundaries
 
@@ -34,10 +34,10 @@ There is no frontend framework or application bundle. The generated HTML contain
 
 - `event-model/extract.clj` reads the committed model without executing it.
 - `event-model/template.html` owns the EventStorm HTML structure and rendering.
-- `event-model/build.mjs` injects the temporary JSON projection into the template.
-- `event-model/build.sh` regenerates the committed `index.html`.
+- `event-model/build.mjs` generates presentation-only `index.html` from the template.
+- `event-model/build.sh` regenerates `index.html` and the separate `public/event-model.json` data projection.
 - Mermaid renders the three maintained C4 structural views on their supporting route.
-- Vite copies the single generated page into `dist/` for GitHub Pages.
+- Vite copies the presentation and data projection into `dist/` for GitHub Pages.
 
 ## Run
 
