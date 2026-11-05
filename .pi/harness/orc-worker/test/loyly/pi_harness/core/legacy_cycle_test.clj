@@ -219,3 +219,11 @@
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"more than one grader filed 02-002"
                             (legacy-cycle/score root evidence "/tmp/room"
                                                 [{:grader-digest "sha256:1"} {:grader-digest "sha256:2"}]))))))
+
+(deftest two-cycles-scoring-at-once-never-share-a-number
+  (let [root (temp-dir)]
+    (.mkdirs (io/file root "harness" "cycles" "08"))
+    (.mkdirs (io/file root "harness" "cycles" "README.md-is-not-a-number"))
+    (let [claims (pmap (fn [_] (legacy-cycle/claim-cycle-number (str root))) (range 8))]
+      (is (= (map #(format "%02d" %) (range 9 17)) (sort claims)))
+      (is (every? #(.isDirectory (io/file root "harness" "cycles" %)) claims)))))

@@ -391,10 +391,16 @@
                            (tail (:err graded) 400)) {})))
     (json/read-str (:out graded))))
 
-(defn- next-cycle-number [project-root]
-  (let [dirs (keep #(when (re-matches #"\d+" (.getName %)) (parse-long (.getName %)))
-                   (or (seq (.listFiles (io/file project-root "harness" "cycles"))) []))]
-    (format "%02d" (inc (reduce max 0 dirs)))))
+(defn claim-cycle-number
+  "Claim the next cycle number by creating harness/cycles/NN. mkdir is atomic, so two cycles
+  scoring at once never share a number."
+  [project-root]
+  (let [cycles (io/file project-root "harness" "cycles")]
+    (.mkdirs cycles)
+    (loop [n (inc (reduce max 0 (keep #(when (re-matches #"\d+" (.getName %)) (parse-long (.getName %)))
+                                      (.listFiles cycles))))]
+      (let [number (format "%02d" n)]
+        (if (.mkdir (io/file cycles number)) number (recur (inc n)))))))
 
 (defn score
   "File one verdict per checklist item with every approved sealed grader, through the legacy
@@ -407,7 +413,7 @@
     (throw (ex-info "score refused: no approved sealed grader. A cycle never scores with a grader nobody approved."
                     {})))
   (let [cfg (config project-root)
-        cycle-number (next-cycle-number project-root)
+        cycle-number (claim-cycle-number project-root)
         checklist (str "harness/cycles/" cycle-number "/checklist.json")
         derived (run-logged! project-root (str evidence "/checklist.log")
                              "bb" "harness/gen_checklist.clj" "--out" checklist)
