@@ -80,9 +80,11 @@ export type OracleProposal = {
 
 export type WorkflowContract = {
   workflowName: string;
+  routes: Array<"fresh-generation" | "measured-regeneration">;
   rootType: string;
   stages: string[];
   builderResultFields: string[];
+  proposalResultFields: string[];
   observationFields: string[];
 };
 
@@ -137,6 +139,14 @@ export class OrcClient {
 
   approveOracleProposal(proposalId: string, proposalDigest: string, approvedBy: string): Promise<OracleProposal> {
     return this.invoke("approve-oracle-proposal", { proposalId, proposalDigest, approvedBy }) as Promise<OracleProposal>;
+  }
+
+  submitCycle(requestId: string): Promise<{ cycleId: string; tickId: string; taskId: number }> {
+    return this.invoke("submit-cycle", { requestId }) as Promise<{ cycleId: string; tickId: string; taskId: number }>;
+  }
+
+  cycleContract(): Promise<{ workflowName: string; stages: string[] }> {
+    return this.invoke("cycle-contract", {}) as Promise<{ workflowName: string; stages: string[] }>;
   }
 
   submitApprovedSlice(request: CycleRequest): Promise<OperationReceipt> {

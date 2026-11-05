@@ -5,7 +5,8 @@
 
 (def root (first *command-line-args*))
 (def out (second *command-line-args*))
-(def model-dir (str root "/model/pi-harness"))
+(def model-root-rel ".pi/model")
+(def model-dir (str root "/" model-root-rel))
 
 (defn sha256 [value]
   (let [digest (.digest (java.security.MessageDigest/getInstance "SHA-256")
@@ -33,6 +34,22 @@
        (filter #(str/ends-with? % suffix))
        sort))
 
+(defn relative-files-with [dir suffix]
+  (let [root-path (.toPath (io/file dir))]
+    (->> (file-seq (io/file dir))
+         (filter #(.isFile %))
+         (filter #(str/ends-with? (.getName %) suffix))
+         (map #(-> (.relativize root-path (.toPath %))
+                   str
+                   (str/replace "\\" "/")))
+         sort)))
+
+(def feature-files (relative-files-with model-dir ".feature"))
+
+(defn feature-module-id [filename]
+  (or (second (re-find #"(?:^|/)plan/\d+-(.+)/spec\.feature$" filename))
+      (str/replace (.getName (io/file filename)) ".feature" "")))
+
 (defn top-blocks [source kind]
   (for [[whole block-name]
         (re-seq (re-pattern (str "(?ms)^" kind " (\\w+) \\{.*?\\n\\}")) source)]
@@ -48,12 +65,12 @@
 
 (defn parse-allium [filename]
   (let [source (slurp (str model-dir "/" filename))
-        feature (str/replace filename ".allium" ".feature")]
-    {:id (str/replace filename ".allium" "")
-     :file (str "model/pi-harness/" filename)
+        id (str/replace filename ".allium" "")
+        feature (some #(when (= id (feature-module-id %)) %) feature-files)]
+    {:id id
+     :file (str model-root-rel "/" filename)
      :digest (sha256 source)
-     :featureFile (when (.exists (io/file (str model-dir "/" feature)))
-                    (str "model/pi-harness/" feature))
+     :featureFile (when feature (str model-root-rel "/" feature))
      :description (->> (str/split-lines source)
                        (filter #(str/starts-with? % "-- "))
                        (remove #(str/starts-with? % "-- allium:"))
@@ -101,7 +118,7 @@
         (let [line (str/trim (first remaining)) more (rest remaining)]
           (cond
             (str/starts-with? line "@")
-            (recur more current-rule (str/split line #"\s+") nil
+            (recur more current-rule (into tags (str/split line #"\s+")) nil
                    (cond-> scenarios current (conj current)))
 
             (str/starts-with? line "Rule:")
@@ -110,8 +127,8 @@
 
             (re-find #"^Scenario( Outline)?:" line)
             (recur more current-rule []
-                   {:file (str "model/pi-harness/" filename)
-                    :module (str/replace filename ".feature" "")
+                   {:file (str model-root-rel "/" filename)
+                    :module (feature-module-id filename)
                     :rule current-rule
                     :title (str/trim (str/replace line #"^Scenario( Outline)?:" ""))
                     :item (some #(when (str/starts-with? % "@item-") (subs % 6)) tags)
@@ -132,12 +149,20 @@
         (re-seq #"(?s)## (System Context|Container view|ORC worker component view).*?```mermaid\n(.*?)```"
                 architecture-source)))
 
-(def conformance
+(def legacy-conformance
   (mapv (fn [[_ item status note]]
           {:item item :status status :note (str/trim note)})
         (re-seq #"(?m)^\| (01-\d+) \| ([^|]+) \| ([^|]+) \|$" architecture-source)))
+(def slice-coverage
+  (mapv (fn [[_ slice items grader reference]]
+          {:item (str/trim slice)
+           :status (str items " items · grader " (str/trim grader))
+           :note (str/trim reference)})
+        (re-seq #"(?m)^\| (\d{2} [^|]+?) \| (\d+) \| ([^|]+) \| ([^|]+) \|$"
+                architecture-source)))
+(def conformance (if (seq legacy-conformance) legacy-conformance slice-coverage))
 
-(def modules
+(def allium-modules
   (mapv parse-allium
         (remove #{"booking-core.allium"}
                 (files-with model-dir ".allium"))))
@@ -145,14 +170,33 @@
   (mapv (fn [scenario]
           (assoc scenario :digest
                  (sha256 (pr-str (select-keys scenario [:module :rule :title :item :tags :steps])))))
-        (mapcat parse-feature (files-with model-dir ".feature"))))
+        (mapcat parse-feature feature-files)))
+(def modeled-module-ids (set (map :id allium-modules)))
+(def scenario-only-modules
+  (mapv (fn [module-id]
+          (let [feature (some #(when (= module-id (feature-module-id %)) %) feature-files)
+                source (slurp (str model-dir "/" feature))]
+            {:id module-id
+             :file (str model-root-rel "/" feature)
+             :featureFile (str model-root-rel "/" feature)
+             :digest (sha256 source)
+             :description "Acceptance slice without a matching Allium behavior module; retained visibly as a modeling gap."
+             :entities [] :rules [] :invariants [] :surfaces [] :openQuestions []
+             :projectionGap true}))
+        (sort (remove modeled-module-ids (distinct (map :module scenarios))))))
+(def module-order
+  (into {} (map-indexed (fn [index feature] [(feature-module-id feature) index]) feature-files)))
+(def modules
+  (->> (concat allium-modules scenario-only-modules)
+       (sort-by #(get module-order (:id %) Integer/MAX_VALUE))
+       vec))
 
 (def source-commit
   (str/trim (:out (shell/sh "git" "-C" root "log" "-1" "--format=%H" "--"
-                            "model/pi-harness" ".pi/architecture.md"))))
+                            model-root-rel ".pi/architecture.md"))))
 (def payload
   {:title "Pi Harness Event Model"
-   :source "model/pi-harness"
+   :source model-root-rel
    :sourceCommit source-commit
    :modules modules
    :eventModel event-model

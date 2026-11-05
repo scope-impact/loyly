@@ -1,4 +1,4 @@
-FROM rust:1.91-alpine
+FROM pi-harness/rust:1.91-web
 
 RUN apk add --no-cache \
     bash \

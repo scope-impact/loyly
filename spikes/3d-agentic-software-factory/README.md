@@ -2,14 +2,14 @@
 
 > **Current artifact:** a generated, navigable projection of the Pi-harness behavioral model.
 
-The GitHub Pages entry point is rebuilt from `model/pi-harness`: Allium behavior, Gherkin examples, the Grain Event Model, and the maintained C4 diagrams. Löyly appears only as an example project where the harness model refers to it.
+The GitHub Pages entry point is rebuilt from `.pi/model`: Allium behavior, stamped Gherkin slices under `.pi/model/plan/`, the Grain Event Model, and the maintained C4 diagrams. Löyly appears only as an example project where the harness model refers to it.
 
 The generated page provides four connected views:
 
 ```text
 behavior modules → EventStorming rules, refusals, invariants and examples
 Grain topology  → commands, facts, projections, queries and flows
-C4 architecture → context, containers and ORC components
+C4 architecture → system context and containers
 review          → active E2E, explicit skips and implementation conformance
 comment mode    → semantic local review threads anchored to generated model identities
 ```
@@ -32,7 +32,7 @@ Review data is a separate local evidence store:
 - `opfs-sahpool` persists the database in browser OPFS without requiring cross-origin isolation from GitHub Pages.
 - Review threads support replies and open/resolved state.
 - JSON export/import provides an explicit backup and hand-off path; browser storage is not a shared service or backup.
-- A thread can be promoted to a prefilled GitHub issue, but no comment can edit `event-model.json`, write into `model/`, or enter a fresh builder.
+- A thread can be promoted to a prefilled GitHub issue, but no comment can edit `event-model.json`, write into `.pi/model`, or enter a builder.
 
 The browser UI exposes whether it has durable **Browser SQLite** or session-only fallback storage. OPFS is scoped to the browser profile and site origin, may be removed when site data is cleared, and this single-writer spike should be used from one active page tab at a time. The implementation and trade-off research are in `src/review/` and `html-annotation-review-research.md`.
 
@@ -40,18 +40,19 @@ The browser UI exposes whether it has durable **Browser SQLite** or session-only
 
 - Pi explores intent, composes the system view, and presents an exact deterministic selection for human approval.
 - ORC executes an immutable approved contract and owns bounded prompts, constrained tools, retries, termination, verification, grading, and durable evidence.
-- A Fresh Slice Generation Cycle begins without a parent candidate or accepted product oracle.
-- A Measured Slice Regeneration Cycle begins from a named measured parent and an accepted product oracle.
-- The builder cannot declare completion. Verification and candidate-blind grading exercise the public seam.
-- A cycle oracle is provisional. Only a complete pass and manual approval of the exact proposal digest can publish an accepted product oracle.
+- ORC owns one cycle in the order `fence → regenerate → gate → score → scoreboard`.
+- The fence and gate are the harness and may feed the build loop; score and scoreboard are the instrument and never do.
+- The clean room contains the approved specification, domain sources, and public application contract—not prior implementations, measurements, reports, graders, or calibration fixtures.
+- The builder cannot declare completion. The independent gate must boot the candidate fresh and prove its suite green.
+- Scoring uses only an operator-approved sealed grader digest. A failed score is measured and never starts another regeneration within the cycle.
 
 ## Generation stack
 
-- `event-model/extract.clj` reads the committed model without executing it.
+- `event-model/extract.clj` reads the committed `.pi/model` contract without executing it.
 - `event-model/template.html` owns the EventStorm HTML structure and rendering.
 - `event-model/build.mjs` generates presentation-only `index.html` from the template.
 - `event-model/build.sh` regenerates `index.html` and the separate `public/event-model.json` data projection.
-- Mermaid renders the three maintained C4 structural views on their supporting route.
+- Mermaid renders the maintained C4 system-context and container views on their supporting route.
 - `src/review/bootstrap.js` owns comment interaction and semantic target reconciliation.
 - `src/review/sqlite-worker.js` owns the separate local review database and import/export boundary.
 - Vite bundles the review adapter and copies the presentation and data projection into `dist/` for GitHub Pages.

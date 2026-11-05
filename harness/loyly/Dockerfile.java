@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21-jdk-alpine
+FROM pi-harness/java:21-web
 
 RUN apk add --no-cache \
     bash \

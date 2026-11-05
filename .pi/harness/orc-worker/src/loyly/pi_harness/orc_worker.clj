@@ -18,7 +18,6 @@
 (def submit-external-prompt-candidate! worker/submit-external-prompt-candidate!)
 (def respond! worker/respond!)
 (def workflow worker/workflow)
-(def generation-workflow worker/generation-workflow)
 (def cut-workflow worker/cut-workflow)
 
 ;; Executor compatibility for downstream tests and extensions.
@@ -36,18 +35,17 @@
 (def emit-grader-observations! worker/emit-grader-observations!)
 (def prepare-cut-stage worker/prepare-cut-stage)
 (def cut-stage worker/cut-stage)
-(def harness-calibration-stage worker/harness-calibration-stage)
 (def harness-snapshot-stage worker/harness-snapshot-stage)
+(def oracle-stage worker/oracle-stage)
 (def builder-stage worker/builder-stage)
 (def instrument-stage worker/instrument-stage)
-(def oracle-stage worker/oracle-stage)
 (def verify-stage worker/verify-stage)
 (def repair-verification-stage worker/repair-verification-stage)
-(def graders-stage worker/graders-stage)
+(def affordance-conformance-stage worker/affordance-conformance-stage)
+(def grade-stage worker/grade-stage)
 (def instrument-conformance-stage worker/instrument-conformance-stage)
-(def cycle-oracle-stage worker/cycle-oracle-stage)
-(def record-cycle-stage worker/record-cycle-stage)
-(def grade-gate-stage worker/grade-gate-stage)
+(def repair-evaluation-stage worker/repair-evaluation-stage)
+(def conclude-stage worker/conclude-stage)
 
 (defn -main [& args]
   (apply entrypoint/-main args))

@@ -22,6 +22,7 @@
         "Create impl/compose.yaml with app and test services built from impl/Dockerfile. The app listens on internal port 8080, has a runtime-native healthcheck, publishes no host port, and tests call http://app:8080. "
         "Create executable impl/start.sh accepting a numeric port argument, then PORT, then 8080. Use the exact requested stack and offline base image; never fetch packages at build or run time. "
         "Use the selected language runtime for health checks rather than assuming curl or wget. The builder room has the selected compiler or runtime but no Docker daemon; use native compile, test, and startup commands there, while downstream verification owns docker compose up --detach --build --wait app and docker compose run --rm test. "
+        "Because the image is never built in the room, prove its contents natively before finishing: every path that a Dockerfile COPY or ADD, a Compose command, entrypoint, or healthcheck, or start.sh references must exist under impl and reach the image at the path it is used from, and every Dockerfile RUN step must succeed when replayed in the room. Build steps must not run the candidate test suite, which needs the running app service. "
         "Implement every declared API and applicable human affordance exactly, including paths, methods, field spelling, navigation, outcomes, refusals, and encoding. Do not invent a UI where no affordance applies. "
         "Copy wire names exactly without camelCase aliases. Percent-decode dynamic path values before domain use and percent-encode them in clients. Assert exact observable fields and preserve declared identity fields across every projection. A rejection that offers a follow-up action must return every input needed to perform it. "
         "Keep accepted facts in one authoritative structured state. Rejections preserve state; mutations are atomic; projections derive from the same committed fact. "
@@ -33,6 +34,7 @@
         "Translate each failure into a public-seam regression test and observe the expected failure before changing implementation. "
         "Trace failures to the pinned contract, make the smallest coherent correction, then rerun focused and full tests, syntax or compilation, and startup. "
         "Do not delete, skip, weaken, or replace assertions. Do not alter the requested stack, Compose boundary, evidence contract, or applicable affordances. "
+        "When the evidence shows an image build failure or a missing file inside a container, correct the Dockerfile or Compose packaging and check every other referenced path, not only the one reported. "
         "Verifier evidence is diagnostic input; the immutable product contract remains authoritative. Record red and green commands and outcomes.")})
 
 (defn- valid-purpose! [purpose]

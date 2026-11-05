@@ -92,7 +92,7 @@
         result (with-redefs [worker/ensure-cycle-oracle!
                             (constantly {:grader-root "/cycle-oracle"})
                             worker/baseline-grader-root (constantly "/validator")
-                            worker/baseline-grade-stage
+                            worker/grade-with-cycle-oracle
                             (constantly
                              {:measurement
                               {:complete? true :total 2 :passed 1 :failed 1

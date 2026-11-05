@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""The harness grader: drives a candidate harness only through its public seam (JSON-RPC
+over stdio, .pi/model/rpc.yaml) and files one verdict per checklist item it can reach, in
+the legacy verdict format [{id, verdict: pass|fail, evidence}]. Items it cannot reach are
+left out, so harness/score.clj records them as failed and the denominator holds.
+
+usage: grade.py START_SCRIPT > verdicts.json
+It never reads candidate source; it starts the candidate with an isolated state root."""
+import json, os, sys, tempfile
+from seam import Harness
+
+STAGES = ["fence", "regenerate", "gate", "score", "scoreboard"]
+
+
+def verdict(item, ok, evidence):
+    return {"id": item, "verdict": "pass" if ok else "fail", "evidence": evidence}
+
+
+def grade(start):
+    state = tempfile.mkdtemp(prefix="pi-harness-grade-")
+    # A clean room must be fresh: an existing room for this request leaves the fence nothing
+    # it may build, so a harness that really runs its stages in order fails at the fence.
+    os.makedirs(os.path.join(state, "rooms", "grade-stage-order"))
+    os.makedirs(os.path.join(state, "rooms", "grade-durable"))
+    h = Harness(start, env={"PI_HARNESS_STATE_ROOT": state})
+    out = []
+    try:
+        r = h.call(1, "cycle-contract")
+        result = (r or {}).get("result") or {}
+        out.append(verdict("02-002", bool(r and r.get("ok") and result.get("stages") == STAGES),
+                           f"cycle-contract stages: {result.get('stages')}"))
+        out.append(verdict("02-010", bool(r and r.get("ok") and "pi-harness" in str(result.get("workflowName", "")).lower()
+                                          and result.get("stages") == STAGES),
+                           f"cycle-contract names {result.get('workflowName')!r}"))
+
+        h.send({"id": 7, "method": "cycle-contract", "params": {}})
+        first, extra = h.read(30), h.read(2)
+        shape_ok = bool(first) and first.get("id") == 7 and (
+            (first.get("ok") is True and "result" in first) or (first.get("ok") is False and "error" in first))
+        out.append(verdict("09-001", shape_ok and extra is None,
+                           f"answer {first!r}, extra line {extra!r}"))
+
+        bad = h.call(8, "no-such-method-for-grading")
+        after = h.call(9, "cycle-contract")
+        refused = bool(bad) and bad.get("id") == 8 and bad.get("ok") is False and \
+            "no-such-method-for-grading" in json.dumps(bad.get("error"))
+        out.append(verdict("09-002", refused and bool(after) and after.get("ok") is True,
+                           f"refusal {bad!r}; next contract ok={bool(after and after.get('ok'))}"))
+
+        w = h.call(10, "wait", {"taskId": 987654321}, timeout=30)
+        out.append(verdict("04-009", bool(w) and w.get("id") == 10 and w.get("ok") is False,
+                           f"wait on an unknown task: {w!r}"))
+
+        a = h.call(11, "submit-cycle", {"requestId": "grade-idempotence"})
+        b = h.call(12, "submit-cycle", {"requestId": "grade-idempotence"})
+        same = bool(a and b and a.get("ok") and b.get("ok")) and a.get("result") == b.get("result") \
+            and (a.get("result") or {}).get("cycleId") == "grade-idempotence"
+        out.append(verdict("09-003", same, f"first {a and a.get('result')!r}, second {b and b.get('result')!r}"))
+
+        s = h.call(13, "submit-cycle", {"requestId": "grade-stage-order"})
+        task = ((s or {}).get("result") or {}).get("taskId")
+        o = h.call(14, "wait", {"taskId": task}, timeout=180) if task is not None else None
+        outcome = (o or {}).get("result") or {}
+        ordered = bool(o and o.get("ok")) and outcome.get("status") == "failed" \
+            and "fence" in str(outcome.get("error", "")).lower()
+        out.append(verdict("02-001", ordered,
+                           "a cycle whose clean room cannot be built must stop at the fence, naming it: "
+                           f"status {outcome.get('status')!r}, error {str(outcome.get('error'))[:160]!r}"))
+
+        d = h.call(15, "submit-cycle", {"requestId": "grade-durable"})
+        durable_task = ((d or {}).get("result") or {}).get("taskId")
+        before = h.call(16, "wait", {"taskId": durable_task}, timeout=180) if durable_task is not None else None
+    finally:
+        h.stop()
+    # A replacement worker on the same durable state must reconstruct the outcome.
+    h = Harness(start, env={"PI_HARNESS_STATE_ROOT": state})
+    try:
+        after = h.call(17, "wait", {"taskId": durable_task}, timeout=180) if durable_task is not None else None
+        b_out, a_out = (before or {}).get("result") or {}, (after or {}).get("result") or {}
+        same = bool(before and after and before.get("ok") and after.get("ok")) \
+            and a_out.get("status") == b_out.get("status") and a_out.get("status") in ("completed", "failed")
+        out.append(verdict("04-010", same,
+                           f"before restart {b_out.get('status')!r}; after restart {after!r}"[:400]))
+    finally:
+        h.stop()
+    return out
+
+
+if __name__ == "__main__":
+    print(json.dumps(grade(sys.argv[1]), indent=1))

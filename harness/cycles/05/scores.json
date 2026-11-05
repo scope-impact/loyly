@@ -1,0 +1,660 @@
+{
+ "items": [
+  {
+   "id": "01-001",
+   "name": "Preparing a cut returns immutable commit and tree identities",
+   "rule": "The neutral source cut is pinned and physically fenced",
+   "source": ".pi/model/plan/01-regeneration-cycle/spec.feature:12",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "01-002",
+   "name": "The builder cannot modify or escape the cut",
+   "rule": "The neutral source cut is pinned and physically fenced",
+   "source": ".pi/model/plan/01-regeneration-cycle/spec.feature:21",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "01-003",
+   "name": "The clean room holds the spec, not an answer or a judge",
+   "rule": "The neutral source cut is pinned and physically fenced",
+   "source": ".pi/model/plan/01-regeneration-cycle/spec.feature:30",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "01-004",
+   "name": "Slice mappings reconstruct the complete cut-bound system view",
+   "rule": "The neutral source cut is pinned and physically fenced",
+   "source": ".pi/model/plan/01-regeneration-cycle/spec.feature:40",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "01-005",
+   "name": "Previewing the same slice produces the same selection identity",
+   "rule": "Selection is deterministic and approval binds the reviewed identity",
+   "source": ".pi/model/plan/01-regeneration-cycle/spec.feature:51",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "01-006",
+   "name": "Approval refuses a digest other than the reviewed digest",
+   "rule": "Selection is deterministic and approval binds the reviewed identity",
+   "source": ".pi/model/plan/01-regeneration-cycle/spec.feature:61",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "01-007",
+   "name": "An unapproved selection cannot start a regeneration cycle",
+   "rule": "Cycle submission is approved, scoped, and idempotent",
+   "source": ".pi/model/plan/01-regeneration-cycle/spec.feature:71",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "01-008",
+   "name": "Repeating the same request identity returns the original receipt",
+   "rule": "Cycle submission is approved, scoped, and idempotent",
+   "source": ".pi/model/plan/01-regeneration-cycle/spec.feature:78",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "01-009",
+   "name": "The builder starts fresh and must produce workspace output",
+   "rule": "The builder produces a new candidate from the pinned contract",
+   "source": ".pi/model/plan/01-regeneration-cycle/spec.feature:88",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "01-010",
+   "name": "ORC exposes builder session identity in its executable contract",
+   "rule": "The builder produces a new candidate from the pinned contract",
+   "source": ".pi/model/plan/01-regeneration-cycle/spec.feature:98",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "01-011",
+   "name": "Verification rejects an incomplete runnable application contract",
+   "rule": "Independent checks determine whether the cycle passes",
+   "source": ".pi/model/plan/01-regeneration-cycle/spec.feature:107",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "01-012",
+   "name": "A final result requires every independent gate to pass",
+   "rule": "Independent checks determine whether the cycle passes",
+   "source": ".pi/model/plan/01-regeneration-cycle/spec.feature:116",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "01-013",
+   "name": "Recording the same evidence twice is idempotent",
+   "rule": "Evidence and measurement survive workflow process restarts",
+   "source": ".pi/model/plan/01-regeneration-cycle/spec.feature:127",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "01-014",
+   "name": "A completed measurement is readable after the harness restarts",
+   "rule": "Evidence and measurement survive workflow process restarts",
+   "source": ".pi/model/plan/01-regeneration-cycle/spec.feature:135",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "01-015",
+   "name": "Host execution cannot be reported as independently graded",
+   "rule": "Backend limitations remain explicit",
+   "source": ".pi/model/plan/01-regeneration-cycle/spec.feature:144",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "02-001",
+   "name": "A regeneration cycle follows the declared stage order",
+   "rule": "ORC owns the complete ordered cycle",
+   "source": ".pi/model/plan/02-execution-pipeline/spec.feature:11",
+   "verdict": "fail",
+   "evidence": "a cycle whose clean room cannot be built must stop at the fence, naming it: status None, error 'None'"
+  },
+  {
+   "id": "02-002",
+   "name": "ORC exposes the declared stage order",
+   "rule": "ORC owns the complete ordered cycle",
+   "source": ".pi/model/plan/02-execution-pipeline/spec.feature:20",
+   "verdict": "pass",
+   "evidence": "cycle-contract stages: ['fence', 'regenerate', 'gate', 'score', 'scoreboard']"
+  },
+  {
+   "id": "02-003",
+   "name": "The fence refuses to build a room for an instrument nobody checked",
+   "rule": "The fence and the gate feed the build loop; the score never does",
+   "source": ".pi/model/plan/02-execution-pipeline/spec.feature:34",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "02-004",
+   "name": "The gate ratifies done; the builder cannot",
+   "rule": "The fence and the gate feed the build loop; the score never does",
+   "source": ".pi/model/plan/02-execution-pipeline/spec.feature:43",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "02-005",
+   "name": "The score reports to a person and never into the loop",
+   "rule": "The fence and the gate feed the build loop; the score never does",
+   "source": ".pi/model/plan/02-execution-pipeline/spec.feature:53",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "02-006",
+   "name": "A slice without a human affordance contract does not invent a UI",
+   "rule": "The fence and the gate feed the build loop; the score never does",
+   "source": ".pi/model/plan/02-execution-pipeline/spec.feature:62",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "02-007",
+   "name": "Evidence identity cannot be reused for different content",
+   "rule": "Independent rooms and evidence preserve provenance",
+   "source": ".pi/model/plan/02-execution-pipeline/spec.feature:72",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "02-008",
+   "name": "Evidence reports are derived projections",
+   "rule": "Independent rooms and evidence preserve provenance",
+   "source": ".pi/model/plan/02-execution-pipeline/spec.feature:80",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "02-009",
+   "name": "A non-successful stage cannot disappear from the result",
+   "rule": "Non-success outcomes remain explicit and measurable",
+   "source": ".pi/model/plan/02-execution-pipeline/spec.feature:90",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "02-010",
+   "name": "The running harness proves its identity by answering its cycle contract",
+   "rule": "The running harness proves its identity by domain behavior, not by name",
+   "source": ".pi/model/plan/02-execution-pipeline/spec.feature:107",
+   "verdict": "pass",
+   "evidence": "cycle-contract names 'pi-harness'"
+  },
+  {
+   "id": "02-011",
+   "name": "The gate boots the harness within a thirty-second budget and reports the margin",
+   "rule": "The running harness proves its identity by domain behavior, not by name",
+   "source": ".pi/model/plan/02-execution-pipeline/spec.feature:115",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "02-012",
+   "name": "The first attempt starts one fresh builder per selected slice in plan order",
+   "rule": "The first regenerate attempt builds one slice at a time",
+   "source": ".pi/model/plan/02-execution-pipeline/spec.feature:126",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "02-013",
+   "name": "A slice builder receives only the clean room and this cycle's candidate so far",
+   "rule": "The first regenerate attempt builds one slice at a time",
+   "source": ".pi/model/plan/02-execution-pipeline/spec.feature:135",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "03-001",
+   "name": "The checklist is one item per stamped scenario of the approved selection",
+   "rule": "The checklist is derived from the spec and its denominator never drifts",
+   "source": ".pi/model/plan/03-instrument/spec.feature:13",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "03-002",
+   "name": "A grader is written once from the spec and calibrated before it is sealed",
+   "rule": "The grader is a sealed, calibrated instrument, not a per-cycle guess",
+   "source": ".pi/model/plan/03-instrument/spec.feature:24",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "03-003",
+   "name": "An approved grader is reused until its scenarios change",
+   "rule": "The grader is a sealed, calibrated instrument, not a per-cycle guess",
+   "source": ".pi/model/plan/03-instrument/spec.feature:34",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "03-004",
+   "name": "A sealed grader changes only for a recorded reason",
+   "rule": "The grader is a sealed, calibrated instrument, not a per-cycle guess",
+   "source": ".pi/model/plan/03-instrument/spec.feature:43",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "03-005",
+   "name": "Zero verdicts mean the score did not happen",
+   "rule": "The score files honest verdicts",
+   "source": ".pi/model/plan/03-instrument/spec.feature:55",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "03-006",
+   "name": "An unreached item is recorded as failed and the denominator holds",
+   "rule": "The score files honest verdicts",
+   "source": ".pi/model/plan/03-instrument/spec.feature:63",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "03-007",
+   "name": "Behavior, affordance, and runtime evidence are scored by the same sealed grader",
+   "rule": "The score files honest verdicts",
+   "source": ".pi/model/plan/03-instrument/spec.feature:73",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "03-008",
+   "name": "The scoreboard compares shared items in both directions and never nets them",
+   "rule": "The scoreboard compares cycles honestly",
+   "source": ".pi/model/plan/03-instrument/spec.feature:83",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "03-009",
+   "name": "The first cycle of a selection has no comparison",
+   "rule": "The scoreboard compares cycles honestly",
+   "source": ".pi/model/plan/03-instrument/spec.feature:93",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "04-001",
+   "name": "Startup refuses a harness topology that differs from its Grain Event Model",
+   "rule": "The Pi harness is a strictly validated Grain service area inside ORC",
+   "source": ".pi/model/plan/04-operator-control-plane/spec.feature:9",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "04-002",
+   "name": "Public harness operations use Grain commands and queries",
+   "rule": "The Pi harness is a strictly validated Grain service area inside ORC",
+   "source": ".pi/model/plan/04-operator-control-plane/spec.feature:18",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "04-003",
+   "name": "Harness progress is projected from authoritative ORC events",
+   "rule": "The Pi harness is a strictly validated Grain service area inside ORC",
+   "source": ".pi/model/plan/04-operator-control-plane/spec.feature:27",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "04-004",
+   "name": "An LLM proposes a reviewable slice but cannot approve it",
+   "rule": "Every public operation refuses malformed or conflicting identities",
+   "source": ".pi/model/plan/04-operator-control-plane/spec.feature:38",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "04-005",
+   "name": "Cut preparation refuses an invalid or colliding identity",
+   "rule": "Every public operation refuses malformed or conflicting identities",
+   "source": ".pi/model/plan/04-operator-control-plane/spec.feature:50",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "04-006",
+   "name": "Selection preview refuses an empty or ambiguous denominator",
+   "rule": "Every public operation refuses malformed or conflicting identities",
+   "source": ".pi/model/plan/04-operator-control-plane/spec.feature:58",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "04-007",
+   "name": "Submission refuses an unsafe candidate scope",
+   "rule": "Every public operation refuses malformed or conflicting identities",
+   "source": ".pi/model/plan/04-operator-control-plane/spec.feature:66",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "04-008",
+   "name": "Waiting for a known task returns its one terminal outcome",
+   "rule": "Workflow tasks have observable terminal outcomes",
+   "source": ".pi/model/plan/04-operator-control-plane/spec.feature:75",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "04-009",
+   "name": "Waiting refuses an unknown task identity",
+   "rule": "Workflow tasks have observable terminal outcomes",
+   "source": ".pi/model/plan/04-operator-control-plane/spec.feature:83",
+   "verdict": "pass",
+   "evidence": "wait on an unknown task: {'id': 10, 'ok': False, 'error': 'unknown tasks 987654321'}"
+  },
+  {
+   "id": "04-010",
+   "name": "A durable task remains observable after worker restart",
+   "rule": "Workflow tasks have observable terminal outcomes",
+   "source": ".pi/model/plan/04-operator-control-plane/spec.feature:90",
+   "verdict": "fail",
+   "evidence": "before restart None; after restart None"
+  },
+  {
+   "id": "04-011",
+   "name": "Approval binds the complete cycle preparation and diagram",
+   "rule": "The reviewed preparation binds every cycle-defining choice",
+   "source": ".pi/model/plan/04-operator-control-plane/spec.feature:100",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "04-012",
+   "name": "A sealed grader is used only after manual approval of its exact digest",
+   "rule": "The reviewed preparation binds every cycle-defining choice",
+   "source": ".pi/model/plan/04-operator-control-plane/spec.feature:109",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "04-013",
+   "name": "The control plane does not depend on one interactive session implementation",
+   "rule": "Any operator session can drive the outer lifecycle",
+   "source": ".pi/model/plan/04-operator-control-plane/spec.feature:120",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "04-014",
+   "name": "Live progress reconciles with durable ORC execution state",
+   "rule": "Any operator session can drive the outer lifecycle",
+   "source": ".pi/model/plan/04-operator-control-plane/spec.feature:129",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "04-015",
+   "name": "An operator observes a builder session read-only",
+   "rule": "Builder sessions are observable without weakening independence",
+   "source": ".pi/model/plan/04-operator-control-plane/spec.feature:140",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "04-016",
+   "name": "Intervention is explicit and provenance-recorded",
+   "rule": "Builder sessions are observable without weakening independence",
+   "source": ".pi/model/plan/04-operator-control-plane/spec.feature:149",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "04-017",
+   "name": "A builder transcript is restored with its matching workspace generation",
+   "rule": "Builder sessions are observable without weakening independence",
+   "source": ".pi/model/plan/04-operator-control-plane/spec.feature:158",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "05-001",
+   "name": "A score preserves its Playwright trace",
+   "rule": "Runtime evidence preserves authority and collection quality",
+   "source": ".pi/model/plan/05-runtime-evidence/spec.feature:9",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "05-002",
+   "name": "Candidate telemetry cannot author an independent verdict",
+   "rule": "Runtime evidence preserves authority and collection quality",
+   "source": ".pi/model/plan/05-runtime-evidence/spec.feature:18",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "05-003",
+   "name": "Missing or dropped required signals are inconclusive",
+   "rule": "Runtime evidence preserves authority and collection quality",
+   "source": ".pi/model/plan/05-runtime-evidence/spec.feature:27",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "05-004",
+   "name": "A passing invariant uses one correlated candidate subject",
+   "rule": "Runtime evidence preserves authority and collection quality",
+   "source": ".pi/model/plan/05-runtime-evidence/spec.feature:38",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "05-005",
+   "name": "ORC exposes artifact provenance in its executable contract",
+   "rule": "Runtime evidence preserves authority and collection quality",
+   "source": ".pi/model/plan/05-runtime-evidence/spec.feature:47",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "05-006",
+   "name": "Runtime evidence is scored independently of behavior",
+   "rule": "Runtime evidence preserves authority and collection quality",
+   "source": ".pi/model/plan/05-runtime-evidence/spec.feature:54",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "05-007",
+   "name": "Runtime evidence is selected entirely from the pinned project model",
+   "rule": "Runtime evidence preserves authority and collection quality",
+   "source": ".pi/model/plan/05-runtime-evidence/spec.feature:64",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "05-008",
+   "name": "OTel and Allure project the persisted invariant evaluation",
+   "rule": "Runtime evidence preserves authority and collection quality",
+   "source": ".pi/model/plan/05-runtime-evidence/spec.feature:73",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "05-009",
+   "name": "An operator Pi session profiles a Gondolin VM directly",
+   "rule": "Runtime evidence preserves authority and collection quality",
+   "source": ".pi/model/plan/05-runtime-evidence/spec.feature:82",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "05-010",
+   "name": "Each comparison cycle isolates evidence from its pinned OTel capture policy",
+   "rule": "Runtime evidence preserves authority and collection quality",
+   "source": ".pi/model/plan/05-runtime-evidence/spec.feature:90",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "06-001",
+   "name": "Prompt optimization requires training and validation examples",
+   "rule": "Prompt optimization is independently measured",
+   "source": ".pi/model/plan/06-prompt-optimization/spec.feature:9",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "06-002",
+   "name": "Every instruction candidate is scored by independent regeneration gates",
+   "rule": "Prompt optimization is independently measured",
+   "source": ".pi/model/plan/06-prompt-optimization/spec.feature:16",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "06-003",
+   "name": "Only the winning instruction for each purpose becomes durably active",
+   "rule": "Prompt optimization is independently measured",
+   "source": ".pi/model/plan/06-prompt-optimization/spec.feature:26",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "06-004",
+   "name": "GEPA optimizes the complete strategy sent through one prompt seam",
+   "rule": "Prompt optimization is independently measured",
+   "source": ".pi/model/plan/06-prompt-optimization/spec.feature:35",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "06-005",
+   "name": "Generation and verification repair are independent optimization targets",
+   "rule": "Prompt optimization is independently measured",
+   "source": ".pi/model/plan/06-prompt-optimization/spec.feature:44",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "06-006",
+   "name": "Bedrock reflection is pinned and provenance recorded",
+   "rule": "Prompt optimization is independently measured",
+   "source": ".pi/model/plan/06-prompt-optimization/spec.feature:53",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "06-007",
+   "name": "ORC owns every builder and grader-author production prompt",
+   "rule": "Prompt optimization is independently measured",
+   "source": ".pi/model/plan/06-prompt-optimization/spec.feature:62",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "06-008",
+   "name": "Harness enforcement does not depend on model compliance",
+   "rule": "Prompt optimization is independently measured",
+   "source": ".pi/model/plan/06-prompt-optimization/spec.feature:71",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "06-009",
+   "name": "Bedrock reflection and candidate execution remain separate roles",
+   "rule": "Prompt optimization is independently measured",
+   "source": ".pi/model/plan/06-prompt-optimization/spec.feature:80",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "07-001",
+   "name": "make bootstrap builds every harness and supported-stack runtime",
+   "rule": "The Makefile builds and verifies all configured Gondolin runtimes without graders",
+   "source": ".pi/model/plan/07-harness-bootstrap/spec.feature:10",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "07-002",
+   "name": "make bootstrap does not run Löyly application or instrument workflows",
+   "rule": "Harness bootstrap does not build or grade the product",
+   "source": ".pi/model/plan/07-harness-bootstrap/spec.feature:26",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "07-003",
+   "name": "An invalid runtime build fails the Makefile target",
+   "rule": "Bootstrap failure is surfaced to the operator",
+   "source": ".pi/model/plan/07-harness-bootstrap/spec.feature:37",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "08-001",
+   "name": "Löyly resolves its Gondolin config and Dockerfile for each supported stack",
+   "rule": "A selected project resolves its own VM and target-stack build files by convention",
+   "source": ".pi/model/plan/08-project-vm-config/spec.feature:10",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "08-002",
+   "name": "An unsupported or missing project stack Dockerfile is refused",
+   "rule": "Missing project runtime config fails closed",
+   "source": ".pi/model/plan/08-project-vm-config/spec.feature:21",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  },
+  {
+   "id": "09-001",
+   "name": "A request is answered once with its own id",
+   "rule": "Every request gets exactly one response carrying its id",
+   "source": ".pi/model/plan/09-rpc-seam/spec.feature:9",
+   "verdict": "pass",
+   "evidence": "answer {'id': 7, 'ok': True, 'result': {'workflowName': 'pi-harness', 'artifacts': {'fence': {'producer': 'fence', 'fields': ['root', 'cutCommit', 'treeDigest']}, 'candidate': {'producer': 'regenerate', 'fields': ['builderSessionId', 'workspace', 'generatedPaths']}, 'gate': {'producer': 'gate', 'fields': ['subjectDigest', 'evidenceRoot', 'evidence']}, 'runtime': {'producer': 'independent-validator', 'fields': ['evaluationId', 'evidenceDigest', 'inputArtifactDigests', 'subjectDigest', 'graderDigest']}}, 'stages': ['fence', 'regenerate', 'gate', 'score', 'scoreboard'], 'blackboard': {'request': {'requestId': 'string', 'selectionId': 'string'}, 'fence': {'root': 'string', 'treeDigest': 'string'}, 'regenerate': {'builderSessionId': 'string', 'workspace': 'string', 'generatedPaths': ['vector', 'string']}, 'gate': {'passed': 'boolean', 'evidence': 'string', 'subjectDigest': 'string'}, 'score': {'cycleId': 'string', 'total': 'int', 'passed': 'boolean', 'items': ['vector', ['map', ['itemId', 'string'], ['verdict', 'string'], ['graded', 'boolean']]]}, 'scoreboard': {'cycleId': 'string', 'passRate': 'double'}}, 'nodes': [{'node-type': 'leaf', 'name': 'fence', 'executor': 'code', 'fn': 'pi-harness.pipeline/fence', 'reads': ['request'], 'writes': ['fence'], 'retry': None}, {'node-type': 'leaf', 'name': 'regenerate', 'executor': 'code', 'fn': 'pi-harness.pipeline/regenerate', 'reads': ['request', 'fence'], 'writes': ['regenerate'], 'retry': None}, {'node-type': 'leaf', 'name': 'gate', 'executor': 'code', 'fn': 'pi-harness.pipeline/gate', 'reads': ['request', 'fence', 'regenerate'], 'writes': ['gate'], 'retry': None}, {'node-type': 'leaf', 'name': 'score', 'executor': 'code', 'fn': 'pi-harness.pipeline/score', 'reads': ['request', 'gate', 'regenerate'], 'writes': ['score'], 'retry': None}, {'node-type': 'leaf', 'name': 'scoreboard', 'executor': 'code', 'fn': 'pi-harness.pipeline/scoreboard', 'reads': ['request', 'score'], 'writes': ['scoreboard'], 'retry': None}]}}, extra line None"
+  },
+  {
+   "id": "09-002",
+   "name": "An unknown method is refused without stopping the harness",
+   "rule": "Every request gets exactly one response carrying its id",
+   "source": ".pi/model/plan/09-rpc-seam/spec.feature:17",
+   "verdict": "pass",
+   "evidence": "refusal {'id': 8, 'ok': False, 'error': 'unknown method: no-such-method-for-grading'}; next contract ok=True"
+  },
+  {
+   "id": "09-003",
+   "name": "Repeating a cycle request returns the original receipt",
+   "rule": "Cycles are submitted and observed through the seam",
+   "source": ".pi/model/plan/09-rpc-seam/spec.feature:27",
+   "verdict": "fail",
+   "evidence": "first None, second None"
+  },
+  {
+   "id": "09-004",
+   "name": "Waiting on a submitted cycle returns its one terminal outcome",
+   "rule": "Cycles are submitted and observed through the seam",
+   "source": ".pi/model/plan/09-rpc-seam/spec.feature:34",
+   "verdict": "fail",
+   "evidence": "not scored: the grader never reached this item"
+  }
+ ]
+}

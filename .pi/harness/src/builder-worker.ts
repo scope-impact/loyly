@@ -90,7 +90,7 @@ try {
     authPath: process.env.PI_AUTH_PATH ?? `${agentDir}/auth.json`,
     modelsPath: process.env.PI_MODELS_PATH ?? `${agentDir}/models.json`,
   });
-  const model = getModel("openai-codex", process.env.PI_BUILDER_MODEL ?? "gpt-5.6-luna");
+  const model = getModel("openai-codex", process.env.PI_BUILDER_MODEL ?? "gpt-6.1-sol");
   if (!model) throw new Error("Codex builder model is unavailable");
   const { session } = await createAgentSession({
     cwd: room.workspaceRoot,
@@ -98,7 +98,7 @@ try {
     modelRuntime,
     resourceLoader,
     sessionManager: manager,
-    settingsManager: SettingsManager.inMemory({ compaction: { enabled: false } }),
+    settingsManager: SettingsManager.inMemory({ compaction: { enabled: true } }),
     tools: ["bash"],
     customTools: [bash],
   });

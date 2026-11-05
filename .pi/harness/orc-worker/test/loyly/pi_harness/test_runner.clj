@@ -6,12 +6,14 @@
             [loyly.pi-harness.core.grading.compose-backend-test]
             [loyly.pi-harness.grain.cycle-progress-test]
             [loyly.pi-harness.grain.cycle-preparation-test]
+            [loyly.pi-harness.grain.grader-approval-test]
             [loyly.pi-harness.grain.event-model-test]
             [loyly.pi-harness.grain.cycle-measurement-test]
             [loyly.pi-harness.grain.candidate-lineage-test]
             [loyly.pi-harness.grain.oracle-proposal-test]
             [loyly.pi-harness.entrypoint-test]
             [loyly.pi-harness.core.oracle.harness-calibration-test]
+            [loyly.pi-harness.core.legacy-cycle-test]
             [loyly.pi-harness.core.grading.independent-grader-test]
             [loyly.pi-harness.core.oracle.instrument-oracle-test]
             [loyly.pi-harness.core.runtime.json-process-test]
@@ -31,12 +33,14 @@
     loyly.pi-harness.core.grading.compose-backend-test
     loyly.pi-harness.grain.cycle-progress-test
     loyly.pi-harness.grain.cycle-preparation-test
+    loyly.pi-harness.grain.grader-approval-test
     loyly.pi-harness.grain.event-model-test
     loyly.pi-harness.grain.cycle-measurement-test
     loyly.pi-harness.grain.candidate-lineage-test
     loyly.pi-harness.grain.oracle-proposal-test
     loyly.pi-harness.entrypoint-test
     loyly.pi-harness.core.oracle.harness-calibration-test
+    loyly.pi-harness.core.legacy-cycle-test
     loyly.pi-harness.core.grading.independent-grader-test
     loyly.pi-harness.core.oracle.instrument-oracle-test
     loyly.pi-harness.core.runtime.json-process-test

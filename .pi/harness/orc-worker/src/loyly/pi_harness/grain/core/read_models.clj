@@ -23,6 +23,10 @@
     :loyly.pi-harness/oracle-proposal-approved
     :loyly.pi-harness/product-oracle-accepted})
 (def operation-route-event-types #{:loyly.pi-harness/approved-slice-operation-routed})
+(def task-receipt-event-types #{:loyly.pi-harness/task-receipt-issued})
+(def task-receipt-keys [:task-id :tick-id :cycle-id])
+(def grader-approval-event-types #{:loyly.pi-harness/grader-approved})
+(def grader-approval-keys [:grader-digest :entry :items :approved-by :approved-at])
 
 (def selection-keys
   [:selectionId :selectionDigest :status :projectId :containerId :componentId
@@ -70,6 +74,9 @@
 (defn candidate-tag [candidate-id] (uuid-tag :generated-candidate candidate-id))
 (defn oracle-proposal-tag [proposal-id] (uuid-tag :oracle-proposal proposal-id))
 (defn operation-route-tag [request-id] (uuid-tag :approved-slice-operation request-id))
+(defn task-receipt-tag [task-id] (uuid-tag :task-receipt (str task-id)))
+(def all-task-receipts-tag (uuid-tag :task-receipts "all"))
+(def approved-graders-tag (uuid-tag :approved-graders "all"))
 (defn component-candidates-tag [project-id container-id component-id]
   (uuid-tag :component-candidates (str project-id "|" container-id "|" component-id)))
 
@@ -178,6 +185,23 @@
   [state event]
   (oracle-proposal-reducer state event))
 
+(defreadmodel :loyly.pi-harness task-receipts
+  {:events task-receipt-event-types :version 1}
+  [state event]
+  (if (= :loyly.pi-harness/task-receipt-issued (:event/type event))
+    (select-keys event task-receipt-keys)
+    state))
+
+(defn- approved-graders-reducer [state event]
+  (if (= :loyly.pi-harness/grader-approved (:event/type event))
+    (assoc state (:grader-digest event) (select-keys event grader-approval-keys))
+    state))
+
+(defreadmodel :loyly.pi-harness approved-graders
+  {:events grader-approval-event-types :version 1}
+  [state event]
+  (approved-graders-reducer state event))
+
 (defreadmodel :loyly.pi-harness approved-slice-operation-routes
   {:events operation-route-event-types :version 1}
   [state event]
@@ -238,6 +262,33 @@
     (if (:cache context)
       (not-empty (rmp/project context :loyly.pi-harness/oracle-proposals {:tags tags}))
       (direct-project context tags oracle-proposal-reducer nil))))
+
+(defn find-task-receipt [context task-id]
+  (let [tags #{(task-receipt-tag task-id)}]
+    (if (:cache context)
+      (not-empty (rmp/project context :loyly.pi-harness/task-receipts {:tags tags}))
+      (direct-project context tags
+                      (fn [state event]
+                        (if (= :loyly.pi-harness/task-receipt-issued (:event/type event))
+                          (select-keys event task-receipt-keys)
+                          state))
+                      nil))))
+
+(defn highest-task-id [context]
+  (direct-project context #{all-task-receipts-tag}
+                  (fn [highest event]
+                    (if (= :loyly.pi-harness/task-receipt-issued (:event/type event))
+                      (max highest (:task-id event))
+                      highest))
+                  0))
+
+(defn find-approved-graders
+  "Every grader an operator approved, by digest, in approval order."
+  [context]
+  (->> (direct-project context #{approved-graders-tag} approved-graders-reducer {})
+       vals
+       (sort-by :approved-at)
+       vec))
 
 (defn find-approved-slice-route [context request-id]
   (let [tags #{(operation-route-tag request-id)}]

@@ -15,8 +15,8 @@ await mkdir(path.join(cutsRoot, "empty"), { recursive: true });
 
 const stacks = [
   { id: "typescript", output: `${baselineId}-typescript` },
-  { id: "rust", output: `${baselineId}-rust-repair-02`, archive: "rust-1.91-alpine.tar" },
-  { id: "java", output: `${baselineId}-java`, archive: "eclipse-temurin-21-jdk-alpine.tar" },
+  { id: "rust", output: `${baselineId}-rust-repair-02`, archive: "rust-1.91-web.tar" },
+  { id: "java", output: `${baselineId}-java`, archive: "java-21-web.tar" },
   { id: "rails", output: `${baselineId}-rails`, archive: "rails-8-offline.tar" },
 ];
 const report = { schemaVersion: 1, runId, baselineId, startedAt: new Date().toISOString(), items, stacks: [] };

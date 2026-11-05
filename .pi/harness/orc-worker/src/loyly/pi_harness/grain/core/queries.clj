@@ -63,6 +63,27 @@
   [{{:keys [request-id]} :query :as context}]
   {:query/result (read-models/find-approved-slice-route context request-id)})
 
+(defquery :loyly.pi-harness task-receipt
+  {:authorized? (constantly true)
+   :grain.event-model/reads #{:loyly.pi-harness/task-receipts}}
+  "Return the tick an issued task identity names."
+  [{{:keys [task-id]} :query :as context}]
+  {:query/result (read-models/find-task-receipt context task-id)})
+
+(defquery :loyly.pi-harness highest-task-id
+  {:authorized? (constantly true)
+   :grain.event-model/reads #{:loyly.pi-harness/task-receipts}}
+  "Return the highest issued task identity, so numbering continues across workers."
+  [context]
+  {:query/result (read-models/highest-task-id context)})
+
+(defquery :loyly.pi-harness approved-graders
+  {:authorized? (constantly true)
+   :grain.event-model/reads #{:loyly.pi-harness/approved-graders}}
+  "Return every grader an operator approved, in approval order."
+  [context]
+  {:query/result (read-models/find-approved-graders context)})
+
 (defn- query! [context query message]
   (let [result (query-processor/process-query
                 (assoc context :query
@@ -105,6 +126,18 @@
   (query! context {:query/name :loyly.pi-harness/oracle-proposal
                    :proposal-id proposal-id}
           "oracle proposal query failed"))
+
+(defn task-receipt [context task-id]
+  (query! context {:query/name :loyly.pi-harness/task-receipt :task-id task-id}
+          "task receipt query failed"))
+
+(defn approved-graders [context]
+  (query! context {:query/name :loyly.pi-harness/approved-graders}
+          "approved graders query failed"))
+
+(defn highest-task-id [context]
+  (query! context {:query/name :loyly.pi-harness/highest-task-id}
+          "highest task id query failed"))
 
 (defn approved-slice-operation-route [context request-id]
   (query! context {:query/name :loyly.pi-harness/approved-slice-operation-route

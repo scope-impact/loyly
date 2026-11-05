@@ -1,5 +1,6 @@
 (ns loyly.pi-harness.orc-worker-test
   (:require [clojure.data.json :as json]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is]]
             [ai.obney.orc.demos.pi-agent-loop.system :as system]
@@ -12,7 +13,7 @@
             [loyly.pi-harness.core.worker :as worker]
             [loyly.pi-harness.core.build.stack-conformance :as stack-conformance]
             [loyly.pi-harness.core.build.subject :as subject]
-            [loyly.pi-harness.workflows.generation :as generation-workflow]))
+            [loyly.pi-harness.workflows.slice-cycle :as slice-cycle-workflow]))
 
 (def approved-selection
   {:selectionId "selection-1"
@@ -33,19 +34,40 @@
     (is (= {:prompt "Build from the approved cut."}
            (executor {:node {:instruction "Build from the approved cut."}})))))
 
-(deftest fresh-generation-runs-affordance-conformance-inside-grade
-  (let [stages (:stages (generation-workflow/contract))]
-    (is (= ["cut" "harness-snapshot" "fenced-build" "verify"
-            "repair-verification" "grade"] stages))
-    (is (not-any? #{"affordance-conformance"} stages))))
+(def slice-cycle-stages
+  ["cut" "harness-snapshot" "oracle" "builder" "instrument" "verify"
+   "repair-verification" "affordance-conformance" "grade" "instrument-conformance"
+   "repair-evaluation" "conclude"])
 
-(deftest fresh-generation-exposes-the-approved-top-level-contract
-  (let [contract (generation-workflow/contract)]
-    (is (= "fresh-generation" (:operation contract)))
-    (is (= "pi-harness-fresh-generation" (:workflowName contract)))
-    (is (= ["cut" "harness-snapshot" "fenced-build" "verify"
-            "repair-verification" "grade"]
-           (:stages contract)))))
+(deftest the-cycle-budget-covers-a-slow-cycle-by-default
+  (is (= (* 90 60 1000) worker/default-cycle-timeout-ms))
+  (is (= worker/default-cycle-timeout-ms (worker/cycle-timeout-ms))))
+
+(deftest a-replacement-worker-reconstructs-a-task-from-durable-state
+  (let [tick-id #uuid "f36dc9b7-9b92-4e15-84f5-1b9c4b798416"]
+    (with-redefs [worker/runtime-context (constantly {:durable true})
+                  model/find-task-receipt (fn [_ task-id]
+                                            (when (= 41 task-id)
+                                              {:task-id 41 :tick-id (str tick-id) :cycle-id "cycle-41"}))
+                  orc/get-tick (fn [_ id]
+                                 (when (= id tick-id)
+                                   {:root-status :failure :error "fence failed: a room must be fresh"}))
+                  orc/execute (fn [& _] (throw (ex-info "a recovered task must never run again" {})))]
+      (is (= {:status "failed" :tickId (str tick-id) :error "fence failed: a room must be fresh"}
+             (worker/wait! {:taskId 41})))
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"unknown task identity: 42"
+                            (worker/wait! {:taskId 42}))))))
+
+(deftest one-slice-cycle-exposes-the-specified-stage-order
+  (let [contract (slice-cycle-workflow/contract)]
+    (is (= "pi-harness-slice-cycle" (:workflowName contract)))
+    (is (= ["fresh-generation" "measured-regeneration"] (:routes contract)))
+    (is (= slice-cycle-stages (:stages contract)))))
+
+(deftest the-oracle-is-settled-before-the-builder-starts
+  (let [stages (:stages (slice-cycle-workflow/contract))]
+    (is (< (.indexOf stages "oracle") (.indexOf stages "builder")))
+    (is (< (.indexOf stages "harness-snapshot") (.indexOf stages "oracle")))))
 
 (deftest harness-snapshot-stage-never-resolves-a-published-instrument-oracle
   (with-redefs [harness-calibration/calibrate!
@@ -61,6 +83,20 @@
       (is (true? (:passed result)))
       (is (= "harness-snapshot" (:stage result)))
       (is (= "sha256:snapshot" (:harness-snapshot-digest result))))))
+
+(deftest failed-harness-calibration-names-the-failing-suite-and-its-record
+  ;; ORC persists only the exception message, so it must identify what failed.
+  (with-redefs [harness-calibration/calibrate!
+                (constantly {:passed false :mismatches ["full-harness-known-carried"]
+                             :harness-snapshot-digest "sha256:snapshot"
+                             :failure-record "/state/harness-calibrations/snapshot.failed.edn"
+                             :suites {:clojure-worker {:exit-code 1}
+                                      :node-adapters {:exit-code 0}}})
+                worker/project-root (constantly "/repo")]
+    (is (thrown-with-msg?
+         clojure.lang.ExceptionInfo
+         #"full harness calibration failed: clojure-worker exit 1; details in /state/harness-calibrations/snapshot\.failed\.edn"
+         (worker/calibrate-harness!)))))
 
 (deftest affordance-conformance-preserves-a-flexible-independent-browser-verdict
   (let [request (atom nil)]
@@ -96,7 +132,8 @@
         (is (= 0 (:passed-count result)))))))
 
 (def approved-oracle
-  {:passed true :oracle-digest "digest-1"
+  {:passed true :kind "accepted-oracle" :oracle-digest "digest-1"
+   :grader-root "/oracle/grader"
    :grader-producer "loyly-black-box" :grader-id "booking-core-v1"})
 
 (deftest runtime-start-asks-orc-to-resume-durable-frontiers
@@ -190,123 +227,13 @@
         (is (= "/state/builder-sessions" (:builder-sessions-root @request)))
         (is (= (:builder-session-ref @request) (:builder-session-id result)))))))
 
-(deftest cycle-start-uses-caller-supplied-durable-identities
-  (let [_ (worker/start-runtime! system/start!)
-        tick-id #uuid "f36dc9b7-9b92-4e15-84f5-1b9c4b798416"
-        correlation-id #uuid "46ec162b-2539-4964-aea0-9d06552e7e07"
-        execution (promise)
-        request {:cycleId "cycle-1"
-                 :tickId (str tick-id)
-                 :correlationId (str correlation-id)
-                 :selectionContract approved-selection
-                 :scope ["impl"]
-                 :targetStack "typescript"
-                 :executionBackend "gondolin"}]
-    (try
-      (with-redefs [orc/get-tick (constantly nil)
-                    orc/execute (fn [_ sheet-id inputs & options]
-                                  (deliver execution
-                                           {:sheet-id sheet-id
-                                            :inputs inputs
-                                            :options (apply hash-map options)})
-                                  {:status :success :outputs {} :trace-id tick-id})]
-        (let [receipt (worker/start-cycle! request)
-              invoked (deref execution 1000 ::timeout)]
-          (is (= {:cycleId "cycle-1"
-                  :tickId (str tick-id)
-                  :correlationId (str correlation-id)
-                  :sheetId (str (:sheet-id invoked))
-                  :status "running"}
-                 receipt))
-          (is (= {:request-id "cycle-1"
-                  :selection approved-selection
-                  :scope ["impl"]
-                  :target-stack "typescript"
-                  :execution-backend "gondolin"
-                  :orc-tick-id (str tick-id)}
-                 (:inputs invoked)))
-          (is (= tick-id (get-in invoked [:options :tick-id])))
-          (is (= correlation-id (get-in invoked [:options :correlation-id])))))
-      (finally
-        (worker/stop-runtime! system/stop!)))))
-
-(deftest repeated-cycle-start-returns-the-existing-orc-tick-status
-  (let [_ (worker/start-runtime! system/start!)
-        tick-id #uuid "f36dc9b7-9b92-4e15-84f5-1b9c4b798416"
-        correlation-id #uuid "46ec162b-2539-4964-aea0-9d06552e7e07"
-        sheet-id (:sheet-id (:cycle (worker/registered-workflows)))
-        request {:cycleId "cycle-1"
-                 :tickId (str tick-id)
-                 :correlationId (str correlation-id)
-                 :selectionContract approved-selection
-                 :scope ["impl"]
-                 :targetStack "typescript"
-                 :executionBackend "gondolin"}]
-    (try
-      (with-redefs [orc/get-tick (constantly {:id tick-id
-                                              :sheet-id sheet-id
-                                              :correlation-id correlation-id
-                                              :status :cancelled})
-                    orc/execute (fn [& _]
-                                  (throw (ex-info "existing ticks must not execute again" {})))]
-        (is (= "cancelled" (:status (worker/start-cycle! request)))))
-      (finally
-        (worker/stop-runtime! system/stop!)))))
-
-(deftest repeated-cycle-start-rejects-a-tick-from-another-workflow
-  (let [_ (worker/start-runtime! system/start!)
-        tick-id #uuid "f36dc9b7-9b92-4e15-84f5-1b9c4b798416"
-        correlation-id #uuid "46ec162b-2539-4964-aea0-9d06552e7e07"
-        request {:cycleId "cycle-1"
-                 :tickId (str tick-id)
-                 :correlationId (str correlation-id)
-                 :selectionContract approved-selection
-                 :scope ["impl"]
-                 :targetStack "typescript"
-                 :executionBackend "gondolin"}]
-    (try
-      (with-redefs [orc/get-tick (constantly {:id tick-id
-                                              :sheet-id (random-uuid)
-                                              :correlation-id correlation-id
-                                              :status :running})]
-        (is (thrown-with-msg?
-             clojure.lang.ExceptionInfo
-             #"different ORC workflow"
-             (worker/start-cycle! request))))
-      (finally
-        (worker/stop-runtime! system/stop!)))))
-
-(deftest repeated-cycle-start-rejects-a-tick-from-another-correlation
-  (let [_ (worker/start-runtime! system/start!)
-        tick-id #uuid "f36dc9b7-9b92-4e15-84f5-1b9c4b798416"
-        correlation-id #uuid "46ec162b-2539-4964-aea0-9d06552e7e07"
-        sheet-id (:sheet-id (:cycle (worker/registered-workflows)))
-        request {:cycleId "cycle-1"
-                 :tickId (str tick-id)
-                 :correlationId (str correlation-id)
-                 :selectionContract approved-selection
-                 :scope ["impl"]
-                 :targetStack "typescript"
-                 :executionBackend "gondolin"}]
-    (try
-      (with-redefs [orc/get-tick (constantly {:id tick-id
-                                              :sheet-id sheet-id
-                                              :correlation-id (random-uuid)
-                                              :status :running})]
-        (is (thrown-with-msg?
-             clojure.lang.ExceptionInfo
-             #"different ORC correlation"
-             (worker/start-cycle! request))))
-      (finally
-        (worker/stop-runtime! system/stop!)))))
-
 (deftest approved-slice-routes-to-initial-generation-without-prior-lineage
-  (let [executed (atom nil)]
+  (let [executed (promise)]
     (worker/start-runtime! system/start!)
     (try
       (with-redefs [model/find-latest-candidate (fn [_ & _] nil)
                     orc/execute (fn [_ sheet-id inputs & _]
-                                  (reset! executed {:sheet-id sheet-id :inputs inputs})
+                                  (deliver executed {:sheet-id sheet-id :inputs inputs})
                                   {:status :success})]
         (let [request {:requestId "route-generation-1"
                        :selectionContract approved-selection
@@ -323,12 +250,13 @@
           (is (= "fresh-generation"
                  (:operation (model/find-approved-slice-route
                               (worker/runtime-context) "route-generation-1"))))
-          (is (instance? java.util.UUID (:sheet-id @executed)))
-          (is (not (contains? (:inputs @executed) :parent-candidate-root)))))
+          (is (instance? java.util.UUID (:sheet-id (deref executed 10000 nil))))
+          (is (= "fresh-generation" (get-in (deref executed 10000 nil) [:inputs :route])))
+          (is (not (contains? (:inputs (deref executed 10000 nil)) :parent-candidate-root)))))
       (finally (worker/stop-runtime! system/stop!)))))
 
 (deftest approved-slice-routes-to-regeneration-from-latest-candidate
-  (let [executed (atom nil)
+  (let [executed (promise)
         prior {:candidate-id "candidate-previous"
                :output-root "/state/candidates/previous"
                :subject-digest "sha256:parent"}]
@@ -336,7 +264,7 @@
     (try
       (with-redefs [model/find-latest-candidate (fn [_ & _] prior)
                     orc/execute (fn [_ sheet-id inputs & _]
-                                  (reset! executed {:sheet-id sheet-id :inputs inputs})
+                                  (deliver executed {:sheet-id sheet-id :inputs inputs})
                                   {:status :success})]
         (let [receipt (worker/submit-approved-slice!
                        {:requestId "route-regeneration-1"
@@ -348,35 +276,49 @@
                  (:parent-candidate-id
                   (model/find-approved-slice-route
                    (worker/runtime-context) "route-regeneration-1"))))
-          (is (instance? java.util.UUID (:sheet-id @executed)))
+          (is (instance? java.util.UUID (:sheet-id (deref executed 10000 nil))))
+          (is (= "measured-regeneration" (get-in (deref executed 10000 nil) [:inputs :route])))
           (is (= "candidate-previous"
-                 (get-in @executed [:inputs :parent-candidate-id])))
+                 (get-in (deref executed 10000 nil) [:inputs :parent-candidate-id])))
           (is (= "/state/candidates/previous"
-                 (get-in @executed [:inputs :parent-candidate-root])))
+                 (get-in (deref executed 10000 nil) [:inputs :parent-candidate-root])))
           (is (= "sha256:parent"
-                 (get-in @executed [:inputs :parent-candidate-digest])))))
+                 (get-in (deref executed 10000 nil) [:inputs :parent-candidate-digest])))))
       (finally (worker/stop-runtime! system/stop!)))))
 
-(deftest initial-generation-rejects-a-parent-candidate
+(deftest fresh-generation-rejects-a-parent-candidate
   (is (thrown-with-msg?
        clojure.lang.ExceptionInfo
-       #"initial generation requires an approved selection without a parent candidate"
-       (worker/submit-generation!
+       #"fresh generation must not carry a parent candidate"
+       (#'worker/submit-slice-cycle!
         {:requestId "generation-1"
          :selectionContract approved-selection
          :scope ["impl"]
          :targetStack "typescript"
          :executionBackend "gondolin"
          :parentCandidateRoot "/state/candidate-before"
-         :parentCandidateDigest "sha256:before"}))))
+         :parentCandidateDigest "sha256:before"}
+        "fresh-generation"))))
 
-(deftest generation-workflow-baseline-grades-before-proposing-an-oracle
+(deftest measured-regeneration-requires-a-parent-candidate
+  (is (thrown-with-msg?
+       clojure.lang.ExceptionInfo
+       #"measured regeneration requires a persisted parent candidate"
+       (#'worker/submit-slice-cycle!
+        {:requestId "regeneration-1"
+         :selectionContract approved-selection
+         :scope ["impl"]
+         :targetStack "typescript"
+         :executionBackend "gondolin"}
+        "measured-regeneration"))))
+
+(deftest fresh-slice-cycle-seals-its-oracle-then-proposes-it
   (let [runtime (system/start!)]
     (try
       (let [context (:context runtime)
-            sheet-id (orc/build-workflow! context (worker/generation-workflow))
+            sheet-id (orc/build-workflow! context (worker/workflow))
             result (with-redefs [worker/baseline-grader-root (constantly "/judge")
-                                 worker/ensure-baseline-grader!
+                                 worker/ensure-cycle-oracle!
                                  (constantly {:grader-root "/judge"
                                               :binding-digest "sha256:binding"
                                               :calibration {:cases []}})
@@ -392,7 +334,7 @@
                                     :harness-snapshot-digest "sha256:snapshot"
                                     :calibration-results "{}"
                                     :evidence "{}"})
-                                 worker/cycle-oracle-stage
+                                 worker/author-cycle-oracle
                                  (fn [{:keys [inputs]}]
                                    {:stage "cycle-oracle"
                                     :request-id (:request-id inputs)
@@ -427,7 +369,7 @@
                                       :compose-down {:exitCode 0 :stdout "removed" :stderr ""}}))
                                  stack-conformance/check
                                  (fn [& _] {:passed true :exit-code 0 :stdout "stack ok" :stderr ""})
-                                 worker/baseline-grade-stage
+                                 worker/grade-with-cycle-oracle
                                  (fn [{:keys [inputs]}]
                                    {:stage "baseline-grade"
                                     :request-id (:request-id inputs)
@@ -460,7 +402,7 @@
                                     :items [{:item-id "@item-01-007" :verdict "pass"
                                              :evidence "observed" :graded? true}]
                                     :observations [] :evidence "{}"})
-                                 worker/propose-oracle-stage
+                                 worker/propose-oracle!
                                  (fn [_]
                                    {:proposal-id "proposal-1"
                                     :proposal-digest "sha256:proposal"
@@ -475,19 +417,20 @@
                                     :status "proposed"})]
                      (orc/execute context sheet-id
                                   {:request-id "generation-1"
+                                   :route "fresh-generation"
                                    :selection approved-selection
                                    :scope ["impl"]
                                    :target-stack "typescript"
                                    :execution-backend "gondolin"}))
             outputs (:outputs result)]
         (is (= :success (:status result)) (pr-str result))
-        (is (= ["cut" "harness-snapshot" "fenced-build" "verify"
-                "repair-verification" "grade"]
-               (:stages (generation-workflow/contract))))
-        (is (= "proposed" (get-in outputs [:oracle-proposal-result :status])))
-        (is (not (contains? outputs :generation-result)))
+        (is (= "cycle-oracle" (get-in outputs [:oracle-result :kind])))
+        (is (= "oracle" (get-in outputs [:oracle-result :stage])))
+        (is (true? (get-in outputs [:repair-evaluation-result :applicable])))
+        (is (= "proposed" (get-in outputs [:conclude-result :oracle-proposal :status])))
+        (is (not (contains? (:conclude-result outputs) :gate)))
         (is (= "sha256:evidence"
-               (get-in outputs [:oracle-proposal-result
+               (get-in outputs [:conclude-result :oracle-proposal
                                 :normalized-evidence-digest]))))
       (finally
         (system/stop! runtime)))))
@@ -496,14 +439,14 @@
   (is (thrown-with-msg?
        clojure.lang.ExceptionInfo
        #"first black-box grade did not completely pass"
-       (worker/propose-oracle-stage
+       (worker/propose-oracle!
         {:inputs {:request-id "generation-failed"
                   :selection approved-selection
                   :scope ["impl"]
                   :execution-backend "gondolin"
                   :builder-result {:output-root "/tmp/failed"
                                    :subject-digest "failed-subject"}
-                  :baseline-grade-result
+                  :grade-result
                   {:passed false
                    :measurement {:total 1 :passed 0 :failed 1}}
                   :instrument-conformance-result {:passed true}}}))))
@@ -534,7 +477,7 @@
                               :stdout "[{\"itemId\":\"01-007\",\"verdict\":\"pass\",\"evidence\":\"carried\"}]"}
                              {:itemId "@item-01-007" :role "uncarried" :exitCode 1
                               :stdout "[{\"itemId\":\"01-007\",\"verdict\":\"fail\",\"evidence\":\"uncarried\"}]"}]})]
-      (let [result (worker/ensure-baseline-grader! inputs)]
+      (let [result (worker/ensure-cycle-oracle! inputs)]
         (is (= "/sealed/grader" (:grader-root result)))
         (is (not (contains? @author-request :candidateRoot)))
         (is (not (contains? @author-request :evidenceRoot)))
@@ -545,6 +488,67 @@
         (is (re-find #"context.close.*no dispose" (:prompt @author-request)))
         (is (= ["carried" "uncarried"] (mapv :role (:cases @fixture-request))))))))
 
+(defn- cycle-oracle-calibration-cases [carried-verdict]
+  [{:itemId "@item-01-007" :role "carried" :exitCode (if (= "pass" carried-verdict) 0 1)
+    :stdout (str "[{\"itemId\":\"01-007\",\"verdict\":\"" carried-verdict "\",\"evidence\":\"carried\"}]")}
+   {:itemId "@item-01-007" :role "uncarried" :exitCode 1
+    :stdout "[{\"itemId\":\"01-007\",\"verdict\":\"fail\",\"evidence\":\"uncarried\"}]"}])
+
+(defn- with-cycle-oracle-authoring [carried-verdicts f]
+  (let [root (.toFile (java.nio.file.Files/createTempDirectory
+                       "loyly-grader-reauthor-test"
+                       (make-array java.nio.file.attribute.FileAttribute 0)))
+        fixture (java.io.File. root "cut-1/model/loyly/fixtures/oracle-fixture-server.mjs")
+        author-requests (atom [])
+        verdicts (atom carried-verdicts)
+        inputs {:execution-backend "gondolin"
+                :selection (assoc approved-selection :selectionDigest "sha256:digest-1")
+                :harness-snapshot-result {:harness-snapshot-digest "sha256:instrument"}}]
+    (.mkdirs (.getParentFile fixture))
+    (spit fixture "fixture")
+    (with-redefs [worker/project-root (constantly (.getPath root))
+                  worker/cuts-root (constantly (.getPath root))
+                  worker/builder-sessions-root (constantly "/sessions")
+                  worker/run-grader-author-adapter
+                  (fn [request]
+                    (swap! author-requests conj request)
+                    (.mkdirs (io/file (:outputRoot request)))
+                    (spit (io/file (:outputRoot request) "grade.mjs") "grader")
+                    {:graderRoot (:outputRoot request) :sessionId "grader-session" :reused false})
+                  worker/run-oracle-fixture-adapter
+                  (fn [_]
+                    (let [verdict (first @verdicts)]
+                      (swap! verdicts rest)
+                      {:cases (cycle-oracle-calibration-cases verdict)}))]
+      (f inputs author-requests))))
+
+(deftest uncalibrated-cycle-oracle-is-discarded-and-reauthored
+  (with-cycle-oracle-authoring
+    ["fail" "pass"]
+    (fn [inputs author-requests]
+      (let [result (worker/ensure-cycle-oracle! inputs)
+            [first-request second-request] @author-requests]
+        (is (= 2 (:authoring-attempts result)))
+        (is (= 2 (count @author-requests)))
+        (is (not (.exists (io/file (:outputRoot first-request)))))
+        (is (.exists (io/file (:outputRoot second-request))))
+        (is (= (:outputRoot second-request) (:grader-root result)))
+        (is (not= (:bindingDigest first-request) (:bindingDigest second-request)))
+        (is (not (re-find #"failed public calibration" (:prompt first-request))))
+        (is (re-find #"failed public calibration" (:prompt second-request)))
+        (is (re-find #"@item-01-007.*carried.*\"expected\":\"pass\"" (:prompt second-request)))))))
+
+(deftest cycle-fails-after-three-uncalibrated-cycle-oracles
+  (with-cycle-oracle-authoring
+    ["fail" "fail" "fail" "pass"]
+    (fn [inputs author-requests]
+      (is (thrown-with-msg?
+           clojure.lang.ExceptionInfo
+           #"failed carried/uncarried calibration after 3 attempts: @item-01-007 carried"
+           (worker/ensure-cycle-oracle! inputs)))
+      (is (= 3 (count @author-requests)))
+      (is (every? #(not (.exists (io/file (:outputRoot %)))) @author-requests)))))
+
 (deftest baseline-grade-normalizes-the-complete-selected-denominator
   (let [evidence-root (.toFile (java.nio.file.Files/createTempDirectory
                                 "loyly-playwright-trace-test"
@@ -554,7 +558,7 @@
     (.mkdirs (.getParentFile trace))
     (spit trace "genuine trace fixture")
     (with-redefs [worker/baseline-grader-root (constantly "/judge")
-                worker/ensure-baseline-grader!
+                worker/ensure-cycle-oracle!
                 (constantly {:grader-root "/judge"
                              :binding-digest "sha256:binding"
                              :calibration {:cases []}})
@@ -571,8 +575,10 @@
                     :stdout "[{\"itemId\":\"01-007\",\"verdict\":\"pass\",\"evidence\":\"public response observed\"}]"}
                    :baseline-observe-stop {:exitCode 0}
                    :baseline-down {:exitCode 0}})]
-    (let [result (worker/baseline-grade-stage
+    (let [result (worker/grade-with-cycle-oracle
                   {:inputs {:request-id "generation-graded"
+                            :oracle-result {:grader-root "/judge"
+                                            :binding-digest "sha256:binding"}
                             :selection approved-selection
                             :scope ["impl"]
                             :target-stack "typescript"
@@ -596,7 +602,7 @@
 
 (deftest baseline-grade-cannot-pass-without-a-playwright-trace
   (with-redefs [worker/baseline-grader-root (constantly "/judge")
-                worker/ensure-baseline-grader!
+                worker/ensure-cycle-oracle!
                 (constantly {:grader-root "/judge"
                              :binding-digest "sha256:binding"
                              :calibration {:cases []}})
@@ -612,8 +618,10 @@
                    :stdout "[{\"itemId\":\"01-007\",\"verdict\":\"pass\",\"evidence\":\"observed\"}]"}
                   :baseline-observe-stop {:exitCode 0}
                   :baseline-down {:exitCode 0}})]
-    (let [result (worker/baseline-grade-stage
+    (let [result (worker/grade-with-cycle-oracle
                   {:inputs {:request-id "generation-without-trace"
+                            :oracle-result {:grader-root "/judge"
+                                            :binding-digest "sha256:binding"}
                             :selection approved-selection
                             :scope ["impl"]
                             :target-stack "typescript"
@@ -627,7 +635,7 @@
       (is (false? (:passed result)))
       (is (nil? (:playwright-trace result))))))
 
-(deftest regeneration-workflow-retains-every-stage-result
+(deftest measured-slice-cycle-resolves-the-accepted-oracle-and-records-the-gated-cycle
   (let [runtime (system/start!)]
     (try
       (let [context (:context runtime)
@@ -686,24 +694,39 @@
                                                                  :compose-logs {:exitCode 0 :stdout "ready" :stderr ""}
                                                                  :compose-down {:exitCode 0 :stdout "removed" :stderr ""}}))
                                   model/record-observation! (fn [_ value] value)
-                                  model/record-measurement! (fn [_ measurement] measurement)]
+                                  model/record-measurement! (fn [_ measurement] measurement)
+                                  worker/author-cycle-oracle
+                                  (fn [& _] (throw (ex-info "measured regeneration must never author an oracle" {})))
+                                  worker/run-grader-author-adapter
+                                  (fn [& _] (throw (ex-info "measured regeneration must never author an oracle" {})))]
                      (orc/execute context sheet-id
                                   {:request-id "request-1"
+                                   :route "measured-regeneration"
+                                   :parent-candidate-id "candidate-previous"
+                                   :parent-candidate-root "/state/candidates/previous"
+                                   :parent-candidate-digest "subject-test"
                                    :selection approved-selection
                                    :scope ["impl"]
                                    :target-stack "typescript"
                                    :execution-backend "gondolin"}))]
         (is (= :success (:status result)) (pr-str result))
-        (is (= ["cut" "harness-calibration" "builder" "instrument" "repair-verification" "graders" "instrument-conformance" "result"]
+        (is (= ["cut" "harness-snapshot" "oracle" "builder" "instrument" "verify"
+                "repair-verification" "affordance-conformance" "grade"
+                "instrument-conformance" "repair-evaluation" "conclude"]
                (mapv #(get-in (:outputs result) [% :stage])
-                     [:cut-result :harness-calibration-result :builder-result :instrument-result
-                      :repair-verification-result :graders-result
-                      :instrument-conformance-result :result-result])))
+                     [:cut-result :harness-snapshot-result :oracle-result :builder-result
+                      :instrument-result :verify-result :repair-verification-result
+                      :affordance-conformance-result :grade-result
+                      :instrument-conformance-result :repair-evaluation-result
+                      :conclude-result])))
+        (is (= "accepted-oracle" (get-in result [:outputs :oracle-result :kind])))
         (is (= "harness-snapshot-test"
-               (get-in result [:outputs :harness-calibration-result :harness-snapshot-digest])))
-        (is (true? (get-in result [:outputs :instrument-conformance-result :passed])))
-        (is (true? (get-in result [:outputs :result-result :instrumented?])))
-        (is (= 1 (get-in result [:outputs :cycle-result :total]))))
+               (get-in result [:outputs :harness-snapshot-result :harness-snapshot-digest])))
+        (is (false? (get-in result [:outputs :repair-evaluation-result :applicable])))
+        (is (= 1 (get-in result [:outputs :repair-evaluation-result :rounds])))
+        (is (true? (get-in result [:outputs :conclude-result :gate :instrumented?])))
+        (is (= 1 (get-in result [:outputs :conclude-result :cycle :total])))
+        (is (not (contains? (get-in result [:outputs :conclude-result]) :oracle-proposal))))
       (finally
         (system/stop! runtime)))))
 
@@ -792,7 +815,7 @@
                           :scope ["impl"]
                           :target-stack "rust"
                           :execution-backend "gondolin"
-                          :harness-calibration-result {:passed true}
+                          :harness-snapshot-result {:passed true}
                           :oracle-result approved-oracle
                           :builder-result {:output-root "/state/request-repair"
                                            :subject-digest "subject-one"}
@@ -842,7 +865,7 @@
          #"verification did not pass"
          (with-redefs [worker/run-grader-adapter
                        (fn [_] (reset! called? true) {})]
-           (worker/graders-stage context))))
+           (worker/grade-against-accepted-oracle context))))
     (is (false? @called?))))
 
 (deftest fresh-evaluation-sample-gets-its-own-bounded-verification-repair
@@ -860,8 +883,9 @@
                                               :subject-digest "subject-one"}
                           :affordance-conformance-result {:passed true}
                           :verify-result {:passed true}
-                          :baseline-grade-result {:passed true}
-                          :instrument-conformance-result {:passed false}}}
+                          :grade-result {:passed true}
+                          :instrument-conformance-result {:passed false}
+                          :route "fresh-generation"}}
         result (with-redefs [worker/run-builder-adapter
                              (fn [request]
                                (let [call (swap! builder-calls conj request)
@@ -882,7 +906,7 @@
                              worker/verify-stage
                              (fn [_]
                                {:passed (> (swap! verify-calls inc) 1)})
-                             worker/baseline-grade-stage
+                             worker/grade-with-cycle-oracle
                              (fn [{:keys [inputs]}]
                                (reset! grade-builder
                                        (get-in inputs [:repair-verification-result
@@ -919,12 +943,12 @@
                                {:passed true :oracle-digest "product-contract"
                                 :grader-root "/oracle/grader"
                                 :artifacts [] :stdout "ok" :stderr ""})]
-                 (worker/oracle-stage
+                 (worker/resolve-accepted-oracle
                   {:inputs {:request-id "request-oracle"
                             :selection approved-selection
                             :scope ["impl"]
                             :execution-backend "gondolin"
-                            :harness-calibration-result
+                            :harness-snapshot-result
                             {:instrument-oracle-digest "instrument-oracle"}}}))]
     (is (= "cut-1" (:cut @call)))
     (is (= (str "ghcr.io/scope-impact/loyly/product-oracle@"
@@ -967,6 +991,8 @@
     (is (re-find #"http://app:8080" instruction))
     (is (re-find #"docker compose run --rm test" instruction))
     (is (re-find #"no Docker daemon" instruction))
+    (is (re-find #"prove its contents natively" instruction))
+    (is (re-find #"must not run the candidate test suite" instruction))
     (is (re-find #"never fetch packages" instruction))
     (is (re-find #"runtime evidence" instruction))
     (is (re-find #"human affordance" instruction))
@@ -987,7 +1013,7 @@
                        :target-stack "rust"
                        :model-root "model/loyly"
                        :selection approved-selection}))]
-    (is (re-find #"Base image: rust:1.91-alpine" instruction))
+    (is (re-find #"Base image: pi-harness/rust:1.91-web" instruction))
     (is (re-find #"Rust \.rs source files" instruction))
     (is (not (re-find #"Base image: node:22-alpine" instruction)))))
 
@@ -1033,7 +1059,7 @@
                               :selection approved-selection
                               :scope ["impl"]
                               :execution-backend "gondolin"
-                              :harness-calibration-result
+                              :harness-snapshot-result
                               {:calibration-results (json/write-str [calibration-golden])}
                               :builder-result {:output-root (.getAbsolutePath root)
                                                :subject-digest digest}}})]
@@ -1090,7 +1116,7 @@
         result (with-redefs [worker/run-grader-adapter
                              (fn [request] (reset! adapter-request request) evidence)
                              worker/emit-cycle-observation! (fn [& _] nil)]
-                 (worker/graders-stage context))]
+                 (worker/grade-against-accepted-oracle context))]
     (is (= "independent" (:mode @adapter-request)))
     (is (= "gondolin" (:execution-backend @adapter-request)))
     (is (= true (:passed result)))
@@ -1111,7 +1137,7 @@
                           :instrument-result {:evidence-root "/tmp/loyly-independent-output.evidence"
                                               :subject-digest "subject-test"}
                           :oracle-result approved-oracle
-                          :graders-result {:passed false}}}
+                          :grade-result {:passed false}}}
         result (with-redefs [worker/run-grader-adapter
                              (fn [request]
                                (reset! adapter-request request)
@@ -1126,6 +1152,32 @@
     (is (= ["@item-01-007"] (:item-ids @adapter-request)))
     (is (= "runtime-instrument-conformance" (get-in result [:observations 0 :producer])))
     (is (= "pass" (get-in result [:items 0 :verdict])))))
+
+(deftest instrument-conformance-records-an-empty-applicable-denominator
+  (let [root (.toFile (java.nio.file.Files/createTempDirectory
+                       "loyly-instrument-not-applicable-"
+                       (make-array java.nio.file.attribute.FileAttribute 0)))
+        contract (io/file root "cut-1/model/loyly/runtime-evidence-contract.json")
+        adapter-called (atom false)]
+    (.mkdirs (.getParentFile contract))
+    (spit contract (json/write-str {:contracts [{:itemId "@item-01-099"}]}))
+    (let [result (with-redefs [worker/cuts-root (constantly (.getPath root))
+                               worker/run-grader-adapter
+                               (fn [_] (reset! adapter-called true) {})]
+                   (worker/instrument-conformance-stage
+                    {:inputs {:request-id "request-no-runtime-contract"
+                              :selection approved-selection
+                              :scope ["impl"]
+                              :execution-backend "gondolin"
+                              :oracle-result {:grader-root "/judge"}
+                              :builder-result {:output-root "/tmp/out" :subject-digest "s"}
+                              :instrument-result {:evidence-root "/tmp/out.evidence"
+                                                  :subject-digest "s"}}}))]
+      (is (false? @adapter-called))
+      (is (true? (:passed result)))
+      (is (false? (:applicable result)))
+      (is (= 0 (:total result)))
+      (is (= [] (:items result))))))
 
 (deftest cycle-measurement-is-persisted-before-the-grade-gate
   (let [evidence-root (.toFile (java.nio.file.Files/createTempDirectory
@@ -1157,7 +1209,7 @@
                 :instrument-result {:subject-digest "subject-test"
                                     :evidence-root (.getAbsolutePath evidence-root)}
                 :oracle-result approved-oracle
-                :graders-result {:measurement measurement
+                :grade-result {:measurement measurement
                                  :observations [grader-observation]}
                 :instrument-conformance-result
                 {:passed true :total 1 :passed-count 1
@@ -1181,7 +1233,7 @@
                                  (fn [_ value]
                                    (swap! order conj :evidence-projected)
                                    (swap! projected conj value))]
-                     (worker/record-cycle-stage {:inputs inputs}))
+                     (worker/record-cycle! {:inputs inputs}))
             manifest (:evidence-manifest result)
             artifacts (:artifacts manifest)]
         (is (= result @recorded))
@@ -1218,14 +1270,14 @@
           :verified? true
           :instrumented? false
           :score {:passed 0 :failed 1}}
-         (worker/grade-gate-stage
+         (worker/grade-gate
           {:inputs {:request-id "request-failed-grade"
                     :selection approved-selection
                     :scope ["impl"]
                     :execution-backend "gondolin"
                     :verify-result {:passed true}
                     :instrument-conformance-result {:passed false}
-                    :graders-result {:passed false
+                    :grade-result {:passed false
                                      :measurement {:passed 0 :failed 1}}}}))))
 
 (deftest final-gate-requires-behavior-and-instrument-conformance
@@ -1234,8 +1286,8 @@
               :scope ["impl"]
               :execution-backend "gondolin"
               :verify-result {:passed true}
-              :graders-result {:passed true :measurement {:passed 1 :failed 0}}}]
-    (is (false? (:passed (worker/grade-gate-stage
+              :grade-result {:passed true :measurement {:passed 1 :failed 0}}}]
+    (is (false? (:passed (worker/grade-gate
                           {:inputs (assoc base :instrument-conformance-result {:passed false})}))))
-    (is (true? (:passed (worker/grade-gate-stage
+    (is (true? (:passed (worker/grade-gate
                          {:inputs (assoc base :instrument-conformance-result {:passed true})}))))))

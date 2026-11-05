@@ -36,7 +36,8 @@ bootstrap: check-project runtime-images
 check-project:
 	@case '$(PROJECT)' in ''|.|..|*[!A-Za-z0-9._-]*) echo "invalid PROJECT: $(PROJECT)" >&2; exit 2;; esac
 	@set -eu; for file in Dockerfile Dockerfile.typescript Dockerfile.rust Dockerfile.java Dockerfile.rails \
-		Dockerfile.rails-offline Dockerfile.typescript-postgres gondolin.json; do \
+		Dockerfile.rails-offline Dockerfile.rust-offline Dockerfile.java-offline \
+		Dockerfile.typescript-postgres gondolin.json; do \
 		test -f "$(PROJECT_ROOT)/$$file" || { echo "missing harness/$(PROJECT)/$$file" >&2; exit 2; }; \
 	done
 
@@ -51,16 +52,18 @@ verify-platforms:
 runtime-images: check-project
 	mkdir -p $(RUNTIME_IMAGES)
 	rm -f $(RUNTIME_IMAGES)/*.tar
-	docker pull -q --platform $(ARCH) rust:1.91-alpine
-	docker pull -q --platform $(ARCH) eclipse-temurin:21-jdk-alpine
+	docker pull -q --platform $(ARCH) node:22-alpine
 	docker pull -q --platform $(ARCH) public.ecr.aws/lambda/nodejs:22
 	docker pull -q --platform $(ARCH) amazon/dynamodb-local:2.6.1
 	docker pull -q --platform $(ARCH) postgres:16-alpine
+	docker build --platform $(ARCH) -f $(PROJECT_ROOT)/Dockerfile.rust-offline -t pi-harness/rust:1.91-web $(PROJECT_ROOT)
+	docker build --platform $(ARCH) -f $(PROJECT_ROOT)/Dockerfile.java-offline -t pi-harness/java:21-web $(PROJECT_ROOT)
 	docker build --platform $(ARCH) -f $(PROJECT_ROOT)/Dockerfile.rails-offline -t pi-harness/rails:8-offline $(PROJECT_ROOT)
 	docker build --platform $(ARCH) -t pi-harness/sam-gateway:platform $(BUILD_CONFIG)/sam-gateway
 	docker build --platform $(ARCH) -f $(PROJECT_ROOT)/Dockerfile.typescript-postgres -t pi-harness/node22-postgres:platform $(PROJECT_ROOT)
-	docker save -o $(RUNTIME_IMAGES)/rust-1.91-alpine.tar rust:1.91-alpine
-	docker save -o $(RUNTIME_IMAGES)/eclipse-temurin-21-jdk-alpine.tar eclipse-temurin:21-jdk-alpine
+	docker save -o $(RUNTIME_IMAGES)/node-22-alpine.tar node:22-alpine
+	docker save -o $(RUNTIME_IMAGES)/rust-1.91-web.tar pi-harness/rust:1.91-web
+	docker save -o $(RUNTIME_IMAGES)/java-21-web.tar pi-harness/java:21-web
 	docker save -o $(RUNTIME_IMAGES)/rails-8-offline.tar pi-harness/rails:8-offline
 	docker save -o $(RUNTIME_IMAGES)/aws-serverless-typescript.tar \
 		public.ecr.aws/lambda/nodejs:22 amazon/dynamodb-local:2.6.1 pi-harness/sam-gateway:platform

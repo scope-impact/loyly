@@ -131,7 +131,7 @@ function indexTargets(model) {
   const index = new Map();
   const add = (key, digest) => index.set(key, digest || "unversioned");
   for (const module of model.modules || []) {
-    add(`allium:${module.id}`, module.digest);
+    add(module.projectionGap ? `gherkin-slice:${module.id}` : `allium:${module.id}`, module.digest);
     for (const rule of module.rules || []) {
       const base = `allium:${module.id}:rule:${rule.name}`;
       add(base, rule.digest);

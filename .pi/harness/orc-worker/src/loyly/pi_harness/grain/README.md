@@ -1,6 +1,6 @@
 # Harness-owned Grain model
 
-This package implements `model/pi-harness/regeneration_event_model.clj` and
+This package implements `.pi/model/regeneration_event_model.clj` and
 nothing from ORC's `:sheet/*` stream or the generated product's event stream.
 
 | Model capability | Public operation | Commands | Events / projection |
