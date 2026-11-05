@@ -163,6 +163,8 @@ try {
   process.exitCode = 1;
 } finally {
   await room?.close();
+  // The result is written; nothing a builder left running may keep this worker, and ORC, waiting.
+  process.stdout.write("", () => process.exit());
 }
 
 function assertDigest(value: string, expected: string, label: string) {
