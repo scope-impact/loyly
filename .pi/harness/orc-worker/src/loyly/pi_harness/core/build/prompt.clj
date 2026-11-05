@@ -70,7 +70,7 @@
        :prompt :string})
     (assoc
      (orc/code (component-name purpose)
-       :fn "loyly.pi-harness.prompt/expose-candidate-instruction"
+       :fn "loyly.pi-harness.core.build.prompt/expose-candidate-instruction"
        :reads [:task :request-id :selection :scope]
        :writes [:prompt])
      :instruction (seed-instruction purpose)))))

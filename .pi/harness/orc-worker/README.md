@@ -26,9 +26,8 @@ candidate.
 4. `grain/interface.clj` — public API for the Grain-backed harness facts.
    Its `core/commands.clj`, `core/read_models.clj`, and `interface/schemas.clj`
    follow the same CQRS structure as ORC components.
-5. `entrypoint.clj` and `durable_entrypoint.clj` — executable runtime
-   composition. They translate environment or stdin data into calls on the
-   public interface; they do not own workflow behavior.
+5. `durable_entrypoint.clj` — executable runtime composition. It translates environment or stdin data into calls on the
+   public interface; it does not own workflow behavior.
 
 ## Namespace layout
 
@@ -48,9 +47,7 @@ loyly.pi-harness
 ├── grain/interface           public Grain model boundary
 ├── grain/interface/schemas   Grain command/query/event schemas
 ├── grain/core/*              Grain commands and read models
-├── entrypoint                demo/in-process runtime composition
-├── durable-entrypoint        SQLite/LMDB runtime composition
-└── prompt                    persisted-executor compatibility boundary
+└── durable-entrypoint        SQLite/LMDB runtime composition
 ```
 
 Tests mirror these ownership namespaces under `test/loyly/pi_harness/`.
@@ -60,7 +57,7 @@ Consumers must require `loyly.pi-harness.interface` or
 ## Dependency direction
 
 ```text
-entrypoint / durable_entrypoint
+durable_entrypoint
               |
               v
            interface
@@ -93,13 +90,9 @@ stages, prompt optimization, evidence files, Allure reports, and product-domain
 events do not belong there because the canonical event model does not declare
 them as harness-owned Grain facts.
 
-`core.worker` retains the executor Vars named by serialized ORC code nodes.
-The root `prompt` namespace similarly retains
-`loyly.pi-harness.prompt/expose-candidate-instruction`; its implementation is
-in `core.build.prompt`. Moving either executor boundary requires updating the
-`:fn` value in `workflows/` and considering already-persisted workflow versions.
-`orc_worker.clj` is only a temporary source-compatibility façade; new code must
-use `interface.clj`.
+ORC code nodes name their executors by string: `core.worker` stage functions and
+`core.build.prompt/expose-candidate-instruction`. Moving one means updating its
+`:fn` value; the harness is greenfield, so there is no compatibility alias.
 
 ## Checks
 

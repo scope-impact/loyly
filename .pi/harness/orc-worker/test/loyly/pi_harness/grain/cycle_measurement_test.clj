@@ -3,7 +3,7 @@
             [ai.obney.grain.event-store-v3.interface :as event-store]
             [clojure.test :refer [deftest is testing]]
             [loyly.pi-harness.grain.core.read-models :as read-models]
-            [loyly.pi-harness.grain.cycle-measurement :as measurement]))
+            [loyly.pi-harness.grain.interface :as model]))
 
 (def selected-items
   [{:id "@item-01-001" :name "First" :rule "Availability" :source "spec.feature:6"}
@@ -11,7 +11,7 @@
    {:id "@item-01-003" :name "Third" :rule "Billing" :source "spec.feature:18"}])
 
 (deftest measurement-keeps-the-approved-selection-as-its-denominator
-  (let [result (measurement/reduce-result
+  (let [result (model/reduce-result
                 {:cycle-id "cycle-1"
                  :selection-id "selection-1"
                  :cut "cut-1"
@@ -40,14 +40,14 @@
 (deftest measurement-refuses-verdicts-outside-the-approved-selection
   (testing "unknown item"
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"unknown item"
-                          (measurement/reduce-result
+                          (model/reduce-result
                            {:cycle-id "cycle-1" :selection-id "selection-1"
                             :cut "cut-1" :backend "gondolin"
                             :selected-items selected-items
                             :verdicts [{:item-id "01-999" :verdict "pass" :evidence "no"}]}))))
   (testing "duplicate item"
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"duplicate item"
-                          (measurement/reduce-result
+                          (model/reduce-result
                            {:cycle-id "cycle-1" :selection-id "selection-1"
                             :cut "cut-1" :backend "gondolin"
                             :selected-items selected-items
@@ -57,7 +57,7 @@
 (deftest recorded-measurement-survives-an-event-store-restart
   (let [db (.getAbsolutePath (java.io.File/createTempFile "loyly-measurement-" ".sqlite"))
         tenant #uuid "27e205ec-80c4-3e7c-86ca-9a8cc66e51e7"
-        result (measurement/reduce-result
+        result (model/reduce-result
                 {:cycle-id "cycle-1" :selection-id "selection-1"
                  :cut "cut-1" :backend "gondolin"
                  :selected-items selected-items
@@ -67,13 +67,13 @@
       (let [events (event-store/start {:conn {:type :sqlite :database-file db}})
             context {:event-store events :tenant-id tenant}]
         (try
-          (is (= result (measurement/record! context result)))
-          (is (= result (measurement/record! context result)))
+          (is (= result (model/record-measurement! context result)))
+          (is (= result (model/record-measurement! context result)))
           (finally (event-store/stop events))))
       (let [events (event-store/start {:conn {:type :sqlite :database-file db}})]
         (try
           (is (= result
-                 (measurement/find-measurement
+                 (model/find-measurement
                   {:event-store events :tenant-id tenant} "cycle-1")))
           (finally (event-store/stop events))))
       (finally (.delete (java.io.File. db))))))
@@ -82,7 +82,7 @@
   (let [db (.getAbsolutePath
             (java.io.File/createTempFile "loyly-measurement-lag-" ".sqlite"))
         tenant #uuid "27e205ec-80c4-3e7c-86ca-9a8cc66e51e7"
-        result (measurement/reduce-result
+        result (model/reduce-result
                 {:cycle-id "cycle-lag" :selection-id "selection-1"
                  :cut "cut-1" :backend "gondolin"
                  :selected-items selected-items
@@ -98,7 +98,7 @@
                         (fn [read-context _]
                           (swap! reads inc)
                           (when-not (:cache read-context) result))]
-            (is (= result (measurement/record! context result)))
+            (is (= result (model/record-measurement! context result)))
             (is (= 2 @reads)))
           (finally (event-store/stop events))))
       (finally (.delete (java.io.File. db))))))

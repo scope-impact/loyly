@@ -30,7 +30,7 @@
 
 (deftest persisted-prompt-executor-name-remains-resolvable
   (let [executor (requiring-resolve
-                  'loyly.pi-harness.prompt/expose-candidate-instruction)]
+                  'loyly.pi-harness.core.build.prompt/expose-candidate-instruction)]
     (is (= {:prompt "Build from the approved cut."}
            (executor {:node {:instruction "Build from the approved cut."}})))))
 

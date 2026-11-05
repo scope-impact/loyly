@@ -179,7 +179,7 @@ of its own.
 
 | Context | Spec | Code | Grain facts |
 |---|---|---|---|
-| Control plane | 09, 04, parts of 01 | `durable_entrypoint.clj`, `entrypoint.clj`, `core/selection/*`, `src/orc-client.ts` | selection, cycle preparation, task receipt |
+| Control plane | 09, 04, parts of 01 | `durable_entrypoint.clj`, `core/selection/*`, `src/orc-client.ts` | selection, cycle preparation, task receipt |
 | Cycle engine | 02, parts of 01 | `core/worker.clj`, `workflows/*`, `core/legacy_cycle.clj` | ORC `:sheet/*`; generated candidate |
 | Clean room | 01, 02-003 | `harness/fence.sh`, `harness/check.sh`, `src/cut.ts` | none yet |
 | Builder sessions | 04-015..017 | `core/runtime/adapters.clj`, `src/builder-worker.ts`, `src/builder-session-*.ts` | none yet |

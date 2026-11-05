@@ -3,7 +3,7 @@
             [ai.obney.grain.event-store-v3.interface :as event-store]
             [clojure.test :refer [deftest is]]
             [loyly.pi-harness.grain.core.read-models :as read-models]
-            [loyly.pi-harness.grain.observation :as observation]))
+            [loyly.pi-harness.grain.interface :as model]))
 
 (def tool-observation
   {:cycle-id "cycle-02"
@@ -39,17 +39,17 @@
       (let [events (event-store/start {:conn {:type :sqlite :database-file database-file}})
             context {:event-store events :tenant-id tenant}]
         (try
-          (is (= tool-observation (observation/record! context tool-observation)))
-          (is (= tool-observation (observation/record! context tool-observation)))
+          (is (= tool-observation (model/record-observation! context tool-observation)))
+          (is (= tool-observation (model/record-observation! context tool-observation)))
           (is (thrown-with-msg?
                clojure.lang.ExceptionInfo
                #"identity already names different evidence"
-               (observation/record! context (assoc tool-observation :result "fail"))))
+               (model/record-observation! context (assoc tool-observation :result "fail"))))
           (finally (event-store/stop events))))
       (let [events (event-store/start {:conn {:type :sqlite :database-file database-file}})]
         (try
           (is (= [tool-observation]
-                 (observation/find-cycle
+                 (model/find-cycle
                   {:event-store events :tenant-id tenant} "cycle-02")))
           (finally (event-store/stop events))))
       (finally (.delete (java.io.File. database-file))))))
@@ -69,7 +69,7 @@
                           (swap! reads inc)
                           (if (:cache read-context) [] [tool-observation]))]
             (is (= tool-observation
-                   (observation/record! context tool-observation)))
+                   (model/record-observation! context tool-observation)))
             (is (= 2 @reads)))
           (finally (event-store/stop events))))
       (finally (.delete (java.io.File. database-file))))))
