@@ -117,10 +117,13 @@
 
 (defn- dependency-hints
   "Pinned coordinates of the engines the product builds on, taken from this checkout's
-  submodules. They are dependencies, not answers, so the builder may fetch them."
+  submodules. They are dependencies, not answers, so the builder may fetch them. A local
+  commit that never reached the remote cannot be fetched, so the pin is the newest commit
+  the remote holds beneath the checkout: its merge-base with origin/HEAD."
   [project-root]
   (keep (fn [module]
-          (let [sha (str/trim (:out (shell/sh "git" "-C" (str project-root "/" module) "rev-parse" "HEAD")))
+          (let [git #(str/trim (:out (apply shell/sh "git" "-C" (str project-root "/" module) %&)))
+                sha (git "merge-base" "HEAD" "origin/HEAD")
                 url (str/trim (:out (shell/sh "git" "config" "-f" ".gitmodules"
                                               (str "submodule." module ".url") :dir project-root)))]
             (when (and (re-matches #"[0-9a-f]{40}" sha) (seq url))
