@@ -4,10 +4,11 @@
 
 The GitHub Pages entry point is rebuilt from `.pi/model`: Allium behavior, stamped Gherkin slices under `.pi/model/plan/`, the Grain Event Model, and the maintained C4 diagrams. Löyly appears only as an example project where the harness model refers to it.
 
-The generated page provides four connected views:
+The generated page provides five connected views:
 
 ```text
 behavior modules → EventStorming rules, refusals, invariants and examples
+room replay      → Grain-recorded ORC architecture brainstorm and evidence ledger
 Grain topology  → commands, facts, projections, queries and flows
 C4 architecture → system context and containers
 review          → active E2E, explicit skips and implementation conformance
@@ -21,6 +22,10 @@ The earlier visual essay and Three.js experiments remain prototype history, but 
 EventStorming is the primary behavioral view. The site therefore follows the Halla Event Model pattern: a Clojure extractor projects the committed specifications into JSON, and a committed HTML template turns that projection into one self-contained, hash-navigated page.
 
 There is no application framework. The generated HTML contains the projection renderer and navigation, while Vite bundles only the independent review adapter. The page fetches the separately generated, deeply frozen `event-model.json`; routing, filtering, diagram state, and review state never mutate that model. Mermaid is used only for the supporting C4 route.
+
+The room replay has its own isolated `architecture-brainstorm.json` data source. It was extracted through Grain's event-store API and ORC read models from `.pi/harness/.state/rooms/harness-regen-9/harness-impl/.state`; the browser never opens SQLite or LMDB directly. It contains all 60 recorded events: 30 architectural facts and their 30 reified transaction receipts. Playback applies only the architectural facts, while the inspector exposes the matching transaction receipt and raw event.
+
+This particular snapshot proves that the sheet, typed blackboard, workflow nodes, code executors, I/O edges, order, and final content hash were recorded. It does **not** prove a cycle ran: all six nodes are idle, every blackboard value is `nil` at version 0, and all recorded `:instruction` fields are `nil`. The UI preserves those absences instead of inventing prompts or execution.
 
 ## Comment and review mode
 
@@ -49,6 +54,8 @@ The browser UI exposes whether it has durable **Browser SQLite** or session-only
 ## Generation stack
 
 - `event-model/extract.clj` reads the committed `.pi/model` contract without executing it.
+- `event-model/extract-brainstorm.clj` reads the actual Grain stream and ORC projections; it never decodes SQLite or LMDB itself.
+- `event-model/refresh-brainstorm.sh` refreshes the committed, read-only room projection from a selected generated harness implementation.
 - `event-model/template.html` owns the EventStorm HTML structure and rendering.
 - `event-model/build.mjs` generates presentation-only `index.html` from the template.
 - `event-model/build.sh` regenerates `index.html` and the separate `public/event-model.json` data projection.
@@ -66,5 +73,16 @@ npm run spike
 ```
 
 Open <http://127.0.0.1:5173/loyly/> and scroll.
+
+To refresh the room evidence after the state changes:
+
+```bash
+cd spikes/3d-agentic-software-factory
+bash event-model/refresh-brainstorm.sh \
+  /path/to/.pi/harness/.state/rooms/harness-regen-9/harness-impl
+npm run build
+```
+
+The refresh command runs on the generated implementation's Clojure classpath because that immutable candidate owns the exact Grain and ORC versions that wrote the state. GitHub Pages consumes only the generated JSON projection, never the disposable `.state` database files.
 
 The alternative library and factory-layout research remains in `animation-library-research.md` and `automotive-assembly-layout-research.md`.
