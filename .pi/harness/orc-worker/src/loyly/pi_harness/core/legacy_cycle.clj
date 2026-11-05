@@ -18,13 +18,13 @@
 (defn config
   "The values harness/config.sh declares, read by bash so the file stays the only source."
   [project-root]
-  (let [keys ["APP_DIR" "PORT" "PLAN_DIR" "APP_MARKER" "FENCED_PATHS" "APP_STACK"]
+  (let [keys ["APP_DIR" "PLAN_DIR" "APP_MARKER" "FENCED_PATHS" "APP_STACK"]
         script (str ". harness/config.sh; "
                     (str/join "; " (map #(str "printf '%s\\n' \"$" % "\"") keys)))
         {:keys [exit out err]} (shell/sh "bash" "-c" script :dir project-root)]
     (when-not (zero? exit)
       (throw (ex-info (str "harness/config.sh could not be read: " (str/trim err)) {})))
-    (zipmap [:app-dir :port :plan-dir :app-marker :fenced-paths :app-stack]
+    (zipmap [:app-dir :plan-dir :app-marker :fenced-paths :app-stack]
             (str/split-lines out))))
 
 (defn- state-dir [project-root & parts]
@@ -59,26 +59,27 @@
         "Work test-first: write a failing test for a scenario, make it pass with the smallest change, and "
         "keep the whole suite green. "
         "Done is decided by the gate, not by you. The gate runs APP_DIR/test.sh, which must run the whole "
-        "suite and exit non-zero on any failure and must discover at least one test; then it runs "
-        "APP_DIR/start.sh PORT, which must start the product serving HTTP on that port in the foreground, "
-        "and it must answer within ten seconds of start.sh launching, with the served root page carrying "
-        "the APP_MARKER text. The gate then runs the identity probe the spec defines, so the served page "
-        "must prove the product's identity through its domain behavior, not just its name. "
+        "suite and exit non-zero on any failure and must discover at least one real test; then it runs "
+        "APP_DIR/start.sh, which must start the product speaking JSON-RPC over stdio exactly as the "
+        "public seam declares (one JSON object per line, one response per request carrying its id, "
+        "nothing else on stdout; logs go to stderr). Within thirty seconds of start.sh launching, the "
+        "product must answer the cycle-contract request, naming APP_MARKER and listing its stages in "
+        "the order the spec declares: identity is proved by domain behavior, not by a name. "
         "Slow builds belong in test.sh, which is untimed, not in start.sh. "
         "Use exactly the target stack in the runtime context. "
         "Both scripts must be executable and must work from any working directory. "
-        "Before finishing, run APP_DIR/test.sh, start APP_DIR/start.sh on a free port, fetch the root page, "
-        "and confirm it carries the marker. Never weaken or delete a test to obtain green.")
+        "Before finishing, run APP_DIR/test.sh, then start APP_DIR/start.sh, send it a cycle-contract "
+        "request on stdin, and confirm the response. Never weaken or delete a test to obtain green.")
    :gate-repair
    (str "The gate failed for the candidate in your workspace. Read the gate log, reproduce the failure, "
         "turn it into a failing test where it is a behavior failure, and make the smallest coherent "
-        "correction. Then rerun APP_DIR/test.sh, start APP_DIR/start.sh, and confirm the marker is served "
-        "within ten seconds. Do not delete, skip, or weaken tests. The spec in the clean room remains "
+        "correction. Then rerun APP_DIR/test.sh, start APP_DIR/start.sh, and confirm it answers cycle-contract "
+        "over stdio within thirty seconds. Do not delete, skip, or weaken tests. The spec in the clean room remains "
         "authoritative; the gate log is diagnostic input only.")})
 
 (defn render-prompt
   "The exact production prompt for one builder purpose, with deterministic runtime context."
-  [purpose {:keys [request-id app-dir port plan-dir app-marker app-stack dependencies]}]
+  [purpose {:keys [request-id app-dir plan-dir app-marker app-stack dependencies]}]
   (let [instruction (seed-instructions purpose)
         context (str/join "\n"
                           (cond-> [(str "Purpose: " (name purpose))
@@ -86,7 +87,7 @@
                                    (str "Spec: $HARNESS_CUT_ROOT/" plan-dir "/NN-slug/spec.feature (the only spec; build this product)")
                                    (str "Target stack: " app-stack)
                                    (str "APP_DIR: " app-dir " (write everything under $HARNESS_WORKSPACE_ROOT/" app-dir ")")
-                                   (str "Gate port: " port)
+                                   "Public seam: $HARNESS_CUT_ROOT/.pi/model/rpc.yaml (JSON-RPC over stdio)"
                                    (str "APP_MARKER: " app-marker)]
                             (seq dependencies)
                             (conj (str "Dependencies available to fetch: " (str/join "; " dependencies)))

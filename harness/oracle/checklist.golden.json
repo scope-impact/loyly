@@ -146,9 +146,15 @@
   },
   {
    "id": "02-010",
-   "name": "The running harness proves its identity by serving its cycle contract",
+   "name": "The running harness proves its identity by answering its cycle contract",
    "rule": "The running harness proves its identity by domain behavior, not by name",
    "source": ".pi/model/plan/02-execution-pipeline/spec.feature:107"
+  },
+  {
+   "id": "02-011",
+   "name": "The gate boots the harness within a thirty-second budget and reports the margin",
+   "rule": "The running harness proves its identity by domain behavior, not by name",
+   "source": ".pi/model/plan/02-execution-pipeline/spec.feature:115"
   },
   {
    "id": "03-001",
@@ -449,9 +455,33 @@
    "name": "An unsupported or missing project stack Dockerfile is refused",
    "rule": "Missing project runtime config fails closed",
    "source": ".pi/model/plan/08-project-vm-config/spec.feature:21"
+  },
+  {
+   "id": "09-001",
+   "name": "A request is answered once with its own id",
+   "rule": "Every request gets exactly one response carrying its id",
+   "source": ".pi/model/plan/09-rpc-seam/spec.feature:9"
+  },
+  {
+   "id": "09-002",
+   "name": "An unknown method is refused without stopping the harness",
+   "rule": "Every request gets exactly one response carrying its id",
+   "source": ".pi/model/plan/09-rpc-seam/spec.feature:17"
+  },
+  {
+   "id": "09-003",
+   "name": "Repeating a cycle request returns the original receipt",
+   "rule": "Cycles are submitted and observed through the seam",
+   "source": ".pi/model/plan/09-rpc-seam/spec.feature:27"
+  },
+  {
+   "id": "09-004",
+   "name": "Waiting on a submitted cycle returns its one terminal outcome",
+   "rule": "Cycles are submitted and observed through the seam",
+   "source": ".pi/model/plan/09-rpc-seam/spec.feature:34"
   }
  ],
  "counts": {
-  "total": 75
+  "total": 80
  }
 }

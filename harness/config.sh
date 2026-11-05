@@ -3,9 +3,9 @@
 # Pi/ORC harness itself, and its spec is .pi/model/plan/NN-slug/spec.feature.
 
 # Where the regenerated harness is built inside the clean room. It must provide
-# APP_DIR/test.sh (the whole suite) and APP_DIR/start.sh PORT (serves HTTP on PORT).
+# APP_DIR/test.sh (the whole suite) and APP_DIR/start.sh (speaks JSON-RPC on stdio, as
+# declared in .pi/model/rpc.yaml). The harness has no port: it is not a web product.
 APP_DIR=harness-impl
-PORT=8902
 
 # The stack the regenerated harness must use. The builder is told this; the gate does not
 # care, which is the point of the two-script contract.
@@ -14,7 +14,7 @@ APP_STACK="Clojure (deps.edn, Clojure CLI) on the ORC workflow engine, which it 
 # The spec root. harness/hjson.clj reads this line, so the tools and modules.sh agree.
 PLAN_DIR=.pi/model/plan
 
-# What the identity probe expects the served surface to carry.
+# What the identity probe expects the cycle contract to name.
 APP_MARKER=pi-harness
 APP_PROBE=harness/probe.sh
 

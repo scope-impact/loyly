@@ -104,8 +104,17 @@ Feature: The regeneration cycle
 
     @skip
     @item-02-010
-    Scenario: The running harness proves its identity by serving its cycle contract
-      Given the harness is started with start.sh on a port
-      When a client requests the root page over HTTP
-      Then the page names the harness "pi-harness"
-      And the page lists the cycle stages fence, regenerate, gate, score, and scoreboard in that order
+    Scenario: The running harness proves its identity by answering its cycle contract
+      Given the harness is started with start.sh speaking JSON-RPC over stdio
+      When a client sends the cycle-contract request
+      Then the response names the harness "pi-harness"
+      And it lists the cycle stages fence, regenerate, gate, score, and scoreboard in that order
+
+    @skip
+    @item-02-011
+    Scenario: The gate boots the harness within a thirty-second budget and reports the margin
+      Given the candidate passed its whole suite
+      When the gate launches start.sh
+      Then the identity probe must be answered within thirty seconds of the launch
+      And the gate reports how much of the budget was unused
+      And slow work that does not fit belongs in test.sh, which the gate does not time

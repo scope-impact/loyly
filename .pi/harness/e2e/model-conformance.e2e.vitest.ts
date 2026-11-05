@@ -97,7 +97,12 @@ afterAll(async () => {
 // Keep scenario tests at module root: allure-vitest installs its runtime with root hooks.
 // Component ownership is projected through scenarioLabels instead of nested describe blocks.
 test.skip("A regeneration cycle follows the declared stage order", () => {});
-test.skip("The running harness proves its identity by serving its cycle contract", () => {});
+test.skip("The running harness proves its identity by answering its cycle contract", () => {});
+test.skip("The gate boots the harness within a thirty-second budget and reports the margin", () => {});
+test.skip("A request is answered once with its own id", () => {});
+test.skip("An unknown method is refused without stopping the harness", () => {});
+test.skip("Repeating a cycle request returns the original receipt", () => {});
+test.skip("Waiting on a submitted cycle returns its one terminal outcome", () => {});
 test.skip("The fence refuses to build a room for an instrument nobody checked", () => {});
 test.skip("The gate ratifies done; the builder cannot", () => {});
 test.skip("The score reports to a person and never into the loop", () => {});

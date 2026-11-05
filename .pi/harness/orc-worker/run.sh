@@ -13,4 +13,5 @@ exec clojure -Sdeps "{:paths [\"$WORKER_SRC\"]
                              {:git/url \"https://github.com/ObneyAI/litellm-clj.git\"
                               :git/sha \"0570e9459b8751d4a0c3dc1cd48595804426a84d\"
                               :deps/root \"contrib/bedrock\"}}}" \
+  -J-Dlogback.configurationFile="$(dirname "$WORKER_SRC")/logback-stderr.xml" \
   -M:dev -m loyly.pi-harness.durable-entrypoint "$@"

@@ -1,0 +1,25 @@
+# The Pi harness's public seam: JSON-RPC over stdio. This is the interface Pi and an
+# operator drive, the gate's identity probe uses, and a grader drives. It names no
+# implementation; any harness that speaks it is driven the same way.
+seam: json-rpc-over-stdio
+framing:
+  request: "one JSON object per line on stdin: {id, method, params}"
+  response: "one JSON object per line on stdout: {id, ok: true, result} or {id, ok: false, error}"
+  rule: "every request gets exactly one response carrying its id; nothing else is written to stdout"
+start: "APP_DIR/start.sh starts the harness reading stdin and writing stdout until stdin closes"
+methods:
+  cycle-contract:
+    params: {}
+    result: {workflowName: "string naming the harness", stages: [fence, regenerate, gate, score, scoreboard]}
+  submit-cycle:
+    params: {requestId: "safe identifier"}
+    result: {cycleId: requestId, tickId: string, taskId: integer}
+    rule: "repeating a requestId returns the original receipt"
+  wait:
+    params: {taskId: integer}
+    result: {status: "completed | failed", error: "string when failed", result: "stage outputs"}
+  execution-status:
+    params: {tickId: string}
+    result: {tickId: string, status: string}
+errors:
+  unknown-method: "{id, ok: false, error} naming the method"
