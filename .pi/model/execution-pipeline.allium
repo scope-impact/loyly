@@ -53,6 +53,15 @@ entity CleanRoom {
     fenced_paths_unreachable: Boolean
 }
 
+-- The first regenerate attempt runs one fresh builder per selected slice, in plan order.
+entity SliceBuild {
+    cycle: PipelineCycle
+    slice: String
+    position: Integer
+    builder_session_identity: String
+    generated_paths: List<String>
+}
+
 entity CandidateSubject {
     cycle: PipelineCycle
     attempt: Integer
@@ -142,6 +151,7 @@ rule RegenerateCandidate {
     requires: generated_paths.count > 0
     requires: tool_calls > 0
     requires: attempt > 1 implies builder_inputs_are_previous_candidate_and_gate_evidence(cycle, attempt)
+    requires: attempt = 1 implies completed_slice_builds(cycle) = selected_slice_count(cycle)
     ensures: PipelineBuilderSession.created(
         cycle: cycle,
         identity: builder_session_identity,
@@ -158,6 +168,26 @@ rule RegenerateCandidate {
         tool_calls: tool_calls
     )
     ensures: cycle.stage = gate
+}
+
+-- Regenerate, first attempt: one fresh builder per selected slice, in plan order. A slice
+-- builder reads the clean room and this cycle's candidate as the earlier slice builder left
+-- it; no earlier transcript, earlier cycle's candidate, or gate or score evidence crosses in.
+rule BuildSlice {
+    when: SliceBuilderCompleted(cycle, slice, position, builder_session_identity, generated_paths)
+    requires: cycle.status = running
+    requires: cycle.stage = regenerate
+    requires: position = selected_slice_position(cycle, slice)
+    requires: completed_slice_builds(cycle) = position - 1
+    requires: slice_builder_inputs_are_clean_room_and_cycle_candidate(cycle, slice)
+    requires: generated_paths.count > 0
+    ensures: SliceBuild.created(
+        cycle: cycle,
+        slice: slice,
+        position: position,
+        builder_session_identity: builder_session_identity,
+        generated_paths: generated_paths
+    )
 }
 
 -- Gate: done is ratified by a room the builder does not control, never by its claim.
@@ -324,6 +354,7 @@ surface RegenerationCycleExecution {
         BuilderCompleted(cycle, attempt, builder_session_identity, operation_identity,
                          workspace_generation, assisted, subject_digest,
                          generated_paths, tool_calls)
+        SliceBuilderCompleted(cycle, slice, position, builder_session_identity, generated_paths)
         GateReturned(cycle, attempt, subject_digest, target_stack, passed, evidence_root)
         GateAttemptRecorded(cycle, attempt)
         ScoreFiled(cycle, observations)
@@ -339,6 +370,10 @@ surface RegenerationCycleExecution {
     @guarantee HarnessAndInstrumentStaySeparate
         -- The fence and the gate feed the build loop. The score and the scoreboard report to a
         -- person and never reach a builder session.
+
+    @guarantee OneFreshBuilderPerSlice
+        -- The first regenerate attempt runs one fresh builder per selected slice in plan order;
+        -- each sees the clean room and this cycle's candidate so far, and nothing else.
 
     @guarantee PhysicalFence
         -- The clean room is a single-commit clone in which every fenced path is absent from the

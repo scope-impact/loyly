@@ -52,3 +52,8 @@ name line and the `total` line (75 → 80).
 grader `sha256:b9db122a…` (7 items, calibrated carried/uncarried): 6/80 pass, 73 unreached and
 recorded as fail. `harness/oracle.sh record` recorded `oracle/scoreboard-01.golden` for it; the
 checklist golden did not move.
+
+**2026-11-05: the spec grew.** The first regenerate attempt now runs one fresh builder per
+selected slice: `@item-02-012` and `@item-02-013` were appended to the end of slice 02. The
+golden's diff is additions plus the one `total` line (80 → 82). The approved grader's scenarios
+did not change, so it stays approved.

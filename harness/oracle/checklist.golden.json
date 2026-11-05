@@ -157,6 +157,18 @@
    "source": ".pi/model/plan/02-execution-pipeline/spec.feature:115"
   },
   {
+   "id": "02-012",
+   "name": "The first attempt starts one fresh builder per selected slice in plan order",
+   "rule": "The first regenerate attempt builds one slice at a time",
+   "source": ".pi/model/plan/02-execution-pipeline/spec.feature:126"
+  },
+  {
+   "id": "02-013",
+   "name": "A slice builder receives only the clean room and this cycle's candidate so far",
+   "rule": "The first regenerate attempt builds one slice at a time",
+   "source": ".pi/model/plan/02-execution-pipeline/spec.feature:135"
+  },
+  {
    "id": "03-001",
    "name": "The checklist is one item per stamped scenario of the approved selection",
    "rule": "The checklist is derived from the spec and its denominator never drifts",
@@ -482,6 +494,6 @@
   }
  ],
  "counts": {
-  "total": 80
+  "total": 82
  }
 }

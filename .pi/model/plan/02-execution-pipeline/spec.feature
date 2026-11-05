@@ -118,3 +118,22 @@ Feature: The regeneration cycle
       Then the identity probe must be answered within thirty seconds of the launch
       And the gate reports how much of the budget was unused
       And slow work that does not fit belongs in test.sh, which the gate does not time
+
+  Rule: The first regenerate attempt builds one slice at a time
+
+    @skip
+    @item-02-012
+    Scenario: The first attempt starts one fresh builder per selected slice in plan order
+      Given an approved selection of several plan slices
+      When the regenerate stage runs its first attempt
+      Then it starts one fresh builder session for each selected slice, in plan order
+      And each builder is told which slice it carries and reads the whole spec in the clean room
+      And the gate runs once, on the candidate the last slice builder left
+
+    @skip
+    @item-02-013
+    Scenario: A slice builder receives only the clean room and this cycle's candidate so far
+      Given an earlier slice builder of the same cycle wrote the candidate
+      When the next slice builder starts
+      Then it reads the clean room and the candidate as the earlier builder left it
+      And it receives no earlier builder's transcript, no candidate from an earlier cycle, and no gate or score evidence
