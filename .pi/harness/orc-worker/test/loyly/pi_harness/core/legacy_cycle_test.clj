@@ -118,17 +118,40 @@
   (let [root (temp-project)
         hex (apply str (repeat 64 "a"))
         sealed (io/file root ".pi/harness/.state/graders/sealed" hex)]
-    (is (nil? (legacy-cycle/approved-grader root)))
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"no sealed grader"
-                          (legacy-cycle/approve-grader! root (str "sha256:" hex) "operator")))
+                          (legacy-cycle/grader-approval root (str "sha256:" hex) "operator")))
     (.mkdirs sealed)
-    (spit (io/file sealed "manifest.json") "{}")
+    (spit (io/file sealed "manifest.json") "{\"items\": [\"02-002\"], \"entry\": \"grade_seam.py\"}")
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"has no grade_seam.py"
+                          (legacy-cycle/grader-approval root (str "sha256:" hex) "operator")))
+    (spit (io/file sealed "grade_seam.py") "")
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"names its approver"
-                          (legacy-cycle/approve-grader! root (str "sha256:" hex) " ")))
-    (let [approval (legacy-cycle/approve-grader! root (str "sha256:" hex) "operator")]
+                          (legacy-cycle/grader-approval root (str "sha256:" hex) " ")))
+    (let [approval (legacy-cycle/grader-approval root (str "sha256:" hex) "operator")]
       (is (= (str "sha256:" hex) (:grader-digest approval)))
-      (is (= approval (legacy-cycle/approved-grader root))))))
+      (is (= "grade_seam.py" (:entry approval)))
+      (is (= ["02-002"] (:items approval))))))
+
+(deftest a-sealed-grader-without-an-entry-defaults-to-grade-py
+  (let [root (temp-project)
+        hex (apply str (repeat 64 "b"))
+        sealed (io/file root ".pi/harness/.state/graders/sealed" hex)]
+    (.mkdirs sealed)
+    (spit (io/file sealed "manifest.json") "{\"items\": [\"02-002\"]}")
+    (spit (io/file sealed "grade.py") "")
+    (is (= "grade.py" (:entry (legacy-cycle/grader-approval root (str "sha256:" hex) "operator"))))))
 
 (deftest the-score-refuses-without-an-approved-grader
   (is (thrown-with-msg? clojure.lang.ExceptionInfo #"no approved sealed grader"
-                        (legacy-cycle/score (temp-project) "/tmp/evidence" "/tmp/room"))))
+                        (legacy-cycle/score (temp-project) "/tmp/evidence" "/tmp/room" []))))
+
+(deftest the-score-refuses-two-graders-filing-the-same-item
+  (let [root (temp-project)
+        evidence (str root "/evidence")]
+    (.mkdirs (io/file evidence))
+    (with-redefs [legacy-cycle/config (fn [_] {:app-dir "harness-impl"})
+                  legacy-cycle/run-logged! (fn [& _] {:exit 0 :log ""})
+                  legacy-cycle/run-grader! (fn [_ _ _ _] [{"id" "02-002" "verdict" "pass"}])]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"more than one grader filed 02-002"
+                            (legacy-cycle/score root evidence "/tmp/room"
+                                                [{:grader-digest "sha256:1"} {:grader-digest "sha256:2"}]))))))

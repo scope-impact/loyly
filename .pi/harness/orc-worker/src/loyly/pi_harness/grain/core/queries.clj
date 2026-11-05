@@ -77,6 +77,13 @@
   [context]
   {:query/result (read-models/highest-task-id context)})
 
+(defquery :loyly.pi-harness approved-graders
+  {:authorized? (constantly true)
+   :grain.event-model/reads #{:loyly.pi-harness/approved-graders}}
+  "Return every grader an operator approved, in approval order."
+  [context]
+  {:query/result (read-models/find-approved-graders context)})
+
 (defn- query! [context query message]
   (let [result (query-processor/process-query
                 (assoc context :query
@@ -123,6 +130,10 @@
 (defn task-receipt [context task-id]
   (query! context {:query/name :loyly.pi-harness/task-receipt :task-id task-id}
           "task receipt query failed"))
+
+(defn approved-graders [context]
+  (query! context {:query/name :loyly.pi-harness/approved-graders}
+          "approved graders query failed"))
 
 (defn highest-task-id [context]
   (query! context {:query/name :loyly.pi-harness/highest-task-id}

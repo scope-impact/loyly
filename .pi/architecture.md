@@ -207,7 +207,8 @@ sequenceDiagram
     participant Grader as Sealed grader (grade.py)
 
     Operator->>ORC: approve-grader(digest, approver)
-    ORC-->>Operator: approval recorded (.state/graders/approved.edn)
+    ORC->>Grain: grader-approved(digest, entry, items, approver)
+    ORC-->>Operator: approval recorded
     Operator->>ORC: submit-cycle(requestId)
     ORC->>Grain: task-receipt-issued(taskId, tickId, cycleId)
     ORC-->>Operator: receipt {cycleId, tickId, taskId}
@@ -260,7 +261,9 @@ Rules this cycle enforces:
 - **The gate** is a room the builder does not control. Done is its verdict, not the builder's
   claim. A failed gate may start a fresh builder with only the previous candidate and that
   attempt's gate log, three attempts in total.
-- **The score** uses only an operator-approved grader digest; it refuses otherwise. Zero
+- **The score** runs every operator-approved grader (Grain `grader-approved` facts); it refuses
+  with none, and refuses when two approved graders file the same item. Approval itself refuses
+  a grader whose items overlap an approved one. Zero
   verdicts mean no score was filed; an item the grader does not reach is a fail and stays in
   the denominator.
 - **The scoreboard** reports newly passing and newly failing separately on shared items and
@@ -432,7 +435,8 @@ Gondolin rooms with synthetic DNS and no operator transcript.
 | `:loyly.pi-harness/approved-slice-operation-routed`, `generated-candidate-recorded` | Harness Grain model | Route and candidate provenance for the Löyly slice cycle |
 | `:loyly.pi-harness/oracle-proposal-*`, `product-oracle-accepted` | Harness Grain model | Löyly product-oracle review and acceptance |
 | `:loyly.pi-harness/observation-recorded`, `cycle-measurement-recorded` | Harness Grain model | Löyly-target verdict provenance and measurement |
-| `.state/graders/sealed/<hex>/`, `approved.edn` | Sealed grader store | Self-target grader seal and operator approval |
+| `:loyly.pi-harness/grader-approved` | Harness Grain model | An operator's approval of one sealed grader's exact digest, its entry file, and the items it covers |
+| `.state/graders/sealed/<hex>/` | Sealed grader store | The sealed grader files and their calibration manifest |
 | `harness/cycles/NN/{checklist,scores}.json` | Legacy instrument | Self-target measurement record, committed |
 | `harness/oracle/*.golden*` | Legacy oracle | Goldens re-recorded only for a recorded reason |
 | Builder transcripts | `.state/builder-sessions/` | Read-only inspection of each builder session |
@@ -483,8 +487,6 @@ The harness introduces no second scope or item registry. Slices, `Rule:` groups,
 
 ## Assumptions and open questions
 
-- **Grader approval is a file.** `.state/graders/approved.edn` should become a Grain
-  command and event, as task receipts did, so approval is durable through the framework.
 - **Prompt activation is in memory.** An optimized instruction needs a durable owner and a
   rollback policy before it is production configuration.
 - **Grader coverage is 8 of 80.** Widening it needs an author who has seen no candidate, and

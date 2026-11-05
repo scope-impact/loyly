@@ -4,7 +4,8 @@
   does that job (harness/fence.sh, a Pi builder session, harness/verify.sh,
   harness/score.clj, harness/scoreboard.clj). The fence and the gate feed the build loop;
   the score and the scoreboard never do."
-  (:require [clojure.java.io :as io]
+  (:require [clojure.data.json :as json]
+            [clojure.java.io :as io]
             [clojure.java.shell :as shell]
             [clojure.string :as str]
             [loyly.pi-harness.core.build.prompt :as prompt]
@@ -293,14 +294,9 @@
 (defn- graders-dir [project-root & parts]
   (apply state-dir project-root "graders" parts))
 
-(defn approved-grader
-  "The grader an operator approved by exact digest, or nil. A cycle never scores without one."
-  [project-root]
-  (let [file (io/file (graders-dir project-root "approved.edn"))]
-    (when (.isFile file) (read-string (slurp file)))))
-
-(defn approve-grader!
-  "Record an operator's approval of a sealed, calibrated grader's exact digest."
+(defn grader-approval
+  "Validate that a digest names a sealed, calibrated grader and return the approval to record.
+  The approval itself is a Grain fact (approve-grader); nothing is written here."
   [project-root grader-digest approved-by]
   (let [hex (str/replace (str grader-digest) #"^sha256:" "")
         dir (io/file (graders-dir project-root "sealed" hex))
@@ -309,10 +305,27 @@
       (throw (ex-info (str "no sealed grader " grader-digest) {:grader-digest grader-digest})))
     (when (str/blank? approved-by)
       (throw (ex-info "approval names its approver" {})))
-    (let [approval {:grader-digest (str "sha256:" hex) :path (.getPath dir)
-                    :approved-by approved-by :approved-at (str (java.time.Instant/now))}]
-      (spit (graders-dir project-root "approved.edn") (pr-str approval))
-      approval)))
+    (let [manifest (json/read-str (slurp manifest-file) :key-fn keyword)
+          entry (or (:entry manifest) "grade.py")]
+      (when-not (.isFile (io/file dir entry))
+        (throw (ex-info (str "sealed grader " grader-digest " has no " entry) {})))
+      {:grader-digest (str "sha256:" hex)
+       :entry entry
+       :items (vec (:items manifest))
+       :approved-by approved-by
+       :approved-at (str (java.time.Instant/now))})))
+
+(defn- run-grader!
+  "Run one sealed grader against the candidate's start.sh and return its verdicts."
+  [project-root {:keys [grader-digest entry]} start evidence]
+  (let [path (graders-dir project-root "sealed" (str/replace grader-digest #"^sha256:" ""))
+        tag (subs (str/replace grader-digest #"^sha256:" "") 0 12)
+        graded (shell/sh "python3" (str path "/" entry) start :dir path)]
+    (spit (str evidence "/grade-" tag ".log") (:err graded))
+    (when-not (zero? (:exit graded))
+      (throw (ex-info (str "score failed: grader " grader-digest " did not run: "
+                           (tail (:err graded) 400)) {})))
+    (json/read-str (:out graded))))
 
 (defn- next-cycle-number [project-root]
   (let [dirs (keep #(when (re-matches #"\d+" (.getName %)) (parse-long (.getName %)))
@@ -320,38 +333,38 @@
     (format "%02d" (inc (reduce max 0 dirs)))))
 
 (defn score
-  "File one verdict per checklist item with the approved sealed grader, through the legacy
-  tools: the checklist is derived into harness/cycles/NN/, the grader drives the candidate
+  "File one verdict per checklist item with every approved sealed grader, through the legacy
+  tools: the checklist is derived into harness/cycles/NN/, each grader drives the candidate
   through its public seam, and harness/score.clj files the verdicts with an honest
-  denominator. Without an approved grader the score is refused, never guessed."
-  [project-root evidence room]
-  (let [{:keys [grader-digest path] :as grader} (approved-grader project-root)]
-    (when-not grader
-      (throw (ex-info "score refused: no approved sealed grader. A cycle never scores with a grader nobody approved."
-                      {})))
-    (let [cfg (config project-root)
-          cycle-number (next-cycle-number project-root)
-          checklist (str "harness/cycles/" cycle-number "/checklist.json")
-          derived (run-logged! project-root (str evidence "/checklist.log")
-                               "bb" "harness/gen_checklist.clj" "--out" checklist)
-          _ (when-not (zero? (:exit derived))
-              (throw (ex-info (str "score refused: the checklist could not be derived: " (tail (:log derived) 400)) {})))
-          verdicts-file (str evidence "/verdicts.json")
-          graded (shell/sh "python3" (str path "/grade.py") (str room "/" (:app-dir cfg) "/start.sh")
-                           :dir path)
-          _ (spit verdicts-file (:out graded))
-          _ (spit (str evidence "/grade.log") (:err graded))
-          _ (when-not (zero? (:exit graded))
-              (throw (ex-info (str "score failed: the grader did not run: " (tail (:err graded) 400)) {})))
-          filed (run-logged! project-root (str evidence "/score.log")
-                             "bb" "harness/score.clj" cycle-number "--verdicts" verdicts-file)]
-      (when-not (zero? (:exit filed))
-        (throw (ex-info (str "score refused by harness/score.clj: " (tail (:log filed) 400)) {})))
-      {:passed true
-       :cycle-number cycle-number
-       :grader-digest grader-digest
-       :summary (first (str/split-lines (:log filed)))
-       :scores (str "harness/cycles/" cycle-number "/scores.json")})))
+  denominator. Without an approved grader the score is refused, never guessed; two graders
+  filing the same item is refused, never merged."
+  [project-root evidence room graders]
+  (when (empty? graders)
+    (throw (ex-info "score refused: no approved sealed grader. A cycle never scores with a grader nobody approved."
+                    {})))
+  (let [cfg (config project-root)
+        cycle-number (next-cycle-number project-root)
+        checklist (str "harness/cycles/" cycle-number "/checklist.json")
+        derived (run-logged! project-root (str evidence "/checklist.log")
+                             "bb" "harness/gen_checklist.clj" "--out" checklist)
+        _ (when-not (zero? (:exit derived))
+            (throw (ex-info (str "score refused: the checklist could not be derived: " (tail (:log derived) 400)) {})))
+        start (str room "/" (:app-dir cfg) "/start.sh")
+        verdicts (vec (mapcat #(run-grader! project-root % start evidence) graders))
+        twice (keep (fn [[id n]] (when (> n 1) id)) (frequencies (map #(get % "id") verdicts)))
+        _ (when (seq twice)
+            (throw (ex-info (str "score refused: more than one grader filed " (str/join ", " (sort twice))) {})))
+        verdicts-file (str evidence "/verdicts.json")
+        _ (spit verdicts-file (json/write-str verdicts))
+        filed (run-logged! project-root (str evidence "/score.log")
+                           "bb" "harness/score.clj" cycle-number "--verdicts" verdicts-file)]
+    (when-not (zero? (:exit filed))
+      (throw (ex-info (str "score refused by harness/score.clj: " (tail (:log filed) 400)) {})))
+    {:passed true
+     :cycle-number cycle-number
+     :grader-digests (mapv :grader-digest graders)
+     :summary (first (str/split-lines (:log filed)))
+     :scores (str "harness/cycles/" cycle-number "/scores.json")}))
 
 (defn scoreboard
   "Report the pass rate and the comparison with the previous cycle through

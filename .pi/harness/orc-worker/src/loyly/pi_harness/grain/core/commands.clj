@@ -320,6 +320,38 @@
                      "task receipt projection did not settle"
                      {:task-id (:task-id receipt)}))
 
+(defcommand :loyly.pi-harness approve-grader
+  {:grain.event-model/reads #{:loyly.pi-harness/approved-graders}
+   :grain.event-model/produces #{:loyly.pi-harness/grader-approved}}
+  "Record an operator's approval of a sealed grader's exact digest. Approving the same digest
+  again returns the first approval; a grader whose items overlap an approved one is refused."
+  [{:keys [command] :as context}]
+  (let [approval (:approval command)
+        approved (read-models/find-approved-graders context)
+        existing (some #(when (= (:grader-digest %) (:grader-digest approval)) %) approved)
+        overlap (when-not existing
+                  (seq (filter (set (:items approval)) (mapcat :items approved))))]
+    (cond
+      existing {:command/result existing}
+      overlap {::anom/category ::anom/conflict
+               ::anom/message (str "grader items already covered by an approved grader: "
+                                   (str/join ", " (sort overlap)))}
+      :else {:command-result/events
+             [(event-store/->event
+               {:type :loyly.pi-harness/grader-approved
+                :tags #{read-models/approved-graders-tag}
+                :body approval})]})))
+
+(defn approve-grader! [context approval]
+  (let [result (process! context {:command/name :loyly.pi-harness/approve-grader :approval approval}
+                         "grader approval command failed")]
+    (or (:command/result result)
+        (await-projection! #(some (fn [a] (when (= (:grader-digest a) (:grader-digest approval)) a))
+                                  (read-models/find-approved-graders (dissoc context :cache)))
+                           approval
+                           "grader approval projection did not settle"
+                           {:grader-digest (:grader-digest approval)}))))
+
 (defn record-approved-slice-route! [context route]
   (process! context {:command/name :loyly.pi-harness/record-approved-slice-route :route route}
             "approved-slice route command failed")

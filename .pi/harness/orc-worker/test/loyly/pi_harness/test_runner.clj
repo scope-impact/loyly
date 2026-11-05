@@ -6,6 +6,7 @@
             [loyly.pi-harness.core.grading.compose-backend-test]
             [loyly.pi-harness.grain.cycle-progress-test]
             [loyly.pi-harness.grain.cycle-preparation-test]
+            [loyly.pi-harness.grain.grader-approval-test]
             [loyly.pi-harness.grain.event-model-test]
             [loyly.pi-harness.grain.cycle-measurement-test]
             [loyly.pi-harness.grain.candidate-lineage-test]
@@ -32,6 +33,7 @@
     loyly.pi-harness.core.grading.compose-backend-test
     loyly.pi-harness.grain.cycle-progress-test
     loyly.pi-harness.grain.cycle-preparation-test
+    loyly.pi-harness.grain.grader-approval-test
     loyly.pi-harness.grain.event-model-test
     loyly.pi-harness.grain.cycle-measurement-test
     loyly.pi-harness.grain.candidate-lineage-test

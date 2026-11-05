@@ -52,6 +52,14 @@
                     {:spec ".pi/model/instrument.allium"
                      :kind :rule :name "RouteApprovedSliceToMeasuredRegeneration"}]}
 
+    :loyly.pi-harness/approve-grader
+    {:description "Record an operator's approval of a sealed, calibrated grader's exact digest."
+     :schema [:map [:approval :map]]
+     :reads #{:loyly.pi-harness/approved-graders}
+     :produces #{:loyly.pi-harness/grader-approved}
+     :grain/allium [{:spec ".pi/model/instrument.allium"
+                     :kind :surface :name "Instrument"}]}
+
     :loyly.pi-harness/record-task-receipt
     {:description "Bind an issued task identity to its ORC tick so a replacement worker can answer for it."
      :schema [:map [:receipt :map]]
@@ -156,6 +164,11 @@
     :loyly.pi-harness/task-receipt-issued
     {:description "A task identity was bound to its durable ORC tick."
      :schema [:map [:task-id :int] [:tick-id :string] [:cycle-id :string]]}
+
+    :loyly.pi-harness/grader-approved
+    {:description "An operator approved a sealed, calibrated grader by its exact digest."
+     :schema [:map [:grader-digest :string] [:entry :string] [:items [:vector :string]]
+              [:approved-by :string] [:approved-at :string]]}
 
     :loyly.pi-harness/approved-slice-operation-routed
     {:description "ORC selected and durably pinned generation or regeneration for a request."
@@ -295,6 +308,11 @@
      :consumes #{:loyly.pi-harness/task-receipt-issued}
      :version 1}
 
+    :loyly.pi-harness/approved-graders
+    {:description "Graders an operator approved, by exact digest."
+     :consumes #{:loyly.pi-harness/grader-approved}
+     :version 1}
+
     :loyly.pi-harness/approved-slice-operation-routes
     {:description "The immutable operation decision keyed by approved request identity."
      :consumes #{:loyly.pi-harness/approved-slice-operation-routed}
@@ -370,7 +388,12 @@
     :loyly.pi-harness/highest-task-id
     {:description "Return the highest issued task identity."
      :schema [:map]
-     :reads #{:loyly.pi-harness/task-receipts}}}
+     :reads #{:loyly.pi-harness/task-receipts}}
+
+    :loyly.pi-harness/approved-graders
+    {:description "Return every grader an operator approved, in approval order."
+     :schema [:map]
+     :reads #{:loyly.pi-harness/approved-graders}}}
 
    :todo-processors
    {:loyly.pi-harness/start-approved-cycle
@@ -389,6 +412,7 @@
                 :loyly.pi-harness/approved-slice-operation-route
                 :loyly.pi-harness/task-receipt
                 :loyly.pi-harness/highest-task-id
+                :loyly.pi-harness/approved-graders
                 :loyly.pi-harness/cycle-preparation
                 :loyly.pi-harness/cycle-progress
                 :loyly.pi-harness/cycle-observations
@@ -397,6 +421,7 @@
                  :loyly.pi-harness/approve-selection
                  :loyly.pi-harness/record-approved-slice-route
                  :loyly.pi-harness/record-task-receipt
+                 :loyly.pi-harness/approve-grader
                  :loyly.pi-harness/record-generated-candidate
                  :loyly.pi-harness/record-cycle-preparation
                  :loyly.pi-harness/approve-cycle-preparation

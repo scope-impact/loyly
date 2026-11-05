@@ -41,6 +41,8 @@
 (def record-task-receipt! commands/record-task-receipt!)
 (def find-task-receipt queries/task-receipt)
 (def highest-task-id queries/highest-task-id)
+(def approve-grader! commands/approve-grader!)
+(def approved-graders queries/approved-graders)
 (def record-observation! commands/record-observation!)
 (def reduce-result commands/reduce-result)
 (def record-measurement! commands/record-measurement!)

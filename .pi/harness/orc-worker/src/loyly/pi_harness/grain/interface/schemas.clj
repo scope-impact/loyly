@@ -79,6 +79,10 @@
 (def task-receipt-schema
   [:map [:task-id :int] [:tick-id :string] [:cycle-id :string]])
 
+(def grader-approval-schema
+  [:map [:grader-digest :string] [:entry :string] [:items [:vector :string]]
+   [:approved-by :string] [:approved-at :string]])
+
 (def cycle-preparation-schema
   [:map
    [:preparation-id :string]
@@ -189,6 +193,7 @@
    :loyly.pi-harness/record-accepted-product-oracle [:map [:accepted-oracle accepted-product-oracle-schema]]
    :loyly.pi-harness/record-approved-slice-route [:map [:route approved-slice-route-schema]]
    :loyly.pi-harness/record-task-receipt [:map [:receipt task-receipt-schema]]
+   :loyly.pi-harness/approve-grader [:map [:approval grader-approval-schema]]
    :loyly.pi-harness/record-observation [:map [:observation observation-schema]]
    :loyly.pi-harness/record-cycle-measurement [:map [:measurement measurement-schema]]})
 
@@ -204,6 +209,7 @@
    :loyly.pi-harness/product-oracle-accepted accepted-product-oracle-schema
    :loyly.pi-harness/approved-slice-operation-routed approved-slice-route-schema
    :loyly.pi-harness/task-receipt-issued task-receipt-schema
+   :loyly.pi-harness/grader-approved grader-approval-schema
    :loyly.pi-harness/observation-recorded observation-schema
    :loyly.pi-harness/cycle-measurement-recorded measurement-event-schema})
 
@@ -219,4 +225,5 @@
    :loyly.pi-harness/oracle-proposal [:map [:proposal-id :string]]
    :loyly.pi-harness/approved-slice-operation-route [:map [:request-id :string]]
    :loyly.pi-harness/task-receipt [:map [:task-id :int]]
-   :loyly.pi-harness/highest-task-id [:map]})
+   :loyly.pi-harness/highest-task-id [:map]
+   :loyly.pi-harness/approved-graders [:map]})

@@ -23,6 +23,10 @@
   "A task receipt was issued for a submitted cycle, binding its task identity to its ORC tick."
   {:schema schemas/task-receipt-schema})
 
+(defevent :loyly.pi-harness/grader-approved
+  "An operator approved a sealed, calibrated grader by its exact digest."
+  {:schema schemas/grader-approval-schema})
+
 (defevent :loyly.pi-harness/approved-slice-operation-routed
   "An approved request was durably routed to generation or regeneration."
   {:schema schemas/approved-slice-route-schema})
