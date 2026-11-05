@@ -1,8 +1,14 @@
 ---
-status: accepted
+status: superseded
 ---
 
 # Promote manually approved first-grade evidence as the product oracle
+
+**Superseded on 2026-11-05.** The regeneration cycle took the legacy shape (fence → regenerate →
+gate → score → scoreboard) on 2026-11-04, which removed oracle proposal, promotion and
+publication; no scenario or Allium rule carried them since. A candidate is now judged by sealed
+graders an operator approves by digest (`instrument.allium`, `ApproveExactGrader`). The proposal
+lifecycle was removed from the Grain event model and the seam.
 
 Fresh Slice Generation has no accepted product oracle from which to derive a comparison verdict.
 The cycle first builds and calibrates a fresh sealed harness snapshot from the committed harness

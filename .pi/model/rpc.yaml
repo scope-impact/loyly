@@ -20,7 +20,7 @@ methods:
     result: {workflowName: "string naming the harness", stages: [fence, regenerate, gate, score, scoreboard]}
   workflow-contract:
     params: {}
-    result: {workflowName: string, routes: "list of slice-cycle routes", rootType: string, stages: "list of slice-cycle stage names", builderResultFields: "field names of a builder result, including builderSessionId", proposalResultFields: "field names of an oracle proposal", observationFields: "field names of an observation, including artifacts"}
+    result: {workflowName: string, routes: "list of slice-cycle routes", rootType: string, stages: "list of slice-cycle stage names", builderResultFields: "field names of a builder result, including builderSessionId", observationFields: "field names of an observation, including artifacts"}
     rule: "the executable regeneration workflow contract: what a slice cycle's builder results and observations carry, read from the workflow itself"
   submit-cycle:
     params: {requestId: "safe identifier"}
