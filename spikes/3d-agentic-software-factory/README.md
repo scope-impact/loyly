@@ -4,11 +4,10 @@
 
 The GitHub Pages entry point is rebuilt from `.pi/model`: Allium behavior, stamped Gherkin slices under `.pi/model/plan/`, the Grain Event Model, and the maintained C4 diagrams. Löyly appears only as an example project where the harness model refers to it.
 
-The generated page provides five connected views:
+The generated page provides four connected views, with recorded room evidence overlaid on the primary EventStorm rather than split into another diagram:
 
 ```text
-behavior modules → EventStorming rules, refusals, invariants and examples
-room replay      → Grain-recorded ORC architecture brainstorm and evidence ledger
+behavior modules → EventStorming rules, refusals, examples, and the Grain-recorded ORC brainstorm replay
 Grain topology  → commands, facts, projections, queries and flows
 C4 architecture → system context and containers
 review          → active E2E, explicit skips and implementation conformance
@@ -23,7 +22,7 @@ EventStorming is the primary behavioral view. The site therefore follows the Hal
 
 There is no application framework. The generated HTML contains the projection renderer and navigation, while Vite bundles only the independent review adapter. The page fetches the separately generated, deeply frozen `event-model.json`; routing, filtering, diagram state, and review state never mutate that model. Mermaid is used only for the supporting C4 route.
 
-The room replay has its own isolated `architecture-brainstorm.json` data source. It was extracted through Grain's event-store API and ORC read models from `.pi/harness/.state/rooms/harness-regen-9/harness-impl/.state`; the browser never opens SQLite or LMDB directly. It contains all 60 recorded events: 30 architectural facts and their 30 reified transaction receipts. Playback applies only the architectural facts, while the inspector exposes the matching transaction receipt and raw event.
+The room evidence overlay has its own isolated `architecture-brainstorm.json` data source, while sharing the EventStorm presentation vocabulary. It was extracted through Grain's event-store API and ORC read models from `.pi/harness/.state/rooms/harness-regen-9/harness-impl/.state`; the browser never opens SQLite or LMDB directly. It contains all 60 recorded events: 30 architectural facts and their 30 reified transaction receipts. Playback applies only the architectural facts, while the inspector exposes the matching transaction receipt and raw event.
 
 This particular snapshot proves that the sheet, typed blackboard, workflow nodes, code executors, I/O edges, order, and final content hash were recorded. It does **not** prove a cycle ran: all six nodes are idle, every blackboard value is `nil` at version 0, and all recorded `:instruction` fields are `nil`. The UI preserves those absences instead of inventing prompts or execution.
 
