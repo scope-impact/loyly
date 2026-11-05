@@ -42,16 +42,6 @@
      :grain/allium [{:spec ".pi/model/regeneration-cycle.allium"
                      :kind :rule :name "ApprovePreparation"}]}
 
-    :loyly.pi-harness/record-approved-slice-route
-    {:description "Persist the ORC-selected operation for an approved slice request."
-     :schema [:map [:route :map]]
-     :reads #{:loyly.pi-harness/approved-slice-operation-routes}
-     :produces #{:loyly.pi-harness/approved-slice-operation-routed}
-     :grain/allium [{:spec ".pi/model/instrument.allium"
-                     :kind :rule :name "RouteApprovedSliceToFreshSliceGeneration"}
-                    {:spec ".pi/model/instrument.allium"
-                     :kind :rule :name "RouteApprovedSliceToMeasuredRegeneration"}]}
-
     :loyly.pi-harness/approve-grader
     {:description "Record an operator's approval of a sealed, calibrated grader's exact digest."
      :schema [:map [:approval :map]]
@@ -68,29 +58,21 @@
      :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
                      :kind :surface :name "RegenerationControlPlane"}]}
 
-    :loyly.pi-harness/record-generated-candidate
-    {:description "Persist candidate lineage so ORC can route approved slices by prior component output."
-     :schema [:map [:candidate :map]]
-     :reads #{:loyly.pi-harness/component-candidates}
-     :produces #{:loyly.pi-harness/generated-candidate-recorded}
-     :grain/allium [{:spec ".pi/model/instrument.allium"
-                     :kind :rule :name "RecordPublishedOracleAndCandidate"}]}
-
     :loyly.pi-harness/record-observation
     {:description "Record one evidence-backed item observation."
      :schema [:map [:observation :map]]
      :reads #{:loyly.pi-harness/cycle-observations}
      :produces #{:loyly.pi-harness/observation-recorded}
-     :grain/allium [{:spec ".pi/model/regeneration-cycle.allium"
-                     :kind :rule :name "CompareCandidateEvidenceWithOracle"}]}
+     :grain/allium [{:spec ".pi/model/runtime-evidence.allium"
+                     :kind :rule :name "RecordRuntimeSignal"}]}
 
     :loyly.pi-harness/record-cycle-measurement
     {:description "Record the strict reduction of one approved denominator."
      :schema [:map [:measurement :map]]
      :reads #{:loyly.pi-harness/cycle-measurements}
      :produces #{:loyly.pi-harness/cycle-measurement-recorded}
-     :grain/allium [{:spec ".pi/model/regeneration-cycle.allium"
-                     :kind :rule :name "RecordMeasurement"}]}}
+     :grain/allium [{:spec ".pi/model/instrument.allium"
+                     :kind :rule :name "FileScore"}]}}
 
    :events
    {:loyly.pi-harness/selection-recorded
@@ -145,36 +127,6 @@
     {:description "An operator approved a sealed, calibrated grader by its exact digest."
      :schema [:map [:grader-digest :string] [:entry :string] [:items [:vector :string]]
               [:approved-by :string] [:approved-at :string]]}
-
-    :loyly.pi-harness/approved-slice-operation-routed
-    {:description "ORC selected and durably pinned generation or regeneration for a request."
-     :schema [:map
-              [:request-id :string]
-              [:request-digest :string]
-              [:project-id :string]
-              [:container-id :string]
-              [:component-id :string]
-              [:selection-id :string]
-              [:operation [:enum "generation" "regeneration"]]
-              [:parent-candidate-id {:optional true} :string]
-              [:parent-candidate-root {:optional true} :string]
-              [:parent-candidate-digest {:optional true} :string]]}
-
-    :loyly.pi-harness/generated-candidate-recorded
-    {:description "A generated candidate and its lineage were recorded for a project component."
-     :schema [:map
-              [:candidate-id :string]
-              [:project-id :string]
-              [:container-id :string]
-              [:component-id :string]
-              [:operation [:enum "generation" "regeneration"]]
-              [:parent-candidate-id {:optional true} :string]
-              [:selection-id :string]
-              [:cut :string]
-              [:output-root :string]
-              [:subject-digest :string]
-              [:disposition [:enum "baseline-measured" "oracle-measured"]]
-              [:oracle-descriptor-digest :string]]}
 
     :loyly.pi-harness/observation-recorded
     {:description "One identified producer recorded a purpose-scoped claim for one cycle item."
@@ -236,11 +188,6 @@
                  :loyly.pi-harness/cycle-preparation-approved}
      :version 1}
 
-    :loyly.pi-harness/component-candidates
-    {:description "Generated candidate lineage ordered by project component for operation routing."
-     :consumes #{:loyly.pi-harness/generated-candidate-recorded}
-     :version 1}
-
     :loyly.pi-harness/task-receipts
     {:description "Issued task identities and the ORC ticks they name."
      :consumes #{:loyly.pi-harness/task-receipt-issued}
@@ -249,11 +196,6 @@
     :loyly.pi-harness/approved-graders
     {:description "Graders an operator approved, by exact digest."
      :consumes #{:loyly.pi-harness/grader-approved}
-     :version 1}
-
-    :loyly.pi-harness/approved-slice-operation-routes
-    {:description "The immutable operation decision keyed by approved request identity."
-     :consumes #{:loyly.pi-harness/approved-slice-operation-routed}
      :version 1}
 
     :loyly.pi-harness/cycle-progress
@@ -303,16 +245,6 @@
      :schema [:map [:cycle-id :string]]
      :reads #{:loyly.pi-harness/cycle-measurements}}
 
-    :loyly.pi-harness/component-candidates
-    {:description "Return candidate lineage for one project component."
-     :schema [:map [:project-id :string] [:container-id :string] [:component-id :string]]
-     :reads #{:loyly.pi-harness/component-candidates}}
-
-    :loyly.pi-harness/approved-slice-operation-route
-    {:description "Return ORC's durably selected operation for one request."
-     :schema [:map [:request-id :string]]
-     :reads #{:loyly.pi-harness/approved-slice-operation-routes}}
-
     :loyly.pi-harness/task-receipt
     {:description "Return the ORC tick an issued task identity names."
      :schema [:map [:task-id :int]]
@@ -341,8 +273,6 @@
    {:loyly.pi-harness/pi-regeneration
     {:description "Session control boundary for preparation approval and measured regeneration."
      :queries #{:loyly.pi-harness/selection
-                :loyly.pi-harness/component-candidates
-                :loyly.pi-harness/approved-slice-operation-route
                 :loyly.pi-harness/task-receipt
                 :loyly.pi-harness/highest-task-id
                 :loyly.pi-harness/approved-graders
@@ -352,10 +282,8 @@
                 :loyly.pi-harness/cycle-measurement}
      :commands #{:loyly.pi-harness/record-selection
                  :loyly.pi-harness/approve-selection
-                 :loyly.pi-harness/record-approved-slice-route
                  :loyly.pi-harness/record-task-receipt
                  :loyly.pi-harness/approve-grader
-                 :loyly.pi-harness/record-generated-candidate
                  :loyly.pi-harness/record-cycle-preparation
                  :loyly.pi-harness/approve-cycle-preparation
                  :loyly.pi-harness/record-observation
