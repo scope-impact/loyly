@@ -7,10 +7,21 @@ framing:
   response: "one JSON object per line on stdout: {id, ok: true, result} or {id, ok: false, error}"
   rule: "every request gets exactly one response carrying its id; nothing else is written to stdout"
 start: "APP_DIR/start.sh starts the harness reading stdin and writing stdout until stdin closes"
+environment:
+  PI_HARNESS_PROJECT_ROOT: >-
+    the repository the harness works on: prepare-cut cuts its commits, a selection reads the
+    product slices inside such a cut, and submit-cycle regenerates its PLAN_DIR (declared in its
+    harness/config.sh). Whoever starts the harness sets it; the clean room the harness was
+    built in is not that repository.
+  PI_HARNESS_STATE_ROOT: "where the harness keeps its own state (event store, rooms, evidence); a fresh directory means fresh state"
 methods:
   cycle-contract:
     params: {}
     result: {workflowName: "string naming the harness", stages: [fence, regenerate, gate, score, scoreboard]}
+  workflow-contract:
+    params: {}
+    result: {workflowName: string, routes: "list of slice-cycle routes", rootType: string, stages: "list of slice-cycle stage names", builderResultFields: "field names of a builder result, including builderSessionId", proposalResultFields: "field names of an oracle proposal", observationFields: "field names of an observation, including artifacts"}
+    rule: "the executable regeneration workflow contract: what a slice cycle's builder results and observations carry, read from the workflow itself"
   submit-cycle:
     params: {requestId: "safe identifier"}
     result: {cycleId: requestId, tickId: string, taskId: integer}
@@ -40,7 +51,8 @@ methods:
     rule: "an invalid or colliding identity is refused before any cut is written"
   slice-composition:
     params: {cut: "a prepared cut's identity"}
-    result: "the cut's product slices, each named by its bare directory (NN-slug), with their stamped items as full tags (@item-NN-SSS)"
+    result: {slices: "list of the cut's product slices, each {slice: bare directory name NN-slug, items: its stamped items, each named by its full tag (@item-NN-SSS)}"}
+    rule: "the result is an object whose slices field holds the list, never a bare list"
   preview-selection:
     params: {cut: "a prepared cut's identity", slice: "bare slice directory name, NN-slug", itemIds: "optional list of full item tags (@item-NN-SSS) as slice-composition returns them; omitted or empty selects the whole slice"}
     result: {selectionId: string, selectionDigest: string, status: "awaiting-approval", items: "list of full item tags"}

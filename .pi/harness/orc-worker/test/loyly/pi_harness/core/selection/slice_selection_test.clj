@@ -108,3 +108,18 @@
                    (:slices (selection/slice-composition root "cut-42")))))
       (finally
         (doseq [file (reverse (file-seq root))] (.delete file))))))
+
+(deftest a-refusal-names-the-unresolved-denominator
+  (with-cut
+    "Feature: Booking\n\n  @item-01-001\n  Scenario: First\n\n  @item-01-002\n  Scenario: Second\n"
+    (fn [root]
+      (testing "unknown items are named in the message, which is all the seam carries"
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                              #"does not belong to the selected slice: @item-01-009, @item-09-001"
+                              (selection/resolve-selection root "cut-1" "01-booking-core"
+                                                           {:item-ids ["@item-09-001" "@item-01-001" "@item-01-009"]}))))
+      (testing "a requested item named twice is refused, never quietly collapsed"
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                              #"named more than once: @item-01-001"
+                              (selection/resolve-selection root "cut-1" "01-booking-core"
+                                                           {:item-ids ["@item-01-001" "@item-01-002" "@item-01-001"]})))))))

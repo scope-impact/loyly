@@ -1,6 +1,7 @@
 (ns loyly.pi-harness.core.worker
   (:require [clojure.data.json :as json]
             [clojure.java.io :as io]
+            [clojure.java.shell :as shell]
             [ai.obney.orc.orc-service.interface :as orc]
             [ai.obney.orc.gepa.interface :as gepa]
             [ai.obney.orc.gepa.interface.schemas]
@@ -1045,6 +1046,11 @@
                        :stderr (str/join "\n" (remove str/blank? (map #(get-in % [:evaluation :stderr]) item-runs)))}
                       {:passed false :verdicts [] :stdout ""
                        :stderr "independent grading currently requires Gondolin"})
+        _ (when-not gondolin?
+            (throw (ex-info (str "independent comparison requires Gondolin: a "
+                                 (:execution-backend inputs)
+                                 "-backed cycle cannot pass as a complete independently graded measurement")
+                            {:backend (:execution-backend inputs) :independent independent})))
         _ (when-not (seq (:verdicts independent))
             (throw (ex-info "independent grader produced no readable observation"
                             {:independent independent})))
@@ -1908,11 +1914,25 @@
         :targetStack (:target-stack preparation)
         :executionBackend execution-backend}))))
 
+(defn- source-commit-refusal
+  "Why a cut cannot be prepared from this source commit, or nil. Checked before any task starts."
+  [sourceCommit]
+  (cond
+    (not (and (string? sourceCommit) (re-matches #"[0-9a-f]{40}" sourceCommit)))
+    (str "prepare-cut refused: sourceCommit must be a full lowercase 40-hex commit id, got "
+         (pr-str sourceCommit))
+
+    (not (zero? (:exit (shell/sh "git" "-C" (project-root) "cat-file" "-e"
+                                 (str sourceCommit "^{commit}")))))
+    (str "prepare-cut refused: " sourceCommit " is not a commit in " (project-root))))
+
 (defn prepare-cut! [{:keys [sourceCommit executionBackend] :as request}]
-  (when-not (and (string? sourceCommit)
-                 (or (= "host" executionBackend) (= "gondolin" executionBackend)))
-    (throw (ex-info "prepare-cut requires sourceCommit and executionBackend (host or gondolin)"
+  (when-not (or (= "host" executionBackend) (= "gondolin" executionBackend))
+    (throw (ex-info (str "prepare-cut refused: executionBackend must be host or gondolin, got "
+                         (pr-str executionBackend))
                     {:request request})))
+  (when-let [refusal (source-commit-refusal sourceCommit)]
+    (throw (ex-info refusal {:request request})))
   (let [key (str "cut:" executionBackend ":" sourceCommit)]
     (if-let [existing (get @tasks key)]
       (if (= (:request existing) request)
