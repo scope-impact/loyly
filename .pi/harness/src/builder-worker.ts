@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { getModel } from "@earendil-works/pi-ai/compat";
 import { createAgentSession, createBashToolDefinition, createExtensionRuntime, getAgentDir, ModelRuntime, SessionManager, SettingsManager, type ResourceLoader } from "@earendil-works/pi-coding-agent";
 import { openBuilderRoom } from "./builder-room.ts";
+import { modelFailure } from "./builder-outcome.ts";
 import { executionBackend, type ExecutionBackend } from "./execution-backend.ts";
 import { writeBuilderSessionState } from "./builder-session-store.ts";
 
@@ -115,6 +116,8 @@ try {
   });
   try {
     await session.prompt(request.prompt);
+    const failure = modelFailure(session.messages);
+    if (failure) throw new Error(failure);
   } finally {
     session.dispose();
   }
