@@ -1,0 +1,46 @@
+{
+  "note": "Sealed graders an operator approved by exact digest. A cycle scores only with these. Moved from Grain on 2026-11-05 when orc-worker left the loop; each line is the operator's approval, never edited by a cycle.",
+  "graders": [
+    {
+      "digest": "sha256:302072fde2ff1712748b222edff2eaa50f2217a0de4a0f507ee0927e5f0ab9df",
+      "entry": "grade.py",
+      "items": [
+        "02-001",
+        "02-002",
+        "02-010",
+        "04-009",
+        "04-010",
+        "09-001",
+        "09-002",
+        "09-003"
+      ],
+      "approvedBy": "Sathish Narayanan",
+      "approvedAt": "2026-11-05T11:33:33.104365Z"
+    },
+    {
+      "digest": "sha256:da4d43e5ce7fcc4e7e36c475df2de1c00f1739fe1d2a915760317f569437fb60",
+      "entry": "grade_seam.py",
+      "items": [
+        "01-005",
+        "01-006",
+        "01-007",
+        "04-008",
+        "06-001"
+      ],
+      "approvedBy": "Sathish Narayanan",
+      "approvedAt": "2026-11-05T11:50:44.764249Z"
+    },
+    {
+      "digest": "sha256:dac9f4620bd508b7895ba5ccde4945811167920c5d8a73e968a869e23b9ee1b1",
+      "entry": "grade_contract.py",
+      "items": [
+        "01-010",
+        "04-005",
+        "04-006",
+        "05-005"
+      ],
+      "approvedBy": "Sathish Narayanan",
+      "approvedAt": "2026-11-05T13:44:50.887123Z"
+    }
+  ]
+}

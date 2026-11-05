@@ -89,7 +89,11 @@ PER_REPO=(harness/config.sh harness/probe.sh harness/README.md)
 #   harness/Makefile    loyly's runtime bootstrap: it builds the Gondolin assets and offline
 #                       runtime archives the Pi/ORC harness runs on. It is this repository's
 #                       build, not part of the instrument.
-LOCAL=(harness/oracle.py harness/Makefile)
+#   harness/graders.approved.json
+#                       the sealed graders this repository's operator approved by exact
+#                       digest. An approval is one operator's decision about one spec, so
+#                       no other repository shares it.
+LOCAL=(harness/oracle.py harness/Makefile harness/graders.approved.json)
 
 # Recorded goldens. Content is never compared either, for a different reason: each is
 # recorded from this repository's own spec and its own scored cycle, so there is no single

@@ -1,9 +1,0 @@
-<!-- The worker's stdout carries only JSON-RPC responses (.pi/model/rpc.yaml); every log line
-     goes to stderr so a client, the gate's probe, or a grader can read stdout as the seam. -->
-<configuration>
-  <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
-    <target>System.err</target>
-    <encoder><pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} -- %msg%n</pattern></encoder>
-  </appender>
-  <root level="INFO"><appender-ref ref="STDERR"/></root>
-</configuration>
