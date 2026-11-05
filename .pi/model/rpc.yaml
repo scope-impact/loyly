@@ -7,6 +7,13 @@ framing:
   response: "one JSON object per line on stdout: {id, ok: true, result} or {id, ok: false, error}"
   rule: "every request gets exactly one response carrying its id; nothing else is written to stdout"
 start: "APP_DIR/start.sh starts the harness reading stdin and writing stdout until stdin closes"
+environment:
+  PI_HARNESS_PROJECT_ROOT: >-
+    the repository the harness works on: prepare-cut cuts its commits, a selection reads the
+    product slices inside such a cut, and submit-cycle regenerates its PLAN_DIR (declared in its
+    harness/config.sh). Whoever starts the harness sets it; the clean room the harness was
+    built in is not that repository.
+  PI_HARNESS_STATE_ROOT: "where the harness keeps its own state (event store, rooms, evidence); a fresh directory means fresh state"
 methods:
   cycle-contract:
     params: {}
