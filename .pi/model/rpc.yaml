@@ -28,17 +28,22 @@ methods:
     result: {tickId: string, status: "not-started | running | completed | failed", stage: "string when known", attempt: "integer when known", builderSessionRef: "string when a builder is running"}
 
   # The cut and partial selections (slices 01, 04). A partial selection is previewed, approved
-  # by exact digest, and only then submitted as a slice cycle.
+  # by exact digest, and only then submitted as a slice cycle. Selections are made over the
+  # product slices inside a prepared cut.
   prepare-cut:
     params: {sourceCommit: "40-hex commit", executionBackend: "host | gondolin"}
-    result: {cutId: string, taskId: integer, executionBackend: string}
+    result: {cutId: "the request's identity (the source commit)", taskId: integer, executionBackend: string}
+    outcome: >-
+      wait(taskId) completes with the prepared cut; its identity, the one slice-composition and
+      preview-selection accept, is result.outputs.cut-result.cutId. The receipt's cutId is not a
+      prepared cut.
     rule: "an invalid or colliding identity is refused before any cut is written"
   slice-composition:
-    params: {cut: string}
-    result: "the cut's slices and their stamped items, which together reconstruct the system view"
+    params: {cut: "a prepared cut's identity"}
+    result: "the cut's product slices, each named by its bare directory (NN-slug), with their stamped items as full tags (@item-NN-SSS)"
   preview-selection:
-    params: {cut: string, slice: string, itemIds: "optional list of stamped item ids"}
-    result: {selectionId: string, selectionDigest: string, status: "awaiting-approval", items: "list of stamped item ids"}
+    params: {cut: "a prepared cut's identity", slice: "bare slice directory name, NN-slug", itemIds: "optional list of full item tags (@item-NN-SSS) as slice-composition returns them; omitted or empty selects the whole slice"}
+    result: {selectionId: string, selectionDigest: string, status: "awaiting-approval", items: "list of full item tags"}
     rule: "previewing the same slice and items again returns the same selectionId and selectionDigest; an empty or ambiguous denominator is refused and nothing is recorded"
   approve-selection:
     params: {selectionId: string, selectionDigest: string}
