@@ -39,6 +39,15 @@
    "repair-verification" "affordance-conformance" "grade" "instrument-conformance"
    "repair-evaluation" "conclude"])
 
+(deftest cut-preparation-refuses-an-invalid-identity-before-a-task-starts
+  (let [tasks-before @@#'worker/tasks]
+    (doseq [[request message] [[{:sourceCommit "abc" :executionBackend "host"} #"full lowercase 40-hex commit id"]
+                               [{:sourceCommit (apply str (repeat 40 "z")) :executionBackend "host"} #"full lowercase 40-hex commit id"]
+                               [{:sourceCommit (apply str (repeat 40 "0")) :executionBackend "host"} #"is not a commit in"]
+                               [{:sourceCommit (apply str (repeat 40 "0")) :executionBackend "docker"} #"executionBackend must be host or gondolin"]]]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo message (worker/prepare-cut! request))))
+    (is (= tasks-before @@#'worker/tasks) "no cut task was started or recorded")))
+
 (deftest the-cycle-budget-covers-a-slow-cycle-by-default
   (is (= (* 90 60 1000) worker/default-cycle-timeout-ms))
   (is (= worker/default-cycle-timeout-ms (worker/cycle-timeout-ms))))

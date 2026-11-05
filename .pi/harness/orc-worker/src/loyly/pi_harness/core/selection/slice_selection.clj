@@ -70,9 +70,14 @@
       (throw (ex-info "selected slice has no spec.feature" {:slice slice :path (str feature-path)})))
     (let [all-items (parse-items feature-path)
           known-ids (set (map :id all-items))
-          unknown-ids (seq (remove known-ids requested-ids))
-          _ (when unknown-ids
-              (throw (ex-info "requested item does not belong to the selected slice"
+          repeated-ids (->> item-ids frequencies (keep (fn [[id n]] (when (> n 1) id))) sort vec)
+          _ (when (seq repeated-ids)
+              (throw (ex-info (str "requested item named more than once: " (str/join ", " repeated-ids))
+                              {:slice slice :repeated-items repeated-ids})))
+          unknown-ids (sort (remove known-ids requested-ids))
+          _ (when (seq unknown-ids)
+              (throw (ex-info (str "requested item does not belong to the selected slice: "
+                                   (str/join ", " unknown-ids))
                               {:slice slice :unknown-items (vec unknown-ids)})))
           items (if requested-ids
                   (filterv #(contains? requested-ids (:id %)) all-items)
@@ -82,7 +87,7 @@
       (when (empty? items)
         (throw (ex-info "selected slice contains no scenarios" {:slice slice})))
       (when (seq duplicates)
-        (throw (ex-info "selected slice contains duplicate item identities"
+        (throw (ex-info (str "selected slice contains duplicate item identities: " (str/join ", " duplicates))
                         {:slice slice :duplicates duplicates})))
       (let [digest (sha256 (pr-str [project-id container-id component-id cut slice items]))]
         {:selectionId (str "selection-" (subs digest 0 24))
