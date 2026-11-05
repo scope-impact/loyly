@@ -53,6 +53,25 @@
       (System/getenv "LOYLEY_CUTS_ROOT")
       (str (System/getProperty "user.home") "/.pi/harness/cuts")))
 
+(defn state-root []
+  (or (not-empty (System/getenv "PI_HARNESS_STATE_ROOT"))
+      (str (project-root) "/.pi/harness/.state")))
+
+;; Task receipts outlive the worker that issued them (@item-04-010): each receipt's
+;; task-to-tick mapping is persisted, so a replacement worker can follow the durable ORC tick
+;; to its outcome instead of losing the task or rerunning it.
+(defn- receipts-file [] (io/file (state-root) "task-receipts.edn"))
+
+(defn- persisted-receipts []
+  (let [file (receipts-file)]
+    (if (.isFile file) (read-string (slurp file)) {})))
+
+(defn- persist-receipt! [receipt]
+  (locking receipts-file
+    (let [file (receipts-file)]
+      (io/make-parents file)
+      (spit file (pr-str (assoc (persisted-receipts) (:taskId receipt) receipt))))))
+
 (defn builder-sessions-root []
   (or (System/getenv "PI_HARNESS_BUILDER_SESSIONS_ROOT")
       (some-> (System/getenv "PI_HARNESS_STATE_ROOT")
@@ -1691,6 +1710,9 @@
                    {:context ctx :sheet-id (orc/build-workflow! ctx (prompt/workflow :fresh-generation))}
                    :repair-prompt
                    {:context ctx :sheet-id (orc/build-workflow! ctx (prompt/workflow :verification-repair))})
+            ;; Task numbers continue across restarts, so a new receipt never reuses one a
+            ;; replacement worker may still be asked about.
+            (reset! next-task (reduce max 0 (keys (persisted-receipts))))
             (orc/resume-in-progress! ctx)
             started)))))
 
@@ -1776,6 +1798,7 @@
                            :executionBackend executionBackend}
                     measured? (assoc :parentCandidateId parentCandidateId
                                      :parentCandidateDigest parentCandidateDigest))]
+      (persist-receipt! receipt)
       (swap! tasks assoc requestId {:request request :routing-request routingRequest
                                     :receipt receipt :future trace})
       receipt)))
@@ -1802,6 +1825,7 @@
           receipt {:operation "regeneration-cycle" :cycleId requestId
                    :tickId (str tick-id) :correlationId (str correlation-id)
                    :taskId task-id}]
+      (persist-receipt! receipt)
       (swap! tasks assoc requestId {:request request :receipt receipt :future trace})
       receipt)))
 
@@ -1957,6 +1981,16 @@
         (:builder-session-ref progress)
         (assoc :builderSessionRef (:builder-session-ref progress))))))
 
+(defn- terminal-tick [context tick-id timeout-ms]
+  (let [deadline (+ (System/currentTimeMillis) timeout-ms)]
+    (loop []
+      (let [tick (orc/get-tick context tick-id)]
+        (cond
+          (and tick (:root-status tick)) tick
+          (> (System/currentTimeMillis) deadline)
+          (throw (ex-info "task did not reach a terminal outcome in time" {:tickId (str tick-id)}))
+          :else (do (Thread/sleep 250) (recur)))))))
+
 (defn wait! [{:keys [taskId]}]
   (when-not (number? taskId)
     (throw (ex-info "wait requires numeric taskId" {:taskId taskId})))
@@ -1966,7 +2000,16 @@
       (if (= :success (:status result))
         {:status "completed" :result summary}
         {:status "failed" :error (or (:error summary) "ORC workflow failed") :result summary}))
-    (throw (ex-info "unknown taskId" {:taskId taskId}))))
+    (if-let [receipt (get (persisted-receipts) taskId)]
+      ;; A task an earlier worker started: reconstruct its outcome from durable ORC state.
+      (let [tick (terminal-tick (runtime-context)
+                                (parse-uuid-field :tickId (:tickId receipt))
+                                (cycle-timeout-ms))]
+        (if (= :success (:root-status tick))
+          {:status "completed" :tickId (:tickId receipt)}
+          {:status "failed" :tickId (:tickId receipt)
+           :error (or (some-> (:error tick) str) "ORC workflow failed")}))
+      (throw (ex-info (str "unknown task identity: " taskId) {:taskId taskId})))))
 
 (defn respond! [id ok value]
   (println (json/write-str (cond-> {:id id :ok ok}

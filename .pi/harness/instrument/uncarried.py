@@ -8,6 +8,7 @@ from seam import Harness
 item, real = sys.argv[1], sys.argv[2]
 h = Harness(real)
 submits = 0
+seen_tasks = set()
 try:
     for line in sys.stdin:
         if not line.strip():
@@ -17,6 +18,10 @@ try:
         if resp is None:
             continue
         method = req.get("method")
+        if method == "submit-cycle" and resp.get("ok"):
+            seen_tasks.add((resp.get("result") or {}).get("taskId"))
+        if item == "04-010" and method == "wait" and (req.get("params") or {}).get("taskId") not in seen_tasks:
+            resp = {"id": req.get("id"), "ok": False, "error": "unknown task identity"}
         if item == "02-002" and method == "cycle-contract" and resp.get("ok"):
             resp["result"]["stages"] = list(reversed(resp["result"]["stages"]))
         if item == "02-010" and method == "cycle-contract" and resp.get("ok"):

@@ -43,6 +43,22 @@
   (is (= (* 90 60 1000) worker/default-cycle-timeout-ms))
   (is (= worker/default-cycle-timeout-ms (worker/cycle-timeout-ms))))
 
+(deftest a-replacement-worker-reconstructs-a-task-from-durable-state
+  (let [root (str (java.nio.file.Files/createTempDirectory "receipts-" (make-array java.nio.file.attribute.FileAttribute 0)))
+        tick-id #uuid "f36dc9b7-9b92-4e15-84f5-1b9c4b798416"]
+    (spit (str root "/task-receipts.edn")
+          (pr-str {41 {:taskId 41 :tickId (str tick-id) :cycleId "cycle-41"}}))
+    (with-redefs [worker/state-root (constantly root)
+                  worker/runtime-context (constantly {:durable true})
+                  orc/get-tick (fn [_ id]
+                                 (when (= id tick-id)
+                                   {:root-status :failure :error "fence failed: a room must be fresh"}))
+                  orc/execute (fn [& _] (throw (ex-info "a recovered task must never run again" {})))]
+      (is (= {:status "failed" :tickId (str tick-id) :error "fence failed: a room must be fresh"}
+             (worker/wait! {:taskId 41})))
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"unknown task identity: 42"
+                            (worker/wait! {:taskId 42}))))))
+
 (deftest one-slice-cycle-exposes-the-specified-stage-order
   (let [contract (slice-cycle-workflow/contract)]
     (is (= "pi-harness-slice-cycle" (:workflowName contract)))
@@ -216,7 +232,8 @@
   (let [executed (promise)]
     (worker/start-runtime! system/start!)
     (try
-      (with-redefs [model/find-latest-candidate (fn [_ & _] nil)
+      (with-redefs [worker/state-root (constantly (str (java.nio.file.Files/createTempDirectory "receipts-" (make-array java.nio.file.attribute.FileAttribute 0))))
+                    model/find-latest-candidate (fn [_ & _] nil)
                     orc/execute (fn [_ sheet-id inputs & _]
                                   (deliver executed {:sheet-id sheet-id :inputs inputs})
                                   {:status :success})]
@@ -247,7 +264,8 @@
                :subject-digest "sha256:parent"}]
     (worker/start-runtime! system/start!)
     (try
-      (with-redefs [model/find-latest-candidate (fn [_ & _] prior)
+      (with-redefs [worker/state-root (constantly (str (java.nio.file.Files/createTempDirectory "receipts-" (make-array java.nio.file.attribute.FileAttribute 0))))
+                    model/find-latest-candidate (fn [_ & _] prior)
                     orc/execute (fn [_ sheet-id inputs & _]
                                   (deliver executed {:sheet-id sheet-id :inputs inputs})
                                   {:status :success})]

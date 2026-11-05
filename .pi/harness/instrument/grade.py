@@ -21,6 +21,7 @@ def grade(start):
     # A clean room must be fresh: an existing room for this request leaves the fence nothing
     # it may build, so a harness that really runs its stages in order fails at the fence.
     os.makedirs(os.path.join(state, "rooms", "grade-stage-order"))
+    os.makedirs(os.path.join(state, "rooms", "grade-durable"))
     h = Harness(start, env={"PI_HARNESS_STATE_ROOT": state})
     out = []
     try:
@@ -65,6 +66,21 @@ def grade(start):
         out.append(verdict("02-001", ordered,
                            "a cycle whose clean room cannot be built must stop at the fence, naming it: "
                            f"status {outcome.get('status')!r}, error {str(outcome.get('error'))[:160]!r}"))
+
+        d = h.call(15, "submit-cycle", {"requestId": "grade-durable"})
+        durable_task = ((d or {}).get("result") or {}).get("taskId")
+        before = h.call(16, "wait", {"taskId": durable_task}, timeout=180) if durable_task is not None else None
+    finally:
+        h.stop()
+    # A replacement worker on the same durable state must reconstruct the outcome.
+    h = Harness(start, env={"PI_HARNESS_STATE_ROOT": state})
+    try:
+        after = h.call(17, "wait", {"taskId": durable_task}, timeout=180) if durable_task is not None else None
+        b_out, a_out = (before or {}).get("result") or {}, (after or {}).get("result") or {}
+        same = bool(before and after and before.get("ok") and after.get("ok")) \
+            and a_out.get("status") == b_out.get("status") and a_out.get("status") in ("completed", "failed")
+        out.append(verdict("04-010", same,
+                           f"before restart {b_out.get('status')!r}; after restart {after!r}"[:400]))
     finally:
         h.stop()
     return out
