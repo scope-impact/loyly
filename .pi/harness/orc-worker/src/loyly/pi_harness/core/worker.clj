@@ -1046,6 +1046,11 @@
                        :stderr (str/join "\n" (remove str/blank? (map #(get-in % [:evaluation :stderr]) item-runs)))}
                       {:passed false :verdicts [] :stdout ""
                        :stderr "independent grading currently requires Gondolin"})
+        _ (when-not gondolin?
+            (throw (ex-info (str "independent comparison requires Gondolin: a "
+                                 (:execution-backend inputs)
+                                 "-backed cycle cannot pass as a complete independently graded measurement")
+                            {:backend (:execution-backend inputs) :independent independent})))
         _ (when-not (seq (:verdicts independent))
             (throw (ex-info "independent grader produced no readable observation"
                             {:independent independent})))
