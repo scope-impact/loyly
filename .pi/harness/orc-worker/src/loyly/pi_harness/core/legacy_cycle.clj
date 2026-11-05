@@ -50,30 +50,29 @@
 ;; ------------------------------------------------------------------ prompts (ORC data)
 
 (def ^:private system-instructions
-  {:regeneration
-   "You are a clean-room regeneration builder. Read only the clean room at $HARNESS_CUT_ROOT. Write the candidate only under $HARNESS_WORKSPACE_ROOT. Use the bash tool to build and test it."
+  {:slice-regeneration
+   "You are a clean-room regeneration builder for one slice. Read only the clean room at $HARNESS_CUT_ROOT. Your workspace at $HARNESS_WORKSPACE_ROOT holds the candidate the earlier slice builders of this cycle left, or nothing if you are first; extend it there. Use the bash tool to build and test it."
    :gate-repair
    "You are a clean-room gate-repair builder. Read the clean room at $HARNESS_CUT_ROOT and the failed gate's log at $HARNESS_VERIFICATION_EVIDENCE_ROOT. Repair the candidate under $HARNESS_WORKSPACE_ROOT and use the bash tool to prove the repair."})
 
-(def ^:private seed-instructions
-  {:regeneration
-   (str "Rebuild the product described by the spec in the clean room. The spec is authoritative: every "
+(def ^:private spec-is-authoritative
+  (str "Rebuild the product described by the spec in the clean room. The spec is authoritative: every "
         "stamped Gherkin scenario (@item-NN-SSS) under the plan directory is a requirement, and the Allium "
         "files, glossary, and AGENTS.md beside it explain the domain. Anything the spec does not say is your "
-        "choice; do not look for a previous implementation, there is none in the room. "
-        "The product is a real harness, not a facade. Its stages do real work: the fence builds a clean "
+        "choice; do not look for a previous implementation, there is none in the room: the only candidate you "
+        "may see is this cycle's, in your workspace. "))
+
+(def ^:private real-harness
+  (str "The product is a real harness, not a facade. Its stages do real work: the fence builds a clean "
         "room with the legacy tools in the room's harness/ directory, the regenerate stage runs a real "
         "builder session, the gate boots the candidate and runs its suite, the score files verdicts, and "
         "the scoreboard compares cycles; each stage runs as an ORC workflow node and its facts are recorded "
         "through Grain, whose durability you use rather than reinvent. A result that is returned without "
         "doing the work (a canned stage list, a fixed id, a status that never ran) is a defect the score "
-        "will find, and it fails every scenario that depends on it. "
-        "Work slice by slice in plan order. For each slice, read every scenario, write a failing test that "
-        "drives it through the public seam and names its @item id, make it pass with the smallest real "
-        "change, and keep the whole suite green. Do not stop after the first slice and do not stop when "
-        "the gate would pass: finish only when every stamped scenario of every slice has a passing test "
-        "naming its id, and list any scenario you could not carry, with the reason, in APP_DIR/UNCARRIED.md. "
-        "Done is decided by the gate and the score, not by you. The gate runs APP_DIR/test.sh, which must "
+        "will find, and it fails every scenario that depends on it. "))
+
+(def ^:private gate-contract
+  (str "Done is decided by the gate and the score, not by you. The gate runs APP_DIR/test.sh, which must "
         "run the whole suite and exit non-zero on any failure and must discover at least one real test; "
         "then it runs APP_DIR/start.sh, which must start the product speaking JSON-RPC over stdio exactly as "
         "the public seam declares (one JSON object per line, one response per request carrying its id, "
@@ -84,7 +83,21 @@
         "Use exactly the target stack in the runtime context. "
         "Both scripts must be executable and must work from any working directory. "
         "Before finishing, run APP_DIR/test.sh, then start APP_DIR/start.sh, send it a cycle-contract "
-        "request on stdin, and confirm the response. Never weaken or delete a test to obtain green.")
+        "request on stdin, and confirm the response. Never weaken or delete a test to obtain green."))
+
+(def ^:private slice-work
+  (str "You carry one slice, named in the runtime context. Read every scenario of that slice, and read the "
+       "rest of the spec for the contracts your slice meets. Earlier slice builders of this cycle carried the "
+       "slices before yours in plan order and left their candidate in your workspace: extend it, keep every "
+       "existing test green, and do not rewrite their work without a failing test that requires it. For each "
+       "scenario of your slice, write a failing test that drives it through the public seam and names its "
+       "@item id, make it pass with the smallest real change, and keep the whole suite green. Finish only when "
+       "every stamped scenario of your slice has a passing test naming its id; record any you could not carry, "
+       "with the reason, under a heading for your slice in APP_DIR/UNCARRIED.md, keeping earlier slices' entries. "))
+
+(def ^:private seed-instructions
+  {:slice-regeneration
+   (str spec-is-authoritative real-harness slice-work gate-contract)
    :gate-repair
    (str "The gate failed for the candidate in your workspace. Read the gate log, reproduce the failure, "
         "turn it into a failing test where it is a behavior failure, and make the smallest coherent "
@@ -94,7 +107,7 @@
 
 (defn render-prompt
   "The exact production prompt for one builder purpose, with deterministic runtime context."
-  [purpose {:keys [request-id app-dir plan-dir app-marker app-stack dependencies]}]
+  [purpose {:keys [request-id app-dir plan-dir app-marker app-stack dependencies slice]}]
   (let [instruction (seed-instructions purpose)
         context (str/join "\n"
                           (cond-> [(str "Purpose: " (name purpose))
@@ -104,6 +117,8 @@
                                    (str "APP_DIR: " app-dir " (write everything under $HARNESS_WORKSPACE_ROOT/" app-dir ")")
                                    "Public seam: $HARNESS_CUT_ROOT/.pi/model/rpc.yaml (JSON-RPC over stdio)"
                                    (str "APP_MARKER: " app-marker)]
+                            slice
+                            (conj (str "Slice: $HARNESS_CUT_ROOT/" plan-dir "/" slice "/spec.feature (the slice you carry)"))
                             (seq dependencies)
                             (conj (str "Dependencies available to fetch: " (str/join "; " dependencies)))
                             (= purpose :gate-repair)
@@ -156,10 +171,11 @@
 
 (defn- build!
   "One Pi builder session over the clean room, writing only APP_DIR."
-  [project-root {:keys [request-id room cfg attempt purpose initial-workspace-root gate-log-dir]}]
-  (let [rendered (render-prompt purpose (assoc cfg :request-id request-id
+  [project-root {:keys [request-id room cfg attempt purpose initial-workspace-root gate-log-dir slice]}]
+  (let [rendered (render-prompt purpose (assoc cfg :request-id request-id :slice slice
                                                :dependencies (dependency-hints project-root)))
-        run-id (format "%s-regenerate-%02d" request-id attempt)
+        run-id (cond-> (format "%s-regenerate-%02d" request-id attempt)
+                 slice (str "-" slice))
         result (adapters/run-builder!
                 {:project-root project-root
                  :cuts-root (.getParent (io/file room))
@@ -177,7 +193,8 @@
                         :attempt attempt}))
         candidate (io/file (:output-root result) (:app-dir cfg))]
     (when-not (and (.isDirectory candidate) (seq (.list candidate)))
-      (throw (ex-info (str "regenerate attempt " attempt " produced no " (:app-dir cfg))
+      (throw (ex-info (str "regenerate attempt " attempt (when slice (str " for slice " slice))
+                           " produced no " (:app-dir cfg))
                       {:output-root (:output-root result)})))
     (assoc result
            :attempt attempt
@@ -194,12 +211,42 @@
         (throw (ex-info (str "could not install the candidate into the room: " err) {}))))
     target))
 
-(defn regenerate [project-root request-id room]
+(defn plan-slices
+  "The slices of the plan, in plan order: every directory under PLAN_DIR with a spec.feature."
+  [project-root plan-dir]
+  (->> (.listFiles (io/file project-root plan-dir))
+       (filter #(.isFile (io/file % "spec.feature")))
+       (map #(.getName %))
+       sort
+       vec))
+
+(defn regenerate
+  "The first attempt: one fresh builder per slice, in plan order. Each slice builder reads the
+  clean room and the candidate the earlier slice builders of this cycle left, nothing else, and
+  must change it. The gate then runs once, on what the last slice builder left."
+  [project-root request-id room]
   (let [cfg (config project-root)
-        result (build! project-root {:request-id request-id :room room :cfg cfg
-                                     :attempt 1 :purpose :regeneration})]
-    (install-candidate! room (:app-dir cfg) (:output-root result))
-    result))
+        slices (plan-slices room (:plan-dir cfg))]
+    (when (empty? slices)
+      (throw (ex-info (str "regenerate refused: no slice under " (:plan-dir cfg) " in the room") {})))
+    (let [builds (reduce
+                  (fn [builds slice]
+                    (let [previous (peek builds)
+                          build (build! project-root {:request-id request-id :room room :cfg cfg
+                                                      :attempt 1 :purpose :slice-regeneration
+                                                      :slice slice
+                                                      :initial-workspace-root (:output-root previous)})]
+                      (when (= (:subject-digest build) (:subject-digest previous))
+                        (throw (ex-info (str "regenerate: the builder for slice " slice
+                                             " left the candidate unchanged")
+                                        {:slice slice})))
+                      (conj builds (assoc build :slice slice))))
+                  []
+                  slices)
+          last-build (peek builds)]
+      (install-candidate! room (:app-dir cfg) (:output-root last-build))
+      (assoc last-build
+             :slices (mapv #(select-keys % [:slice :builder-session-id :subject-digest]) builds)))))
 
 (defn- gate-once [room evidence attempt]
   (let [log-dir (str evidence "/gate-" (format "%02d" attempt))

@@ -145,8 +145,9 @@ live in the spec, the event model, and the code?
 
 The contexts follow the worker's component structure and the Grain Event Model's service
 area. They are not a second scope or item registry: the plan slices, their `Rule:` groups, and
-the stamped `@item-NN-SSS` identities remain the regeneration and measurement keys. Today one
-builder regenerates every context in one session.
+the stamped `@item-NN-SSS` identities remain the regeneration and measurement keys. The first
+regenerate attempt runs one fresh builder per plan slice, so each slice is carried by a session
+of its own.
 
 ```text
                      ┌──────────────────────────┐
@@ -214,9 +215,11 @@ sequenceDiagram
     ORC->>Tools: fence.sh ROOM
     Tools->>Tools: check.sh --local must be green first
     Tools-->>ORC: fence OK: fenced paths absent from tree and history
-    Note over ORC: regenerate
-    ORC->>Builder: rendered regeneration prompt, room read-only, writes APP_DIR only
-    Builder-->>ORC: candidate, subject digest, session transcript
+    Note over ORC: regenerate (first attempt: one fresh builder per slice, in plan order)
+    loop each slice under PLAN_DIR
+        ORC->>Builder: slice prompt, room read-only, workspace seeded with this cycle's candidate so far
+        Builder-->>ORC: extended candidate (must change), subject digest, session transcript
+    end
     Note over ORC: gate (at most 3 attempts)
     ORC->>Gate: verify.sh in the room
     Gate->>Gate: check.sh --local, APP_DIR/test.sh, boot start.sh within 30 s, cycle-contract over stdio
@@ -246,7 +249,10 @@ Rules this cycle enforces:
   measurement, report, grader, or calibration fixture: `.pi/harness`, `.pi/architecture.md`,
   `harness/cycles`, `archive/legacy-harness/cycles`, `model/loyly`, `docs/plan`, `impl`, and
   `raw` are fenced.
-- **The builder** is a fresh Pi session (`openai-codex/gpt-6.1-sol` by default,
+- **The builders.** The first attempt runs one fresh builder per slice under `PLAN_DIR`, in
+  plan order (`@item-02-012`). A slice builder's workspace is seeded with the candidate the
+  earlier slice builders of this cycle left, and nothing else crosses in (`@item-02-013`); a
+  slice builder that leaves the candidate unchanged stops the stage. Each builder is a fresh Pi session (`openai-codex/gpt-6.1-sol` by default,
   `PI_BUILDER_MODEL` to override), with compaction enabled, confined to the room read-only
   and `APP_DIR` (`harness-impl`) writable. Its prompt is ORC data rendered by
   `legacy_cycle/render-prompt`, with the target stack and pinned engine coordinates. An
@@ -484,10 +490,11 @@ The harness introduces no second scope or item registry. Slices, `Rule:` groups,
 - **Grader coverage is 8 of 80.** Widening it needs an author who has seen no candidate, and
   it is bounded by what the real harness carries. Items on the Löyly target need a full
   Löyly cycle per grading run.
-- **One builder session carries every context.** Cycle 03's builder stopped after 44 tool
-  calls with 32 scenarios listed as uncarried. Regenerating one bounded context per fresh
-  builder is under consideration; it would first need each context's commands, events, and
-  queries declared in the Event Model and `rpc.yaml`.
+- **Slices stand in for bounded contexts.** Cycles 03 and 04 each stopped near fifty tool calls
+  in one session with 32 and 48 scenarios uncarried, so the first attempt now runs one builder
+  per slice. The slices are close to, but not exactly, the contexts above; re-cutting them
+  would first need each context's commands, events, and queries declared in the Event Model
+  and `rpc.yaml`, keeping every item id.
 - **Builder sessions are not durable.** Transcripts persist for inspection only;
   `@earendil-works/pi-durable` could make a session resumable and linked to its ORC tick.
   This is parked until the self-target cycle produces a real candidate.
@@ -501,7 +508,7 @@ The harness introduces no second scope or item registry. Slices, `Rule:` groups,
 
 ## Appendix A: implementation conformance
 
-The spec has 80 stamped items across 9 slices. Status is measured, not claimed: the self-target
+The spec has 82 stamped items across 9 slices (80 when cycles 01–04 were scored). Status is measured, not claimed: the self-target
 cycle's sealed grader is the authority for the items it covers, and the rest are recorded as
 unreached until a grader covers them.
 
@@ -512,8 +519,9 @@ unreached until a grader covers them.
 | 01 | `harness-regen-5` | gpt-5.6-luna | 13 | stub with canned stage results | 6/80 | baseline |
 | 02 | `harness-regen-6` | gpt-5.6-luna | 20 | stub, 62 lines | 7/80 | +1 / −0 |
 | 03 | `harness-regen-7` | gpt-6.1-sol | 44 | real ORC pipeline over Grain, legacy tools reused, 32 scenarios listed uncarried | 8/80 | +1 / −0 |
+| 04 | `harness-regen-8` | gpt-6.1-sol | 50 | real core on a fetchable ORC pin, 48 scenarios listed uncarried | 8/80 | +0 / −0 |
 
-Cycle 03 passed all 8 graded items, so its score is limited by grader coverage, not by the
+Cycles 03 and 04 passed all 8 graded items, so its score is limited by grader coverage, not by the
 builder. The record is under [`harness/cycles/`](../harness/cycles/).
 
 ### Coverage by slice
@@ -521,7 +529,7 @@ builder. The record is under [`harness/cycles/`](../harness/cycles/).
 | Slice | Items | Sealed grader covers | Reference implementation |
 |---|---:|---|---|
 | 01 regeneration cycle | 15 | — | fence, room, gate, and receipts in the self-target cycle; cut, selection, and approval in the Löyly cycle |
-| 02 execution pipeline | 11 | 02-001, 02-002, 02-010 | five ordered stages, stdio identity, 30 s boot budget, gate repair |
+| 02 execution pipeline | 13 | 02-001, 02-002, 02-010 | five ordered stages, stdio identity, 30 s boot budget, gate repair, one builder per slice |
 | 03 instrument | 9 | — | legacy checklist, stamp, score, scoreboard; sealed and approved grader |
 | 04 operator control plane | 17 | 04-009, 04-010 | Grain service area, wait, receipts across restarts, read-only builder sessions |
 | 05 runtime evidence | 10 | — | Löyly target: Playwright, OTel/Allure projections, OBI/eBPF image |
@@ -529,13 +537,13 @@ builder. The record is under [`harness/cycles/`](../harness/cycles/).
 | 07 harness bootstrap | 3 | — | `harness/Makefile` |
 | 08 project VM config | 2 | — | `harness/loyly/` by convention |
 | 09 rpc seam | 4 | 09-001, 09-002, 09-003 | stdio JSON-RPC, idempotent submit, terminal wait |
-| **Total** | **80** | **8** | |
+| **Total** | **82** | **8** | |
 
 ### Verification
 
 - `harness/check.sh --local`: the legacy oracle and adoption check are green; cross-repository
   comparison is skipped when no sibling is named.
-- ORC worker: 147 tests, 529 assertions, 0 failures (`orc-worker/check.sh`).
+- ORC worker: 151 tests, 543 assertions, 0 failures (`orc-worker/check.sh`).
 - Node: 39 passing, 0 failing (`npm test`).
 - Grader calibration: 8 carried pass, 8 uncarried fail, no orphaned processes.
 
