@@ -53,24 +53,15 @@
       (System/getenv "LOYLEY_CUTS_ROOT")
       (str (System/getProperty "user.home") "/.pi/harness/cuts")))
 
-(defn state-root []
-  (or (not-empty (System/getenv "PI_HARNESS_STATE_ROOT"))
-      (str (project-root) "/.pi/harness/.state")))
-
-;; Task receipts outlive the worker that issued them (@item-04-010): each receipt's
-;; task-to-tick mapping is persisted, so a replacement worker can follow the durable ORC tick
-;; to its outcome instead of losing the task or rerunning it.
-(defn- receipts-file [] (io/file (state-root) "task-receipts.edn"))
-
-(defn- persisted-receipts []
-  (let [file (receipts-file)]
-    (if (.isFile file) (read-string (slurp file)) {})))
+;; Task receipts outlive the worker that issued them (@item-04-010). Durability comes from
+;; the framework: each receipt is a Grain fact binding the task to its ORC tick, and the tick
+;; itself is ORC's durable execution record.
+(declare runtime-context)
 
 (defn- persist-receipt! [receipt]
-  (locking receipts-file
-    (let [file (receipts-file)]
-      (io/make-parents file)
-      (spit file (pr-str (assoc (persisted-receipts) (:taskId receipt) receipt))))))
+  (model/record-task-receipt! (runtime-context)
+                              {:task-id (:taskId receipt) :tick-id (:tickId receipt)
+                               :cycle-id (:cycleId receipt)}))
 
 (defn builder-sessions-root []
   (or (System/getenv "PI_HARNESS_BUILDER_SESSIONS_ROOT")
@@ -1712,7 +1703,8 @@
                    {:context ctx :sheet-id (orc/build-workflow! ctx (prompt/workflow :verification-repair))})
             ;; Task numbers continue across restarts, so a new receipt never reuses one a
             ;; replacement worker may still be asked about.
-            (reset! next-task (reduce max 0 (keys (persisted-receipts))))
+            (when (:event-store ctx)
+              (reset! next-task (model/highest-task-id ctx)))
             (orc/resume-in-progress! ctx)
             started)))))
 
@@ -2000,14 +1992,14 @@
       (if (= :success (:status result))
         {:status "completed" :result summary}
         {:status "failed" :error (or (:error summary) "ORC workflow failed") :result summary}))
-    (if-let [receipt (get (persisted-receipts) taskId)]
+    (if-let [receipt (model/find-task-receipt (runtime-context) taskId)]
       ;; A task an earlier worker started: reconstruct its outcome from durable ORC state.
       (let [tick (terminal-tick (runtime-context)
-                                (parse-uuid-field :tickId (:tickId receipt))
+                                (parse-uuid-field :tickId (:tick-id receipt))
                                 (cycle-timeout-ms))]
         (if (= :success (:root-status tick))
-          {:status "completed" :tickId (:tickId receipt)}
-          {:status "failed" :tickId (:tickId receipt)
+          {:status "completed" :tickId (:tick-id receipt)}
+          {:status "failed" :tickId (:tick-id receipt)
            :error (or (some-> (:error tick) str) "ORC workflow failed")}))
       (throw (ex-info (str "unknown task identity: " taskId) {:taskId taskId})))))
 

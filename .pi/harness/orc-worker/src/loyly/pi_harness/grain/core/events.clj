@@ -19,6 +19,10 @@
   "The exact digest of a cycle preparation was approved."
   {:schema [:map [:preparation-id :string] [:preparation-digest :string]]})
 
+(defevent :loyly.pi-harness/task-receipt-issued
+  "A task receipt was issued for a submitted cycle, binding its task identity to its ORC tick."
+  {:schema schemas/task-receipt-schema})
+
 (defevent :loyly.pi-harness/approved-slice-operation-routed
   "An approved request was durably routed to generation or regeneration."
   {:schema schemas/approved-slice-route-schema})

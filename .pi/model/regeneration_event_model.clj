@@ -52,6 +52,14 @@
                     {:spec ".pi/model/instrument.allium"
                      :kind :rule :name "RouteApprovedSliceToMeasuredRegeneration"}]}
 
+    :loyly.pi-harness/record-task-receipt
+    {:description "Bind an issued task identity to its ORC tick so a replacement worker can answer for it."
+     :schema [:map [:receipt :map]]
+     :reads #{:loyly.pi-harness/task-receipts}
+     :produces #{:loyly.pi-harness/task-receipt-issued}
+     :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
+                     :kind :surface :name "RegenerationControlPlane"}]}
+
     :loyly.pi-harness/record-generated-candidate
     {:description "Persist candidate lineage so ORC can route approved slices by prior component output."
      :schema [:map [:candidate :map]]
@@ -144,6 +152,10 @@
     :loyly.pi-harness/cycle-preparation-approved
     {:description "The exact digest of a complete cycle preparation was approved."
      :schema [:map [:preparation-id :string] [:preparation-digest :string]]}
+
+    :loyly.pi-harness/task-receipt-issued
+    {:description "A task identity was bound to its durable ORC tick."
+     :schema [:map [:task-id :int] [:tick-id :string] [:cycle-id :string]]}
 
     :loyly.pi-harness/approved-slice-operation-routed
     {:description "ORC selected and durably pinned generation or regeneration for a request."
@@ -278,6 +290,11 @@
                  :loyly.pi-harness/product-oracle-accepted}
      :version 1}
 
+    :loyly.pi-harness/task-receipts
+    {:description "Issued task identities and the ORC ticks they name."
+     :consumes #{:loyly.pi-harness/task-receipt-issued}
+     :version 1}
+
     :loyly.pi-harness/approved-slice-operation-routes
     {:description "The immutable operation decision keyed by approved request identity."
      :consumes #{:loyly.pi-harness/approved-slice-operation-routed}
@@ -343,7 +360,17 @@
     :loyly.pi-harness/approved-slice-operation-route
     {:description "Return ORC's durably selected operation for one request."
      :schema [:map [:request-id :string]]
-     :reads #{:loyly.pi-harness/approved-slice-operation-routes}}}
+     :reads #{:loyly.pi-harness/approved-slice-operation-routes}}
+
+    :loyly.pi-harness/task-receipt
+    {:description "Return the ORC tick an issued task identity names."
+     :schema [:map [:task-id :int]]
+     :reads #{:loyly.pi-harness/task-receipts}}
+
+    :loyly.pi-harness/highest-task-id
+    {:description "Return the highest issued task identity."
+     :schema [:map]
+     :reads #{:loyly.pi-harness/task-receipts}}}
 
    :todo-processors
    {:loyly.pi-harness/start-approved-cycle
@@ -360,6 +387,8 @@
      :queries #{:loyly.pi-harness/selection
                 :loyly.pi-harness/component-candidates
                 :loyly.pi-harness/approved-slice-operation-route
+                :loyly.pi-harness/task-receipt
+                :loyly.pi-harness/highest-task-id
                 :loyly.pi-harness/cycle-preparation
                 :loyly.pi-harness/cycle-progress
                 :loyly.pi-harness/cycle-observations
@@ -367,6 +396,7 @@
      :commands #{:loyly.pi-harness/record-selection
                  :loyly.pi-harness/approve-selection
                  :loyly.pi-harness/record-approved-slice-route
+                 :loyly.pi-harness/record-task-receipt
                  :loyly.pi-harness/record-generated-candidate
                  :loyly.pi-harness/record-cycle-preparation
                  :loyly.pi-harness/approve-cycle-preparation
