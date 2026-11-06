@@ -119,7 +119,10 @@ goes under, cites the legacy `@harness-NNN` it preserves, and suggests a tier (3
 once), each by a `guarded by:` comment the coverage gate checks; guarantee `PublicSeamOnly`
 (gate `room-policy`, planned: `../regeneration-cycle/domain-design.md`, "Checks"; decisions.md,
 "Calls after R3", 3).
-The product owner accepts a draft by moving it into `spec.feature` (R4).
+The product owner accepts a draft by moving it into `spec.feature` (R4). R4.2 (2026-11-07):
+the 24 that cite legacy behaviour and are tier minimum are accepted, `@item-02-001` to
+`@item-02-024` (slice 02, `.pi/plan/02-measurement`); 21 stay drafts, 8 of them new minimum.
+Its seam is `seam.md` (`../decisions.md`, "Slice 02").
 
 ## Open questions
 

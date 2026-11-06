@@ -148,3 +148,9 @@ graders in `graders.approved.json` were written for spec v1 and cover none of th
 `@item-01-010` into `specification/spec.feature` and left their `Examples:` tables behind in
 `drafts.feature`. The tables moved to their Outlines; ids, names, rules and the total are
 unchanged, and the golden's diff is only the `source` line numbers of `01-009` to `01-015`.
+
+**2026-11-07: the spec grew: slice 02, `measurement`, accepted.** The product owner's
+acceptance of measurement's legacy minimum drafts added `.pi/plan/02-measurement` and its 24
+stamped items, `02-001` to `02-024`; the derived checklist is slice 01's 15 and those 24. The
+spec grew (additions only), so the golden was re-recorded with `harness/oracle.sh record`; its
+diff is additions plus the one `total` line (15 → 39). No approved grader's scenarios changed.

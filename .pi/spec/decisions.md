@@ -105,3 +105,52 @@ the harness can rebuild itself.
    ORC keeps its own store fails the gate: the gate cannot tell ORC was used.
 5. **Assembly later.** A gate that wires the contexts together through their handoffs comes
    later, not now.
+
+## Slice 02: measurement (decided 2026-11-07)
+
+How the second context, `measurement`, is built alone, in the shape of "First light". Taken while
+preparing its cycle; each is a reading of the spec, not a change of behaviour.
+
+1. **Accepted.** The 24 drafts that cite legacy behaviour and are tier minimum moved into
+   `measurement/spec.feature` (`@item-02-001` to `@item-02-024`); `.pi/plan/02-measurement`
+   makes it slice 02. Its 8 new minimum drafts (no `# Legacy:` line) and the balance drafts stay
+   drafts.
+2. **Its model validates alone with the handoffs it consumes.** `tools/spec/v2/grain-validate.clj`
+   now also validates each accepted context's event model alone, plus only the handoff events
+   it names, taken from each producer's `event-model/handoffs.edn` (Grain strict: 0 errors, 0
+   warnings). Measurement needed no cut for that; specification still validates alone.
+3. **A flow per command, inside the context.** `file-item-verdicts`, `file-score` and
+   `fail-score-stage` belonged to no flow of measurement (only to the Regeneration cycle's
+   `fence-to-scoreboard`), so they had no ORC workflow of their own context. The flow
+   `measurement/scoring` (from `regeneration-cycle/gate-attempt-passed` to the filed
+   measurement or the failed score stage) holds them; each command runs as the workflow named
+   after its flow (`seam.md`). The producers' flows (`cycle-preparation/cut-to-fence`,
+   `regeneration-cycle/fence-to-scoreboard`) still show their steps into measurement; they are cut, as
+   specification's were, when those contexts become slices and must validate alone.
+4. **Consumed handoffs are handed in through the seam.** In a cycle of one context the
+   producers are stubbed from their contracts: the room holds each producer's
+   `event-model/handoffs.edn` and nothing else of it (`harness/config.sh` finds them in the
+   context's event model). The candidate's seam has one method per consumed event, named as the
+   event, its params the contract's schema; the candidate appends exactly that event to its Grain
+   store, outside any ORC run, and its read models fold it. A grader drives everything over the
+   seam, from a fresh store per item, and the gate's event-store check allows exactly the
+   consumed handoff types, each held to its contract's schema and never counted as the
+   candidate's own; any other foreign type is refused. Rejected: the gate writing the producers'
+   events into the store before the candidate starts (a grader in Elixir cannot write Grain's
+   store, and a candidate reading its store only at boot would miss what is appended later).
+   When the contexts are assembled (`First light` 5), the producers' own events replace these
+   methods.
+5. **The reading of the spec is the issuer's.** The event model's `derive-checklist` takes the
+   reading of the cut's spec files as its params (`items`, `unstamped`, `skipped-slices`) and
+   names no place to read a cut from, and `DeriveChecklist` has no `requires` that compares the
+   offer with a file (unlike `StampSlice`, requires 4 and 5). So the issuer reads with
+   Specification's one reading of Gherkin (guarantee `OneReadingOfTheSpec` of the surface
+   `InstrumentDesk`) and the candidate records what it is offered, in the offered order, never
+   sorted and never rewritten; `ScenarioReading` is not in the room. A scenario's "slice 03's spec
+   file holds ..." is the grader's fixture, read the one way. If the product owner wants the
+   candidate to read the cut itself, the command needs a place to read it from and a refusal for
+   an offer that differs; that is a change of the spec, not of the seam.
+6. **Cycles are filed per slice.** A spec-v2 cycle is filed under `harness/v2/cycles/NN/MM`, never
+   `harness/cycles/`, whose `01` the legacy harness's own check (`harness/oracle.sh`) reads as spec v1's recorded cycle
+   (`harness/README.md`, "Where a spec-v2 cycle is filed"). The legacy scoreboard's previous
+   cycle is then the slice's previous cycle, the same selection (g).

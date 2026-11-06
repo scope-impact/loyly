@@ -89,9 +89,153 @@
    "name": "Tags that are not item tags do not make a scenario stamped",
    "rule": "One reading of Gherkin decides what is a scenario and what stamps it",
    "source": ".pi/plan/01-specification/spec.feature:184"
+  },
+  {
+   "id": "02-001",
+   "name": "The checklist holds one stamped item per stamped scenario of the source cut",
+   "rule": "The checklist is derived from the stamped scenarios at a pinned source cut, never written",
+   "source": ".pi/plan/02-measurement/spec.feature:12"
+  },
+  {
+   "id": "02-002",
+   "name": "The checklist reads the spec as the stamper does: file order, Rule, source line and trimmed title",
+   "rule": "The checklist is derived from the stamped scenarios at a pinned source cut, never written",
+   "source": ".pi/plan/02-measurement/spec.feature:25"
+  },
+  {
+   "id": "02-003",
+   "name": "A planned or backlog slice left out of the checklist is on record",
+   "rule": "The checklist is derived from the stamped scenarios at a pinned source cut, never written",
+   "source": ".pi/plan/02-measurement/spec.feature:37"
+  },
+  {
+   "id": "02-004",
+   "name": "Every unstamped scenario of every file refuses the checklist and is listed",
+   "rule": "The checklist is derived from the stamped scenarios at a pinned source cut, never written",
+   "source": ".pi/plan/02-measurement/spec.feature:48"
+  },
+  {
+   "id": "02-005",
+   "name": "A checklist that would hold no stamped item is refused",
+   "rule": "The checklist is derived from the stamped scenarios at a pinned source cut, never written",
+   "source": ".pi/plan/02-measurement/spec.feature:60"
+  },
+  {
+   "id": "02-006",
+   "name": "A stamped item whose item identity the stamper never handed out is refused",
+   "rule": "The checklist is derived from the stamped scenarios at a pinned source cut, never written",
+   "source": ".pi/plan/02-measurement/spec.feature:71"
+  },
+  {
+   "id": "02-007",
+   "name": "A stamped item with an empty title is refused",
+   "rule": "The checklist is derived from the stamped scenarios at a pinned source cut, never written",
+   "source": ".pi/plan/02-measurement/spec.feature:83"
+  },
+  {
+   "id": "02-008",
+   "name": "Item verdicts for a cycle whose source cut has no checklist are refused",
+   "rule": "The approved sealed grader files the item verdicts it returned for the gated candidate only",
+   "source": ".pi/plan/02-measurement/spec.feature:96"
+  },
+  {
+   "id": "02-009",
+   "name": "Zero item verdicts file nothing, never every item failed",
+   "rule": "The approved sealed grader files the item verdicts it returned for the gated candidate only",
+   "source": ".pi/plan/02-measurement/spec.feature:107"
+  },
+  {
+   "id": "02-010",
+   "name": "A verdict that is neither pass nor fail is refused before an unknown item",
+   "rule": "The approved sealed grader files the item verdicts it returned for the gated candidate only",
+   "source": ".pi/plan/02-measurement/spec.feature:117"
+  },
+  {
+   "id": "02-011",
+   "name": "A verdict for an item not on the checklist is refused",
+   "rule": "The approved sealed grader files the item verdicts it returned for the gated candidate only",
+   "source": ".pi/plan/02-measurement/spec.feature:127"
+  },
+  {
+   "id": "02-012",
+   "name": "The measurement holds every checklist item once, in checklist order",
+   "rule": "The score files one measurement of every checklist item; an unreached item fails and stays counted",
+   "source": ".pi/plan/02-measurement/spec.feature:139"
+  },
+  {
+   "id": "02-013",
+   "name": "An item with no verdict is filed as fail with the reason unreached and counted",
+   "rule": "The score files one measurement of every checklist item; an unreached item fails and stays counted",
+   "source": ".pi/plan/02-measurement/spec.feature:152"
+  },
+  {
+   "id": "02-014",
+   "name": "An outage reads differently from a regression, and the verdict stays pass or fail",
+   "rule": "The score files one measurement of every checklist item; an unreached item fails and stays counted",
+   "source": ".pi/plan/02-measurement/spec.feature:164"
+  },
+  {
+   "id": "02-015",
+   "name": "Duplicate verdicts: the last filed stands and the earlier ones are listed as superseded",
+   "rule": "The score files one measurement of every checklist item; an unreached item fails and stays counted",
+   "source": ".pi/plan/02-measurement/spec.feature:176"
+  },
+  {
+   "id": "02-016",
+   "name": "A verdict filed without evidence carries empty evidence",
+   "rule": "The score files one measurement of every checklist item; an unreached item fails and stays counted",
+   "source": ".pi/plan/02-measurement/spec.feature:188"
+  },
+  {
+   "id": "02-017",
+   "name": "A score with zero item verdicts filed is refused",
+   "rule": "The score files one measurement of every checklist item; an unreached item fails and stays counted",
+   "source": ".pi/plan/02-measurement/spec.feature:199"
+  },
+  {
+   "id": "02-018",
+   "name": "A baseline cycle's scoreboard rates every item and has no previous cycle",
+   "rule": "The scoreboard is reported once a cycle, to a person, never into the loop",
+   "source": ".pi/plan/02-measurement/spec.feature:212"
+  },
+  {
+   "id": "02-019",
+   "name": "A scoreboard for a cycle with no measurement filed is refused",
+   "rule": "The scoreboard is reported once a cycle, to a person, never into the loop",
+   "source": ".pi/plan/02-measurement/spec.feature:224"
+  },
+  {
+   "id": "02-020",
+   "name": "A cycle after an unscored one is compared with the last measured cycle, not the one before it",
+   "rule": "A cycle is compared with the last measured cycle of the same selection, both directions apart, never a net",
+   "source": ".pi/plan/02-measurement/spec.feature:236"
+  },
+  {
+   "id": "02-021",
+   "name": "Newly passing and newly failing shared items are counted apart, with no net",
+   "rule": "A cycle is compared with the last measured cycle of the same selection, both directions apart, never a net",
+   "source": ".pi/plan/02-measurement/spec.feature:247"
+  },
+  {
+   "id": "02-022",
+   "name": "The comparison is restated on the shared items only when the item set moved",
+   "rule": "A cycle is compared with the last measured cycle of the same selection, both directions apart, never a net",
+   "source": ".pi/plan/02-measurement/spec.feature:258"
+  },
+  {
+   "id": "02-023",
+   "name": "A rate exactly on a half rounds to the even digit",
+   "rule": "A rate has one decimal, rounded half to even, and \"n/a\" over zero",
+   "source": ".pi/plan/02-measurement/spec.feature:270"
+  },
+  {
+   "id": "02-024",
+   "name": "A previous cycle with no shared item rates the shared items \"n/a\"",
+   "rule": "A rate has one decimal, rounded half to even, and \"n/a\" over zero",
+   "source": ".pi/plan/02-measurement/spec.feature:280"
   }
  ],
  "counts": {
-  "total": 15
+  "total": 39
  }
 }

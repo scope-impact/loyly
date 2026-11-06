@@ -39,7 +39,9 @@ harness can rebuild itself (first light, `.pi/spec/decisions.md`), the legacy dr
 `SLICE=NN harness/fence.sh ROOM`, a person-run `pi` session in ROOM with the prompt
 `bb harness/v2/prompt.clj NN` renders, then `harness/v2/gate.sh NN ROOM`. A cycle rebuilds
 **one context** from scratch, into `harness-impl/NN-<context>/`; an assembly gate wiring the
-contexts through their handoffs comes later.
+contexts through their handoffs comes later; until then the handoffs a context consumes are
+handed to its candidate through its seam, one method per consumed event (`.pi/spec/decisions.md`,
+"Slice 02").
 
 ```text
 fence → regenerate → gate → score → scoreboard
@@ -52,7 +54,8 @@ fence → regenerate → gate → score → scoreboard
 - **Gate**: a room the builder does not control boots the candidate fresh and proves its
   suite green and its identity over its seam, then reads the Grain store it handed the
   candidate directly, not through the seam: it holds events, each is an event of the
-  context's event model with exactly that event's fields or ORC's own, and each event a
+  context's event model, or a handoff it consumes, with exactly that event's fields, or ORC's
+  own, and each event a
   command produced lies inside a completed run of its ORC workflow in that same store. Done is the gate's verdict, never the builder's claim. A failed gate may start
   a fresh builder with only the previous candidate and the gate's evidence, at most three
   attempts.
