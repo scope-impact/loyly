@@ -27,7 +27,7 @@ matching its path:
 
 | Area | File | Blocks |
 |---|---|---|
-| `:loyly.pi-harness` | `event-model/loyly/pi_harness/event_model.clj` | 12 commands, 10 events, 11 read models, 12 queries, 1 todo processor, 1 screen, 16 flows |
+| `:loyly.pi-harness` | `event-model/loyly/pi_harness/event_model.clj` | 15 commands, 13 events, 11 read models, 12 queries, 2 todo processors, 1 screen, 17 flows |
 | `:sheet` | `event-model/orc/sheet/event_model.clj` | 1 command, 5 events: the ORC blocks the harness dispatches or projects |
 
 ORC registers no Event Model of its own. The `:sheet` schemas are copied from
@@ -49,11 +49,16 @@ Every command links an Allium rule and the screen links an Allium surface:
 | `record-observation` | `runtime-evidence.allium` `RecordRuntimeSignal` |
 | `record-cycle-measurement` | `instrument.allium` `FileScore` |
 | `start-prompt-optimization` | `prompt-optimization.allium` `StartPromptOptimization` |
+| `launch-builder-session` | `execution-pipeline.allium` `LaunchDurableBuilderSession` |
+| `relaunch-builder-session` | `execution-pipeline.allium` `ResumeDurableBuilderSession` |
+| `bind-workspace-generation` | `execution-pipeline.allium` `BindWorkspaceGeneration` |
 | `:sheet/tick-tree` | `operator-control-plane.allium` `DispatchSubmittedTaskToOrc` |
 | screen `pi-regeneration` | `operator-control-plane.allium` surface `RegenerationControlPlane` |
 
 Approval starts nothing. A submission records `task-submitted`; the todo processor
-`dispatch-submitted-task` dispatches `:sheet/tick-tree` once per submitted task.
+`dispatch-submitted-task` dispatches `:sheet/tick-tree` once per submitted task. When ORC starts
+a builder node, the todo processor `launch-builder-for-tick` launches its durable Pi session, or
+relaunches the same session when ORC resumes the tick.
 
 ## Affordances
 
