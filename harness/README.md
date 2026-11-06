@@ -27,7 +27,8 @@ harness/v2/gate.sh 01 ROOM                      # the gate, from this checkout
 The room holds no instrument, so the gate runs here: `CANDIDATE_ROOM=ROOM` points `APP_DIR` at
 the room's candidate, `verify.sh` runs unchanged (with `v2/probe-01.sh`), and then
 `v2/event-store-check.sh` reads the Grain store the gate handed the candidate
-(`LOYLY_GRAIN_STORE`) directly. `v2/event-store-check-test.sh` judges that check on hand-made
+(`LOYLY_GRAIN_STORE`) directly, ORC's workflow runs included: ORC runs on that store, and each
+event a command produced must lie inside a completed run of its workflow. `v2/event-store-check-test.sh` judges that check on hand-made
 stores. There is no grader for spec v2 yet, so a cycle ends at the gate: no score.
 
 ## Differences from the archive, each with its reason

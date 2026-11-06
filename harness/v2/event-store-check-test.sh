@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # harness/v2/event-store-check-test.sh: the event-store check judged on hand-made stores
 # (event_store_fixtures.clj) against slice 01's event model: one store passes, and each of
-# the others, and a store that is not there, fails for its own reason.
+# the others, and a store that is not there, fails for its own reason, among them a model
+# event with no ORC run on the store, and one in a run that never completed with success.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/event-store-check-test.XXXXXX")"
@@ -21,5 +22,10 @@ expect 1 "$WORK/fail-extra-field.sqlite"     ":digest"
 expect 1 "$WORK/fail-missing-field.sqlite"   ":title"
 expect 1 "$WORK/fail-ill-typed-field.sqlite" ":line"
 expect 1 "$WORK/absent.sqlite"               "no event store at"
+expect 1 "$WORK/fail-no-orc-run.sqlite"      "the store holds no ORC event"
+expect 1 "$WORK/fail-run-never-completed.sqlite" "never completed with success (tick .*: no tree-tick-completed)"
+expect 1 "$WORK/fail-run-failed.sqlite"      "never completed with success (tick .*: failure)"
+expect 1 "$WORK/fail-outside-run.sqlite"     "was not written inside a run of the ORC workflow specification/stamping"
+expect 1 "$WORK/fail-other-workflow.sqlite"  "was not written inside a run of the ORC workflow specification/stamping"
 (( bad )) && { echo "event-store check test FAILED"; exit 1; }
-echo "event-store check test OK: 1 pass, 6 refusals, each for its own reason"
+echo "event-store check test OK: 1 pass, 11 refusals, each for its own reason"

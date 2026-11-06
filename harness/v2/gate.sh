@@ -11,8 +11,9 @@
 #      suite (APP_DIR/test.sh), then a fresh boot and the slice's identity probe
 #      (harness/v2/probe-NN.sh) within the thirty-second boot budget
 #   2. the event-store check (harness/v2/event-store-check.sh): the Grain store this gate
-#      handed the candidate through LOYLY_GRAIN_STORE, read directly, holds events, and each
-#      is an event of the slice's event model with exactly its fields
+#      handed the candidate through LOYLY_GRAIN_STORE, read directly, holds events, each an
+#      event of the slice's event model with exactly its fields (or Grain's or ORC's own), and
+#      each event a command produced lies inside a completed run of its ORC workflow there
 #
 # Exit 0 is the gate's verdict that the candidate is done. Nothing else is.
 set -uo pipefail
@@ -37,4 +38,4 @@ echo "=== harness/v2/event-store-check.sh (the store, read directly, against the
 "$ROOT/harness/v2/event-store-check.sh" "$SLICE" "$GATE_STORE" 2>&1 | grep -v -e '^SLF4J' -e '^WARNING'
 (( PIPESTATUS[0] == 0 )) || { echo "FATAL: the event-store check failed (above)."; exit 1; }
 
-echo "=== gate OK: slice $SLICE's suite green, its identity probe answered, its store holds only the model's events ==="
+echo "=== gate OK: slice $SLICE's suite green, its identity probe answered, its store holds the model's events, each command's inside a completed ORC run ==="
