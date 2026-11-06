@@ -1,7 +1,12 @@
 -- allium: 3
--- Generic runtime-signal and independent-invariant evidence contract.
--- Project models define what must be true; this model defines who may observe,
--- evaluate, persist, and project claims about one regenerated candidate.
+-- runtime-evidence.allium
+--
+-- Scope: a generic runtime-signal and independent-invariant evidence contract.
+-- Project models define what must be true; this model defines who may observe, evaluate,
+-- persist, and project claims about one regenerated candidate.
+-- Includes: runtime signals and their producers, independent invariant evaluations,
+-- capture policy, per-cycle evidence volumes, browser traces, and evidence projection.
+-- Excludes: what any one project must prove, and telemetry transport details.
 
 enum EvidenceVerdict { pass | fail | inconclusive }
 
@@ -70,6 +75,18 @@ entity CycleEvidenceVolume {
     cycle_identity: String
     mount_path: String
     writable: Boolean
+}
+
+entity IndependentValidationRoom {
+    cycle_identity: String
+    capture_policy: OtelCapturePolicy
+    evidence_volume: CycleEvidenceVolume
+}
+
+entity BaselineTraceBinding {
+    cycle_identity: String
+    evidence_digest: RuntimeDigest
+    browser_trace: BrowserTraceArtifact
 }
 
 entity BrowserTraceArtifact {
@@ -167,7 +184,7 @@ rule OpenIndependentValidationRoom {
     requires: evidence_volume.cycle_identity = cycle_identity
     requires: evidence_volume.mount_path = "/evidence"
     requires: evidence_volume.writable
-    ensures: IndependentValidationRoomOpened(
+    ensures: IndependentValidationRoom.created(
         cycle_identity: cycle_identity,
         capture_policy: capture_policy,
         evidence_volume: evidence_volume
@@ -181,10 +198,10 @@ rule BindSuccessfulBaselineTrace {
     requires: trace.path = "playwright/baseline/trace.zip"
     requires: trace.complete
     requires: trace.authority = independent_validator
-    ensures: MeasurementTraceBound(
+    ensures: BaselineTraceBinding.created(
         cycle_identity: cycle_identity,
         evidence_digest: evaluation.evidence_digest,
-        browser_trace_digest: trace.content_digest
+        browser_trace: trace
     )
 }
 

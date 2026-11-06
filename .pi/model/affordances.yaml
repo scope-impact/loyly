@@ -1,215 +1,389 @@
-# Pi harness operator UX: a non-authoritative projection over repository C4 and cycle facts.
-# The control room and factory floor are two renderings of the same projection. Neither may
-# start, advance, repair, or grade an ORC cycle merely by changing the view.
-slice: pi-harness-operator-ux
+# The Pi harness's affordance contract: what can be done, by whom, through which call, and
+# what comes back. It is the public seam Pi and an operator drive, the gate's identity probe
+# uses, and a grader drives. It names no implementation; any harness that speaks it is driven
+# the same way. The harness has no UI: every action is reached through the seam below, so this
+# contract declares a seam instead of screens.
+#
+# Behaviour is stated once, in Allium. An outcome or a rejection names the Allium rule it
+# realises; a rejection is a `requires:` of that rule that does not hold. `grain` names the
+# Event Model command or query (area :loyly.pi-harness) the action reaches.
+slices: [01-regeneration-cycle, 02-execution-pipeline, 03-instrument, 04-operator-control-plane, 06-prompt-optimization, 09-rpc-seam]
 version: 1
 
+seam:
+  transport: json-rpc-over-stdio
+  framing:
+    request: "one JSON object per line on stdin: {id, method, params}"
+    response: "one JSON object per line on stdout: {id, ok: true, result} or {id, ok: false, error}"
+    rule: "every request gets exactly one response carrying its id; nothing else is written to stdout"
+  start: "APP_DIR/start.sh starts the harness reading stdin and writing stdout until stdin closes"
+  environment:
+    PI_HARNESS_PROJECT_ROOT: >-
+      the repository the harness works on: prepare-cut cuts its commits, a selection reads the
+      product slices inside such a cut, and submit-cycle regenerates its PLAN_DIR (declared in its
+      harness/config.sh). Whoever starts the harness sets it; the clean room the harness was
+      built in is not that repository.
+    PI_HARNESS_STATE_ROOT: "where the harness keeps its own state (event store, rooms, evidence); a fresh directory means fresh state"
+  errors:
+    unknown-method: "{id, ok: false, error} naming the method"
+    refused: "{id, ok: false, error} naming what was refused and why; the harness keeps running"
+
 audience:
-  operator: prepares, observes, and evaluates regeneration work without becoming workflow authority
+  operator: a person approving selections, graders, and cycles, and reading their outcomes
+  pi: a Pi, Codex, or other operator session driving the harness on the operator's behalf
+  gate: the legacy gate, which starts a candidate and proves its identity over the seam
+  grader: a sealed, approved grader, which drives a candidate only through this contract
 
 actions:
-  ChooseArchitectureView:
-    intent: Choose the repository C4 abstraction shown by the factory
-    submit: Show
-    audience: [operator]
-    readOnly: true
-    input:
-      architectureView: {component: select, type: architectureView, required: true, label: C4 world}
-    effect: {kind: projection, target: repository architecture, preservesAuthority: true}
-
-  InspectC4Element:
-    intent: Inspect one C4 element, its repository description, relationships, and cycle participation
-    submit: Inspect
-    audience: [operator]
-    readOnly: true
-    input:
-      elementIdentity: {component: selectable-node, type: string, required: true, label: Architecture element}
-    effect: {kind: projection, target: station inspection, preservesAuthority: true}
-
-  OpenFactoryFloor:
-    intent: Render the selected C4 view as a spatial assembly floor
-    submit: Open 3D floor
-    audience: [operator]
+  # The cycle (slices 02, 09).
+  CycleContract:
+    intent: Name the harness and the stages of its cycle, in order
+    audience: [pi, gate, grader]
     readOnly: true
     input: {}
-    effect: {kind: navigation, target: FactoryFloor, preservesAuthority: true}
+    call: {rpc: cycle-contract}
+    outcomes:
+      CycleContract:
+        result: {workflowName: "string naming the harness", stages: [fence, regenerate, gate, score, scoreboard]}
+        allium: {spec: execution-pipeline.allium, surface: RegenerationCycleExecution}
+    tool: {name: cycleContract}
 
-  ReturnControlRoom:
-    intent: Return from spatial or focused inspection to the complete two-dimensional architecture map
-    submit: 2D map
-    audience: [operator]
+  WorkflowContract:
+    intent: Read the executable regeneration workflow contract from the workflow itself
+    audience: [pi, grader]
     readOnly: true
     input: {}
-    effect: {kind: navigation, target: ControlRoom, preservesAuthority: true}
+    call: {rpc: workflow-contract}
+    outcomes:
+      WorkflowContract:
+        result: {workflowName: string, rootType: string, stages: "list of slice-cycle stage names", builderResultFields: "field names of a builder result, including builderSessionId", observationFields: "field names of an observation, including artifacts"}
+        note: "what a slice cycle's builder results and observations carry"
+        allium: {spec: execution-pipeline.allium, surface: RegenerationCycleExecution}
+    tool: {name: workflowContract}
 
-  FocusStation:
-    intent: Move the factory-floor camera to the selected C4 station while keeping its live feed visible
-    submit: Open 3D station
-    audience: [operator]
+  SubmitCycle:
+    intent: Regenerate the whole plan of the pinned cut as one cycle
+    audience: [operator, pi, grader]
+    input:
+      requestId: {type: string, required: true, description: safe identifier}
+    call: {rpc: submit-cycle}
+    outcomes:
+      CycleSubmitted:
+        result: {cycleId: requestId, tickId: string, taskId: integer}
+        allium: {spec: operator-control-plane.allium, rule: SubmitWholePlanCycle}
+      OriginalReceipt:
+        when: the requestId was already submitted with the same request
+        result: the original receipt
+        allium: {spec: operator-control-plane.allium, rule: RepeatIdenticalSubmission}
+    rejections:
+      RequestIdentityConflict:
+        when: the requestId was already submitted with a different request
+        allium: {spec: operator-control-plane.allium, rule: RefuseConflictingSubmission}
+    selection: >-
+      submit-cycle takes no selection and no preparation. It regenerates the whole plan of the
+      pinned cut under a fixed preparation (the whole-plan selection, the configured scope,
+      target stack, and execution profile, the approved graders, one outer cycle), and
+      submitting it is that preparation's approval, as in the legacy shape. A partial selection
+      is previewed, approved by exact digest, prepared, the preparation approved by exact
+      digest, and submitted as a slice cycle (SubmitApprovedSlice).
+    grain: {command: submit-whole-plan-cycle}
+    tool: {name: submitCycle}
+
+  Wait:
+    intent: Wait for a submitted task's one terminal outcome
+    audience: [operator, pi, grader]
     readOnly: true
     input:
-      elementIdentity: {component: selectable-node, type: string, required: true, label: Architecture element}
-    effect: {kind: navigation, target: focused station, preservesAuthority: true}
+      taskId: {type: integer, required: true}
+    call: {rpc: wait}
+    outcomes:
+      TerminalOutcome:
+        result: {status: "completed | failed", error: "string when failed", result: "stage outputs"}
+        allium: {spec: operator-control-plane.allium, rule: WaitForHarnessTask}
+    grain: {query: task-outcome}
+    tool: {name: wait}
 
-  ConfigureProductOrder:
-    intent: Choose the implementation stack used to render the next Löyly product order
-    submit: Select stack
-    audience: [operator]
-    input:
-      targetStack: {component: select, type: targetStack, required: true, label: Implementation stack}
-    effect: {kind: projection, target: product order, preservesAuthority: true}
-
-  ReplayRecordedCycle:
-    intent: Replay a sealed historical E2E recording through the factory projection
-    submit: Replay run
-    audience: [operator]
-    readOnly: true
-    input: {}
-    effect: {kind: playback, target: recorded cycle, preservesAuthority: true}
-
-  PauseRecordedCycle:
-    intent: Pause or resume playback without changing the recorded cycle
-    submit: Pause
-    audience: [operator]
-    readOnly: true
-    input: {}
-    effect: {kind: playback, target: playback clock, preservesAuthority: true}
-
-  StepRecordedSignal:
-    intent: Advance playback to the next recorded signal
-    submit: Step
-    audience: [operator]
-    readOnly: true
-    input: {}
-    effect: {kind: playback, target: next recorded signal, preservesAuthority: true}
-
-  SeekRecordedCycle:
-    intent: Rebuild the replay projection at a selected point in the sealed recording
-    submit: Seek
-    audience: [operator]
+  ExecutionStatus:
+    intent: Read where a running cycle is
+    audience: [operator, pi]
     readOnly: true
     input:
-      elapsedMilliseconds: {component: slider, type: replayPosition, required: true, label: Recorded E2E replay position}
-    effect: {kind: playback, target: recorded cycle position, preservesAuthority: true}
+      tickId: {type: string, required: true}
+    call: {rpc: execution-status}
+    outcomes:
+      Progress:
+        result: {tickId: string, status: "not-started | running | completed | failed", stage: "string when known", attempt: "integer when known", builderSessionRef: "string when a builder is running"}
+        allium: {spec: operator-control-plane.allium, rule: ReadCycleProgress}
+    grain: {query: cycle-progress}
+    tool: {name: executionStatus}
 
-  ReadCycleProgress:
-    intent: Reconcile the current stage from ORC durable state without advancing the workflow
-    submit: Refresh status
-    audience: [operator]
+  # The cut and partial selections (slices 01, 04). A partial selection is previewed, approved
+  # by exact digest, and only then submitted as a slice cycle. Selections are made over the
+  # product slices inside a prepared cut.
+  PrepareCut:
+    intent: Prepare a fenced source cut of one commit
+    audience: [operator, pi, grader]
+    input:
+      sourceCommit: {type: string, required: true, description: 40-hex commit}
+      executionBackend: {type: backend, required: true}
+    call: {rpc: prepare-cut}
+    outcomes:
+      CutTaskSubmitted:
+        result: {cutId: "the request's identity (the source commit)", taskId: integer, executionBackend: string}
+        then: >-
+          wait(taskId) completes with the prepared cut; its identity, the one SliceComposition and
+          PreviewSelection accept, is result.outputs.cut-result.cutId. The receipt's cutId is not a
+          prepared cut.
+        allium: {spec: operator-control-plane.allium, rule: PrepareCutTask}
+    rejections:
+      InvalidIdentity:
+        when: the source commit is not a full commit or the backend is not supported; nothing is written
+        allium: {spec: operator-control-plane.allium, rule: PrepareCutTask}
+      CollidingIdentity:
+        when: a task already exists for this identity; nothing is written
+        allium: {spec: operator-control-plane.allium, rule: PrepareCutTask}
+    grain: {command: submit-cut-task}
+    tool: {name: prepareCut}
+
+  SliceComposition:
+    intent: List a prepared cut's product slices and their stamped items
+    audience: [operator, pi, grader]
     readOnly: true
     input:
-      tickIdentity: {component: textbox, type: string, required: true, label: ORC tick identity}
-    tool: {name: get_regeneration_cycle_status}
+      cut: {type: string, required: true, description: a prepared cut's identity}
+    call: {rpc: slice-composition}
+    outcomes:
+      Composition:
+        result: {slices: "list of the cut's product slices, each {slice: bare directory name NN-slug, items: its stamped items, each named by its full tag (@item-NN-SSS)}"}
+        shape: "the result is an object whose slices field holds the list, never a bare list"
+        allium: {spec: regeneration-cycle.allium, rule: ComposeCutSystemView}
+    grain: {query: slice-composition}
+    tool: {name: sliceComposition}
 
-  InspectBuilderSession:
-    intent: Read committed builder turns, tool calls, workspace generation, and progress
-    submit: Inspect builder
+  PreviewSelection:
+    intent: Preview a slice selection for review, with its identity and digest
+    audience: [operator, pi, grader]
+    input:
+      cut: {type: string, required: true, description: a prepared cut's identity}
+      slice: {type: string, required: true, description: bare slice directory name, NN-slug}
+      itemIds: {type: list, of: string, description: "optional list of full item tags (@item-NN-SSS) as SliceComposition returns them; omitted or empty selects the whole slice"}
+    call: {rpc: preview-selection}
+    outcomes:
+      AwaitingApproval:
+        result: {selectionId: string, selectionDigest: string, status: "awaiting-approval", items: "list of full item tags"}
+        stable: "previewing the same slice and items again returns the same selectionId and selectionDigest"
+        allium: {spec: regeneration-cycle.allium, rule: PreviewSelection}
+    rejections:
+      UnresolvedDenominator:
+        when: the denominator is empty or ambiguous; nothing is recorded
+        allium: {spec: regeneration-cycle.allium, rule: PreviewSelection}
+    grain: {command: record-selection}
+    tool: {name: previewSelection}
+
+  ApproveSelection:
+    intent: Approve a previewed selection by its exact digest
     audience: [operator]
+    input:
+      selectionId: {type: string, required: true}
+      selectionDigest: {type: string, required: true}
+    call: {rpc: approve-selection}
+    outcomes:
+      Approved:
+        result: {selectionId: string, selectionDigest: string, status: "approved"}
+        allium: {spec: regeneration-cycle.allium, rule: ApproveSelection}
+    rejections:
+      DigestMismatch:
+        when: the digest is not the reviewed one; the selection stays awaiting approval
+        allium: {spec: regeneration-cycle.allium, rule: ApproveSelection}
+    grain: {command: approve-selection}
+    tool: {name: approveSelection}
+
+  PrepareCycle:
+    intent: Prepare a cycle for an approved selection, binding every cycle-defining choice
+    audience: [operator, pi]
+    input:
+      selectionId: {type: string, required: true, description: an approved selection}
+      scope: {type: list, of: string, required: true, description: list of candidate paths}
+      targetStack: {type: string, required: true}
+      executionProfile: {type: profile, required: true}
+      maxOuterCycles: {type: integer, required: true, description: at least 1}
+    call: {rpc: prepare-cycle}
+    outcomes:
+      AwaitingApproval:
+        result: {preparationId: string, preparationDigest: string, status: "awaiting-approval", diagram: "the deterministic preparation diagram", bound: "selection, scope, target stack, execution profile, cut digest, grader digest, diagram digest, and outer-cycle budget"}
+        stable: "preparing the same choices again returns the same preparationId and preparationDigest; changing any bound choice is a new preparation"
+        allium: {spec: regeneration-cycle.allium, rule: PrepareCycle}
+    rejections:
+      Unapproved:
+        when: the selection is not approved
+        allium: {spec: regeneration-cycle.allium, rule: PrepareCycle}
+      UnsafeScope:
+        when: the scope is empty, absolute, escaping, or overlapping
+        allium: {spec: regeneration-cycle.allium, rule: PrepareCycle}
+      InvalidBudget:
+        when: the execution profile is not supported or maxOuterCycles is below 1
+        allium: {spec: regeneration-cycle.allium, rule: PrepareCycle}
+    grain: {command: record-cycle-preparation}
+    tool: {name: prepareCycle}
+
+  ApprovePreparation:
+    intent: Approve a prepared cycle by its exact digest
+    audience: [operator]
+    input:
+      preparationId: {type: string, required: true}
+      preparationDigest: {type: string, required: true}
+    call: {rpc: approve-preparation}
+    outcomes:
+      Approved:
+        result: {preparationId: string, preparationDigest: string, status: "approved"}
+        note: "approval alone starts nothing; SubmitApprovedSlice starts the cycle"
+        allium: {spec: regeneration-cycle.allium, rule: ApprovePreparation}
+    rejections:
+      DigestMismatch:
+        when: the digest is not the reviewed one; the preparation stays awaiting approval
+        allium: {spec: regeneration-cycle.allium, rule: ApprovePreparation}
+    grain: {command: approve-cycle-preparation}
+    tool: {name: approvePreparation}
+
+  SubmitApprovedSlice:
+    intent: Submit an approved selection as a slice cycle
+    audience: [operator, pi, grader]
+    input:
+      requestId: {type: string, required: true}
+      selectionId: {type: string, required: true}
+      scope: {type: list, of: string, required: true, description: list of candidate paths}
+      targetStack: {type: string, required: true}
+      executionBackend: {type: backend, required: true}
+    call: {rpc: submit-approved-slice}
+    outcomes:
+      SliceCycleSubmitted:
+        result: {operationId: string, selectionId: string, tickId: string, correlationId: string, taskId: integer, targetStack: string, executionBackend: string}
+        allium: {spec: operator-control-plane.allium, rule: SubmitCycleTask}
+      OriginalReceipt:
+        when: the requestId was already submitted with the same request
+        result: the original receipt
+        allium: {spec: operator-control-plane.allium, rule: RepeatIdenticalSubmission}
+    rejections:
+      Unapproved:
+        when: the selection is not approved; refused before a builder starts
+        allium: {spec: operator-control-plane.allium, rule: SubmitCycleTask}
+      UnsafeScope:
+        when: the scope is empty, absolute, escaping, or overlapping; refused before a builder starts
+        allium: {spec: operator-control-plane.allium, rule: SubmitCycleTask}
+      Unprepared:
+        when: no approved preparation binds this selection, scope, and target stack with an execution profile that admits this backend; refused before a builder starts
+        allium: {spec: operator-control-plane.allium, rule: SubmitCycleTask}
+    preparation: >-
+      The submission names the choices its approved preparation binds; the harness submits that
+      preparation. host-development admits host, gondolin-isolated admits gondolin, and automatic
+      admits either. An unapproved selection is refused as Unapproved before any preparation is
+      looked up.
+    grain: {command: submit-cycle-task}
+    tool: {name: submitApprovedSlice}
+
+  # The instrument (slice 03). Only an operator approves a sealed grader, by its exact digest.
+  ApproveGrader:
+    intent: Approve a sealed, calibrated grader by its exact digest
+    audience: [operator]
+    input:
+      graderDigest: {type: string, required: true, description: "sha256:<hex> of a sealed, calibrated grader"}
+      approvedBy: {type: string, required: true}
+    call: {rpc: approve-grader}
+    outcomes:
+      GraderApproved:
+        result: {graderDigest: string, approvedBy: string, items: "list of item ids the grader covers"}
+        allium: {spec: instrument.allium, rule: ApproveExactGrader}
+    rejections:
+      NotASealedGrader:
+        when: the digest names no sealed grader; a cycle never scores without an approved grader
+        allium: {spec: instrument.allium, rule: ApproveExactGrader}
+    grain: {command: approve-grader}
+    tool: {name: approveGrader}
+
+  Measurement:
+    intent: Read a cycle's filed verdicts against its full denominator
+    audience: [operator, pi]
     readOnly: true
     input:
-      builderSessionReference: {component: textbox, type: string, required: true, label: Builder session reference}
-    tool: {name: inspect_builder_session}
+      cycleId: {type: string, required: true}
+    call: {rpc: measurement}
+    outcomes:
+      Measurement:
+        result: "the cycle's filed verdicts against its full denominator, or null when no score was filed"
+        allium: {spec: operator-control-plane.allium, rule: ReadDurableMeasurement}
+    grain: {query: cycle-measurement}
+    tool: {name: measurement}
+
+  # Builder sessions (slice 04). Observation is read-only.
+  BuilderSession:
+    intent: Observe a builder session without changing it
+    audience: [operator, pi]
+    readOnly: true
+    input:
+      builderSessionRef: {type: string, required: true}
+    call: {rpc: builder-session}
+    outcomes:
+      SessionView:
+        result: {builderSessionRef: string, status: "running | completed | failed", entries: "committed turns and tool results", toolCalls: integer, workspaceGeneration: "list of top-level paths", progress: {stage: string, attempt: integer}}
+        unchanged: "reading a session changes neither its transcript nor its candidate"
+        allium: {spec: operator-control-plane.allium, rule: ObserveBuilderSession}
+    grain: {query: builder-session}
+    tool: {name: builderSession}
+
+  # Prompt optimization (slice 06).
+  OptimizePrompt:
+    intent: Optimize the builder instruction for one purpose
+    audience: [operator]
+    input:
+      purpose: {type: purpose, required: true}
+      reflectionProvider: {type: string, required: true}
+      reflectionModel: {type: string, required: true}
+      trainset: {type: list, required: true, description: non-empty list}
+      valset: {type: list, required: true, description: non-empty list}
+    call: {rpc: optimize-prompt}
+    outcomes:
+      WinningInstruction:
+        result: "the winning instruction for the purpose with its independently measured score"
+        allium: {spec: prompt-optimization.allium, rule: StartPromptOptimization}
+    rejections:
+      MissingExamples:
+        when: training or validation examples are missing
+        allium: {spec: prompt-optimization.allium, rule: StartPromptOptimization}
+    grain: {command: start-prompt-optimization}
+    tool: {name: optimizePrompt}
 
 types:
-  architectureView: {enum: [context, containers, components]}
-  targetStack: {enum: [rust, java, rails, node]}
-  replayPosition: {type: integer, minimum: 0}
-
-screens:
-  ControlRoom:
-    path: /
-    offers: [ChooseArchitectureView, InspectC4Element, OpenFactoryFloor, ConfigureProductOrder, ReplayRecordedCycle, PauseRecordedCycle, StepRecordedSignal, SeekRecordedCycle, ReadCycleProgress, InspectBuilderSession]
-    links: {3D floor: FactoryFloor}
-    must:
-      heading: Container view
-      buttons: [2D map, 3D floor, Replay run, Pause, Step]
-    regions:
-      GuidedJourney:
-        role: list
-        label: How to read the factory
-        shows: [choose product phase, build components phase, inspect evidence phase, record result phase, current phase]
-        live: polite
-      ArchitectureMap:
-        role: img
-        label: Repository architecture
-        shows: [selected C4 view, C4 element identities, C4 relationships, active stage, completed stages, failed stages]
-        offers: [ChooseArchitectureView, InspectC4Element, OpenFactoryFloor]
-        live: polite
-      ProductOrder:
-        role: region
-        label: Product order
-        shows: [Löyly system boundary, target stack, product components]
-        offers: [ConfigureProductOrder, ReplayRecordedCycle, PauseRecordedCycle, StepRecordedSignal, SeekRecordedCycle]
-      AssemblyLine:
-        role: region
-        label: Assembly line
-        shows: [ordered execution stages, active stage, completed stage count, failed stage]
-        live: polite
-      Evidence:
-        role: region
-        label: Evidence and event log
-        shows: [recorded signals, evidence projections, full projected state]
-        live: polite
-    seen: the two-dimensional C4 map is the default and remains legible before any replay starts
-
-  FactoryFloor:
-    path: /floor
-    reachedFrom: ControlRoom
-    offers: [ChooseArchitectureView, InspectC4Element, FocusStation, ReturnControlRoom, ReplayRecordedCycle, PauseRecordedCycle, StepRecordedSignal, SeekRecordedCycle]
-    links: {2D map: ControlRoom}
-    must:
-      heading: Assemble Löyly from C4 components
-      buttons: [2D map, 3D floor, Follow product, Overview]
-    regions:
-      SpatialFactory:
-        role: application
-        label: Interactive 3D factory floor
-        shows: [same selected C4 view, same C4 element identities, same stage state, product carrier, assembly stations]
-        offers: [InspectC4Element, FocusStation, ReturnControlRoom]
-        live: polite
-    seen: meaningful station and product icons remain distinguishable without relying on text labels alone
-
-  StationInspection:
-    path: /station/{elementIdentity}
-    reachedFrom: ControlRoom
-    offers: [FocusStation, ReturnControlRoom, InspectBuilderSession]
-    links: {Return to overview: ControlRoom, Open 3D station: FactoryFloor}
-    must:
-      heading: Architecture element
-      buttons: [Open 3D station, Return to overview]
-    regions:
-      StationFeed:
-        role: status
-        label: Live station feed
-        shows: [element type, C4 view, cycle participation, current station state, incoming relationships, outgoing relationships]
-        offers: [FocusStation, InspectBuilderSession]
-        live: polite
-
-ui:
-  action: control
-  submit: button
-  outcome: status
-  refusal: alert
+  backend: {enum: [host, gondolin]}
+  purpose: {enum: [fresh-generation, verification-repair]}
+  profile: {enum: [host-development, gondolin-isolated, automatic]}
 
 conformance:
-  - the ControlRoom opens in the two-dimensional map unless a shareable view choice explicitly requests the FactoryFloor
-  - every C4 identity and relationship comes from the selected diagram in .pi/architecture.md
-  - the ControlRoom and FactoryFloor show the same selected diagram and projected cycle state
-  - changing view diagram camera or replay position never starts advances repairs or grades an ORC cycle
-  - a recorded replay is visibly identified as historical and cannot be confused with a live cycle
-  - selecting a C4 element exposes its type source view cycle participation and relationships
-  - exactly one guided journey phase is current and every earlier phase is marked complete
-  - opening a station in three dimensions preserves the selected element and its station feed
-  - active completed and failed states are distinguishable by text or shape as well as colour
-  - on a narrow viewport the page does not overflow horizontally and the architecture map remains pannable
-  - every interactive control has an accessible name and a touch target of at least 44 by 44 CSS pixels
+  - every action is reached by its call's rpc method over the seam, and no undeclared method is answered except as unknown-method
+  - every request gets exactly one response carrying its id, and nothing else is written to stdout
+  - an outcome's result carries every field its result names, verbatim; extra fields are allowed, renamed ones are not
+  - a rejection is a refused error naming what was refused and why, and the harness keeps running
+  - a read-only action changes no state
+  - approving a selection or a preparation starts nothing; only a submission starts a cycle
 
+# Gherkin wording that drives an action, as the slices write it.
 steps:
-  "the operator chooses the {string} C4 view": ChooseArchitectureView
-  "the operator inspects C4 element {string}": InspectC4Element
-  "the operator opens the 3D factory floor": OpenFactoryFloor
-  "the operator focuses station {string}": FocusStation
-  "the operator replays the sealed E2E cycle": ReplayRecordedCycle
-  "the operator advances to the next recorded signal": StepRecordedSignal
-  "the operator reads ORC progress for tick {string}": ReadCycleProgress
-  "the operator inspects builder session {string}": InspectBuilderSession
+  "a client sends the cycle-contract request": CycleContract
+  "Pi requests the executable cycle workflow contract": CycleContract
+  "Pi requests the executable regeneration workflow contract": WorkflowContract
+  "the identical request is submitted with the same request identity": SubmitCycle
+  "the same request id is submitted again": SubmitCycle
+  "a client waits on its task": Wait
+  "the operator waits for its task identity": Wait
+  "the operator waits for that identity": Wait
+  "a replacement worker waits for the task identity": Wait
+  "the operator prepares the source cut": PrepareCut
+  "the Pi harness prepares the source cut": PrepareCut
+  "the operator previews the selection": PreviewSelection
+  "the selection is previewed more than once": PreviewSelection
+  "approval names its selection identity with a different digest": ApproveSelection
+  "an operator session prepares a cycle with scope, target stack, execution profile, pinned inputs, and outer-cycle budget": PrepareCycle
+  "the operator submits a slice cycle for that selection": SubmitApprovedSlice
+  "submission names an empty, absolute, escaping, or overlapping candidate scope": SubmitApprovedSlice
+  "an operator manually approves its exact grader digest": ApproveGrader
+  "an operator session opens that builder-session reference": BuilderSession
+  "the operator requests builder-prompt optimization": OptimizePrompt

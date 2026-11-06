@@ -19,7 +19,7 @@ The archive stays untouched as the parity reference.
 - `modules.sh` declares `harness/Makefile` as a local file: it is this repository's runtime
   bootstrap, not part of the instrument.
 - `verify.sh` and `probe.sh` drive the harness's real seam, JSON-RPC over stdio
-  (`.pi/model/rpc.yaml`), instead of HTTP: the harness is not a web product, and a page served
+  (`.pi/model/affordances.yaml`), instead of HTTP: the harness is not a web product, and a page served
   only for the gate is exactly what a builder can fake (harness-regen-3 served a static page).
   The legacy rules stay: the instrument is checked first, the suite is trusted by exit code
   only, the boot is fresh and timed with its margin reported, and identity is proved by domain
@@ -64,3 +64,9 @@ submit. It now names the slice path ("An unapproved partial selection cannot sta
 cycle"), and `rpc.yaml` states that `submit-cycle` regenerates the whole plan as its approved
 selection. That is wording replaced, a recorded reason; the golden's diff is that one name line.
 The approved grader does not cover `01-007`, so it stays approved.
+
+**2026-11-05: the spec grew.** Cycle 08's nine slice builders stopped after 6 to 26 tool calls
+each, leaving most of their slices listed in `UNCARRIED.md`. `@item-02-014` was appended to the
+end of slice 02: ORC continues a slice builder's session, at most three times, while it lists
+its own slice's items uncarried. The golden's diff is additions plus the one `total` line
+(82 → 83). No approved grader's scenarios changed, so all three stay approved.

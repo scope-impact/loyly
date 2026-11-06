@@ -1,52 +1,23 @@
 -- allium: 3
--- Observable session-agnostic control-plane behavior. ORC owns task execution events.
+-- operator-control-plane.allium
+--
+-- Scope: observable, session-agnostic control-plane behaviour: how an operator submits,
+-- waits for, and observes regeneration work. ORC owns task execution events.
+-- Includes: tasks and receipts, idempotent submission, dispatch to ORC, task lifecycle,
+-- cycle progress projected from ORC facts, builder session observation and intervention,
+-- child cycles, and durable measurement receipts.
+-- Excludes: cuts, selections, preparations, and cycles (regeneration-cycle.allium, imported
+-- as cycle), ORC's own execution semantics (ORC specs/orc-service.allium), the cycle's
+-- stages (execution-pipeline.allium), and the seam (affordances.yaml).
 
-external entity OperatorSession {}
+use "./regeneration-cycle.allium" as cycle
 
 enum HarnessTaskKind { cut_preparation | regeneration_cycle }
 enum HarnessTaskStatus { submitted | running | completed | failed }
-enum ControlSelectionStatus { awaiting_approval | approved }
-enum PreparationStatus { awaiting_approval | approved }
-enum ExecutionProfile { host_development | gondolin_isolated | automatic }
 enum BuilderSessionStatus { opening | active | paused | completed | failed }
 enum InterventionKind { pause | steer | fork }
 
 value RequestDigest { value: String }
-value SelectionDigest { value: String }
-value PreparationDigest { value: String }
-value SelectedItemContract { identity: String, scenario_digest: String }
-
-entity ControlSelection {
-    identity: String
-    digest: SelectionDigest
-    status: ControlSelectionStatus
-    cut_identity: String
-    items: List<SelectedItemContract>
-
-    transitions status {
-        awaiting_approval -> approved
-        terminal: approved
-    }
-}
-
-entity CyclePreparation {
-    identity: String
-    digest: PreparationDigest
-    status: PreparationStatus
-    selection: ControlSelection
-    candidate_scope: List<String>
-    target_stack: String
-    execution_profile: ExecutionProfile
-    cut_digest: String
-    grader_digest: String
-    diagram_digest: String
-    max_outer_cycles: Integer
-
-    transitions status {
-        awaiting_approval -> approved
-        terminal: approved
-    }
-}
 
 entity HarnessTask {
     identity: String
@@ -85,6 +56,7 @@ entity BuilderSessionReference {
     status: BuilderSessionStatus
     workspace_generation: String?
     assisted: Boolean
+    last_intervention: InterventionKind?
 }
 
 entity DurableMeasurementReceipt {
@@ -105,14 +77,14 @@ rule ValidateHarnessGrainServiceArea {
     ensures: PiHarnessControlPlaneAvailable(runtime: runtime)
 }
 
-rule DispatchApprovedPreparationToOrc {
-    when: CyclePreparationApproved(preparation)
-    requires: preparation.status = approved
-    requires: not orc_tick_dispatched_for(preparation.identity)
+-- Approval alone starts nothing: ORC is dispatched once for each submitted task.
+rule DispatchSubmittedTaskToOrc {
+    when: task: HarnessTask.created
+    requires: not orc_tick_dispatched_for(task.identity)
     ensures: OrcGrainCommandDispatched(
-        preparation_identity: preparation.identity,
-        command_identity: deterministic_orc_command_identity(preparation),
-        preparation_digest: preparation.digest
+        task_identity: task.identity,
+        command_identity: deterministic_orc_command_identity(task),
+        preparation_identity: task.preparation_identity
     )
 }
 
@@ -132,78 +104,6 @@ rule PrepareCutTask {
     )
 }
 
-rule PreviewControlSelection {
-    when: PreviewSliceSelection(operator_session, cut_identity, slice_identity, requested_items)
-    requires: slice_identity in valid_system_composition(cut_identity)
-    let resolved_items = resolve_items_once(cut_identity, slice_identity, requested_items)
-    requires: resolved_items.count > 0
-    ensures: ControlSelection.created(
-        identity: deterministic_selection_identity(cut_identity, slice_identity, resolved_items),
-        digest: deterministic_selection_digest(cut_identity, slice_identity, resolved_items),
-        status: awaiting_approval,
-        cut_identity: cut_identity,
-        items: resolved_items
-    )
-}
-
-rule ProposeControlSelectionFromIntent {
-    when: ProposeSliceSelection(operator_session, cut_identity, operator_intent)
-    requires: operator_session_owns_exploratory_transcript(operator_session)
-    let proposed_scope = llm_propose_existing_slice_and_items(cut_identity, operator_intent)
-    requires: proposed_scope.belongs_to(valid_system_composition(cut_identity))
-    let resolved_items = resolve_items_once(
-        cut_identity, proposed_scope.slice_identity, proposed_scope.item_identities)
-    requires: resolved_items.count > 0
-    ensures: ControlSelection.created(
-        identity: deterministic_selection_identity(
-            cut_identity, proposed_scope.slice_identity, resolved_items),
-        digest: deterministic_selection_digest(
-            cut_identity, proposed_scope.slice_identity, resolved_items),
-        status: awaiting_approval,
-        cut_identity: cut_identity,
-        items: resolved_items
-    )
-}
-
-rule ApproveControlSelection {
-    when: ApproveSliceSelection(operator_session, selection, supplied_digest)
-    requires: selection.status = awaiting_approval
-    requires: supplied_digest = selection.digest
-    ensures: selection.status = approved
-}
-
-rule PrepareCycle {
-    when: PrepareRegenerationCycle(operator_session, preparation_identity, selection,
-                                   candidate_scope, target_stack, execution_profile,
-                                   cut_digest, grader_digest, diagram_digest, max_outer_cycles)
-    requires: selection.status = approved
-    requires: safe_candidate_scope(candidate_scope)
-    requires: supported_execution_profile(execution_profile)
-    requires: max_outer_cycles > 0
-    ensures: CyclePreparation.created(
-        identity: preparation_identity,
-        digest: deterministic_preparation_digest(
-            selection, candidate_scope, target_stack, execution_profile,
-            cut_digest, grader_digest, diagram_digest, max_outer_cycles),
-        status: awaiting_approval,
-        selection: selection,
-        candidate_scope: candidate_scope,
-        target_stack: target_stack,
-        execution_profile: execution_profile,
-        cut_digest: cut_digest,
-        grader_digest: grader_digest,
-        diagram_digest: diagram_digest,
-        max_outer_cycles: max_outer_cycles
-    )
-}
-
-rule ApproveCyclePreparation {
-    when: ApprovePreparedCycle(operator_session, preparation, supplied_digest)
-    requires: preparation.status = awaiting_approval
-    requires: supplied_digest = preparation.digest
-    ensures: preparation.status = approved
-}
-
 rule SubmitCycleTask {
     when: SubmitRegenerationCycle(operator_session, request_identity, request_digest,
                                   preparation, parent_cycle_identity)
@@ -221,6 +121,24 @@ rule SubmitCycleTask {
         outcome: null,
         preparation_identity: preparation.identity,
         parent_cycle_identity: parent_cycle_identity
+    )
+}
+
+-- Submitting the whole plan submits its fixed preparation (regeneration-cycle.allium
+-- ApproveWholePlanBySubmission).
+rule SubmitWholePlanCycle {
+    when: SubmitWholePlanRegeneration(operator_session, request_identity, request_digest)
+    requires: not exists HarnessTask{request_identity: request_identity}
+    ensures: HarnessTask.created(
+        identity: next_task_identity(),
+        kind: regeneration_cycle,
+        request_identity: request_identity,
+        request_digest: request_digest,
+        status: submitted,
+        trace_identity: null,
+        outcome: null,
+        preparation_identity: whole_plan_preparation_identity(pinned_cut()),
+        parent_cycle_identity: null
     )
 }
 
@@ -336,6 +254,7 @@ rule InterveneInBuilderSession {
         builder_session_identity: builder_session.identity,
         kind: intervention_kind
     )
+    ensures: builder_session.last_intervention = intervention_kind
     ensures: ResultingBuilderWorkMarkedAssisted(builder_session: builder_session)
 }
 
@@ -361,20 +280,6 @@ invariant TerminalOutcomeIsStable {
         task.status = completed or task.status = failed implies task.outcome != null
 }
 
-invariant ApprovedPreparationDigestIsStable {
-    for preparation in CyclePreparations:
-        preparation.status = approved implies
-            preparation.digest = deterministic_preparation_digest(
-                preparation.selection,
-                preparation.candidate_scope,
-                preparation.target_stack,
-                preparation.execution_profile,
-                preparation.cut_digest,
-                preparation.grader_digest,
-                preparation.diagram_digest,
-                preparation.max_outer_cycles)
-}
-
 invariant ProgressViewIsNotWorkflowAuthority {
     for progress in CycleProgressViews:
         progress.status = projected_orc_task_status(progress.trace_identity)
@@ -387,19 +292,13 @@ invariant BuilderObservationDoesNotAssist {
 }
 
 surface RegenerationControlPlane {
-    facing operator_session: OperatorSession
+    facing operator_session: cycle/Operator
 
     provides:
         PrepareRegenerationCut(operator_session, request_identity, request_digest, source_commit, backend)
-        ProposeSliceSelection(operator_session, cut_identity, operator_intent)
-        PreviewSliceSelection(operator_session, cut_identity, slice_identity, requested_items)
-        ApproveSliceSelection(operator_session, selection, supplied_digest)
-        PrepareRegenerationCycle(operator_session, preparation_identity, selection,
-                                 candidate_scope, target_stack, execution_profile,
-                                 cut_digest, grader_digest, diagram_digest, max_outer_cycles)
-        ApprovePreparedCycle(operator_session, preparation, supplied_digest)
         SubmitRegenerationCycle(operator_session, request_identity, request_digest,
                                 preparation, parent_cycle_identity)
+        SubmitWholePlanRegeneration(operator_session, request_identity, request_digest)
         WaitRegenerationTask(operator_session, task)
         QueryCycleProgress(operator_session, cycle_identity)
         ReadCycleMeasurement(operator_session, cycle_identity)

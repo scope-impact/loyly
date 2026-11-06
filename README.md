@@ -55,8 +55,8 @@ from what precedes it.
 | 3 | `docs/wow/` | the method itself: the way of working, five invariants each with a named enforcement point, and the agent harness |
 | 4 | `docs/plan/01-booking-core/` | one slice of work: a plan, an executable Gherkin spec, tickets, and recorded decisions |
 | 5 | `.pi/model/` | the executable contract for regeneration, grading, runtime evidence, and the Pi control plane |
-| 6 | `.pi/harness/` | the active ORC/Pi harness. Start at its `README.md`; Pi loads its tools from `.pi/settings.json` |
-| 7 | `impl/` | the build product. Intentionally empty: ORC regenerates it from a pinned cut |
+| 6 | `harness/` | the legacy harness that runs the loop: fence, gate, checklist, score, scoreboard. `config.sh` names the product it regenerates |
+| 7 | `.pi/harness/` | the Pi builder launcher, the sealed graders' sources, and `harness-impl/`, the regenerated harness built on ORC |
 | 8 | `archive/legacy-harness/` | the retired shell harness, preserved only as a behavioral-parity reference |
 
 Two conventions you will notice everywhere:
@@ -70,10 +70,9 @@ Two conventions you will notice everywhere:
 
 ## The tutorial: one full loop
 
-This is the flow the repo exists to demonstrate. Pi is the operator surface, ORC owns the
-workflow, Gondolin provides isolated execution, and the OCI instrument oracle independently
-calibrates and grades the generated application. See [the harness boundary](docs/orc-harness-boundary.md)
-for the ownership rules.
+The legacy harness in `harness/` runs the loop. `harness/config.sh` names the product it
+regenerates; today that is the Pi harness itself: the spec in `.pi/model/plan/`, rebuilt into
+`harness-impl/`, a new harness built on ORC and Grain.
 
 ### 0. Validate the harness
 
@@ -81,60 +80,42 @@ for the ownership rules.
 cd .pi/harness
 npm ci
 npm test
-./orc-worker/check.sh
-npm run test:e2e
+cd ../.. && harness/check.sh --local
 ```
 
-The unit suites are the fast development loop. The end-to-end suite exercises the modeled
-control plane, real Gondolin rooms, OCI oracle fixtures, grading, and Allure evidence. Some
-environment-dependent scenarios skip when their external runtime is unavailable; a skip is
-recorded and is never treated as a pass.
+`npm test` covers the Pi builder launcher; `harness/check.sh --local` is the legacy
+harness's self-check.
 
-### 1. Build from the docs
+### 1. Regenerate, gate, score
 
-Read the slice (`docs/plan/01-booking-core/`): eight Gherkin scenarios covering the
-weekly schedule, standing-slot booking with reasoned refusals, and the
-single-source-of-truth rule from the story above. In a Pi session, ask the harness to:
-
-1. `prepare_source_cut` from an explicit Git commit and execution backend;
-2. `preview_slice_selection`, then `approve_slice_selection` for the intended scope;
-3. `submit_approved_slice` with the approved selection, target stack, and backend. The
-   approved operation selects a Fresh Slice Generation Cycle with no parent or accepted
-   product oracle, or a Measured Slice Regeneration Cycle with named measured lineage;
-4. `wait_harness_operation` and inspect the operation receipt and any returned evidence.
-
-The checked-in `.pi/settings.json` loads these tools automatically when Pi opens this
-repository. `host` is useful for harness development; measured regeneration uses the
-`gondolin` backend.
-
-### 2. Ratify and measure
-
-ORC runs one of two fixed contracts:
-
-```text
-Fresh Slice Generation:
-cut → sealed harness snapshot → fenced build → verify/repair
-    → Grade [build + calibrate + seal cycle oracle → black-box grade]
-    → oracle proposal
-
-Measured Slice Regeneration:
-cut → sealed harness snapshot → fenced build → verify/repair
-    → Grade [accepted product-oracle comparison] → measurement
+```bash
+bb harness/regen.clj <run-id>        # the whole loop below, in one go
 ```
 
-The builder never declares itself done. Verification and grading run outside its session,
-against a read-only candidate. The checklist remains derived from stable `@item-*` scenario
-IDs, while runtime evidence records whether the expected application path actually occurred:
-browser exchanges, trace spans, domain events, projection snapshots, invariant results, and
-runtime diagnostics. Evidence and reports are written under `.pi/harness/.state/`; they are
-generated artifacts and are not committed.
+Step by step, the same loop is:
 
-### 3. Regenerate
+```bash
+bb harness/stamp_item_ids.clj        # stamp new scenarios (idempotent)
+./harness/fence.sh <room>            # a proved clean room holding only the spec
+#  a fresh Pi builder (.pi/harness/src/builder-worker.ts) rebuilds APP_DIR in the room
+./harness/verify.sh                  # the gate: suite green, identity over stdio
+#  the approved sealed graders (harness/graders.approved.json) file verdicts
+bb harness/score.clj NN --verdicts verdicts.json
+bb harness/scoreboard.clj NN
+```
 
-Start another cycle from the same pinned specification and oracle digest. ORC creates a
-fresh cut and a fresh Pi/Codex builder session; Gondolin exposes the cut read-only and
-limits writes to the declared workspace scope. The previous implementation, transcript,
-grader evidence, host credentials, and host environment are not available to the builder.
+The builder never declares itself done: the gate and the sealed graders run outside its
+session. A grader is used only when an operator approved its exact digest.
+
+### 2. Record
+
+`harness/cycles/NN/` keeps each cycle's checklist and scores; the scoreboard compares shared
+items in both directions and never computes a net.
+
+### 3. Regenerate again
+
+Start another cycle from a fresh clean room. The previous implementation, transcript and
+grader evidence are not available to the builder.
 
 ### 4. Study the delta
 

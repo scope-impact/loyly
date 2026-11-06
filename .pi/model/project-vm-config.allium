@@ -1,5 +1,12 @@
--- Project runtime files are resolved by convention, not a duplicate profile JSON.
--- Product truth remains in model/<project-id>; shared harness config remains in .pi/harness/config.
+-- allium: 3
+-- project-vm-config.allium
+--
+-- Scope: project runtime files are resolved by convention, not a duplicate profile
+-- JSON. Product truth remains in model/<project-id>; shared harness config remains in
+-- .pi/harness/config.
+-- Includes: resolving a project's VM config and stack Dockerfile, and refusing a missing
+-- or out-of-project runtime.
+-- Excludes: building or booting the VM, and the files' contents.
 
 enum ProjectRuntimeResolution { resolved | refused }
 
@@ -23,8 +30,9 @@ rule ResolveProjectRuntime {
     let vm_config = project_dir + "/gondolin.json"
     let stack_dockerfiles = conventional_stack_dockerfiles(project_dir)
     requires: file_exists(vm_config)
-    requires: exists stack_dockerfiles[target_stack]
-    requires: file_is_within_project_dir(stack_dockerfiles[target_stack], project_dir)
+    let dockerfile = stack_dockerfile(stack_dockerfiles, target_stack)
+    requires: dockerfile != null
+    requires: file_is_within_project_dir(dockerfile, project_dir)
     ensures: ProjectRuntimeFiles.created(
         project_identity: project_identity,
         gondolin_vm_config: vm_config,
@@ -33,7 +41,7 @@ rule ResolveProjectRuntime {
     ensures: ResolvedProjectRuntime.created(
         files: last_created_project_runtime_files(project_identity),
         target_stack: target_stack,
-        dockerfile: stack_dockerfiles[target_stack],
+        dockerfile: dockerfile,
         resolution: resolved
     )
 }

@@ -1,8 +1,22 @@
 -- allium: 3
--- Observable behavior of the session-hosted ORC regeneration workflow.
--- Product behavior belongs to model/<project>; ORC runtime behavior belongs to ORC.
+-- regeneration-cycle.allium
+--
+-- Scope: observable behaviour of the session-hosted ORC regeneration workflow.
+-- Product behaviour belongs to model/<project>; ORC runtime behaviour belongs to ORC.
+-- Includes: cuts and their composed system view, slice selection and its approval by
+-- digest, cycle preparation and its approval, submission, and start.
+-- Excludes: the cycle's stages (execution-pipeline.allium), the instrument
+-- (instrument.allium), and ORC's runtime behaviour.
 
-external entity OperatorSession {}
+-- A person, or a Pi or Codex session acting for one, who approves and submits work. The
+-- session is the handle the operator acts through; no other spec governs it.
+entity OperatorSession {
+    identity: String
+}
+
+actor Operator {
+    identified_by: OperatorSession where identity != ""
+}
 
 enum ExecutionBackend { host | gondolin }
 enum SelectionStatus { awaiting_approval | approved }
@@ -188,8 +202,38 @@ rule ApprovePreparation {
     ensures: preparation.status = approved
 }
 
+-- The whole plan of the pinned cut is a fixed preparation: the whole-plan selection, the
+-- configured scope, target stack, and execution profile, the approved graders, and one outer
+-- cycle. Submitting it is its approval, as in the legacy shape.
+rule ApproveWholePlanBySubmission {
+    when: SubmitWholePlanRegeneration(operator, request_identity, request_digest)
+    let preparation = whole_plan_preparation(pinned_cut())
+    requires: preparation.selection.items.count > 0
+    requires: not exists RegenerationCycle{identity: request_identity}
+    ensures: CyclePreparation.created(
+        identity: whole_plan_preparation_identity(pinned_cut()),
+        digest: preparation.digest,
+        status: approved,
+        selection: preparation.selection,
+        scope: preparation.scope,
+        target_stack: preparation.target_stack,
+        execution_profile: preparation.execution_profile,
+        cut_digest: preparation.cut_digest,
+        grader_digest: preparation.grader_digest,
+        diagram_digest: preparation.diagram_digest,
+        max_outer_cycles: 1
+    )
+    ensures: RegenerationCycle.created(
+        identity: request_identity,
+        preparation: last_created_preparation(whole_plan_preparation_identity(pinned_cut())),
+        parent_cycle_identity: null,
+        status: submitted,
+        candidate_digest: null
+    )
+}
+
 rule SubmitCycle {
-    when: SubmitRegenerationCycle(operator, request_identity, preparation, parent_cycle_identity)
+    when: SubmitRegenerationCycle(operator, request_identity, request_digest, preparation, parent_cycle_identity)
     requires: preparation.status = approved
     requires: preparation.selection.items.count > 0
     requires: not exists RegenerationCycle{identity: request_identity}
@@ -236,7 +280,7 @@ invariant ApprovedPreparationDigestIsStable {
 }
 
 surface RegenerationHarness {
-    facing operator: OperatorSession
+    facing operator: Operator
 
     provides:
         PrepareRegenerationCut(operator, source_commit, backend)
@@ -248,8 +292,8 @@ surface RegenerationHarness {
                                  target_stack, execution_profile, cut_digest,
                                  grader_digest, diagram_digest, max_outer_cycles)
         ApproveCyclePreparation(operator, preparation, digest)
-        SubmitRegenerationCycle(operator, request_identity, preparation, parent_cycle_identity)
-        ObserveBuilderSession(operator, builder_session)
+        SubmitRegenerationCycle(operator, request_identity, request_digest, preparation, parent_cycle_identity)
+        SubmitWholePlanRegeneration(operator, request_identity, request_digest)
 
     @guarantee BuilderIsolation
         -- The builder reads a fenced cut, writes only the declared scope, and does not inherit the operator transcript.

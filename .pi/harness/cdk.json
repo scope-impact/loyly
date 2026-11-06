@@ -1,3 +1,0 @@
-{
-  "app": "node --experimental-strip-types infra/bedrock-gepa-app.ts"
-}

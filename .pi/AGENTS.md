@@ -147,5 +147,5 @@ feedback only when it recurs across candidates.
 Keep generated state under `.pi/harness/.state/`; it is ignored and disposable. Do not add
 model credentials, transcripts, VM outputs, or generated applications to Git.
 
-Run focused checks from `.pi/harness` with `npm test`, and run ORC worker tests from the
-repository root with the Clojure command used by the worker test harness.
+Run focused checks from `.pi/harness` with `npm test`, and the legacy self-check with
+`harness/check.sh --local` from the repository root.

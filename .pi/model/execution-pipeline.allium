@@ -1,7 +1,14 @@
 -- allium: 3
--- The regeneration cycle in the legacy shape: fence, regenerate, gate, score, scoreboard.
--- The fence and the gate are the harness and feed the build loop. The score and the
--- scoreboard are the instrument (instrument.allium) and never feed the loop.
+-- execution-pipeline.allium
+--
+-- Scope: the regeneration cycle in the legacy shape: fence, regenerate, gate, score,
+-- scoreboard. The fence and the gate are the harness and feed the build loop. The score and
+-- the scoreboard are the instrument (instrument.allium) and never feed the loop.
+-- Includes: pipeline stages and their order, the harness self-check, the clean room, one
+-- builder per slice, gate attempts and repair, the candidate subject, observations,
+-- measurement, and the evidence report projection.
+-- Excludes: grader authoring and approval (instrument.allium), operator approval of the
+-- selection (regeneration-cycle.allium), and Grain command/event plumbing.
 
 enum PipelineStage { fence | regenerate | gate | score | scoreboard | result }
 enum PipelineStatus { submitted | running | passed | failed }
@@ -374,6 +381,12 @@ surface RegenerationCycleExecution {
     @guarantee OneFreshBuilderPerSlice
         -- The first regenerate attempt runs one fresh builder per selected slice in plan order;
         -- each sees the clean room and this cycle's candidate so far, and nothing else.
+
+    @guarantee BoundedSliceContinuation
+        -- A slice builder whose turn ends while its own UNCARRIED.md names items of its slice is
+        -- continued in the same session, naming only those items, at most three times; a
+        -- continuation that leaves the candidate unchanged ends it. The listing is the builder's
+        -- claim, never a verdict.
 
     @guarantee PhysicalFence
         -- The clean room is a single-commit clone in which every fenced path is absent from the

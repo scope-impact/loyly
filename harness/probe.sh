@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # probe.sh: prove the thing answering is THIS application, by domain behavior, not a name.
-# Launch start.sh, send cycle-contract over stdio (.pi/model/rpc.yaml), and require, inside
+# Launch start.sh, send cycle-contract over stdio (.pi/model/affordances.yaml), and require, inside
 # the boot budget, a response with the request's id that names the harness and lists the
 # cycle stages fence, regenerate, gate, score, scoreboard in order (@item-02-010).
 set -uo pipefail

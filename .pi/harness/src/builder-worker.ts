@@ -23,6 +23,8 @@ const request = JSON.parse(await readStdin()) as {
   builderSessionRef: string;
   builderSessionsRoot: string;
   attempt: number;
+  /** ORC continues this builder's own session (a slice continuation); absent for a fresh builder. */
+  resumeSessionFile?: string | null;
 };
 
 let toolCalls = 0;
@@ -50,11 +52,9 @@ try {
     initialWorkspaceRoot: request.initialWorkspaceRoot,
     evidenceRoot: request.verificationEvidenceRoot,
   });
-  const manager = SessionManager.create(
-    room.workspaceRoot,
-    request.builderSessionsRoot,
-    { id: builderSessionId },
-  );
+  const manager = request.resumeSessionFile
+    ? SessionManager.open(request.resumeSessionFile, request.builderSessionsRoot, room.workspaceRoot)
+    : SessionManager.create(room.workspaceRoot, request.builderSessionsRoot, { id: builderSessionId });
   sessionManager = manager;
   const bash = createBashToolDefinition("/workspace", {
     operations: {
@@ -124,7 +124,8 @@ try {
   await stateWrites;
   const generated = await readdir(room.workspaceRoot);
   workspaceGeneration = generated;
-  if (toolCalls === 0) throw new Error("Codex builder completed without executing a workspace tool");
+  // A continuation that does no work leaves the candidate unchanged, and ORC ends the slice there.
+  if (toolCalls === 0 && !request.resumeSessionFile) throw new Error("Codex builder completed without executing a workspace tool");
   if (generated.length === 0) throw new Error("Codex builder produced no workspace output");
   await mkdir(request.outputRoot, { recursive: true });
   await cp(room.workspaceRoot, request.outputRoot, { recursive: true, force: true });
@@ -141,6 +142,7 @@ try {
     result: {
       outputRoot: request.outputRoot,
       builderSessionId,
+      sessionFile: manager.getSessionFile(),
       toolCalls,
       generated,
       promptDigest: request.promptDigest,
@@ -161,6 +163,8 @@ try {
   process.exitCode = 1;
 } finally {
   await room?.close();
+  // The result is written; nothing a builder left running may keep this worker, and ORC, waiting.
+  process.stdout.write("", () => process.exit());
 }
 
 function assertDigest(value: string, expected: string, label: string) {

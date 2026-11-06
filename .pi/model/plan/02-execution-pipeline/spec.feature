@@ -137,3 +137,12 @@ Feature: The regeneration cycle
       When the next slice builder starts
       Then it reads the clean room and the candidate as the earlier builder left it
       And it receives no earlier builder's transcript, no candidate from an earlier cycle, and no gate or score evidence
+
+    @skip
+    @item-02-014
+    Scenario: A slice builder continues while it lists its own slice's items uncarried
+      Given a slice builder's turn ends while its UNCARRIED.md still names items of its slice
+      When ORC continues that same builder session
+      Then the continuation names only the slice items still listed uncarried and asks the builder to carry them
+      And ORC continues at most three times, stopping early when a continuation leaves the candidate unchanged
+      And the builder's listing is never a verdict: the gate and the score still decide

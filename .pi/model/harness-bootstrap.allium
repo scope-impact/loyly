@@ -1,5 +1,10 @@
--- Local build contract for the repository-root Pi harness Makefile target.
+-- allium: 3
+-- harness-bootstrap.allium
+--
+-- Scope: the local build contract for the repository-root Pi harness Makefile target.
 -- This workflow is distinct from candidate regeneration and requires no grader.
+-- Includes: installing dependencies, building and verifying runtimes, completion and failure.
+-- Excludes: regeneration, grading, and the build tools' own behaviour.
 
 enum HarnessBootstrapStatus { requested | installing_dependencies | building_runtimes | verifying_runtimes | completed | failed }
 
@@ -13,6 +18,22 @@ entity HarnessRuntimeBootstrap {
     calibration_digest: String?
     status: HarnessBootstrapStatus
     failure_reason: String?
+}
+
+rule RequestHarnessBootstrap {
+    when: HarnessBootstrapRequested(identity, harness_revision)
+    requires: not exists HarnessRuntimeBootstrap{identity: identity}
+    ensures: HarnessRuntimeBootstrap.created(
+        identity: identity,
+        makefile: "harness/Makefile",
+        output_directory: ".pi/harness/.state/assets",
+        runtime_assets: configured_runtime_assets(),
+        harness_revision: harness_revision,
+        snapshot_manifest_digest: null,
+        calibration_digest: null,
+        status: requested,
+        failure_reason: null
+    )
 }
 
 rule InstallHarnessDependencies {
@@ -77,6 +98,7 @@ invariant HarnessBootstrapDoesNotRegenerateProduct {
 
 surface PiHarnessRuntimeBootstrap {
     provides:
+        HarnessBootstrapRequested(identity, harness_revision)
         HarnessBootstrapStarted(bootstrap)
         HarnessDependenciesInstalled(bootstrap)
         HarnessRuntimeAssetsBuilt(bootstrap)

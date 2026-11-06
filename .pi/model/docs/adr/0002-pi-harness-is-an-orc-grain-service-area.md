@@ -30,3 +30,14 @@ packages.
 - Strict Event Model validation runs at startup, and Allium trace-link validation runs in CI.
 - A Grain construct with no real harness responsibility is omitted rather than represented by a
   no-op solely for coverage.
+
+## Amendment, 2026-11-06
+
+Two consequences above no longer hold; the decision itself stands.
+
+- ORC registers no `:sheet` Event Model. The contract declares the ORC blocks the harness
+  dispatches or projects in `event-model/orc/sheet/event_model.clj`, copied from ORC's pinned
+  `orc-service` schemas, so strict cross-area edge validation resolves without an ORC change.
+  The copy must stay in step with the pin.
+- Approval alone starts nothing. A submitted task, not an approved preparation, is handed to
+  ORC through its Grain command boundary exactly once (`DispatchSubmittedTaskToOrc`).
