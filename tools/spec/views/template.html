@@ -325,6 +325,17 @@ a.sk:hover, a.sk:focus-visible { outline: 2px solid #1c231f; outline-offset: 1px
 .tier { font-family: var(--font-mono); font-size: 10.5px; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
 .tier.minimum { background: #d6efe0; color: #1d5a39; } .tier.balance { background: #f7e7c2; color: #6b4a07; } .tier.deferred { background: #e4e7e5; color: #4b5450; } .tier.untiered, .tier.draft { border: 1px solid var(--warn); color: var(--warn); }
 :root[data-theme="dark"] .tier.minimum { background: #1d3d26; color: #bfe8c9; }
+
+.ents{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin:10px 0;align-items:start}.lc.wide{grid-column:1/-1}
+.ent{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:10px 12px;display:grid;gap:6px;font-size:13px}
+.ent.root{border-color:#e0b43c;box-shadow:inset 4px 0 0 #f2c14e}
+.ent-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.ent-h b{font-size:15px}
+.ent-k{font:500 10px/1 "JetBrains Mono",monospace;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.ent-r{display:grid;grid-template-columns:82px 1fr;gap:6px;align-items:baseline}.ent-r>span{font:500 11px/1.4 "JetBrains Mono",monospace;color:var(--muted)}
+.ev-chip{display:inline-block;margin:0 3px 3px 0;padding:1px 7px;border-radius:10px;background:#fdf1d6;border:1px solid #ecd9a8;font:500 12px/1.5 "JetBrains Mono",monospace;color:#1c231f}.ev-chip.ext{background:#eef0ee;border-color:#d6dcd7}
+.ent-more summary{cursor:pointer;color:var(--muted);font-size:12px}.ent-more div{padding:1px 0 1px 8px}
+.lifecycles{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:10px;margin:10px 0}
+.lc{border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px 10px;min-width:0;overflow-x:auto}.lc-h{font:600 12px/1.4 "JetBrains Mono",monospace;color:#1c231f;margin-bottom:4px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
 
@@ -700,27 +711,31 @@ function stateRules(ent, t) {
   return { lab, init };
 }
 const baseType = ty => ty.replace(/^\w+[./]/, "").replace(/\?$/, "").replace(/^(Set|List)<(?:\w+[./])?(\w+)>$/, "$2");
-function entityDiagram(mid, m) {
-  const own = m.entities.filter(e => !e.external).map(e => ({ e, p: ENTITIES[e.name].p }));
-  const rels = [], others = new Set();
-  const cls = own.map(({ e, p }, i) => {
-    const lines = p.fields.map(f => {
-      const t = f.kind === "enum" ? "(" + f.type.split("|").map(x => x.trim()).join(", ") + ")" : f.type.replace(/^\w+[./]/, "").replace(/[{}<>]/g, "~").replace(/[\/]/g, ".").slice(0, 40);
-      const base = baseType(f.type);
-      if (f.kind === "field" && ENTITIES[base] && base !== e.name) { rels.push([e.name, base, f.name]); if (ENTITIES[base].mid !== mid) others.add(base); }
-      return f.kind === "derived" ? `      +${f.name}() derived` : `      +${t} ${f.name}`;
-    });
-    return `    class ${e.name} {\n      <<${i === 0 ? "aggregate root" : "entity"}>>\n${lines.join("\n")}\n    }`;
-  });
-  const ext = [...m.entities.filter(e => e.external).map(e => e.name), ...others].map(n => `    class ${n} {\n      <<${ENTITIES[n]?.e.external ? "external entity" : "entity in " + ENTITIES[n].mid + ".allium"}>>\n    }`);
-  return `---
-title: "Code diagram (C4 level 4): ${mq(modTitle(mid))}, ${mq(m.file)}"
----
-classDiagram
-    direction LR
-${cls.join("\n")}
-${ext.join("\n")}
-${rels.map(([a, b, f]) => `    ${a} --> ${b} : ${f}`).join("\n")}`;
+function entityCards(mid, m) {
+  const own = m.entities.filter(e => !e.external);
+  const named = own.find(e => snakeOf(e.name).replace(/_/g, "-") === mid);
+  const score = e => ENTITIES[e.name].p.trans.reduce((n, t) => n + t.edges.length, 0) * 10 + ENTITIES[e.name].p.fields.length;
+  const root = (named || [...own].sort((a, b) => score(b) - score(a))[0])?.name;
+  own.sort((a, b) => (b.name === root) - (a.name === root));
+  const card = e => {
+    const p = ENTITIES[e.name].p, sf = new Set(stateFields(e.name));
+    const ids = p.fields.filter(f => /^identity$|_identity$/.test(f.name) && !ENTITIES[baseType(f.type)]);
+    const states = p.fields.filter(f => sf.has(f.name));
+    const refs = p.fields.filter(f => f.kind === "field" && ENTITIES[baseType(f.type)] && baseType(f.type) !== e.name);
+    const shown = new Set([...ids, ...states, ...refs].map(f => f.name));
+    const rest = p.fields.filter(f => !shown.has(f.name));
+    const valuesOf = f => { const t = p.trans.find(t => t.field === f.name); const vs = t ? [...new Set(t.edges.flat())] : (f.kind === "enum" ? f.type.split("|").map(x => x.trim()) : []); return vs.length ? vs.map(v => `<span class="ev-chip">${esc(v)}</span>`).join("") : `<code>${esc(baseType(f.type))}</code>`; };
+    const link = n => ENTITIES[n].mid === mid ? `<a href="#ent-${esc(n)}" data-jump="ent-${esc(n)}">${esc(n)}</a>` : `<a href="#${aggHash(ENTITIES[n].mid)}">${esc(n)}</a> <span class="muted">(${esc(modTitle(ENTITIES[n].mid))})</span>`;
+    return `<article class="ent${e.name === root ? " root" : ""}" id="ent-${esc(e.name)}">
+      <div class="ent-h"><b>${esc(e.name)}</b><span class="ent-k">${e.name === root ? "aggregate root" : "entity"}</span></div>
+      ${ids.length ? `<div class="ent-r"><span>identity</span><div>${ids.map(f => `<code>${esc(f.name)}</code>`).join(" ")}</div></div>` : ""}
+      ${states.map(f => `<div class="ent-r"><span>${esc(f.name)}</span><div>${valuesOf(f)}</div></div>`).join("")}
+      ${refs.length ? `<div class="ent-r"><span>refers to</span><div>${refs.map(f => `${link(baseType(f.type))} <span class="muted">as ${esc(f.name)}</span>`).join("<br>")}</div></div>` : ""}
+      ${rest.length ? `<details class="ent-more"><summary>${rest.length} more field${rest.length > 1 ? "s" : ""}</summary>${rest.map(f => `<div><code>${esc(f.name)}</code> <span class="muted">${f.kind === "derived" ? "derived" : esc(baseType(f.type))}</span></div>`).join("")}</details>` : ""}
+    </article>`;
+  };
+  const ext = m.entities.filter(e => e.external).map(e => `<span class="ev-chip ext">${esc(e.name)}</span>`).join(" ");
+  return `<div class="ents">${own.map(card).join("")}</div>${ext ? `<p class="muted">External, owned elsewhere: ${ext}</p>` : ""}`;
 }
 function stateDiagram(e, t) {
   if (!t.edges.length) return null;
@@ -730,10 +745,7 @@ function stateDiagram(e, t) {
   for (const s0 of starts) ln.push(`    [*] --> ${s0}${init[s0] ? " : " + [...init[s0]].join(", ") : ""}`);
   for (const [a, b] of t.edges) { const l = lab[a + ">" + b]; ln.push(`    ${a} --> ${b}${l ? " : " + [...l].join(", ") : ""}`); }
   for (const x of t.terminal) ln.push(`    ${x} --> [*]`);
-  return `---
-title: "Dynamic diagram: ${mq(e.name)}.${mq(t.field)} lifecycle, each arrow the Allium rule that makes it"
----
-stateDiagram-v2
+  return `stateDiagram-v2
     direction LR
 ${ln.join("\n")}`;
 }
@@ -943,7 +955,7 @@ function viewMod(mid) {
       ${p.src ? `<div class="inv-body">${allium(p.src)}</div>` : ""}<div class="scens">${cv.sc.map(gherkin).join("") || `<div class="none">${cv.k === "gate" ? "Checked by gate " + esc(cv.o.gate) + "." : "No scenario."}</div>`}</div></details>`; }).join("");
   const cv = covCount(modObligations(mid));
   const own = m.entities.filter(e => !e.external);
-  const states = own.flatMap(e => ENTITIES[e.name].p.trans.map(t => stateDiagram(e, t)).filter(Boolean));
+  const states = own.flatMap(e => ENTITIES[e.name].p.trans.map(t => { const d = stateDiagram(e, t); return d ? [`${e.name}.${t.field}`, d] : null; }).filter(Boolean));
   const unlinked = sl ? sliceScenarios(sl, true) : "";
   document.getElementById("view").innerHTML = `
   <div class="head">
@@ -955,10 +967,10 @@ function viewMod(mid) {
   </div>
   <section><h2>Event storm</h2><p class="muted">Each rule as a sticky cluster: the command (blue) and who issues it, the aggregate (yellow) over the event it records (orange), and below it each refusal, a <code>requires</code> that must hold. Read left to right: each column follows the one before it, by the state it needs, the event that triggers it or the policy that issues it. Click a sticky for its spec.</p>${aggBoard(mid)}</section>
   <section id="states">
-    <h2>Entity and state</h2>
-    <p class="muted">The aggregate's entities in Allium as a C4 code-level diagram, and each <code>transitions</code> block, the only lifecycle allowed, as a state diagram.</p>
-    ${own.length ? mmBlock(entityDiagram(mid, m), "Each entity of the Allium file with its fields (<code>+Type name</code>), derived fields (<code>name() derived</code>, computed, never stored) and the entities it references.") : `<div class="none">No entity of its own.</div>`}
-    ${states.map(d => mmBlock(d, "Each state is a value of the field; each arrow names the rule whose <code>requires</code> and <code>ensures</code> make that transition, from any Allium file (⏱ a rule triggered by time). Unlabelled: no rule makes it.")).join("")}
+    <h2>Entities and lifecycles</h2>
+    <p class="muted">Each entity with its identity, its states and what it refers to; other fields fold away. Each lifecycle is a <code>transitions</code> block: every arrow is the rule that makes it (⏱ triggered by time).</p>
+    ${own.length ? entityCards(mid, m) : `<div class="none">No entity of its own.</div>`}
+    ${states.length ? `<div class="lifecycles">${states.map(([k, d]) => `<div class="lc${(d.match(/-->/g) || []).length > 6 ? " wide" : ""}"><div class="lc-h">${esc(k)}</div><pre class="mermaid">${esc(d)}</pre></div>`).join("")}</div>` : ""}
     <details class="inv"><summary><span class="t">Allium source</span><span class="meta">${esc(m.file)}</span></summary><div class="inv-body">${own.map(e => allium(e.src)).join("")}</div></details>
   </section>
   <section>
