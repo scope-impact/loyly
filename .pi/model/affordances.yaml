@@ -99,7 +99,7 @@ actions:
     outcomes:
       TerminalOutcome:
         result: {status: "completed | failed", error: "string when failed", result: "stage outputs"}
-        allium: {spec: operator-control-plane.allium, rule: WaitForHarnessTask}
+        allium: {spec: operator-control-plane.allium, rule: WaitForWorkflowTask}
     grain: {query: task-outcome}
     tool: {name: wait}
 

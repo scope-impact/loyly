@@ -3,15 +3,18 @@
 --
 -- Scope: observable behaviour of the session-hosted ORC regeneration workflow.
 -- Product behaviour belongs to model/<project>; ORC runtime behaviour belongs to ORC.
--- Includes: cuts and their composed system view, slice selection and its approval by
+-- Includes: source cuts and their composed system view, slice selection and its approval by
 -- digest, cycle preparation and its approval, submission, and start; the one cycle
--- aggregate, RegenerationCycle, with its status and stage; and the two actors, the operator
--- and ORC's runtime.
+-- aggregate, RegenerationCycle, with its status and stage; the stamped item a selection and
+-- a checklist carry; and the two actors, the operator and ORC's runtime.
 -- Excludes: the rules that move the cycle through its stages (execution-pipeline.allium),
 -- the instrument (instrument.allium), and ORC's runtime behaviour.
+--
+-- The words are GLOSSARY.md's (ADR 0005). The seam's values (backend, profile) are used
+-- verbatim.
 
--- A person, or a Pi or Codex session acting for one, who approves and submits work. The
--- session is the handle the operator acts through; no other spec governs it.
+-- An operator acts through a session the operator's own tools keep: a person, or a Pi or
+-- Codex session acting for one. It is the identity of the actor, not a harness aggregate.
 entity OperatorSession {
     identity: String
 }
@@ -20,9 +23,10 @@ actor Operator {
     identified_by: OperatorSession where identity != ""
 }
 
--- ORC's runtime: the worker that runs every tick and reports what happened. It is the only
--- actor that reports execution facts (a tick started, a builder completed, a gate returned,
--- a grader returned its verdicts); an operator can never report them.
+-- One running instance of ORC's runtime: the worker that runs every tick and reports what
+-- happened. It is the only actor that reports execution facts (a tick started, a builder
+-- completed, a gate returned, a grader returned its verdicts); an operator can never report
+-- them. ORC keeps its workers; this is the identity of the actor.
 entity OrcWorker {
     identity: String
 }
@@ -31,66 +35,76 @@ actor OrcRuntime {
     identified_by: OrcWorker where identity != ""
 }
 
+-- Where a cut is prepared and a cycle's rooms run (the seam's backend values). An execution
+-- profile is the policy over it, not a second concept: which backends a preparation admits.
 enum ExecutionBackend { host | gondolin }
+enum ExecutionProfile { host_development | gondolin_isolated | automatic }
 enum SelectionStatus { awaiting_approval | approved }
 enum PreparationStatus { awaiting_approval | approved }
-enum ExecutionProfile { host_development | gondolin_isolated | automatic }
 enum CycleStatus { submitted | running | passed | failed }
 -- The stages of one cycle, in the legacy shape. The fence and the gate are the harness; the
 -- score and the scoreboard are the instrument.
 enum CycleStage { fence | regenerate | gate | score | scoreboard | result }
 enum StageFailureKind { refused | skipped | timed_out | errored | missing | inconclusive }
 
-value Digest { value: String }
-value SourceCommit { value: String }
-value CandidateScope { paths: List<String> }
+-- The declared paths a builder may write.
+value CandidateScope {
+    paths: List<String>
+}
 
-entity RegenerationCut {
+-- One stamped scenario as a selection and its checklist carry it: its item identity, its
+-- scenario digest, its Rule (or none), the file and line of its Scenario line, and its title
+-- with surrounding whitespace stripped.
+value StampedItem {
+    item_identity: String
+    scenario_digest: String
+    rule_name: String?
+    source: String
+    name: String
+}
+
+entity SourceCut {
     identity: String
-    source_commit: SourceCommit
-    tree_digest: Digest
+    source_commit: String
+    tree_digest: String
     backend: ExecutionBackend
     fenced: Boolean
 }
-entity SelectionItem {
-    identity: String
-    scenario_digest: Digest
-    name: String
-    rule_name: String
-    source: String
-}
+
 entity SliceSelection {
     identity: String
-    digest: Digest
+    digest: String
     status: SelectionStatus
-    cut: RegenerationCut
+    cut: SourceCut
     project_identity: String
     container_identity: String
     component_identity: String
     slice_identity: String
-    items: List<SelectionItem>
+    items: List<StampedItem>
 
     transitions status {
         awaiting_approval -> approved
         terminal: approved
     }
 }
+
 entity SystemComposition {
-    cut: RegenerationCut
-    digest: Digest
+    cut: SourceCut
+    digest: String
     slice_mappings: List<String>
 }
+
 entity CyclePreparation {
     identity: String
-    digest: Digest
+    digest: String
     status: PreparationStatus
     selection: SliceSelection
     scope: CandidateScope
     target_stack: String
     execution_profile: ExecutionProfile
-    cut_digest: Digest
-    grader_digest: Digest
-    diagram_digest: Digest
+    cut_digest: String
+    grader_digest: String
+    diagram_digest: String
     max_outer_cycles: Integer
 
     transitions status {
@@ -98,6 +112,7 @@ entity CyclePreparation {
         terminal: approved
     }
 }
+
 -- The one cycle aggregate. Its approved items and grader come from its preparation; its
 -- stages are moved by execution-pipeline.allium and its score is filed by instrument.allium.
 -- A submitted cycle waits at the fence until ORC starts it.
@@ -108,7 +123,7 @@ entity RegenerationCycle {
     parent_cycle_identity: String?
     status: CycleStatus
     stage: CycleStage
-    candidate_digest: Digest?
+    candidate_digest: String?
     failure_stage: CycleStage?
     failure_kind: StageFailureKind?
     failure_reason: String?
@@ -131,9 +146,78 @@ entity RegenerationCycle {
     }
 }
 
+------------------------------------------------------------
+-- Contracts: what the rules below read of a cut, a selection, and a preparation
+------------------------------------------------------------
+
+-- How a prepared cut is read. Each function is a deterministic reading of the cut's fenced
+-- tree; none consults a candidate, a measurement, or a session.
+contract CutComposition {
+    -- The identity of the cut of one commit for one backend.
+    prepared_cut_identity: (source_commit: String, backend: ExecutionBackend) -> String
+    -- The digest of the fenced tree of one commit.
+    fenced_tree_digest: (source_commit: String) -> String
+    -- One mapping per stamped item of the cut: its slice, component, and container.
+    map_items_to_slices: (cut: SourceCut) -> List<String>
+    -- Every stamped item of the cut appears in the mappings exactly once.
+    every_item_mapped_exactly_once: (cut: SourceCut, slice_mappings: List<String>) -> Boolean
+    -- The hierarchy of the cut's containers, components, and slices.
+    complete_system_view: (cut: SourceCut) -> String
+    reduce_to_system_view: (slice_mappings: List<String>) -> String
+    decompose_system_view: (system_view: String) -> List<String>
+    composition_digest: (cut: SourceCut, slice_mappings: List<String>) -> String
+    -- The slices of the cut's valid system composition.
+    composed_slice_identities: (cut: SourceCut) -> List<String>
+    container_for: (cut: SourceCut, slice_identity: String) -> String
+    component_for: (cut: SourceCut, slice_identity: String) -> String
+}
+
+-- How a selection is resolved against a cut, and how it is named.
+contract SelectionResolution {
+    -- The stamped items of one slice of the cut, restricted to the requested item identities
+    -- (all of the slice's items when none are requested). An identity the cut does not
+    -- stamp resolves to nothing; resolution never invents an item.
+    resolve_items: (cut: SourceCut, project_identity: String, slice_identity: String, requested_items: List<String>) -> List<StampedItem>
+    -- A slice proposal: a model's suggestion of an existing slice, and some of its item
+    -- identities, from the operator's intent. It approves nothing and invents no item.
+    proposed_slice: (cut: SourceCut, project_identity: String, operator_intent: String) -> String
+    proposed_items: (cut: SourceCut, project_identity: String, operator_intent: String) -> List<String>
+    selection_identity: (cut: SourceCut, project_identity: String, slice_identity: String, items: List<StampedItem>) -> String
+    selection_digest: (cut: SourceCut, project_identity: String, slice_identity: String, items: List<StampedItem>) -> String
+
+    @invariant DeterministicSelection
+        -- Previewing the same cut, project, slice, and items again yields the same selection
+        -- identity and digest; any other choice yields a different digest.
+}
+
+-- How a preparation binds its choices.
+contract PreparationBinding {
+    -- A scope is safe when it names at least one path, and every path is relative, stays
+    -- inside the candidate, and overlaps no other.
+    scope_is_safe: (scope: CandidateScope) -> Boolean
+    preparation_digest: (selection: SliceSelection, scope: CandidateScope, target_stack: String, execution_profile: ExecutionProfile, cut_digest: String, grader_digest: String, diagram_digest: String, max_outer_cycles: Integer) -> String
+    -- The preparation fixes the production prompt version, inputs, output schema, tool
+    -- surface, retries, and termination ORC runs it under (ADR 0001).
+    fixed_bounded_execution_contract: (preparation: CyclePreparation) -> Boolean
+    -- The cut the harness was started on (PI_HARNESS_PROJECT_ROOT at its pinned commit).
+    pinned_cut: () -> SourceCut
+    -- The fixed preparation of a cut's whole plan: the whole-plan selection, the configured
+    -- scope, target stack, and execution profile, and the approved graders' digest.
+    whole_plan_preparation: (cut: SourceCut) -> CyclePreparation
+    whole_plan_preparation_identity: (cut: SourceCut) -> String
+
+    @invariant DeterministicPreparation
+        -- Preparing the same choices again yields the same preparation identity and digest;
+        -- changing any bound choice is a new preparation.
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
 rule PrepareCut {
-    when: PrepareRegenerationCut(operator, source_commit, backend)
-    ensures: RegenerationCut.created(
+    when: PrepareSourceCut(operator, source_commit, backend)
+    ensures: SourceCut.created(
         identity: prepared_cut_identity(source_commit, backend),
         source_commit: source_commit,
         tree_digest: fenced_tree_digest(source_commit),
@@ -145,13 +229,13 @@ rule PrepareCut {
 rule ComposeCutSystemView {
     when: ComposeSystemView(operator, cut)
     requires: cut.fenced
-    let slice_mappings = map_behavior_items_to_slices_components_and_containers(cut)
-    requires: every_gherkin_behavior_item_appears_exactly_once(cut, slice_mappings)
+    let slice_mappings = map_items_to_slices(cut)
+    requires: every_item_mapped_exactly_once(cut, slice_mappings)
     requires: reduce_to_system_view(slice_mappings) = complete_system_view(cut)
     requires: decompose_system_view(complete_system_view(cut)) = slice_mappings
     ensures: SystemComposition.created(
         cut: cut,
-        digest: deterministic_composition_digest(cut, slice_mappings),
+        digest: composition_digest(cut, slice_mappings),
         slice_mappings: slice_mappings
     )
 }
@@ -159,12 +243,12 @@ rule ComposeCutSystemView {
 rule PreviewSelection {
     when: PreviewSliceSelection(operator, cut, project_identity, slice_identity, requested_items)
     requires: cut.fenced
-    requires: slice_identity in valid_system_composition(cut)
+    requires: slice_identity in composed_slice_identities(cut)
     let resolved_items = resolve_items(cut, project_identity, slice_identity, requested_items)
     requires: resolved_items.count > 0
     ensures: SliceSelection.created(
-        identity: deterministic_selection_identity(cut, project_identity, slice_identity, resolved_items),
-        digest: deterministic_selection_digest(cut, project_identity, slice_identity, resolved_items),
+        identity: selection_identity(cut, project_identity, slice_identity, resolved_items),
+        digest: selection_digest(cut, project_identity, slice_identity, resolved_items),
         status: awaiting_approval,
         cut: cut,
         project_identity: project_identity,
@@ -178,23 +262,21 @@ rule PreviewSelection {
 rule ProposeSelectionFromIntent {
     when: ProposeSliceSelection(operator, cut, project_identity, operator_intent)
     requires: cut.fenced
-    let proposed_scope = llm_propose_existing_slice_and_items(
-        cut, project_identity, operator_intent)
-    requires: proposed_scope.belongs_to(valid_system_composition(cut))
+    let proposed_slice_identity = proposed_slice(cut, project_identity, operator_intent)
+    requires: proposed_slice_identity in composed_slice_identities(cut)
     let resolved_items = resolve_items(
-        cut, project_identity, proposed_scope.slice_identity, proposed_scope.item_identities)
+        cut, project_identity, proposed_slice_identity,
+        proposed_items(cut, project_identity, operator_intent))
     requires: resolved_items.count > 0
     ensures: SliceSelection.created(
-        identity: deterministic_selection_identity(
-            cut, project_identity, proposed_scope.slice_identity, resolved_items),
-        digest: deterministic_selection_digest(
-            cut, project_identity, proposed_scope.slice_identity, resolved_items),
+        identity: selection_identity(cut, project_identity, proposed_slice_identity, resolved_items),
+        digest: selection_digest(cut, project_identity, proposed_slice_identity, resolved_items),
         status: awaiting_approval,
         cut: cut,
         project_identity: project_identity,
-        container_identity: container_for(cut, proposed_scope.slice_identity),
-        component_identity: component_for(cut, proposed_scope.slice_identity),
-        slice_identity: proposed_scope.slice_identity,
+        container_identity: container_for(cut, proposed_slice_identity),
+        component_identity: component_for(cut, proposed_slice_identity),
+        slice_identity: proposed_slice_identity,
         items: resolved_items
     )
 }
@@ -215,7 +297,7 @@ rule PrepareCycle {
     requires: max_outer_cycles > 0
     ensures: CyclePreparation.created(
         identity: preparation_identity,
-        digest: deterministic_preparation_digest(
+        digest: preparation_digest(
             selection, scope, target_stack, execution_profile, cut_digest,
             grader_digest, diagram_digest, max_outer_cycles),
         status: awaiting_approval,
@@ -242,46 +324,51 @@ rule ApprovePreparation {
 -- cycle. Submitting it is its approval, as in the legacy shape.
 rule ApproveWholePlanBySubmission {
     when: SubmitWholePlanRegeneration(operator, request_identity, request_digest)
-    let preparation = whole_plan_preparation(pinned_cut())
-    requires: preparation.selection.items.count > 0
+    let plan = whole_plan_preparation(pinned_cut())
+    requires: plan.selection.items.count > 0
     requires: not exists RegenerationCycle{identity: request_identity}
-    ensures: CyclePreparation.created(
-        identity: whole_plan_preparation_identity(pinned_cut()),
-        digest: preparation.digest,
-        status: approved,
-        selection: preparation.selection,
-        scope: preparation.scope,
-        target_stack: preparation.target_stack,
-        execution_profile: preparation.execution_profile,
-        cut_digest: preparation.cut_digest,
-        grader_digest: preparation.grader_digest,
-        diagram_digest: preparation.diagram_digest,
-        max_outer_cycles: 1
-    )
-    ensures: RegenerationCycle.created(
-        identity: request_identity,
-        preparation: last_created_preparation(whole_plan_preparation_identity(pinned_cut())),
-        request_digest: request_digest,
-        parent_cycle_identity: null,
-        status: submitted,
-        stage: fence,
-        candidate_digest: null,
-        failure_stage: null,
-        failure_kind: null,
-        failure_reason: null
-    )
+    ensures:
+        let preparation = CyclePreparation.created(
+            identity: whole_plan_preparation_identity(pinned_cut()),
+            digest: plan.digest,
+            status: approved,
+            selection: plan.selection,
+            scope: plan.scope,
+            target_stack: plan.target_stack,
+            execution_profile: plan.execution_profile,
+            cut_digest: plan.cut_digest,
+            grader_digest: plan.grader_digest,
+            diagram_digest: plan.diagram_digest,
+            max_outer_cycles: 1
+        )
+        RegenerationCycle.created(
+            identity: request_identity,
+            preparation: preparation,
+            request_digest: request_digest,
+            parent_cycle_identity: null,
+            status: submitted,
+            stage: fence,
+            candidate_digest: null,
+            failure_stage: null,
+            failure_kind: null,
+            failure_reason: null
+        )
 }
 
 -- Submission is idempotent here and only here: a request identity names one cycle. The
 -- control plane opens the cycle's task when the cycle is created
 -- (operator-control-plane.allium OpenCycleTask); a repeat is answered by
--- RepeatIdenticalSubmission or RefuseConflictingSubmission.
+-- RepeatIdenticalSubmission or RefuseConflictingSubmission. The submission names the
+-- backend it runs on; the preparation's execution profile must admit it.
 rule SubmitCycle {
-    when: SubmitRegenerationCycle(operator, request_identity, request_digest, preparation, parent_cycle_identity)
+    when: SubmitRegenerationCycle(operator, request_identity, request_digest, preparation, parent_cycle_identity, backend)
     requires: preparation.status = approved
     requires: fixed_bounded_execution_contract(preparation)
     requires: preparation.selection.items.count > 0
     requires: not exists RegenerationCycle{identity: request_identity}
+    requires: preparation.execution_profile = automatic or
+              (preparation.execution_profile = host_development and backend = host) or
+              (preparation.execution_profile = gondolin_isolated and backend = gondolin)
     ensures: RegenerationCycle.created(
         identity: request_identity,
         request_digest: request_digest,
@@ -299,16 +386,20 @@ rule SubmitCycle {
 -- ORC starts the cycle when it starts the tick dispatched for it. The cycle then runs from the
 -- fence; execution-pipeline.allium moves it through its stages to a terminal status.
 rule StartCycle {
-    when: StartRegenerationCycle(orc, cycle)
+    when: DispatchedTickStarted(orc, cycle)
     requires: cycle.status = submitted
     requires: cycle.stage = fence
     ensures: cycle.status = running
 }
 
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
 invariant ApprovedSelectionDigestIsStable {
     for selection in SliceSelections:
         selection.status = approved implies
-            selection.digest = deterministic_selection_digest(
+            selection.digest = selection_digest(
                 selection.cut,
                 selection.project_identity,
                 selection.slice_identity,
@@ -318,7 +409,7 @@ invariant ApprovedSelectionDigestIsStable {
 invariant ApprovedPreparationDigestIsStable {
     for preparation in CyclePreparations:
         preparation.status = approved implies
-            preparation.digest = deterministic_preparation_digest(
+            preparation.digest = preparation_digest(
                 preparation.selection,
                 preparation.scope,
                 preparation.target_stack,
@@ -329,11 +420,28 @@ invariant ApprovedPreparationDigestIsStable {
                 preparation.max_outer_cycles)
 }
 
+-- A selected item is a titled, stamped scenario: it has an item identity, a scenario digest,
+-- a source, and a non-empty title, and a scenario outside any Rule has no Rule name rather
+-- than an empty one.
+invariant SelectedItemsAreTitledStampedScenarios {
+    for selection in SliceSelections:
+        selection.items.all(item =>
+            item.item_identity != "" and
+            item.scenario_digest != "" and
+            item.source != "" and
+            item.name != "" and
+            (item.rule_name = null or item.rule_name != ""))
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
 surface RegenerationHarness {
     facing operator: Operator
 
     provides:
-        PrepareRegenerationCut(operator, source_commit, backend)
+        PrepareSourceCut(operator, source_commit, backend)
         ComposeSystemView(operator, cut)
         ProposeSliceSelection(operator, cut, project_identity, operator_intent)
         PreviewSliceSelection(operator, cut, project_identity, slice_identity, requested_items)
@@ -342,11 +450,17 @@ surface RegenerationHarness {
                                  target_stack, execution_profile, cut_digest,
                                  grader_digest, diagram_digest, max_outer_cycles)
         ApproveCyclePreparation(operator, preparation, digest)
-        SubmitRegenerationCycle(operator, request_identity, request_digest, preparation, parent_cycle_identity)
+        SubmitRegenerationCycle(operator, request_identity, request_digest, preparation, parent_cycle_identity, backend)
         SubmitWholePlanRegeneration(operator, request_identity, request_digest)
 
+    contracts:
+        demands CutComposition
+        demands SelectionResolution
+        demands PreparationBinding
+
     @guarantee BuilderIsolation
-        -- The builder reads a fenced cut, writes only the declared scope, and does not inherit the operator transcript.
+        -- The builder reads a fenced cut, writes only the declared candidate scope, and does
+        -- not inherit the operator session's transcript.
 
     @guarantee ApprovedChoicesOnly
         -- A cycle runs only from an approved preparation, which binds the cut, the selection,
@@ -361,7 +475,7 @@ surface OrcCycleStart {
     facing orc: OrcRuntime
 
     provides:
-        StartRegenerationCycle(orc, cycle)
+        DispatchedTickStarted(orc, cycle)
 
     @guarantee OrcStartsOnlyDispatchedCycles
         -- ORC starts a cycle only from the tick dispatched for its task; approval and

@@ -35,33 +35,38 @@ verdict and never changes the checklist or its denominator:
 | `@balance` | 36 | New since the legacy harness, cheap on ORC, or closing a known legacy gap: the sealed grader, selection and approval, per-slice and durable builders, the RPC seam, and idempotency. |
 | `@deferred` | 29 | Not needed until a baseline scoreboard exists: runtime evidence (05), prompt optimization (06), and the operator cockpit and Grain surface in 04. |
 
-- Every builder (slice, repair, grader author) is a durable Pi session that ORC launches,
-  keyed by its tick, in a Gondolin room ORC chooses (`02-018`, `02-019`,
-  `execution-pipeline.allium`). The durable Pi host and the Gondolin images are provided, like
-  ORC and Grain; [`.pi/architecture.md`](../../.pi/architecture.md) states the split.
+- Every builder session (slice builder, repair builder, grader author) is a durable Pi session
+  that ORC launches, keyed by its tick, in a builder room ORC chooses (`02-018`, `02-019`,
+  `execution-pipeline.allium`); the builder host reports its end. The builder host and the
+  room images are provided, like ORC and Grain; [`.pi/architecture.md`](../../.pi/architecture.md)
+  states the split and binds each domain term to its technology ("Technology bindings").
 - `plan/02-execution-pipeline/spec.feature` and `execution-pipeline.allium` define the stages of
   the one regeneration cycle (`RegenerationCycle`, declared in `regeneration-cycle.allium`) in the
   legacy shape: fence, regenerate, gate, score, scoreboard, and the one builder session
-  aggregate (`BuilderSession`). The fence and the gate
+  aggregate (`BuilderSession`). The file is named for its slice; the concept is the
+  regeneration cycle. The fence and the gate
   are the harness and feed the build loop; the score and the scoreboard are the instrument and
   never do.
 - `plan/03-instrument/spec.feature` and `instrument.allium` define the instrument: a checklist derived from
-  the spec, a grader written once, calibrated carried/uncarried, sealed, and approved by exact
-  digest, an honest score filed once into the one measurement (`CycleMeasurement`), and a
+  the spec, a grader written once by a grader author, calibrated carried/uncarried, sealed,
+  approved by exact digest, and retired only when an approved successor replaces it, an honest score filed once into the one measurement (`CycleMeasurement`), and a
   scoreboard that compares shared items in both directions.
 - `plan/01-regeneration-cycle/spec.feature` and `regeneration-cycle.allium` define cut preparation,
   composition, selection, preparation approval, idempotent submission, the one cycle aggregate,
-  and the two actors (`Operator`, `OrcRuntime`).
+  the stamped item a selection and its checklist carry (`StampedItem`), and the two actors
+  (`Operator`, `OrcRuntime`).
 - `plan/04-operator-control-plane/spec.feature`, `plan/06-prompt-optimization/spec.feature`,
   `plan/02-execution-pipeline/spec.feature`, and `plan/05-runtime-evidence/spec.feature` own acceptance behavior for
   their corresponding model components.
 - `prompt-optimization.allium` treats the complete model-directed strategy as the GEPA mutation
-  unit. Regeneration and gate repair have separate active instructions and separate
-  measurements. ORC renders deterministic runtime facts beside the selected strategy through one
-  prompt seam; ORC also owns the system and task instructions used by the grader author. Adapters transport exact rendered digests without adding instructions. Execution rooms
-  and verifiers enforce capability and candidate contracts independently of model compliance.
-  GEPA reflection is bound to an explicit Bedrock provider and model, while Pi/Codex builder
-  execution and independent grading remain separate roles.
+  unit. Fresh generation and verification repair (the seam's purposes) have separate active
+  instructions and separate measurements; a later winner supersedes the purpose's previous
+  one. ORC renders the runtime task context beside the selected strategy into one production
+  prompt per builder session role, the grader author's included; the builder host transports
+  its exact digest without adding instructions. Rooms and the gate enforce capability and
+  candidate contracts independently of model compliance. GEPA reflection is bound to an
+  explicit pinned reflection provider and model, while builder execution and independent
+  grading remain separate roles.
 - Tagged acceptance scenarios retain stable `@item-*` identities so Allure results can be
   reconciled with the model without a parallel coverage catalogue. Two instrument-conformance
   scenarios still lack identities and remain an explicit traceability gap.
@@ -74,7 +79,9 @@ verdict and never changes the checklist or its denominator:
   against the cut and explicit operator approval remain authoritative. Exploratory skills,
   dynamic tools, branching, and steering stay in the operator session; only an immutable
   approved fixed execution contract crosses into ORC.
-- `runtime-evidence.allium` separates candidate telemetry, harness observations, independent invariant verdicts, and report projections.
+- `runtime-evidence.allium` separates the candidate's own telemetry, harness observations,
+  independent invariant verdicts, and report projections, with validation rooms, capture
+  policies, and trace artifacts.
 - `event-model/loyly/pi_harness/event_model.clj` (`loyly.pi-harness.event-model`) mandates the
   harness-owned Grain service area. Its block names use the `:loyly.pi-harness/*` namespace, its
   public commands, events, read models, queries, and processors must reconcile with live
@@ -95,7 +102,9 @@ verdict and never changes the checklist or its denominator:
   not invent a UI. `.pi/affordances.schema.json` is an
   extensible vocabulary, not a closed shape: independent conformance ignores unknown fields and
   validates reachable screens, operable accessible actions, declared calls, and visible feedback.
-- `GLOSSARY.md` fixes the regeneration-cycle vocabulary.
+- `GLOSSARY.md` fixes the regeneration-cycle vocabulary and is the authority for every name in
+  the Allium, the Grain Event Model, `.pi/architecture.md`, and the ADRs;
+  `tools/spec/glossary-lint.py` enforces its `_Avoid_` lists (ADR 0005).
 - `docs/adr/0001-session-and-cycle-ownership.md` records why ORC owns the inner cycle while
   operator sessions own approval and outer continuation.
 - `docs/adr/0002-pi-harness-is-an-orc-grain-service-area.md` records why the harness shares
@@ -106,6 +115,8 @@ verdict and never changes the checklist or its denominator:
 - `docs/adr/0004-cycle-facts-are-harness-events.md` records why the cycle's stage facts are
   typed harness events rather than projections of ORC's untyped node outputs, how policies are
   todo processors, and how `node-stages` translates ORC's node facts.
+- `docs/adr/0005-glossary-is-the-authority.md` records why the glossary names everything, how
+  the seam's values are the published language, the renames, and the closed lifecycles.
 - `.pi/architecture.md` ("Context map") states the harness's boundaries: ORC upstream, the
   provided builder host, Gondolin, the regenerated product, and the deferred model providers.
 

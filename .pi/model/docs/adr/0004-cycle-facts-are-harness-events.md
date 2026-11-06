@@ -10,11 +10,12 @@ After ADR 0003 the Allium model holds the whole regeneration cycle, but the Grai
 realised 27 of its 70 rules. The cycle's own facts had no Grain events: the harness self-check,
 the clean room proved, a slice built, a candidate regenerated, a gate attempt, the checklist
 derived, a grader sealed or discarded, the scoreboard reported, the cycle passed or failed, a
-task completed or failed, and the prompt-optimization candidates. ORC runs the workflow that
+task completed or failed, and the instruction candidates of prompt optimization. ORC runs the workflow that
 produces these facts, so there were two places they could live:
 
 - **Projections of ORC's node facts.** Harness read models would fold
-  `:sheet/node-execution-completed` and read each node's `write-keys` to learn what a stage
+  `:sheet/node-execution-completed` and read each node's `write-keys` (ORC's term; avoid it
+  for a stage fact) to learn what a stage
   produced.
 - **Harness events.** ORC's workflow nodes would issue harness commands carrying the typed
   fact, and the harness would record it.
@@ -47,12 +48,12 @@ produces these facts, so there were two places they could live:
 
 ## Why not projections of ORC node facts
 
-ORC's node outputs are untyped: `write-keys` and `write-profile` are `[:map-of :keyword :any]`
-in ORC's schemas. The harness's invariants need typed facts: the honest denominator
-(`MeasurementDenominatorNeverShrinks`, `FailedDenominatorPreserved`), a gate that passes only on
-an observed run (`GatePassRequiresObservedRun`), a clean room only after a passing self-check
-for the same harness digest, and a sealed grader approved only by its exact digest. A
-projection of untyped node outputs can neither refuse a fact that breaks them nor give the
+ORC's node results are untyped: `write-profile` and `write-keys` (avoid that ORC term for a
+stage fact) are `[:map-of :keyword :any]` in ORC's schemas. The harness's invariants need
+typed facts: the honest denominator (`MeasurementDenominatorNeverShrinks`,
+`FailedDenominatorPreserved`), a gate that passes only on an observed run
+(`GatePassRequiresObservedRun`), a clean room only after a passing self-check for the same
+harness digest, and a sealed grader approved only by its exact digest. A projection of untyped node results can neither refuse a fact that breaks them nor give the
 fact a schema the boot guard can check. It would also make the harness's domain language
 depend on how ORC names its nodes and keys.
 
@@ -78,6 +79,6 @@ is a domain fact with a schema and an invariant, which ORC's node facts do not c
   task outcome, runtime evidence, prompt optimization, child cycle) instead of one per block.
 - The declared `:sheet` copy stays; its boot-guard risk and the upstream fix are recorded in
   ADR 0002 ("Known risk").
-- Purpose names differ between Allium (`regeneration`, `gate_repair`) and the Grain and seam
-  wording (`fresh-generation`, `verification-repair`); the seam is fixed, so the alignment is
-  left to a later round.
+- Purpose names differed between Allium (formerly `regeneration` and `gate_repair`) and the
+  Grain and seam wording (`fresh-generation`, `verification-repair`); ADR 0005 aligned Allium
+  with the seam.

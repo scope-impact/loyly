@@ -3,35 +3,33 @@
 --
 -- Scope: observable, session-agnostic control-plane behaviour: how an operator submits,
 -- waits for, and observes regeneration work. ORC owns task execution events.
--- Includes: tasks and receipts, dispatch to ORC, task lifecycle, cycle progress projected
--- from ORC facts, builder session observation and intervention, child cycles, and reads of
--- the durable measurement.
+-- Includes: workflow tasks and receipts, dispatch to ORC, task lifecycle, cycle progress
+-- projected from ORC facts, builder session observation and intervention, child cycles, and
+-- reads of the durable measurement.
 -- Excludes: cuts, selections, preparations, cycles and submission idempotence
 -- (regeneration-cycle.allium, imported as cycle), ORC's own execution semantics (ORC
 -- specs/orc-service.allium), the cycle's stages and builder sessions
--- (execution-pipeline.allium, imported as pipeline), the measurement (instrument.allium,
+-- (execution-pipeline.allium, imported as execution), the measurement (instrument.allium,
 -- imported as instrument), and the seam (affordances.yaml).
 --
--- A HarnessTask is a workflow task, not a cycle: a task may prepare a cut. Builder session
--- views and measurement receipts are read-side projections (the Grain read models
--- builder-sessions and cycle-measurements) of BuilderSession and CycleMeasurement, never
--- authorities, so they are not declared here.
+-- A WorkflowTask is not a cycle: a task may prepare a cut. Builder session views and
+-- measurement receipts are read-side projections (the Grain read models builder-sessions and
+-- cycle-measurements) of BuilderSession and CycleMeasurement, never authorities, so they are
+-- not declared here.
 
 use "./regeneration-cycle.allium" as cycle
-use "./execution-pipeline.allium" as pipeline
+use "./execution-pipeline.allium" as execution
 use "./instrument.allium" as instrument
 
-enum HarnessTaskKind { cut_preparation | regeneration_cycle }
-enum HarnessTaskStatus { submitted | running | completed | failed }
+enum WorkflowTaskKind { cut_preparation | regeneration_cycle }
+enum WorkflowTaskStatus { submitted | running | completed | failed }
 
-value RequestDigest { value: String }
-
-entity HarnessTask {
+entity WorkflowTask {
     identity: String
-    kind: HarnessTaskKind
+    kind: WorkflowTaskKind
     request_identity: String
-    request_digest: RequestDigest
-    status: HarnessTaskStatus
+    request_digest: String
+    status: WorkflowTaskStatus
     trace_identity: String?
     outcome: String?
     preparation_identity: String?
@@ -45,27 +43,69 @@ entity HarnessTask {
     }
 }
 
+-- One projected position of a cycle's progress: the stage and builder session ORC's facts
+-- give at a durable cursor of its trace. It never advances ORC.
 entity CycleProgressView {
     cycle_identity: String
     trace_identity: String
-    stage: String
-    status: HarnessTaskStatus
+    stage: cycle/CycleStage
+    status: WorkflowTaskStatus
     builder_session_identity: String?
     durable_cursor: String?
 }
 
-rule ValidateHarnessGrainServiceArea {
-    when: StartPiHarnessGrainServiceArea(orc, runtime)
+------------------------------------------------------------
+-- Contracts: what the control plane reads of ORC and Grain
+------------------------------------------------------------
+
+-- The startup check of the harness's Grain service area inside ORC's runtime.
+contract ServiceAreaBoot {
+    orc_grain_runtime: () -> String
+    registered_service_area_loaded: (area: String) -> Boolean
+    -- Every registered command, event, read model, query, and processor of the area matches
+    -- a live registry entry, and none is missing or extra.
+    strict_event_model_matches_live_registries: (runtime: String, area: String) -> Boolean
+    every_required_allium_trace_link_resolves: (area: String) -> Boolean
+}
+
+-- How tasks reach ORC and how ORC's facts are read back.
+contract OrcDispatch {
+    full_source_commit: (source_commit: String) -> Boolean
+    supported_backend: (backend: cycle/ExecutionBackend) -> Boolean
+    next_task_identity: () -> String
+    orc_tick_dispatched_for: (task_identity: String) -> Boolean
+    -- The same task always yields the same ORC command identity, so a redelivered dispatch
+    -- starts no second tick.
+    deterministic_orc_command_identity: (task: WorkflowTask) -> String
+    terminal_failure: (stage: cycle/CycleStage, reason: String) -> String
+    -- The task status ORC's facts give at a durable cursor of a trace.
+    projected_orc_task_status: (trace_identity: String, durable_cursor: String?) -> WorkflowTaskStatus
+}
+
+-- What an operator may do to a builder session and a terminal cycle.
+contract SessionControl {
+    latest_workspace_generation: (builder_session: execution/BuilderSession) -> String
+    -- A pause, steer, or fork lands only between committed tool results.
+    safe_intervention_boundary: (builder_session: execution/BuilderSession, intervention_kind: execution/InterventionKind) -> Boolean
+    within_outer_cycle_budget: (parent_task: WorkflowTask, child_preparation: cycle/CyclePreparation) -> Boolean
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+rule ValidatePiHarnessServiceArea {
+    when: PiHarnessServiceAreaLoaded(orc, runtime)
     requires: runtime = orc_grain_runtime()
     requires: registered_service_area_loaded(":loyly.pi-harness")
     requires: strict_event_model_matches_live_registries(runtime, ":loyly.pi-harness")
     requires: every_required_allium_trace_link_resolves(":loyly.pi-harness")
-    ensures: PiHarnessControlPlaneAvailable(runtime: runtime)
+    ensures: PiHarnessServiceAreaValidated(runtime: runtime)
 }
 
 -- Approval alone starts nothing: ORC is dispatched once for each submitted task.
 rule DispatchSubmittedTaskToOrc {
-    when: task: HarnessTask.created
+    when: task: WorkflowTask.created
     requires: not orc_tick_dispatched_for(task.identity)
     ensures: OrcGrainCommandDispatched(
         task_identity: task.identity,
@@ -78,8 +118,8 @@ rule PrepareCutTask {
     when: SubmitCutPreparationTask(operator_session, request_identity, request_digest, source_commit, backend)
     requires: full_source_commit(source_commit)
     requires: supported_backend(backend)
-    requires: not exists HarnessTask{request_identity: request_identity, kind: cut_preparation}
-    ensures: HarnessTask.created(
+    requires: not exists WorkflowTask{request_identity: request_identity, kind: cut_preparation}
+    ensures: WorkflowTask.created(
         identity: next_task_identity(),
         kind: cut_preparation,
         request_identity: request_identity,
@@ -97,7 +137,7 @@ rule PrepareCutTask {
 -- idempotence lives in those rules, not here: a cycle is created once per request identity.
 rule OpenCycleTask {
     when: submitted_cycle: cycle/RegenerationCycle.created
-    ensures: HarnessTask.created(
+    ensures: WorkflowTask.created(
         identity: next_task_identity(),
         kind: regeneration_cycle,
         request_identity: submitted_cycle.identity,
@@ -123,29 +163,29 @@ rule RefuseConflictingSubmission {
     ensures: SubmissionRefused(reason: "request identity conflict")
 }
 
-rule StartHarnessTask {
+rule StartWorkflowTask {
     when: OrcTaskStarted(orc, task, trace_identity)
     requires: task.status = submitted
     ensures: task.status = running
     ensures: task.trace_identity = trace_identity
 }
 
-rule CompleteHarnessTask {
+rule CompleteWorkflowTask {
     when: OrcTaskCompleted(orc, task, outcome)
     requires: task.status = running
     ensures: task.status = completed
     ensures: task.outcome = outcome
 }
 
-rule FailHarnessTask {
+rule FailWorkflowTask {
     when: OrcTaskFailed(orc, task, stage, reason)
     requires: task.status = running
     ensures: task.status = failed
     ensures: task.outcome = terminal_failure(stage, reason)
 }
 
-rule WaitForHarnessTask {
-    when: WaitRegenerationTask(operator_session, task)
+rule WaitForWorkflowTask {
+    when: WaitForTaskOutcome(operator_session, task)
     requires: task.status = completed or task.status = failed
     ensures: TerminalTaskOutcomeReturned(task: task)
 }
@@ -161,12 +201,13 @@ rule ReadDurableMeasurement {
 -- ORC reports progress already translated into the harness's terms: a cycle stage
 -- (regeneration-cycle.allium CycleStage) and the builder session, never a raw ORC node id.
 -- The translation is the Grain read model node-stages, the harness's anti-corruption layer
--- over ORC's :sheet facts (ADR 0004).
+-- over ORC's :sheet facts (ADR 0004). Each projected position is a view; none is a harness
+-- event.
 rule ProjectCycleProgress {
     when: OrcExecutionEventProjected(orc, task, stage, status, builder_session_identity, durable_cursor)
     requires: task.kind = regeneration_cycle
     requires: task.trace_identity != null
-    ensures: CycleProgressProjected(
+    ensures: CycleProgressView.created(
         cycle_identity: task.request_identity,
         trace_identity: task.trace_identity,
         stage: stage,
@@ -174,15 +215,6 @@ rule ProjectCycleProgress {
         builder_session_identity: builder_session_identity,
         durable_cursor: durable_cursor
     )
-}
-
--- Progress is never mirrored into a harness event. The cycle's stage facts (a clean room
--- proved, a gate attempt, a filed score) are domain facts the harness records, not progress
--- (ADR 0004).
-invariant HarnessDoesNotDuplicateOrcExecutionFacts {
-    for progress in CycleProgressViews:
-        projection_source(progress) = authoritative_orc_sheet_events(progress.trace_identity) and
-        not exists HarnessProgressEvent{cycle_identity: progress.cycle_identity}
 }
 
 rule ReadCycleProgress {
@@ -225,26 +257,35 @@ rule ContinueWithChildCycle {
     )
 }
 
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
 invariant OneRequestNamesOneTask {
-    for task in HarnessTasks:
-        count(HarnessTasks where request_identity = task.request_identity and kind = task.kind) = 1
+    for task in WorkflowTasks:
+        count(WorkflowTasks where request_identity = task.request_identity and kind = task.kind) = 1
 }
 
 invariant TerminalOutcomeIsStable {
-    for task in HarnessTasks:
+    for task in WorkflowTasks:
         task.status = completed or task.status = failed implies task.outcome != null
 }
 
-invariant ProgressViewIsNotWorkflowAuthority {
+-- A progress view states what ORC's facts give at its cursor, and nothing ORC did not report.
+invariant ProgressViewMirrorsOrc {
     for progress in CycleProgressViews:
-        progress.status = projected_orc_task_status(progress.trace_identity)
+        progress.status = projected_orc_task_status(progress.trace_identity, progress.durable_cursor)
 }
 
+-- Only an intervention marks a builder session assisted; observing one never does.
 invariant BuilderObservationDoesNotAssist {
-    for builder_session in pipeline/BuilderSessions:
-        builder_session.assisted implies
-            operator_intervened(builder_session.session_identity)
+    for builder_session in execution/BuilderSessions:
+        builder_session.assisted implies builder_session.last_intervention != null
 }
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
 
 surface RegenerationControlPlane {
     facing operator_session: cycle/Operator
@@ -252,15 +293,19 @@ surface RegenerationControlPlane {
     provides:
         SubmitCutPreparationTask(operator_session, request_identity, request_digest, source_commit, backend)
         RepeatRegenerationSubmission(operator_session, task, supplied_digest)
-        WaitRegenerationTask(operator_session, task)
+        WaitForTaskOutcome(operator_session, task)
         QueryCycleProgress(operator_session, cycle_identity)
         ReadCycleMeasurement(operator_session, measured_cycle)
         OpenBuilderSession(operator_session, builder_session)
         InterveneBuilderSession(operator_session, builder_session, intervention_kind)
         PrepareChildCycle(operator_session, parent_task, child_preparation, reason)
 
+    contracts:
+        demands SessionControl
+
     @guarantee DurableTaskObservation
-        -- A replacement worker reconstructs a known task outcome from ORC state and never reruns it to answer a wait.
+        -- A replacement ORC worker reconstructs a known task outcome from ORC state and never
+        -- reruns the task to respond to a wait.
 
     @guarantee RefusalBeforeExecution
         -- Invalid identities, selections, scopes, and backends are refused before builder work begins.
@@ -269,13 +314,14 @@ surface RegenerationControlPlane {
         -- ORC cycle state outlives the Codex, Pi, or other operator session that requested it.
 
     @guarantee ExploratorySessionOwnership
-        -- Skills, dynamic tools, branching, and human steering remain in the operator session.
+        -- Skills, dynamic tools, branching, and human direction remain in the operator session.
 
     @guarantee ImmutableHandoff
         -- Only the approved preparation crosses into ORC; the exploratory transcript never becomes builder input.
 
     @guarantee FixedContractOwnership
-        -- ORC owns bounded prompt execution, constrained tools, retries, termination, grading, and measurement.
+        -- ORC owns bounded production prompt execution, constrained tools, retries,
+        -- termination, grading, and measurement.
 
     @guarantee ObservableNotAuthoritative
         -- Live notifications and builder-session views aid operators but never advance ORC state.
@@ -287,13 +333,22 @@ surface OrcTaskReporting {
     facing orc: cycle/OrcRuntime
 
     provides:
-        StartPiHarnessGrainServiceArea(orc, runtime)
+        PiHarnessServiceAreaLoaded(orc, runtime)
         OrcTaskStarted(orc, task, trace_identity)
         OrcTaskCompleted(orc, task, outcome)
         OrcTaskFailed(orc, task, stage, reason)
         OrcExecutionEventProjected(orc, task, stage, status, builder_session_identity, durable_cursor)
 
+    contracts:
+        demands ServiceAreaBoot
+        demands OrcDispatch
+
     @guarantee TaskFactsAreOrcs
         -- A task's start, completion, failure, and progress come only from ORC's durable
         -- tick facts; the harness projects them and never duplicates them.
+
+    @guarantee ProgressIsNeverMirrored
+        -- No harness event mirrors a tick or node starting or completing. The cycle's stage
+        -- facts (a clean room proved, a gate attempt, a filed score) are domain facts the
+        -- harness records, not progress (ADR 0004).
 }

@@ -31,6 +31,12 @@
 (def ^:private builder-role
   [:enum "slice-builder" "repair-builder" "grader-author"])
 
+(def ^:private execution-backend
+  [:enum "host" "gondolin"])
+
+(def ^:private execution-profile
+  [:enum "host-development" "gondolin-isolated" "automatic"])
+
 (def ^:private builder-instruction-purpose
   [:enum "fresh-generation" "verification-repair"])
 
@@ -42,7 +48,7 @@
 
 (def ^:private room-policy
   [:map
-   [:image :string]
+   [:target-stack :string]
    [:cut-read-only :boolean]
    [:writable-scope [:set :string]]
    [:evidence-root {:optional true} :string]
@@ -89,7 +95,7 @@
    [:selection-id :string]
    [:grader-digest :string]
    [:cut :string]
-   [:backend [:enum "host" "gondolin"]]
+   [:backend execution-backend]
    [:total :int]
    [:passed :int]
    [:failed :int]
@@ -122,7 +128,7 @@
    [:evidence-root :string]
    [:suites-run :int]
    [:fresh-state-root? :boolean]
-   [:answered-by-launched-process? :boolean]
+   [:answered-by-booted-candidate? :boolean]
    [:failure-reason {:optional true} :string]])
 
 (defeventmodel :loyly.pi-harness
@@ -131,9 +137,14 @@
    :commands
    {;; ---- selection and preparation (screen)
     :loyly.pi-harness/record-selection
-    {:description "Record the deterministic selection contract shown for review."
-     :schema [:map [:contract :map]]
-     :reads #{:loyly.pi-harness/selections}
+    {:description "Record the deterministic selection contract shown for review: a named slice and items of a prepared cut, or a slice proposal from the operator's intent resolved against it."
+     :schema [:map
+              [:cut :string]
+              [:project-id :string]
+              [:slice {:optional true} :string]
+              [:item-ids {:optional true} [:vector :string]]
+              [:operator-intent {:optional true} :string]]
+     :reads #{:loyly.pi-harness/selections :loyly.pi-harness/prepared-cuts}
      :produces #{:loyly.pi-harness/selection-recorded}
      :grain/allium [{:spec ".pi/model/regeneration-cycle.allium"
                      :kind :rule :name "PreviewSelection"}
@@ -150,8 +161,13 @@
 
     :loyly.pi-harness/record-cycle-preparation
     {:description "Record the complete cycle preparation shown for review."
-     :schema [:map [:preparation :map]]
-     :reads #{:loyly.pi-harness/cycle-preparations}
+     :schema [:map
+              [:selection-id :string]
+              [:scope [:vector :string]]
+              [:target-stack :string]
+              [:execution-profile execution-profile]
+              [:max-outer-cycles :int]]
+     :reads #{:loyly.pi-harness/selections :loyly.pi-harness/cycle-preparations :loyly.pi-harness/graders}
      :produces #{:loyly.pi-harness/cycle-preparation-recorded}
      :grain/allium [{:spec ".pi/model/regeneration-cycle.allium"
                      :kind :rule :name "PrepareCycle"}]}
@@ -167,7 +183,7 @@
     ;; ---- cuts and tasks
     :loyly.pi-harness/submit-cut-task
     {:description "Submit a source-cut preparation task for one full commit and backend."
-     :schema [:map [:request-id :string] [:source-commit :string] [:execution-backend [:enum "host" "gondolin"]]]
+     :schema [:map [:request-id :string] [:source-commit :string] [:execution-backend execution-backend]]
      :reads #{:loyly.pi-harness/task-receipts}
      :produces #{:loyly.pi-harness/task-submitted}
      :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
@@ -178,7 +194,7 @@
      :schema [:map
               [:task-id :int]
               [:source-commit :string]
-              [:backend [:enum "host" "gondolin"]]
+              [:backend execution-backend]
               [:tree-digest :string]
               [:slices [:vector [:map
                                  [:slice :string]
@@ -193,8 +209,8 @@
                      :kind :rule :name "ComposeCutSystemView"}]}
 
     :loyly.pi-harness/submit-cycle-task
-    {:description "Submit a regeneration cycle for an approved preparation. A repeated request identity returns the original receipt; one reused for a different request is refused."
-     :schema [:map [:request-id :string] [:preparation-id :string] [:parent-cycle-id {:optional true} :string]]
+    {:description "Submit a regeneration cycle for an approved preparation, on a backend its execution profile admits. A repeated request identity returns the original receipt; one reused for a different request is refused."
+     :schema [:map [:request-id :string] [:preparation-id :string] [:execution-backend execution-backend] [:parent-cycle-id {:optional true} :string]]
      :reads #{:loyly.pi-harness/cycle-preparations :loyly.pi-harness/task-receipts}
      :produces #{:loyly.pi-harness/cycle-submitted :loyly.pi-harness/task-submitted}
      :grain/allium [{:spec ".pi/model/regeneration-cycle.allium"
@@ -222,12 +238,12 @@
                      :kind :rule :name "RefuseConflictingSubmission"}]}
 
     :loyly.pi-harness/record-task-receipt
-    {:description "Bind an issued task identity to the ORC tick that started it, so a replacement worker can answer for it. Issued by issue-task-receipt, never by the screen."
+    {:description "Bind an issued task identity to the ORC tick that started it, so a replacement ORC worker can respond for it. Issued by issue-task-receipt, never by the screen."
      :schema [:map [:task-id :int] [:tick-id :uuid] [:cycle-id {:optional true} :string]]
      :reads #{:loyly.pi-harness/task-receipts}
      :produces #{:loyly.pi-harness/task-receipt-issued}
      :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
-                     :kind :rule :name "StartHarnessTask"}]}
+                     :kind :rule :name "StartWorkflowTask"}]}
 
     :loyly.pi-harness/complete-task
     {:description "Record that ORC completed a task's tick, with its outcome. Issued by record-task-outcome."
@@ -235,7 +251,7 @@
      :reads #{:loyly.pi-harness/task-outcomes}
      :produces #{:loyly.pi-harness/task-completed}
      :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
-                     :kind :rule :name "CompleteHarnessTask"}]}
+                     :kind :rule :name "CompleteWorkflowTask"}]}
 
     :loyly.pi-harness/fail-task
     {:description "Record that ORC failed or cancelled a task's tick, with the stage and reason. Issued by record-task-outcome."
@@ -243,7 +259,7 @@
      :reads #{:loyly.pi-harness/task-outcomes}
      :produces #{:loyly.pi-harness/task-failed}
      :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
-                     :kind :rule :name "FailHarnessTask"}]}
+                     :kind :rule :name "FailWorkflowTask"}]}
 
     :loyly.pi-harness/record-child-cycle
     {:description "Record that an operator continues a terminal task's cycle with an approved child preparation, within its outer-cycle budget."
@@ -316,7 +332,7 @@
                      :kind :rule :name "RegenerateCandidate"}]}
 
     :loyly.pi-harness/record-gate-attempt
-    {:description "Record what a gate room the builder does not control observed for one candidate. Issued by ORC's gate node."
+    {:description "Record what the gate room, which the builder does not control, observed for one candidate. Issued by ORC's gate node."
      :schema gate-attempt
      :reads #{:loyly.pi-harness/regeneration-cycles :loyly.pi-harness/gate-attempts}
      :produces #{:loyly.pi-harness/gate-attempt-recorded}
@@ -347,7 +363,7 @@
      :reads #{:loyly.pi-harness/regeneration-cycles :loyly.pi-harness/cycle-preparations}
      :produces #{:loyly.pi-harness/cycle-failed}
      :grain/allium [{:spec ".pi/model/execution-pipeline.allium"
-                     :kind :rule :name "FailPipelineStage"}
+                     :kind :rule :name "FailCycleStage"}
                     {:spec ".pi/model/execution-pipeline.allium"
                      :kind :rule :name "FailAfterThreeGateAttempts"}
                     {:spec ".pi/model/execution-pipeline.allium"
@@ -375,7 +391,7 @@
               [:attempt {:optional true} :int]
               [:role builder-role]
               [:room room-policy]
-              [:prompt-digest :string]]
+              [:production-prompt-digest :string]]
      :reads #{:loyly.pi-harness/builder-sessions}
      :produces #{:loyly.pi-harness/builder-session-launched}
      :grain/allium [{:spec ".pi/model/execution-pipeline.allium"
@@ -386,7 +402,7 @@
      :schema [:map
               [:tick-id :uuid]
               [:room room-policy]
-              [:prompt-digest :string]]
+              [:production-prompt-digest :string]]
      :reads #{:loyly.pi-harness/builder-sessions}
      :produces #{:loyly.pi-harness/builder-session-resumed}
      :grain/allium [{:spec ".pi/model/execution-pipeline.allium"
@@ -400,8 +416,16 @@
      :grain/allium [{:spec ".pi/model/execution-pipeline.allium"
                      :kind :rule :name "BindWorkspaceGeneration"}]}
 
+    :loyly.pi-harness/end-builder-session
+    {:description "The provided builder host reports that a durable session's loop ended: finished (completed) or stopped without finishing (failed)."
+     :schema [:map [:tick-id :uuid] [:finished? :boolean]]
+     :reads #{:loyly.pi-harness/builder-sessions}
+     :produces #{:loyly.pi-harness/builder-session-ended}
+     :grain/allium [{:spec ".pi/model/execution-pipeline.allium"
+                     :kind :rule :name "EndBuilderSession"}]}
+
     :loyly.pi-harness/bind-workspace-generation
-    {:description "Bind the workspace generation a committed builder tool result produced. Issued by bind-committed-workspace."
+    {:description "Bind the workspace generation a committed builder tool result produced. Issued by bind-committed-result."
      :schema [:map [:tick-id :uuid] [:committed-result :string] [:generation :int]]
      :reads #{:loyly.pi-harness/builder-sessions}
      :produces #{:loyly.pi-harness/workspace-generation-bound}
@@ -425,8 +449,18 @@
      :grain/allium [{:spec ".pi/model/instrument.allium"
                      :kind :rule :name "DeriveChecklist"}]}
 
-    :loyly.pi-harness/seal-grader
-    {:description "Seal a calibrating grader whose carried cases passed and uncarried cases failed, authored from the spec and protocol only. Issued by ORC's calibration node."
+    :loyly.pi-harness/request-grader
+    {:description "Ask for a grader for a derived checklist: an approved grader that covers it is recalibrated; otherwise a grader author is requested."
+     :schema [:map [:selection-id :string]]
+     :reads #{:loyly.pi-harness/checklists :loyly.pi-harness/graders}
+     :produces #{:loyly.pi-harness/grader-authoring-requested :loyly.pi-harness/grader-recalibration-requested}
+     :grain/allium [{:spec ".pi/model/instrument.allium"
+                     :kind :rule :name "RequestGraderAuthoring"}
+                    {:spec ".pi/model/instrument.allium"
+                     :kind :rule :name "ReuseApprovedGrader"}]}
+
+    :loyly.pi-harness/record-authored-grader
+    {:description "Record the grader a grader author session wrote; it is calibrating. A replacement names the grader it replaces and its recorded reason. Issued by ORC's grader-author node."
      :schema [:map
               [:grader-digest :string]
               [:scenario-digests [:vector :string]]
@@ -434,20 +468,31 @@
               [:attempt :int]
               [:replaces {:optional true} :string]
               [:replacement-reason {:optional true} grader-replacement-reason]]
+     :reads #{:loyly.pi-harness/graders :loyly.pi-harness/builder-sessions}
+     :produces #{:loyly.pi-harness/grader-authored}
+     :grain/allium [{:spec ".pi/model/instrument.allium"
+                     :kind :rule :name "AuthorGrader"}]}
+
+    :loyly.pi-harness/seal-grader
+    {:description "Seal a calibrating grader whose carried cases passed and uncarried cases failed, authored from the spec and protocol only. Issued by ORC's calibration node."
+     :schema [:map
+              [:grader-digest :string]
+              [:carried-passed? :boolean]
+              [:uncarried-failed? :boolean]]
      :reads #{:loyly.pi-harness/graders}
      :produces #{:loyly.pi-harness/grader-sealed}
      :grain/allium [{:spec ".pi/model/instrument.allium"
                      :kind :rule :name "SealCalibratedGrader"}]}
 
     :loyly.pi-harness/discard-grader
-    {:description "Discard a grader that failed calibration; under three attempts its re-authoring is requested, at the third the instrument is unavailable. Issued by ORC's calibration node."
+    {:description "Discard a grader that failed calibration; under three attempts its re-authoring is requested, at the third the instrument is declared unavailable. Issued by ORC's calibration node."
      :schema [:map
               [:grader-digest :string]
-              [:scenario-digests [:vector :string]]
-              [:attempt :int]
               [:failed-cases [:vector :string]]]
      :reads #{:loyly.pi-harness/graders}
-     :produces #{:loyly.pi-harness/grader-discarded :loyly.pi-harness/instrument-unavailable}
+     :produces #{:loyly.pi-harness/grader-discarded
+                 :loyly.pi-harness/grader-authoring-requested
+                 :loyly.pi-harness/instrument-declared-unavailable}
      :grain/allium [{:spec ".pi/model/instrument.allium"
                      :kind :rule :name "ReauthorUncalibratedGrader"}
                     {:spec ".pi/model/instrument.allium"
@@ -455,11 +500,19 @@
 
     :loyly.pi-harness/approve-grader
     {:description "Record an operator's approval of a sealed, calibrated grader's exact digest."
-     :schema [:map [:approval :map]]
+     :schema [:map [:grader-digest :string] [:approved-by :string]]
      :reads #{:loyly.pi-harness/graders}
      :produces #{:loyly.pi-harness/grader-approved}
      :grain/allium [{:spec ".pi/model/instrument.allium"
                      :kind :rule :name "ApproveExactGrader"}]}
+
+    :loyly.pi-harness/retire-grader
+    {:description "Retire the approved grader an approved successor replaces, for the successor's recorded reason. Issued by retire-replaced-grader."
+     :schema [:map [:grader-digest :string] [:successor-digest :string]]
+     :reads #{:loyly.pi-harness/graders}
+     :produces #{:loyly.pi-harness/grader-replaced}
+     :grain/allium [{:spec ".pi/model/instrument.allium"
+                     :kind :rule :name "RetireReplacedGrader"}]}
 
     :loyly.pi-harness/file-score
     {:description "File the approved sealed grader's verdicts for one cycle, one per checklist item; unreached items fail. A verdict that is neither pass nor fail is refused by the schema; an unknown item or no verdicts at all is refused as score-refused. Issued by file-cycle-score when ORC's score node completes, never by the screen."
@@ -496,7 +549,7 @@
 
     ;; ---- runtime evidence
     :loyly.pi-harness/record-observation
-    {:description "Record one evidence-backed item observation an independent room produced. Issued by record-validation-evidence when ORC reports a validation node completed, never by the screen."
+    {:description "Record one evidence-backed item observation a validation room produced. Issued by record-validation-evidence when ORC reports a validation node completed, never by the screen."
      :schema observation
      :reads #{:loyly.pi-harness/cycle-observations :loyly.pi-harness/node-stages}
      :produces #{:loyly.pi-harness/observation-recorded}
@@ -508,7 +561,7 @@
                      :kind :rule :name "MarkIncompleteInvariantInconclusive"}]}
 
     :loyly.pi-harness/record-validation-room
-    {:description "Record an independent validation room opened for one cycle, with its pinned read-only capture policy and its own writable evidence volume. Issued by ORC's validation node."
+    {:description "Record a validation room opened for one cycle, with its pinned read-only capture policy and its own writable evidence volume. Issued by ORC's validation node."
      :schema [:map
               [:cycle-id :string]
               [:capture-policy [:map [:digest :string] [:mount-path :string] [:read-only? :boolean]]]
@@ -516,10 +569,10 @@
      :reads #{:loyly.pi-harness/cycle-observations}
      :produces #{:loyly.pi-harness/validation-room-opened}
      :grain/allium [{:spec ".pi/model/runtime-evidence.allium"
-                     :kind :rule :name "OpenIndependentValidationRoom"}]}
+                     :kind :rule :name "OpenValidationRoom"}]}
 
     :loyly.pi-harness/bind-baseline-trace
-    {:description "Bind a passing baseline grade to its complete Playwright trace from the independent validator. Issued by ORC's validation node."
+    {:description "Bind a passing baseline grade to its complete trace artifact from the independent validator. Issued by ORC's validation node."
      :schema [:map
               [:cycle-id :string]
               [:evaluation-id :string]
@@ -541,20 +594,20 @@
               [:purpose builder-instruction-purpose]
               [:reflection-provider :string]
               [:reflection-model :string]
-              [:trainset [:vector :any]]
-              [:valset [:vector :any]]]
+              [:trainset [:vector :string]]
+              [:valset [:vector :string]]]
      :reads #{:loyly.pi-harness/prompt-optimizations}
      :produces #{:loyly.pi-harness/prompt-optimization-started}
      :grain/allium [{:spec ".pi/model/prompt-optimization.allium"
                      :kind :rule :name "StartPromptOptimization"}]}
 
     :loyly.pi-harness/record-production-prompt
-    {:description "Record a production prompt ORC rendered for one role from its own instructions and deterministic runtime facts, with its exact digest. Issued by ORC."
+    {:description "Record a production prompt ORC rendered for one builder session role from its own instructions and the runtime task context, with its exact digest. Issued by ORC."
      :schema [:map
-              [:role [:enum "regeneration-builder" "gate-repair-builder" "grader-author"]]
+              [:role builder-role]
               [:system-instruction-digest :string]
               [:task-instruction-digest :string]
-              [:runtime-context-digest :string]]
+              [:runtime-task-context-digest :string]]
      :reads #{:loyly.pi-harness/prompt-optimizations}
      :produces #{:loyly.pi-harness/production-prompt-rendered}
      :grain/allium [{:spec ".pi/model/prompt-optimization.allium"
@@ -580,7 +633,7 @@
     {:description "Record a proposed candidate's independent, purpose-specific measurement against the exact production prompt it ran under. Issued by ORC."
      :schema [:map
               [:candidate-id :string]
-              [:rendered-prompt-digest :string]
+              [:production-prompt-digest :string]
               [:score :double]
               [:evidence-digest :string]]
      :reads #{:loyly.pi-harness/prompt-optimizations}
@@ -588,8 +641,16 @@
      :grain/allium [{:spec ".pi/model/prompt-optimization.allium"
                      :kind :rule :name "MeasureInstructionCandidate"}]}
 
+    :loyly.pi-harness/reject-instruction-candidate
+    {:description "Record that GEPA dropped a proposed or measured candidate of an evaluating optimization. Issued by ORC."
+     :schema [:map [:candidate-id :string]]
+     :reads #{:loyly.pi-harness/prompt-optimizations}
+     :produces #{:loyly.pi-harness/instruction-candidate-rejected}
+     :grain/allium [{:spec ".pi/model/prompt-optimization.allium"
+                     :kind :rule :name "RejectInstructionCandidate"}]}
+
     :loyly.pi-harness/select-winning-instruction
-    {:description "Select the highest measured candidate as the purpose's one active instruction, durably. Issued by ORC."
+    {:description "Select the highest measured candidate as the purpose's one active instruction, durably, superseding the purpose's previous winner. Issued by ORC."
      :schema [:map [:optimization-id :string] [:candidate-id :string]]
      :reads #{:loyly.pi-harness/prompt-optimizations}
      :produces #{:loyly.pi-harness/winning-instruction-selected}
@@ -638,7 +699,7 @@
               [:selection-digest :string]
               [:scope [:vector :string]]
               [:target-stack :string]
-              [:execution-profile [:enum "host-development" "gondolin-isolated" "automatic"]]
+              [:execution-profile execution-profile]
               [:cut-digest :string]
               [:grader-digest :string]
               [:diagram-digest :string]
@@ -665,7 +726,7 @@
               [:cut-id :string]
               [:task-id :int]
               [:source-commit :string]
-              [:backend [:enum "host" "gondolin"]]
+              [:backend execution-backend]
               [:tree-digest :string]
               [:composition-digest :string]
               [:slices [:vector [:map
@@ -712,7 +773,7 @@
               [:failing-checks [:vector :string]]]}
 
     :loyly.pi-harness/clean-room-proved
-    {:description "A clean room was proved for a cycle: a single-commit clone with every fenced path absent from the tree and the object graph. The cycle moves to regenerate."
+    {:description "A clean room was proved for a cycle: a repository of the cut's one commit with every fenced path absent from the tree and the object graph. The cycle moves to regenerate."
      :schema [:map
               [:cycle-id :string]
               [:cut-digest :string]
@@ -770,7 +831,7 @@
               [:role builder-role]
               [:session-id :string]
               [:room room-policy]
-              [:prompt-digest :string]]}
+              [:production-prompt-digest :string]]}
 
     :loyly.pi-harness/builder-session-resumed
     {:description "The durable session of a builder tick was relaunched and resumed; never a second session."
@@ -783,6 +844,10 @@
     :loyly.pi-harness/workspace-generation-bound
     {:description "A committed builder tool result was bound to the workspace generation it produced."
      :schema [:map [:tick-id :uuid] [:committed-result :string] [:generation :int]]}
+
+    :loyly.pi-harness/builder-session-ended
+    {:description "A durable builder session ended, completed or failed, as the builder host reported."
+     :schema [:map [:tick-id :uuid] [:session-id :string] [:status [:enum "completed" "failed"]]]}
 
     :loyly.pi-harness/builder-intervention-recorded
     {:description "An operator paused, steered, or forked a builder session; its work is assisted."
@@ -800,8 +865,19 @@
                                 [:source :string]
                                 [:name :string]]]]]}
 
-    :loyly.pi-harness/grader-sealed
-    {:description "A calibrated grader was sealed by its digest; it awaits an operator's approval."
+    :loyly.pi-harness/grader-authoring-requested
+    {:description "A grader author was requested for scenarios no approved grader covers, or to re-author an uncalibrated grader, with the public-protocol cases it failed."
+     :schema [:map
+              [:scenario-digests [:vector :string]]
+              [:attempt :int]
+              [:failed-cases [:vector :string]]]}
+
+    :loyly.pi-harness/grader-recalibration-requested
+    {:description "The approved grader covering a checklist was asked to recalibrate before it scores."
+     :schema [:map [:grader-digest :string] [:selection-id :string]]}
+
+    :loyly.pi-harness/grader-authored
+    {:description "A grader author session wrote a grader; it is calibrating."
      :schema [:map
               [:grader-digest :string]
               [:scenario-digests [:vector :string]]
@@ -809,6 +885,10 @@
               [:attempt :int]
               [:replaces {:optional true} :string]
               [:replacement-reason {:optional true} grader-replacement-reason]]}
+
+    :loyly.pi-harness/grader-sealed
+    {:description "A calibrated grader was sealed by its digest; it awaits an operator's approval."
+     :schema [:map [:grader-digest :string]]}
 
     :loyly.pi-harness/grader-discarded
     {:description "A grader that failed calibration was discarded, with the public-protocol cases it failed."
@@ -818,9 +898,13 @@
               [:attempt :int]
               [:failed-cases [:vector :string]]]}
 
-    :loyly.pi-harness/instrument-unavailable
-    {:description "Three graders in a row failed calibration for the same scenarios; no instrument is available for them."
+    :loyly.pi-harness/instrument-declared-unavailable
+    {:description "Three graders in a row failed calibration for the same scenarios; the instrument was declared unavailable for them."
      :schema [:map [:scenario-digests [:vector :string]]]}
+
+    :loyly.pi-harness/grader-replaced
+    {:description "An approved grader was retired because an approved successor replaces it, for a recorded reason."
+     :schema [:map [:grader-digest :string] [:successor-digest :string] [:replacement-reason grader-replacement-reason]]}
 
     :loyly.pi-harness/grader-approved
     {:description "An operator approved a sealed, calibrated grader by its exact digest."
@@ -845,14 +929,14 @@
      :schema observation}
 
     :loyly.pi-harness/validation-room-opened
-    {:description "An independent validation room was opened for one cycle with a pinned read-only capture policy and its own evidence volume."
+    {:description "A validation room was opened for one cycle with a pinned read-only capture policy and its own evidence volume."
      :schema [:map
               [:cycle-id :string]
               [:capture-policy [:map [:digest :string] [:mount-path :string] [:read-only? :boolean]]]
               [:evidence-volume [:map [:volume-id :string] [:mount-path :string] [:writable? :boolean]]]]}
 
     :loyly.pi-harness/baseline-trace-bound
-    {:description "A passing baseline grade was bound to its complete Playwright trace."
+    {:description "A passing baseline grade was bound to its complete trace artifact."
      :schema [:map
               [:cycle-id :string]
               [:evaluation-id :string]
@@ -875,14 +959,14 @@
               [:valset-digest :string]]}
 
     :loyly.pi-harness/production-prompt-rendered
-    {:description "ORC rendered a production prompt for one role; its exact digest is what the adapter transports."
+    {:description "ORC rendered a production prompt for one builder session role; its exact digest is what the builder host transports."
      :schema [:map
-              [:prompt-id :string]
-              [:role [:enum "regeneration-builder" "gate-repair-builder" "grader-author"]]
+              [:production-prompt-id :string]
+              [:role builder-role]
               [:system-instruction-digest :string]
               [:task-instruction-digest :string]
-              [:runtime-context-digest :string]
-              [:rendered-prompt-digest :string]]}
+              [:runtime-task-context-digest :string]
+              [:digest :string]]}
 
     :loyly.pi-harness/instruction-candidate-proposed
     {:description "The pinned reflection model proposed an instruction candidate for an evaluating optimization."
@@ -900,15 +984,20 @@
     {:description "A proposed candidate was measured independently for its purpose, under the exact production prompt it ran with."
      :schema [:map
               [:candidate-id :string]
-              [:executed-prompt-digest :string]
+              [:production-prompt-digest :string]
               [:score :double]
               [:evidence-digest :string]]}
 
+    :loyly.pi-harness/instruction-candidate-rejected
+    {:description "GEPA dropped a candidate of an evaluating optimization."
+     :schema [:map [:optimization-id :string] [:candidate-id :string]]}
+
     :loyly.pi-harness/winning-instruction-selected
-    {:description "The highest measured candidate became its purpose's one active instruction; the optimization is optimized."
+    {:description "The highest measured candidate became its purpose's one active instruction, superseding the previous winner for that purpose; the optimization is optimized."
      :schema [:map
               [:optimization-id :string]
               [:candidate-id :string]
+              [:superseded-candidate-id {:optional true} :string]
               [:instruction-id :string]
               [:purpose builder-instruction-purpose]
               [:text-digest :string]]}
@@ -995,10 +1084,11 @@
      :version 1}
 
     :loyly.pi-harness/builder-sessions
-    {:description "Builder sessions: each ORC builder tick's durable session, room, launches, interventions, and workspace generations."
+    {:description "Builder sessions: each ORC builder tick's durable session, builder room, status, launches, interventions, and workspace generations."
      :consumes #{:loyly.pi-harness/builder-session-launched
                  :loyly.pi-harness/builder-session-resumed
                  :loyly.pi-harness/builder-tool-result-committed
+                 :loyly.pi-harness/builder-session-ended
                  :loyly.pi-harness/workspace-generation-bound
                  :loyly.pi-harness/builder-intervention-recorded}
      :schema [:map-of :uuid
@@ -1009,12 +1099,13 @@
                [:cycle-id {:optional true} :string]
                [:attempt {:optional true} :int]
                [:room room-policy]
-               [:prompt-digest :string]
+               [:production-prompt-digest :string]
+               [:status [:enum "running" "completed" "failed"]]
                [:launches :int]
                [:assisted? :boolean]
                [:last-intervention {:optional true} [:enum "pause" "steer" "fork"]]
                [:workspace-generations [:vector [:map [:committed-result :string] [:generation :int]]]]]]
-     :version 2
+     :version 3
      :grain/allium [{:spec ".pi/model/execution-pipeline.allium"
                      :kind :entity :name "BuilderSession"}]}
 
@@ -1045,9 +1136,10 @@
                  :loyly.pi-harness/production-prompt-rendered
                  :loyly.pi-harness/instruction-candidate-proposed
                  :loyly.pi-harness/instruction-candidate-measured
+                 :loyly.pi-harness/instruction-candidate-rejected
                  :loyly.pi-harness/winning-instruction-selected
                  :loyly.pi-harness/prompt-optimization-failed}
-     :version 2}
+     :version 3}
 
     :loyly.pi-harness/checklists
     {:description "Derived checklists by selection."
@@ -1055,12 +1147,18 @@
      :version 1}
 
     :loyly.pi-harness/graders
-    {:description "Graders by digest and status (sealed, approved, discarded), and the scenarios with no instrument."
-     :consumes #{:loyly.pi-harness/grader-sealed
+    {:description "Graders by digest and status (calibrating, sealed, approved, replaced, discarded), the authoring and recalibration requests, and the scenarios with no instrument."
+     :consumes #{:loyly.pi-harness/grader-authoring-requested
+                 :loyly.pi-harness/grader-recalibration-requested
+                 :loyly.pi-harness/grader-authored
+                 :loyly.pi-harness/grader-sealed
                  :loyly.pi-harness/grader-discarded
-                 :loyly.pi-harness/instrument-unavailable
-                 :loyly.pi-harness/grader-approved}
-     :version 2}
+                 :loyly.pi-harness/instrument-declared-unavailable
+                 :loyly.pi-harness/grader-approved
+                 :loyly.pi-harness/grader-replaced}
+     :version 3
+     :grain/allium [{:spec ".pi/model/instrument.allium"
+                     :kind :entity :name "Grader"}]}
 
     :loyly.pi-harness/cycle-observations
     {:description "Evidence grouped by cycle, item, kind, and producer, with each cycle's validation room and bound baseline trace."
@@ -1164,7 +1262,7 @@
      :schema [:map [:task-id :int]]
      :reads #{:loyly.pi-harness/task-outcomes}
      :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
-                     :kind :rule :name "WaitForHarnessTask"}]}
+                     :kind :rule :name "WaitForWorkflowTask"}]}
 
     :loyly.pi-harness/slice-composition
     {:description "Return a prepared cut's product slices and their stamped items."
@@ -1184,6 +1282,11 @@
     {:description "Return an optimization's winning instruction and its measured score."
      :schema [:map [:optimization-id :string]]
      :reads #{:loyly.pi-harness/prompt-optimizations}}
+
+    :loyly.pi-harness/grader
+    {:description "Return one grader by digest with its status and the grader it replaces: the to-do list of the retirement policy."
+     :schema [:map [:grader-digest :string]]
+     :reads #{:loyly.pi-harness/graders}}
 
     :loyly.pi-harness/approved-graders
     {:description "Return every grader an operator approved, in approval order."
@@ -1205,7 +1308,7 @@
      :reads #{:loyly.pi-harness/task-receipt}
      :produces #{:loyly.pi-harness/record-task-receipt}
      :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
-                     :kind :rule :name "StartHarnessTask"}]}
+                     :kind :rule :name "StartWorkflowTask"}]}
 
     :loyly.pi-harness/start-dispatched-cycle
     {:description "When a cycle's task is bound to its ORC tick, start the submitted cycle at the fence."
@@ -1221,9 +1324,9 @@
      :reads #{:loyly.pi-harness/tick-task}
      :produces #{:loyly.pi-harness/complete-task :loyly.pi-harness/fail-task}
      :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
-                     :kind :rule :name "CompleteHarnessTask"}
+                     :kind :rule :name "CompleteWorkflowTask"}
                     {:spec ".pi/model/operator-control-plane.allium"
-                     :kind :rule :name "FailHarnessTask"}]}
+                     :kind :rule :name "FailWorkflowTask"}]}
 
     :loyly.pi-harness/launch-builder-for-tick
     {:description "When ORC starts a node the translation names a builder role, launch its durable Pi session; when ORC resumes it, relaunch the same session."
@@ -1235,7 +1338,7 @@
                     {:spec ".pi/model/execution-pipeline.allium"
                      :kind :rule :name "ResumeDurableBuilderSession"}]}
 
-    :loyly.pi-harness/bind-committed-workspace
+    :loyly.pi-harness/bind-committed-result
     {:description "When the builder host commits a tool result, bind the workspace generation it left to it."
      :subscribes #{:loyly.pi-harness/builder-tool-result-committed}
      :reads #{:loyly.pi-harness/builder-session}
@@ -1254,6 +1357,14 @@
                      :kind :rule :name "RepairAfterFailedGate"}
                     {:spec ".pi/model/execution-pipeline.allium"
                      :kind :rule :name "FailAfterThreeGateAttempts"}]}
+
+    :loyly.pi-harness/retire-replaced-grader
+    {:description "When an operator approves a grader that replaces another, retire the one it replaces."
+     :subscribes #{:loyly.pi-harness/grader-approved}
+     :reads #{:loyly.pi-harness/grader}
+     :produces #{:loyly.pi-harness/retire-grader}
+     :grain/allium [{:spec ".pi/model/instrument.allium"
+                     :kind :rule :name "RetireReplacedGrader"}]}
 
     :loyly.pi-harness/file-cycle-score
     {:description "When the translation names a completed node the score stage of a cycle, file the sealed grader's returned verdicts."
@@ -1313,7 +1424,7 @@
 
    :screens
    {:loyly.pi-harness/pi-regeneration
-    {:description "Session control boundary: operator intents (selection, preparation, approvals, submissions, checklist derivation, grader approval, builder intervention, child cycles, optimization) and read-only queries. It issues no system fact."
+    {:description "Session control boundary: operator intents (selection, preparation, approvals, submissions, checklist derivation, grader request and approval, builder intervention, child cycles, optimization) and read-only queries. It issues no system fact."
      :queries #{:loyly.pi-harness/selection
                 :loyly.pi-harness/task-receipt
                 :loyly.pi-harness/highest-task-id
@@ -1337,6 +1448,7 @@
                  :loyly.pi-harness/record-selection
                  :loyly.pi-harness/approve-selection
                  :loyly.pi-harness/derive-checklist
+                 :loyly.pi-harness/request-grader
                  :loyly.pi-harness/approve-grader
                  :loyly.pi-harness/record-cycle-preparation
                  :loyly.pi-harness/approve-cycle-preparation
@@ -1476,7 +1588,7 @@
                      :kind :rule :name "StartCycle"}]}
 
     :loyly.pi-harness/durable-builder-session
-    {:description "ORC starts a node the translation names a builder role; its durable Pi session is launched once in the room ORC chose (or the same session relaunched), the builder host commits tool results, each is bound to its workspace generation, and an operator observes the session read-only or intervenes."
+    {:description "ORC starts a node the translation names a builder role; its durable Pi session is launched once in the builder room ORC chose (or the same session relaunched), the builder host commits tool results, each is bound to its workspace generation, the host reports the session's end, and an operator observes the session read-only or intervenes."
      :steps [{:from [:event :sheet/node-execution-started]
               :to [:read-model :loyly.pi-harness/node-stages]}
              {:from [:read-model :loyly.pi-harness/node-stages]
@@ -1501,11 +1613,17 @@
               :to [:event :loyly.pi-harness/builder-tool-result-committed]}
              {:from [:event :loyly.pi-harness/builder-tool-result-committed]
               :to [:read-model :loyly.pi-harness/builder-sessions]}
+             {:from nil
+              :to [:command :loyly.pi-harness/end-builder-session]}
+             {:from [:command :loyly.pi-harness/end-builder-session]
+              :to [:event :loyly.pi-harness/builder-session-ended]}
+             {:from [:event :loyly.pi-harness/builder-session-ended]
+              :to [:read-model :loyly.pi-harness/builder-sessions]}
              {:from [:read-model :loyly.pi-harness/builder-sessions]
               :to [:query :loyly.pi-harness/builder-session]}
              {:from [:query :loyly.pi-harness/builder-session]
-              :to [:todo-processor :loyly.pi-harness/bind-committed-workspace]}
-             {:from [:todo-processor :loyly.pi-harness/bind-committed-workspace]
+              :to [:todo-processor :loyly.pi-harness/bind-committed-result]}
+             {:from [:todo-processor :loyly.pi-harness/bind-committed-result]
               :to [:command :loyly.pi-harness/bind-workspace-generation]}
              {:from [:command :loyly.pi-harness/bind-workspace-generation]
               :to [:event :loyly.pi-harness/workspace-generation-bound]}
@@ -1522,7 +1640,9 @@
      :grain/allium [{:spec ".pi/model/execution-pipeline.allium"
                      :kind :rule :name "LaunchDurableBuilderSession"}
                     {:spec ".pi/model/execution-pipeline.allium"
-                     :kind :rule :name "BindWorkspaceGeneration"}]}
+                     :kind :rule :name "BindWorkspaceGeneration"}
+                    {:spec ".pi/model/execution-pipeline.allium"
+                     :kind :rule :name "EndBuilderSession"}]}
 
     :loyly.pi-harness/cycle-harness
     {:description "The harness half of the cycle, which feeds the build loop: ORC's fence node records the self-check and proves the clean room; its regenerate node records each slice build and the candidate; its gate node records the gate attempt, and a policy routes the verdict to the score, back to regenerate, or to a failed gate after three attempts."
@@ -1651,7 +1771,7 @@
                      :kind :surface :name "GraderRuns"}]}
 
     :loyly.pi-harness/grader-preparation
-    {:description "An operator derives a selection's checklist; ORC's calibration node seals a calibrated grader or discards an uncalibrated one (the instrument is unavailable after three); the operator approves a sealed grader's exact digest."
+    {:description "An operator derives a selection's checklist and asks for its grader: an approved grader that covers it is recalibrated, otherwise a grader author is requested; ORC's grader-author node records the authored grader; its calibration node seals a calibrated grader or discards an uncalibrated one (re-authoring it, or declaring the instrument unavailable after three); the operator approves a sealed grader's exact digest, and a policy retires the grader it replaces."
      :steps [{:from [:screen :loyly.pi-harness/pi-regeneration]
               :to [:command :loyly.pi-harness/derive-checklist]}
              {:from [:command :loyly.pi-harness/derive-checklist]
@@ -1662,6 +1782,22 @@
               :to [:query :loyly.pi-harness/checklist]}
              {:from [:query :loyly.pi-harness/checklist]
               :to [:screen :loyly.pi-harness/pi-regeneration]}
+             {:from [:screen :loyly.pi-harness/pi-regeneration]
+              :to [:command :loyly.pi-harness/request-grader]}
+             {:from [:command :loyly.pi-harness/request-grader]
+              :to [:event :loyly.pi-harness/grader-authoring-requested]}
+             {:from [:command :loyly.pi-harness/request-grader]
+              :to [:event :loyly.pi-harness/grader-recalibration-requested]}
+             {:from [:event :loyly.pi-harness/grader-authoring-requested]
+              :to [:read-model :loyly.pi-harness/graders]}
+             {:from [:event :loyly.pi-harness/grader-recalibration-requested]
+              :to [:read-model :loyly.pi-harness/graders]}
+             {:from nil
+              :to [:command :loyly.pi-harness/record-authored-grader]}
+             {:from [:command :loyly.pi-harness/record-authored-grader]
+              :to [:event :loyly.pi-harness/grader-authored]}
+             {:from [:event :loyly.pi-harness/grader-authored]
+              :to [:read-model :loyly.pi-harness/graders]}
              {:from nil
               :to [:command :loyly.pi-harness/seal-grader]}
              {:from [:command :loyly.pi-harness/seal-grader]
@@ -1673,16 +1809,28 @@
              {:from [:command :loyly.pi-harness/discard-grader]
               :to [:event :loyly.pi-harness/grader-discarded]}
              {:from [:command :loyly.pi-harness/discard-grader]
-              :to [:event :loyly.pi-harness/instrument-unavailable]}
+              :to [:event :loyly.pi-harness/grader-authoring-requested]}
+             {:from [:command :loyly.pi-harness/discard-grader]
+              :to [:event :loyly.pi-harness/instrument-declared-unavailable]}
              {:from [:event :loyly.pi-harness/grader-discarded]
               :to [:read-model :loyly.pi-harness/graders]}
-             {:from [:event :loyly.pi-harness/instrument-unavailable]
+             {:from [:event :loyly.pi-harness/instrument-declared-unavailable]
               :to [:read-model :loyly.pi-harness/graders]}
              {:from [:screen :loyly.pi-harness/pi-regeneration]
               :to [:command :loyly.pi-harness/approve-grader]}
              {:from [:command :loyly.pi-harness/approve-grader]
               :to [:event :loyly.pi-harness/grader-approved]}
              {:from [:event :loyly.pi-harness/grader-approved]
+              :to [:read-model :loyly.pi-harness/graders]}
+             {:from [:read-model :loyly.pi-harness/graders]
+              :to [:query :loyly.pi-harness/grader]}
+             {:from [:query :loyly.pi-harness/grader]
+              :to [:todo-processor :loyly.pi-harness/retire-replaced-grader]}
+             {:from [:todo-processor :loyly.pi-harness/retire-replaced-grader]
+              :to [:command :loyly.pi-harness/retire-grader]}
+             {:from [:command :loyly.pi-harness/retire-grader]
+              :to [:event :loyly.pi-harness/grader-replaced]}
+             {:from [:event :loyly.pi-harness/grader-replaced]
               :to [:read-model :loyly.pi-harness/graders]}
              {:from [:read-model :loyly.pi-harness/graders]
               :to [:query :loyly.pi-harness/approved-graders]}
@@ -1719,7 +1867,7 @@
                      :kind :surface :name "OrcTaskReporting"}]}
 
     :loyly.pi-harness/runtime-evidence
-    {:description "ORC's validation node opens an independent validation room and binds a passing baseline to its trace; when the translation names a completed validation node, a processor records its observations, read back as a report projection."
+    {:description "ORC's validation node opens a validation room and binds a passing baseline to its trace artifact; when the translation names a completed validation node, a processor records its observations, read back as a report projection."
      :steps [{:from [:event :sheet/node-execution-completed]
               :to [:read-model :loyly.pi-harness/node-stages]}
              {:from nil
@@ -1749,10 +1897,10 @@
              {:from [:query :loyly.pi-harness/cycle-observations]
               :to [:screen :loyly.pi-harness/pi-regeneration]}]
      :grain/allium [{:spec ".pi/model/runtime-evidence.allium"
-                     :kind :surface :name "RuntimeEvidenceMeasurement"}]}
+                     :kind :surface :name "RuntimeEvidenceReporting"}]}
 
     :loyly.pi-harness/prompt-optimization
-    {:description "An operator starts an optimization; ORC records the production prompts it renders, the candidates the reflection model proposes, their independent measurements, and the winner or its absence; the winner is read back."
+    {:description "An operator starts an optimization; ORC records the production prompts it renders, the candidates the reflection model proposes, their independent measurements, the candidates it drops, and the winner or its absence; the winner is read back."
      :steps [{:from [:screen :loyly.pi-harness/pi-regeneration]
               :to [:command :loyly.pi-harness/start-prompt-optimization]}
              {:from [:command :loyly.pi-harness/start-prompt-optimization]
@@ -1776,6 +1924,12 @@
              {:from [:command :loyly.pi-harness/measure-instruction-candidate]
               :to [:event :loyly.pi-harness/instruction-candidate-measured]}
              {:from [:event :loyly.pi-harness/instruction-candidate-measured]
+              :to [:read-model :loyly.pi-harness/prompt-optimizations]}
+             {:from nil
+              :to [:command :loyly.pi-harness/reject-instruction-candidate]}
+             {:from [:command :loyly.pi-harness/reject-instruction-candidate]
+              :to [:event :loyly.pi-harness/instruction-candidate-rejected]}
+             {:from [:event :loyly.pi-harness/instruction-candidate-rejected]
               :to [:read-model :loyly.pi-harness/prompt-optimizations]}
              {:from nil
               :to [:command :loyly.pi-harness/select-winning-instruction]}

@@ -8,7 +8,7 @@ ORC is already built on Grain. The Pi harness therefore participates in the same
 Grain runtime as the `:loyly.pi-harness` service area instead of maintaining a parallel event
 system or bridging into ORC as though it were external.
 
-Harness commands own cut composition, proposals, approvals, routing, candidate lineage, oracle
+Harness commands own cut composition, proposals, approvals, routing, candidate lineage, grader
 bindings, observations, and measurements. ORC's `:sheet/*` events remain the authoritative record
 of workflow execution. Harness read models may consume those events to present a domain-specific
 progress view, but they must not emit mirror progress facts. The generated product remains a
@@ -45,8 +45,8 @@ Two consequences above no longer hold; the decision itself stands.
 ## Known risk, 2026-11-06
 
 The declared `:sheet` copy in `event-model/orc/sheet/event_model.clj` is partial: it holds only
-the command and five events the harness dispatches or projects. Inside ORC's process, Grain's
-strict boot guard (`verify-or-throw!`) checks every live block against the registered model.
+the command and five events the harness dispatches or projects. Inside the harness process,
+where ORC runs, Grain's strict boot guard (`verify-or-throw!`) checks every live block against the registered model.
 With this copy registered, ORC's other `:sheet` blocks would be live but unmodelled
 (uncovered), and because `defeventmodel` registers by area, whichever `:sheet` registration
 loads last replaces the other. The copy is therefore safe only while ORC registers no `:sheet`

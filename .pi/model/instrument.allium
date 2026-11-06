@@ -1,21 +1,25 @@
 -- allium: 3
 -- instrument.allium
 --
--- Scope: the instrument: a checklist derived from the spec, a grader written once,
--- calibrated, sealed, and approved by digest, a score with an honest denominator, and a
--- scoreboard that compares cycles on shared items in both directions. It reports to a
+-- Scope: the instrument: a checklist derived from the spec, a grader written once by a grader
+-- author, calibrated, sealed, and approved by digest, a score with an honest denominator, and
+-- a scoreboard that compares cycles on shared items in both directions. It reports to a
 -- person and never feeds the build loop.
--- Includes: stamping, checklist derivation, grader calibration, sealing, approval, reuse
--- and replacement, score filing into the one measurement aggregate (CycleMeasurement), its
--- refusals, and scoreboard comparison.
--- Excludes: the grader's own test logic, building candidates, the gate, and ORC's
--- evaluation judges (ORC specs/evaluation.allium): their scores are diagnostic runtime
--- evidence (runtime-evidence.allium), never a verdict. ORC runs the sealed grader as a
--- bounded step of the score stage; the rules below, not ORC, file its verdicts.
+-- Includes: stamping, checklist derivation, grader authoring, calibration, sealing, approval,
+-- reuse and replacement, score filing into the one measurement aggregate (CycleMeasurement),
+-- its refusals, and scoreboard comparison.
+-- Excludes: the grader's own test logic, building candidates, the gate, the grader author's
+-- builder session (execution-pipeline.allium BuilderSession), and ORC's evaluation judges
+-- (ORC specs/evaluation.allium): their scores are diagnostic runtime evidence
+-- (runtime-evidence.allium), never a verdict. ORC runs the sealed grader as a bounded step of
+-- the score stage; the rules below, not ORC, file its verdicts.
 
 use "./regeneration-cycle.allium" as cycle
 
-enum GraderStatus { calibrating | sealed | approved | discarded }
+-- A grader is calibrating once authored, sealed once calibrated, approved once an operator
+-- approves its exact digest, and replaced when an approved successor names it. An
+-- uncalibrated grader is discarded.
+enum GraderStatus { calibrating | sealed | approved | replaced | discarded }
 enum GraderReplacementReason { instrument_behavior_changed | wording_replaced | spec_grew }
 -- A filed verdict has two values. Inconclusive evidence, like no evidence, files as fail with
 -- the reason, so the item stays in the denominator.
@@ -34,7 +38,8 @@ entity Grader {
         calibrating -> sealed
         calibrating -> discarded
         sealed -> approved
-        terminal: approved, discarded
+        approved -> replaced
+        terminal: replaced, discarded
     }
 }
 
@@ -60,19 +65,11 @@ entity CycleMeasurement {
     items: List<ItemScore>
 }
 
--- A checklist item names where it came from: its Rule (or none), the file and line of its
--- Scenario line, and its title with surrounding whitespace stripped.
-value ChecklistItem {
-    item_identity: String
-    scenario_digest: String
-    rule_name: String?
-    source: String
-    name: String
-}
-
+-- The checklist of an approved selection: one stamped item per stamped scenario, ordered by
+-- file then position.
 entity Checklist {
-    selection_identity: String
-    items: List<ChecklistItem>
+    selection: cycle/SliceSelection
+    items: List<cycle/StampedItem>
 }
 
 -- An item identity, once stamped on a scenario, never moves: it is not renumbered, not
@@ -84,7 +81,7 @@ entity StampedIdentity {
 }
 
 -- A golden is written from one scenario's stated inputs and exact output, never recorded
--- from an implementation. It is instrument material and never enters a clean room.
+-- from a run. It is instrument material and never enters a clean room.
 entity InstrumentGolden {
     identity: String
     scenario_identity: String
@@ -105,10 +102,85 @@ entity Scoreboard {
     dropped_items: List<String>
 }
 
+------------------------------------------------------------
+-- Contracts: what the instrument's rules read
+------------------------------------------------------------
+
+-- The stamper's reading of a slice file.
+contract ItemStamping {
+    scenario_has_item_tag: (scenario: String) -> Boolean
+    -- One past the highest item tag ever present in the file, so a deleted scenario's
+    -- number is never reused.
+    highest_item_sequence_in_file: (slice_file: String) -> Integer
+    item_identity: (slice_file: String, sequence: Integer) -> String
+    scenario_indentation: (scenario: String) -> String
+    scenarios_in: (slice_file: String) -> List<String>
+    every_scenario_has_stamped_identity: (scenarios: List<String>) -> Boolean
+}
+
+-- How a checklist is derived and a golden is written.
+contract ChecklistDerivation {
+    -- One stamped item per scenario with a title; a scenario whose title is empty is no item.
+    one_item_per_titled_scenario: (scenarios: List<String>) -> List<cycle/StampedItem>
+    ordered_by_file_then_position: (items: List<cycle/StampedItem>) -> List<cycle/StampedItem>
+    -- The scenario states exact inputs and an exact output, refusal reasons included.
+    scenario_fixes_exact_instrument_behaviour: (scenario_identity: String) -> Boolean
+    -- The golden's output was written from the scenario, not captured from a run.
+    written_from_scenario_not_captured: (identity: String) -> Boolean
+    -- A spec-grew replacement only adds cases (goldens) or items (graders).
+    only_adds_cases: (previous: InstrumentGolden, identity: String) -> Boolean
+    only_adds_items: (previous: Grader, successor: Grader) -> Boolean
+}
+
+-- How a grader is authored, calibrated, and reused.
+contract GraderAuthoring {
+    -- The grader author's session read only the selected Gherkin and the public calibration
+    -- protocol.
+    grader_author_read_only_spec_and_protocol: (author_session_identity: String) -> Boolean
+    failed_cases_come_only_from_public_protocol: (failed_cases: List<String>) -> Boolean
+    -- The approved grader whose scenario digests cover every item of the checklist, if any.
+    approved_grader_covering: (checklist: Checklist) -> Grader?
+    checklist_scenario_digests: (checklist: Checklist) -> List<String>
+
+    @invariant CandidateBlindAuthor
+        -- A grader author reads no candidate, transcript, prior verdict, or host credential;
+        -- its grader is a function of the selected Gherkin and the public calibration
+        -- protocol alone.
+}
+
+-- How returned verdicts are checked and filed.
+contract ScoreFiling {
+    every_verdict_names_a_checklist_item: (verdicts: List<String>, checklist: Checklist) -> Boolean
+    every_verdict_is_pass_or_fail: (verdicts: List<String>) -> Boolean
+    -- One item score per checklist item, in checklist order: a repeated verdict keeps the
+    -- last, evidence is empty when absent, and an item with no verdict is unreached and fails.
+    one_score_per_checklist_item: (checklist: Checklist, verdicts: List<String>) -> List<ItemScore>
+    unknown_items_in_return_order: (verdicts: List<String>, checklist: Checklist) -> List<String>
+    items_without_pass_or_fail: (verdicts: List<String>) -> List<String>
+}
+
+-- The scoreboard's arithmetic over the cycle's measurement and the previous measurement of
+-- the same selection. A rate exactly on a half rounds to the even digit; a zero denominator
+-- reports no percentage.
+contract ScoreboardArithmetic {
+    previous_measurement: (scored: cycle/RegenerationCycle) -> String?
+    pass_rate: (scored: cycle/RegenerationCycle) -> Decimal
+    denominator: (scored: cycle/RegenerationCycle) -> Integer
+    shared_items: (scored: cycle/RegenerationCycle) -> List<String>
+    newly_passing: (scored: cycle/RegenerationCycle) -> List<String>
+    newly_failing: (scored: cycle/RegenerationCycle) -> List<String>
+    new_items: (scored: cycle/RegenerationCycle) -> List<String>
+    dropped_items: (scored: cycle/RegenerationCycle) -> List<String>
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
 -- The next free sequence is one past the highest item tag ever present in the file, so a
 -- deleted scenario's number is never reused. A tag that is not an item tag does not stamp.
 rule StampScenario {
-    when: ScenarioFoundUnstamped(slice_file, scenario)
+    when: StampSliceScenario(operator, slice_file, scenario)
     requires: not scenario_has_item_tag(scenario)
     let sequence = highest_item_sequence_in_file(slice_file) + 1
     ensures: StampedIdentity.created(
@@ -120,7 +192,7 @@ rule StampScenario {
 }
 
 rule WriteInstrumentGolden {
-    when: InstrumentGoldenWritten(identity, scenario_identity, digest, replaces, replacement_reason)
+    when: RecordInstrumentGolden(operator, identity, scenario_identity, digest, replaces, replacement_reason)
     requires: scenario_fixes_exact_instrument_behaviour(scenario_identity)
     requires: written_from_scenario_not_captured(identity)
     requires: replaces = null or replacement_reason != null
@@ -135,27 +207,68 @@ rule WriteInstrumentGolden {
 }
 
 rule LeaveStampedSliceUnwritten {
-    when: SliceStampRequested(slice_file)
+    when: StampSlice(operator, slice_file)
     requires: every_scenario_has_stamped_identity(scenarios_in(slice_file))
     ensures: SliceLeftUnwritten(slice_file: slice_file)
 }
 
 -- The checklist is never written; a scenario nobody stamped stops the run.
 rule DeriveChecklist {
-    when: ChecklistRequested(selection_identity, scenarios)
+    when: DeriveSelectionChecklist(operator, selection, scenarios)
     requires: scenarios.count > 0
     requires: every_scenario_has_stamped_identity(scenarios)
+    requires: selection.status = approved
     ensures: Checklist.created(
-        selection_identity: selection_identity,
+        selection: selection,
         items: ordered_by_file_then_position(one_item_per_titled_scenario(scenarios))
     )
 }
 
--- A grader is authored from the selected Gherkin and the public calibration protocol only.
+-- A checklist no approved grader covers asks ORC for a grader author: a fresh builder
+-- session in a grader-author room (execution-pipeline.allium).
+rule RequestGraderAuthoring {
+    when: RequestGrader(operator, checklist)
+    requires: not exists approved_grader_covering(checklist)
+    ensures: GraderAuthoringRequested(
+        scenario_digests: checklist_scenario_digests(checklist),
+        attempt: 1,
+        failed_cases: []
+    )
+}
+
+-- An approved grader is reused, re-calibrated before every score, and replaced only for
+-- the items whose scenario digest changed.
+rule ReuseApprovedGrader {
+    when: RequestGrader(operator, checklist)
+    requires: exists approved_grader_covering(checklist)
+    ensures: GraderRecalibrationRequested(grader: approved_grader_covering(checklist))
+}
+
+-- A grader author's session produced a grader. It is calibrating until its calibration is
+-- reported. A replacement names the grader it replaces and its recorded reason.
+rule AuthorGrader {
+    when: GraderAuthored(orc, grader_digest, scenario_digests, author_session_identity, attempt, replaces, replacement_reason)
+    requires: not exists Grader{digest: grader_digest}
+    requires: attempt >= 1
+    requires: attempt <= 3
+    requires: replaces = null or replacement_reason != null
+    ensures: Grader.created(
+        digest: grader_digest,
+        scenario_digests: scenario_digests,
+        author_session_identity: author_session_identity,
+        attempt: attempt,
+        status: calibrating,
+        replaces: replaces,
+        replacement_reason: replacement_reason
+    )
+}
+
+-- A grader is sealed only when carried behavior passed and uncarried behavior failed, and
+-- only when its author read the selected Gherkin and the public calibration protocol alone.
 rule SealCalibratedGrader {
     when: GraderCalibrated(orc, grader, carried_passed, uncarried_failed)
     requires: grader.status = calibrating
-    requires: grader_author_read_only_spec_and_protocol(grader)
+    requires: grader_author_read_only_spec_and_protocol(grader.author_session_identity)
     requires: carried_passed
     requires: uncarried_failed
     ensures: grader.status = sealed
@@ -179,7 +292,7 @@ rule StopAfterThreeUncalibratedGraders {
     requires: grader.status = calibrating
     requires: grader.attempt = 3
     ensures: grader.status = discarded
-    ensures: InstrumentUnavailable(scenario_digests: grader.scenario_digests)
+    ensures: InstrumentDeclaredUnavailable(scenario_digests: grader.scenario_digests)
 }
 
 -- Only an operator approves a grader, and only its exact digest.
@@ -193,12 +306,13 @@ rule ApproveExactGrader {
     ensures: grader.status = approved
 }
 
--- An approved grader is reused, re-calibrated before every score, and replaced only for
--- the items whose scenario digest changed.
-rule ReuseApprovedGrader {
-    when: GraderRequested(selection_identity, checklist)
-    requires: exists approved_grader_covering(checklist)
-    ensures: GraderRecalibrationRequested(grader: approved_grader_covering(checklist))
+-- Approving a replacement retires the grader it replaces: never to turn a failing score
+-- green, only for its recorded reason.
+rule RetireReplacedGrader {
+    when: successor: Grader.status becomes approved
+    requires: successor.replaces != null
+    requires: successor.replaces.status = approved
+    ensures: successor.replaces.status = replaced
 }
 
 -- Score: the one rule that files a measurement. ORC runs the approved sealed grader as a
@@ -208,7 +322,7 @@ rule FileScore {
     requires: cycle.status = running
     requires: cycle.stage = score
     requires: grader.status = approved
-    requires: grader.digest = cycle.preparation.grader_digest.value
+    requires: grader.digest = cycle.preparation.grader_digest
     requires: verdicts.count > 0
     requires: every_verdict_names_a_checklist_item(verdicts, checklist)
     requires: every_verdict_is_pass_or_fail(verdicts)
@@ -286,9 +400,15 @@ rule ReportComparedScoreboard {
     )
 }
 
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+-- A measurement's grader was approved when it filed; a later replacement does not unfile it.
 invariant ScoreUsesOnlyApprovedGraders {
     for measurement in CycleMeasurements:
-        grader_status(measurement.grader_digest) = approved
+        exists Graders where digest = measurement.grader_digest and
+            (status = approved or status = replaced)
 }
 
 invariant UnreachedItemsFail {
@@ -307,26 +427,40 @@ invariant MeasurementDenominatorNeverShrinks {
         measurement.passed + measurement.failed = measurement.total
 }
 
-invariant ScoreboardNeverNets {
+-- The two directions are restated on shared items only, and never overlap: an item is newly
+-- passing or newly failing, never both, so nothing can be netted.
+invariant ScoreboardComparesSharedItemsOnly {
     for board in Scoreboards:
-        board.newly_passing and board.newly_failing are reported separately
+        board.newly_passing.all(item => item in board.shared_items) and
+        board.newly_failing.all(item => item in board.shared_items) and
+        board.newly_passing.all(item => not (item in board.newly_failing))
 }
 
-invariant GraderAuthorIsCandidateBlind {
+-- A grader replaces another only for a recorded reason.
+invariant ReplacementNamesItsReason {
     for grader in Graders:
-        grader_author_read_only_spec_and_protocol(grader)
+        grader.replaces != null implies grader.replacement_reason != null
 }
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
 
 surface Instrument {
     facing operator: cycle/Operator
 
     provides:
-        ChecklistRequested(selection_identity, scenarios)
+        DeriveSelectionChecklist(operator, selection, scenarios)
+        RequestGrader(operator, checklist)
         ApproveGrader(operator, grader, supplied_digest)
-        GraderRequested(selection_identity, checklist)
-        SliceStampRequested(slice_file)
-        InstrumentGoldenWritten(identity, scenario_identity, digest, replaces, replacement_reason)
-        ScenarioFoundUnstamped(slice_file, scenario)
+        StampSlice(operator, slice_file)
+        StampSliceScenario(operator, slice_file, scenario)
+        RecordInstrumentGolden(operator, identity, scenario_identity, digest, replaces, replacement_reason)
+
+    contracts:
+        demands ItemStamping
+        demands ChecklistDerivation
+        demands ScoreboardArithmetic
 
     @guarantee DerivedChecklist
         -- The denominator is one item per stamped scenario of the approved selection and never
@@ -360,24 +494,29 @@ surface Instrument {
 
     @guarantee GoldensFromTheSpec
         -- The instrument's exact behaviour is held by goldens written from its scenarios, never
-        -- recorded from an implementation, replaced only for a recorded reason, and fenced from
-        -- every clean room.
+        -- recorded from a run, replaced only for a recorded reason, and fenced from every
+        -- clean room.
 
     @guarantee FixedArithmetic
         -- A rate exactly on a half rounds to the even digit (1 of 16 is 6.2); a zero
         -- denominator reports no percentage.
 }
 
--- The facts ORC reports from the grader runs it bounds: calibration outcomes and a score's
--- returned verdicts. Only ORC's runtime reports them; an operator approves a grader but can
--- never return a score.
+-- The facts ORC reports from the grader runs it bounds: an authored grader, calibration
+-- outcomes, and a score's returned verdicts. Only ORC's runtime reports them; an operator
+-- approves a grader but can never author one or return a score.
 surface GraderRuns {
     facing orc: cycle/OrcRuntime
 
     provides:
+        GraderAuthored(orc, grader_digest, scenario_digests, author_session_identity, attempt, replaces, replacement_reason)
         GraderCalibrated(orc, grader, carried_passed, uncarried_failed)
         GraderCalibrationFailed(orc, grader, failed_cases)
         ScoreReturned(orc, cycle, grader, checklist, verdicts)
+
+    contracts:
+        demands GraderAuthoring
+        demands ScoreFiling
 
     @guarantee VerdictsComeOnlyFromTheSealedGrader
         -- A returned score is the approved sealed grader's output for the cycle's gated

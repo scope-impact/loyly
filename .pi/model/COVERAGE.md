@@ -18,7 +18,9 @@ an Allium rule.
 | `09-rpc-seam` | JSON-RPC over stdio | `affordances.yaml` (`seam`) | 4 | Specified as the seam; no Allium spec by design |
 
 94 items in total. Slices 07 and 08 are not used: the durable Pi builder host and its
-Gondolin runtime are provided, not generated (see `.pi/architecture.md`). The glossary is `GLOSSARY.md`.
+Gondolin runtime are provided, not generated (see `.pi/architecture.md`). The glossary is
+`GLOSSARY.md`, the authority for the model's words (ADR 0005); `tools/spec/glossary-lint.py`
+enforces its `_Avoid_` lists.
 
 ## Event Model
 
@@ -27,7 +29,7 @@ matching its path:
 
 | Area | File | Blocks |
 |---|---|---|
-| `:loyly.pi-harness` | `event-model/loyly/pi_harness/event_model.clj` | 41 commands, 42 events, 16 read models, 18 queries, 13 todo processors, 1 screen, 11 flows |
+| `:loyly.pi-harness` | `event-model/loyly/pi_harness/event_model.clj` | 46 commands, 48 events, 16 read models, 19 queries, 14 todo processors, 1 screen, 11 flows |
 | `:sheet` | `event-model/orc/sheet/event_model.clj` | 1 command, 5 events: the ORC blocks the harness dispatches or projects |
 
 ORC registers no Event Model of its own. The `:sheet` schemas are copied from
@@ -55,9 +57,9 @@ by a node of the workflow ORC runs for the harness.
 | `record-prepared-cut` | ORC cut-preparation node | `regeneration-cycle.allium` `PrepareCut`, `ComposeCutSystemView` |
 | `submit-cycle-task` | screen | `regeneration-cycle.allium` `SubmitCycle`; `operator-control-plane.allium` `OpenCycleTask`, `RepeatIdenticalSubmission`, `RefuseConflictingSubmission` |
 | `submit-whole-plan-cycle` | screen | `regeneration-cycle.allium` `ApproveWholePlanBySubmission`; `operator-control-plane.allium` `OpenCycleTask`, `RepeatIdenticalSubmission`, `RefuseConflictingSubmission` |
-| `record-task-receipt` | processor `issue-task-receipt` | `operator-control-plane.allium` `StartHarnessTask` |
-| `complete-task` | processor `record-task-outcome` | `operator-control-plane.allium` `CompleteHarnessTask` |
-| `fail-task` | processor `record-task-outcome` | `operator-control-plane.allium` `FailHarnessTask` |
+| `record-task-receipt` | processor `issue-task-receipt` | `operator-control-plane.allium` `StartWorkflowTask` |
+| `complete-task` | processor `record-task-outcome` | `operator-control-plane.allium` `CompleteWorkflowTask` |
+| `fail-task` | processor `record-task-outcome` | `operator-control-plane.allium` `FailWorkflowTask` |
 | `record-child-cycle` | screen | `operator-control-plane.allium` `ContinueWithChildCycle` |
 | `start-cycle` | processor `start-dispatched-cycle` | `regeneration-cycle.allium` `StartCycle` |
 | `record-harness-self-check` | ORC fence node | `execution-pipeline.allium` `RunHarnessSelfCheck` |
@@ -66,47 +68,53 @@ by a node of the workflow ORC runs for the harness.
 | `record-candidate` | ORC regenerate node | `execution-pipeline.allium` `RegenerateCandidate` |
 | `record-gate-attempt` | ORC gate node | `execution-pipeline.allium` `RecordGateAttempt` |
 | `advance-cycle-stage` | processors `route-gate-verdict`, `route-filed-score`, `close-reported-cycle` | `execution-pipeline.allium` `PassGate`, `RepairAfterFailedGate`, `AdvanceToScoreboard`, `RecordScoreboard` |
-| `fail-cycle-stage` | processors `route-gate-verdict`, `route-filed-score`; ORC (a stage timed out, errored, or was skipped) | `execution-pipeline.allium` `FailPipelineStage`, `FailAfterThreeGateAttempts`, `FailRefusedScore` |
+| `fail-cycle-stage` | processors `route-gate-verdict`, `route-filed-score`; ORC (a stage timed out, errored, or was skipped) | `execution-pipeline.allium` `FailCycleStage`, `FailAfterThreeGateAttempts`, `FailRefusedScore` |
 | `conclude-cycle` | processor `conclude-cycle-result` | `execution-pipeline.allium` `PassCycle`, `FailCycle` |
 | `launch-builder-session` | processor `launch-builder-for-tick` | `execution-pipeline.allium` `LaunchDurableBuilderSession` |
 | `relaunch-builder-session` | processor `launch-builder-for-tick` | `execution-pipeline.allium` `ResumeDurableBuilderSession` |
 | `commit-builder-tool-result` | the provided builder host | `execution-pipeline.allium` `BindWorkspaceGeneration` |
-| `bind-workspace-generation` | processor `bind-committed-workspace` | `execution-pipeline.allium` `BindWorkspaceGeneration` |
+| `end-builder-session` | the provided builder host | `execution-pipeline.allium` `EndBuilderSession` |
+| `bind-workspace-generation` | processor `bind-committed-result` | `execution-pipeline.allium` `BindWorkspaceGeneration` |
 | `intervene-in-builder-session` | screen | `operator-control-plane.allium` `InterveneInBuilderSession` |
 | `derive-checklist` | screen | `instrument.allium` `DeriveChecklist` |
+| `request-grader` | screen | `instrument.allium` `RequestGraderAuthoring`, `ReuseApprovedGrader` |
+| `record-authored-grader` | ORC grader-author node | `instrument.allium` `AuthorGrader` |
 | `seal-grader` | ORC calibration node | `instrument.allium` `SealCalibratedGrader` |
 | `discard-grader` | ORC calibration node | `instrument.allium` `ReauthorUncalibratedGrader`, `StopAfterThreeUncalibratedGraders` |
 | `approve-grader` | screen | `instrument.allium` `ApproveExactGrader` |
+| `retire-grader` | processor `retire-replaced-grader` | `instrument.allium` `RetireReplacedGrader` |
 | `file-score` | processor `file-cycle-score` | `instrument.allium` `FileScore`, `RefuseEmptyScore`, `RefuseUnknownVerdicts`, `RefuseInvalidVerdicts` |
 | `report-scoreboard` | processor `report-cycle-scoreboard` | `instrument.allium` `ReportFirstScoreboard`, `ReportComparedScoreboard` |
 | `record-observation` | processor `record-validation-evidence` | `runtime-evidence.allium` `RecordRuntimeSignal`, `EvaluateCompleteInvariant`, `MarkIncompleteInvariantInconclusive` |
-| `record-validation-room` | ORC validation node | `runtime-evidence.allium` `OpenIndependentValidationRoom` |
+| `record-validation-room` | ORC validation node | `runtime-evidence.allium` `OpenValidationRoom` |
 | `bind-baseline-trace` | ORC validation node | `runtime-evidence.allium` `BindSuccessfulBaselineTrace` |
 | `start-prompt-optimization` | screen | `prompt-optimization.allium` `StartPromptOptimization` |
 | `record-production-prompt` | ORC | `prompt-optimization.allium` `RenderProductionPrompt` |
 | `propose-instruction-candidate` | ORC | `prompt-optimization.allium` `ProposeInstructionCandidate` |
 | `measure-instruction-candidate` | ORC | `prompt-optimization.allium` `MeasureInstructionCandidate` |
+| `reject-instruction-candidate` | ORC | `prompt-optimization.allium` `RejectInstructionCandidate` |
 | `select-winning-instruction` | ORC | `prompt-optimization.allium` `SelectWinningInstruction` |
 | `fail-prompt-optimization` | ORC | `prompt-optimization.allium` `FailPromptOptimization` |
 | `:sheet/tick-tree` | processor `dispatch-submitted-task` | `operator-control-plane.allium` `DispatchSubmittedTaskToOrc` |
 | screen `pi-regeneration` | — | surfaces `RegenerationControlPlane`, `RegenerationHarness`, `Instrument`, `BuilderPromptOptimization` |
 
 Pure reads are queries, linked to the rule they realise: `cycle-progress` (`ReadCycleProgress`),
-`cycle-measurement` (`ReadDurableMeasurement`), `task-outcome` (`WaitForHarnessTask`),
+`cycle-measurement` (`ReadDurableMeasurement`), `task-outcome` (`WaitForWorkflowTask`),
 `builder-session` (`ObserveBuilderSession`), `slice-composition` (`ComposeCutSystemView`), and
 `cycle-observations` (`ProjectRuntimeEvidence`). The read model `node-stages` links
-`ProjectCycleProgress`.
+`ProjectCycleProgress`; `graders` links the entity `Grader`.
 
 ### Policies
 
 | Todo processor | Reacts to | Reads (to-do query) | Issues | Allium rule |
 |---|---|---|---|---|
 | `dispatch-submitted-task` | `task-submitted` | `task-receipt` | `:sheet/tick-tree` | `DispatchSubmittedTaskToOrc` |
-| `issue-task-receipt` | `:sheet/tree-tick-started` | `task-receipt` | `record-task-receipt` | `StartHarnessTask` |
+| `issue-task-receipt` | `:sheet/tree-tick-started` | `task-receipt` | `record-task-receipt` | `StartWorkflowTask` |
 | `start-dispatched-cycle` | `task-receipt-issued` | `regeneration-cycle` | `start-cycle` | `StartCycle` |
-| `record-task-outcome` | `:sheet/tree-tick-completed`, `:sheet/tick-cancelled` | `tick-task` | `complete-task`, `fail-task` | `CompleteHarnessTask`, `FailHarnessTask` |
+| `record-task-outcome` | `:sheet/tree-tick-completed`, `:sheet/tick-cancelled` | `tick-task` | `complete-task`, `fail-task` | `CompleteWorkflowTask`, `FailWorkflowTask` |
 | `launch-builder-for-tick` | `:sheet/node-execution-started` | `node-stage`, `builder-session` | `launch-builder-session`, `relaunch-builder-session` | `LaunchDurableBuilderSession`, `ResumeDurableBuilderSession` |
-| `bind-committed-workspace` | `builder-tool-result-committed` | `builder-session` | `bind-workspace-generation` | `BindWorkspaceGeneration` |
+| `bind-committed-result` | `builder-tool-result-committed` | `builder-session` | `bind-workspace-generation` | `BindWorkspaceGeneration` |
+| `retire-replaced-grader` | `grader-approved` | `grader` | `retire-grader` | `RetireReplacedGrader` |
 | `route-gate-verdict` | `gate-attempt-recorded` | `gate-attempt` | `advance-cycle-stage`, `fail-cycle-stage` | `PassGate`, `RepairAfterFailedGate`, `FailAfterThreeGateAttempts` |
 | `file-cycle-score` | `:sheet/node-execution-completed` | `node-stage`, `cycle-preparation`, `approved-graders` | `file-score` | `FileScore` |
 | `route-filed-score` | `cycle-measurement-recorded`, `score-refused` | `cycle-measurement` | `advance-cycle-stage`, `fail-cycle-stage` | `AdvanceToScoreboard`, `FailRefusedScore` |
@@ -117,7 +125,7 @@ Pure reads are queries, linked to the rule they realise: `cycle-progress` (`Read
 
 ### Rules not realised by a Grain block
 
-65 of the 70 Allium rules are linked from a Grain block. The other five are not runtime state
+71 of the 75 Allium rules are linked from a Grain block. The other four are not runtime state
 changes of the harness:
 
 | Rule | Why no Grain block |
@@ -125,21 +133,20 @@ changes of the harness:
 | `instrument.allium` `StampScenario` | Stamping writes an `@item` tag into a Gherkin file; the file in the repository is the record, written by the stamper tool, not by the running harness. |
 | `instrument.allium` `LeaveStampedSliceUnwritten` | The stamper's idempotence: a stamped slice is left untouched, so nothing is recorded. |
 | `instrument.allium` `WriteInstrumentGolden` | Goldens are instrument files written from the scenarios and fenced from every clean room; the running harness only checks them, through `record-harness-self-check`. |
-| `instrument.allium` `ReuseApprovedGrader` | Its only effect is a recalibration request to ORC's grader run; the approved grader it reuses is read through `approved-graders`, and the recalibration's outcome is recorded by `seal-grader` or `discard-grader`. |
-| `operator-control-plane.allium` `ValidateHarnessGrainServiceArea` | The startup check itself: Grain's strict boot guard (`verify-or-throw!`) against the registered model, not a domain fact. |
+| `operator-control-plane.allium` `ValidatePiHarnessServiceArea` | The startup check itself: Grain's strict boot guard (`verify-or-throw!`) against the registered model, not a domain fact. |
 
 ### Read models
 
 | Read model | Folds | Schema |
 |---|---|---|
 | `regeneration-cycles` | `cycle-submitted`, `task-receipt-issued`, `cycle-started`, `clean-room-proved`, `slice-built`, `candidate-regenerated`, `cycle-stage-advanced`, `cycle-passed`, `cycle-failed`, `child-cycle-lineage-recorded` | yes: status, stage, slices built, attempt, candidate, failure, child preparations |
-| `builder-sessions` | launched, resumed, tool result committed, workspace generation bound, intervention recorded | yes |
+| `builder-sessions` | launched, resumed, tool result committed, ended, workspace generation bound, intervention recorded | yes: status, room, launches, interventions, workspace generations |
 | `task-outcomes` | `task-receipt-issued`, `task-completed`, `task-failed` | yes |
 | `cycle-measurements` | `cycle-measurement-recorded`, `score-refused` | yes |
 | `node-stages` | the five `:sheet` events (the anti-corruption translation) | yes |
 | `selections`, `cycle-preparations`, `task-receipts`, `prepared-cuts`, `harness-self-checks`, `gate-attempts`, `checklists`, `graders`, `scoreboards`, `cycle-observations`, `prompt-optimizations` | their own events | not yet |
 
-`graders` replaces `approved-graders` as the read model (the query `approved-graders` keeps
+`graders` (version 3: authoring, recalibration, authored, replaced) replaces `approved-graders` as the read model (the query `approved-graders` keeps
 its name and reads it). `node-stages` replaces the read model `cycle-progress` (the query
 `cycle-progress` keeps its name and reads it). Read models that changed what they fold carry
 `:version 2`.
@@ -150,12 +157,14 @@ Eleven end-to-end slices: `selection-and-preparation-approval`, `cut-preparation
 `cycle-submission` (submit → dispatch → receipt → start), `durable-builder-session` (launch →
 commit → bind workspace → observe or intervene), `cycle-harness` (self-check → clean room →
 slice builds → candidate → gate → verdict policy), `cycle-instrument` (score → route →
-scoreboard → result), `grader-preparation`, `task-outcome`, `runtime-evidence`,
+scoreboard → result), `grader-preparation` (checklist → grader request → authored → sealed or
+discarded → approved → predecessor retired), `task-outcome`, `runtime-evidence`,
 `prompt-optimization`, and `child-cycle`. Every step follows the grammar screen → command →
 event → read model → query → todo processor or screen, todo processor → command.
 
 The screen issues operator intents only: selection, preparation, approvals, submissions,
-checklist derivation, grader approval, builder intervention, child cycles, and optimization.
+checklist derivation, grader request and approval, builder intervention, child cycles, and
+optimization.
 It issues no system fact. Approval starts nothing. Every `tick-id` is a `:uuid`, as in ORC,
 and every cycle is named by `:cycle-id`, its request identity.
 
@@ -173,7 +182,7 @@ Gherkin wording that drives each action.
 | `CycleContract` | `cycle-contract` | — | `execution-pipeline.allium` surface `RegenerationCycleExecution` |
 | `WorkflowContract` | `workflow-contract` | — | `execution-pipeline.allium` surface `RegenerationCycleExecution` |
 | `SubmitCycle` | `submit-cycle` | command `submit-whole-plan-cycle` | `regeneration-cycle.allium` `ApproveWholePlanBySubmission`; `operator-control-plane.allium` `RepeatIdenticalSubmission`, `RefuseConflictingSubmission` |
-| `Wait` | `wait` | query `task-outcome` | `operator-control-plane.allium` `WaitForHarnessTask` |
+| `Wait` | `wait` | query `task-outcome` | `operator-control-plane.allium` `WaitForWorkflowTask` |
 | `ExecutionStatus` | `execution-status` | query `cycle-progress` | `operator-control-plane.allium` `ReadCycleProgress` |
 | `PrepareCut` | `prepare-cut` | command `submit-cut-task` | `operator-control-plane.allium` `PrepareCutTask` |
 | `SliceComposition` | `slice-composition` | query `slice-composition` | `regeneration-cycle.allium` `ComposeCutSystemView` |
@@ -192,9 +201,10 @@ params, and result shapes, so the sealed graders stay valid.
 
 The queries `task-receipt`, `tick-task`, `highest-task-id`, `selection`, `cycle-preparation`,
 `approved-graders`, `checklist`, `regeneration-cycle`, `gate-attempt`, `scoreboard`,
-`node-stage`, `cycle-observations`, and `prompt-optimization` have no seam action of their
-own: the screen, the policies, and the actions' results read them. The seam is unchanged by
-ADR 0004.
+`node-stage`, `grader`, `cycle-observations`, and `prompt-optimization` have no seam action of
+their own: the screen, the policies, and the actions' results read them. The seam is unchanged
+by ADR 0004 and ADR 0005, except that one `allium:` reference follows a rename
+(`WaitForWorkflowTask`).
 
 ## Legacy parity
 
@@ -205,12 +215,12 @@ behavioural parity reference. Its behaviour is carried as follows.
 |---|---|
 | fence → regenerate → gate → score → scoreboard; fence and gate feed the loop, score and scoreboard never do | slice 02, `execution-pipeline.allium` |
 | Physical fence proved on the object graph; a fenced path matching nothing stops it; self-check first | `FenceCleanRoom` |
-| Gate: fresh boot, suite green, a named boot budget with its margin, `start.sh` timed and `test.sh` not | slice 02 |
-| Gate guards: missing test tool, empty suite discovery, an answer from a process the gate did not start | 02-015 to 02-017, `GatePassRequiresObservedRun`, `FailedGateNamesItsReason` |
+| Gate: fresh boot, suite green, a named boot budget with its margin, the launch entrypoint (`start.sh`) timed and `test.sh` not | slice 02 |
+| Gate guards: missing test tool, empty suite discovery, a response from a candidate the gate did not boot | 02-015 to 02-017, `GatePassRequiresObservedRun`, `FailedGateNamesItsReason` |
 | Identity proved by domain behaviour | `cycle-contract` (02-010) |
 | Stamper: next free number, own indentation, Outlines alike, never renumbered, re-derived, or reused; idempotent | 03-010, 03-011, `StampScenario`, `StableItemIdentity` |
 | Checklist derived, one item per stamped scenario; unstamped or empty stops it | 03-001, `DeriveChecklist` |
-| Checklist item carries rule, source line, stripped title; ordered by file then position; empty title is no item | 03-012, `ChecklistItem` |
+| Checklist item carries rule, source line, stripped title; ordered by file then position; empty title is no item | 03-012, `StampedItem`, `SelectedItemsAreTitledStampedScenarios` |
 | Zero verdicts is no score; unreached fails and stays counted | 03-005, 03-006, `FileScore` |
 | Unknown item fatal, then non pass/fail fatal; last duplicate wins; evidence optional | 03-013 to 03-015, `RefuseUnknownVerdicts`, `RefuseInvalidVerdicts` |
 | Scoreboard: both directions on shared items, never a net; new items the holdout; baseline cycle | 03-008, 03-009 |
@@ -245,12 +255,13 @@ Judge scores are diagnostic runtime evidence only (03-018, `SealedGraderIsTheOnl
 
 | Behaviour | Spec |
 |---|---|
-| A builder session is one aggregate, `BuilderSession`: a durable Pi session keyed by its ORC tick; a relaunch resumes it | 02-018, `LaunchDurableBuilderSession`, `ResumeDurableBuilderSession`, `DurableSessionIsKeyedByTick`; Grain `launch-builder-for-tick` → `launch-builder-session` / `relaunch-builder-session` → `builder-session-launched` / `builder-session-resumed` → `builder-sessions` |
+| A builder session is one aggregate, `BuilderSession`: a durable Pi session keyed by its ORC tick; a relaunch resumes it; it ends completed or failed | 02-018, `LaunchDurableBuilderSession`, `ResumeDurableBuilderSession`, `EndBuilderSession`, `DurableSessionIsKeyedByTick`; Grain `launch-builder-for-tick` → `launch-builder-session` / `relaunch-builder-session` → `builder-session-launched` / `builder-session-resumed` → `builder-sessions` |
 | ORC alone chooses the room; the host only forwards tool calls | 02-019, `BuilderRoomPolicy`, `OrcAloneChoosesTheRoom` |
 | A grader author's room holds only the selected Gherkin and the calibration protocol | 02-019, 03-002, `GraderAuthorRoomHoldsOnlySpecAndProtocol` |
-| A restored transcript is paired only with its own workspace | 04-017, `BindWorkspaceGeneration`, `BuilderWorkspaceMatchesCommittedSession`; Grain `commit-builder-tool-result` (builder host) → `builder-tool-result-committed` → `bind-committed-workspace` → `bind-workspace-generation` → `workspace-generation-bound` |
+| A restored transcript is paired only with its own workspace generation | 04-017, `BindWorkspaceGeneration`, `WorkspaceGenerationMatchesCommittedResult`; Grain `commit-builder-tool-result` (builder host) → `builder-tool-result-committed` → `bind-committed-result` → `bind-workspace-generation` → `workspace-generation-bound` |
 | An operator observes a builder session read-only; an intervention marks its work assisted | 04, `ObserveBuilderSession`, `InterveneInBuilderSession`, `BuilderObservationDoesNotAssist`; Grain query `builder-session` over the projection `builder-sessions` |
-| Every production prompt is ORC's, for all three roles | 06-007, `ProductionPromptRole` |
+| Every production prompt is ORC's, for all three roles | 06-007, `BuilderSessionRole`, `OrcOwnsEveryProductionPrompt` |
+| A grader is written by a grader author session, and an approved successor retires the grader it replaces | 03-002, 03-004, `AuthorGrader`, `GraderIsAuthoredByAGraderAuthorSession`, `RetireReplacedGrader` |
 
 ## Ownership
 
@@ -261,18 +272,22 @@ Each concept is declared once (ADR 0003):
 | Cycle | `regeneration-cycle.allium` | entity `RegenerationCycle` (status `CycleStatus`, stage `CycleStage`), moved through its stages by `execution-pipeline.allium` |
 | Measurement | `instrument.allium` | entity `CycleMeasurement` of `ItemScore` values, filed only by `FileScore`; refused by `RefuseEmptyScore`, `RefuseUnknownVerdicts`, `RefuseInvalidVerdicts` |
 | Builder session | `execution-pipeline.allium` | entity `BuilderSession` |
-| Workflow task | `operator-control-plane.allium` | entity `HarnessTask` (a task is not a cycle; it may prepare a cut) |
+| Workflow task | `operator-control-plane.allium` | entity `WorkflowTask` (a task is not a cycle; it may prepare a cut) |
+| Stamped item | `regeneration-cycle.allium` | value `StampedItem`, carried by a selection and its checklist |
+| Execution backend and profile | `regeneration-cycle.allium` | enums `ExecutionBackend` (the one execution concept) and `ExecutionProfile` (which backends a preparation admits) |
+| Builder session role | `execution-pipeline.allium` | enum `BuilderSessionRole`, used by builder sessions and production prompts alike |
 | Filed verdict | `instrument.allium` | enum `ItemVerdict { pass \| fail }` |
 | Evidence verdict | `runtime-evidence.allium` | enum `EvidenceVerdict { pass \| fail \| inconclusive }` |
 | Producer authority, evidence purpose, evidence projection | `runtime-evidence.allium` | `ProducerAuthority`, `EvidencePurpose`, `EvidenceProjectionCreated`, invariant `EvidenceProjectionIsNotAuthority` |
 | Actors | `regeneration-cycle.allium` | `actor Operator`, `actor OrcRuntime` |
 
-Other specs import these with `use … as cycle`, `as pipeline`, `as instrument`. Durable
+Other specs import these with `use … as cycle`, `as execution`, `as instrument`. Durable
 measurement receipts and builder-session views are read-side projections (Grain read models
 `cycle-measurements` and `builder-sessions`), not Allium entities. The cycle's Grain read
 model is `regeneration-cycles`, folded only from harness events (ADR 0004).
 
-Each trigger name is provided once. The operator's domain acts (`PrepareRegenerationCut`,
+Each trigger name is provided once; an operator's or ORC's command is imperative and a
+reported fact is past tense (ADR 0005). The operator's domain acts (`PrepareSourceCut`,
 `SubmitRegenerationCycle`, `SubmitWholePlanRegeneration`) are provided by
 `RegenerationHarness`; the control plane's cut task has its own trigger,
 `SubmitCutPreparationTask`. Submission idempotence lives in `SubmitCycle` and
@@ -282,18 +297,18 @@ created cycle (`OpenCycleTask`, a state trigger).
 Every surface faces an actor. Operator acts reach `RegenerationHarness`,
 `RegenerationControlPlane`, `Instrument`, and `BuilderPromptOptimization`, facing
 `Operator`. Facts ORC reports reach `OrcCycleStart`, `RegenerationCycleExecution`,
-`GraderRuns`, `OrcTaskReporting`, `RuntimeEvidenceMeasurement`, and
+`GraderRuns`, `OrcTaskReporting`, `RuntimeEvidenceReporting`, and
 `OrcInstructionOptimization`, facing `OrcRuntime`. Internal chaining between rules uses state
 triggers (`GateAttempt.created`, `RegenerationCycle.stage becomes result`,
 `CycleMeasurement.created`) or events another rule emits (`ScoreRefused`,
-`PipelineStageDidNotSucceed`), never an actor-less surface.
+`CycleStageDidNotSucceed`), never an actor-less surface.
 
 The cycle is wired end to end: `SubmitCycle` creates it at the fence; ORC starts it
 (`StartCycle`); `FenceCleanRoom`, `BuildSlice`, `RegenerateCandidate`, `RecordGateAttempt`,
 `PassGate` / `RepairAfterFailedGate` / `FailAfterThreeGateAttempts`, `FileScore` →
 `AdvanceToScoreboard`, the scoreboard rules → `RecordScoreboard`, and `PassCycle` /
 `FailCycle` move it to a terminal status with its candidate digest. A refused score fails the
-score stage (`FailRefusedScore` → `FailPipelineStage`). In Grain the same path is the
+score stage (`FailRefusedScore` → `FailCycleStage`). In Grain the same path is the
 `cycle-harness` and `cycle-instrument` flows.
 
 ## Verification
@@ -307,6 +322,8 @@ clojure -Sdeps '{:paths [".pi/model/event-model"]
                   '[ai.obney.grain.code-agent-tools.interface :as tools]
                   'loyly.pi-harness.event-model)
          (tools/validate-spec-composition (em/registered-model) {:project-root \".\"})"
+python3 tools/spec/glossary-lint.py   # no avoided glossary term in the model; plan/ hits reported
+bash tools/spec/gates.sh               # every spec gate in one run
 ```
 
 Run from the repository root. Without an implementation loaded, the composition gate reports
@@ -315,10 +332,14 @@ expected. Any other finding is drift. Strict runtime validation needs the implem
 
 ## Allium diagnostic baseline
 
-`allium check .pi/model` and `allium analyse .pi/model` report no errors and no warnings. Any
-warning is drift. The operator is one `actor Operator`, identified by its `OperatorSession`, and
+`allium check .pi/model` and `allium analyse .pi/model` report no errors, no warnings, and no
+info diagnostics. Any warning is drift. Every helper a rule or invariant reads is a typed
+signature in a `contract` (17 of them, each `demands`-ed by the surface that relies on it), so
+no function is used undeclared. The operator is one `actor Operator`, identified by its `OperatorSession`, and
 ORC's runtime is one `actor OrcRuntime`, identified by its `OrcWorker`; both are declared in
 `regeneration-cycle.allium` and imported by every spec whose surface faces them.
 
 Check the folder, not single files: the imports resolve only within the check set.
-Info-level diagnostics (unused fields and similar) are not tracked.
+`OperatorSession` and `OrcWorker` stay plain entities, the identities of the two actors, though
+the model never creates them: Allium 3.6 warns (`externalEntity.missingSourceHint`) on an
+`external entity` that no rule of its own file names in an expression.
