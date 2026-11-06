@@ -8,7 +8,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
 
   Rule: The checklist is derived from the spec and its denominator never drifts
 
-    @item-03-001 @minimum
+    @item-03-001 @minimum @allium-rule-success.DeriveChecklist @allium-rule-failure.DeriveChecklist.1 @allium-rule-failure.DeriveChecklist.2 @allium-guarantee.DerivedChecklist
     Scenario: The checklist is one item per stamped scenario of the approved selection
       Given an approved selection of stamped Gherkin scenarios
       When the checklist is derived
@@ -18,7 +18,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
 
   Rule: The grader is a sealed, calibrated instrument, not a per-cycle guess
 
-    @item-03-002 @balance
+    @item-03-002 @balance @allium-invariant.GraderAuthorRoomHoldsOnlySpecAndProtocol @allium-rule-success.RequestGraderAuthoring @allium-rule-success.AuthorGrader @allium-rule-success.SealCalibratedGrader @allium-rule-failure.SealCalibratedGrader.3 @allium-rule-failure.SealCalibratedGrader.4 @allium-rule-success.ReauthorUncalibratedGrader @allium-rule-failure.ReauthorUncalibratedGrader.2 @allium-boundary.CandidateBlindAuthor
     Scenario: A grader is written once from the spec and calibrated before it is sealed
       Given no sealed grader covers a checklist item's scenario digest
       When an independent grader author derives a grader from only the selected Gherkin and the public calibration protocol
@@ -27,7 +27,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
       And an uncalibrated grader is discarded and re-authored from the failing calibration cases, at most three attempts
       And only a calibrated grader is sealed under its scenario digests and offered for approval
 
-    @item-03-003 @balance
+    @item-03-003 @balance @allium-rule-success.ReuseApprovedGrader
     Scenario: An approved grader is reused until its scenarios change
       Given an approved sealed grader covers every checklist item's scenario digest
       When a later cycle reaches the score stage
@@ -35,7 +35,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
       And it re-calibrates the grader against carried and uncarried behavior before scoring
       And a changed scenario digest requires a new grader for that item only
 
-    @item-03-004 @balance
+    @item-03-004 @balance @allium-rule-failure.ApproveExactGrader.3 @allium-rule-failure.ApproveExactGrader.4 @allium-invariant.ReplacementNamesItsReason @allium-guarantee.StableCalibratedGrader
     Scenario: A sealed grader changes only for a recorded reason
       Given an approved sealed grader would be replaced
       When the operator reviews the replacement
@@ -46,14 +46,14 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
 
   Rule: The score files honest verdicts
 
-    @item-03-005 @minimum
+    @item-03-005 @minimum @allium-rule-success.FailRefusedScore @allium-rule-success.RefuseEmptyScore @allium-rule-failure.FileScore.5
     Scenario: Zero verdicts mean the score did not happen
       Given a candidate passed the gate
       When the sealed grader returns no readable verdict for any item
       Then the score stage fails
       And no measurement is recorded
 
-    @item-03-006 @minimum
+    @item-03-006 @minimum @allium-rule-success.FileScore @allium-rule-failure.RefuseEmptyScore.1 @allium-invariant.UnreachedItemsFail @allium-invariant.MeasurementDenominatorNeverShrinks @allium-guarantee.HonestScore
     Scenario: An unreached item is recorded as failed and the denominator holds
       Given a checklist of three items
       And the grader reaches only one item
@@ -62,7 +62,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
       And each unreached item is recorded as failed and not graded
       And the measurement is marked incomplete
 
-    @item-03-007 @deferred
+    @item-03-007 @deferred @allium-guarantee.IndependentVerdictAuthority
     Scenario: Behavior, affordance, and runtime evidence are scored by the same sealed grader
       Given the sealed grader carries behavior, applicable affordance, and applicable runtime-evidence evaluators
       When the score stage runs against the candidate's public seam
@@ -71,7 +71,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
 
   Rule: The scoreboard compares cycles honestly
 
-    @item-03-008 @minimum
+    @item-03-008 @minimum @allium-rule-success.ReportComparedScoreboard @allium-invariant.ScoreboardComparesSharedItemsOnly @allium-guarantee.HonestScoreboard
     Scenario: The scoreboard compares shared items in both directions and never nets them
       Given a recorded measurement and the measurement of the previous cycle for the same selection
       When the scoreboard is reported
@@ -80,7 +80,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
       And it reports items that newly pass and items that newly fail separately, never as a net
       And items new to the checklist are counted separately as the untuned holdout
 
-    @item-03-009 @minimum
+    @item-03-009 @minimum @allium-rule-success.ReportFirstScoreboard
     Scenario: The first cycle of a selection has no comparison
       Given no earlier measurement exists for the selection
       When the scoreboard is reported
@@ -90,7 +90,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
   # Ported from the legacy instrument (archive/legacy-harness/spec.feature): the stamper.
   Rule: An item identity is stamped once and never moves
 
-    @item-03-010 @minimum
+    @item-03-010 @minimum @allium-rule-success.StampScenario @allium-rule-success.LeaveStampedSliceUnwritten @allium-rule-failure.LeaveStampedSliceUnwritten.1
     Scenario: An unstamped scenario receives the next free identity in its slice
       Given a slice whose highest stamped sequence number is 4 and one scenario with no item tag
       When the slice is stamped
@@ -99,7 +99,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
       And a scenario whose only tags are not item tags counts as unstamped
       And a slice that gains no identity is not rewritten
 
-    @item-03-011 @minimum
+    @item-03-011 @minimum @allium-rule-failure.StampScenario.1 @allium-guarantee.StableItemIdentity
     Scenario: Stamping never renumbers, never re-derives, and never reuses an identity
       Given a stamped slice
       When it is stamped again, a scenario is reworded, or a scenario is deleted
@@ -110,7 +110,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
   # Ported from the legacy instrument: what a checklist item carries.
   Rule: A checklist item carries where it came from
 
-    @item-03-012 @minimum
+    @item-03-012 @minimum @allium-rule-success.DeriveChecklist
     Scenario: Each item names its identity, rule, source, and title
       Given an approved selection of stamped scenarios
       When the checklist is derived
@@ -121,14 +121,14 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
   # Ported from the legacy instrument. Guard: a measurement filed wrong cannot be untaken.
   Rule: The score refuses verdicts the checklist cannot account for
 
-    @item-03-013 @minimum
+    @item-03-013 @minimum @allium-rule-success.FailRefusedScore @allium-rule-success.RefuseUnknownVerdicts @allium-rule-failure.FileScore.6
     Scenario: A verdict for an item not on the checklist stops the score
       Given an item identity that is not on the checklist
       When the grader returns a verdict for that identity
       Then the score stage fails naming every unknown item, in the order the grader returned them
       And no measurement is recorded
 
-    @item-03-014 @minimum
+    @item-03-014 @minimum @allium-rule-success.FailRefusedScore @allium-rule-success.RefuseInvalidVerdicts @allium-rule-failure.FileScore.7 @allium-rule-failure.RefuseInvalidVerdicts.2
     Scenario: A verdict that is neither pass nor fail stops the score
       Given an item on the checklist
       When the grader returns the verdict "maybe", no verdict, or null for it
@@ -136,7 +136,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
       And no measurement is recorded
       And unknown items are reported before invalid verdicts, so a return with both faults names only the unknown items
 
-    @item-03-015 @minimum
+    @item-03-015 @minimum @allium-rule-failure.RefuseUnknownVerdicts.2 @allium-rule-failure.RefuseInvalidVerdicts.3
     Scenario: A repeated verdict keeps the last, and evidence is optional
       Given the grader returns two verdicts for one item, the second without evidence
       When the score is filed
@@ -146,14 +146,14 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
   # Ported from the legacy scoreboard: its arithmetic is contract.
   Rule: The scoreboard's arithmetic is fixed
 
-    @item-03-016 @minimum
+    @item-03-016 @minimum @allium-guarantee.FixedArithmetic
     Scenario: A rate exactly on a half rounds to the even digit
       Given a comparison whose shared rate is exactly 1 of 16
       When the scoreboard is reported
       Then the percentage is 6.2, not 6.3
       And a rate with a zero denominator reports no percentage at all
 
-    @item-03-017 @minimum
+    @item-03-017 @minimum @allium-guarantee.HonestScoreboard
     Scenario: A moved item set is stated only when it moved
       Given the previous cycle and this cycle
       When the scoreboard is reported
@@ -165,7 +165,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
   # That is the opposite of this instrument, so they may observe but never measure.
   Rule: Only the sealed grader judges
 
-    @item-03-018 @balance
+    @item-03-018 @balance @allium-guarantee.SealedGraderIsTheOnlyJudge @allium-guarantee.VerdictsComeOnlyFromTheSealedGrader @allium-invariant.DiagnosticSignalCannotDetermineVerdict
     Scenario: ORC evaluation judge scores are diagnostics, never verdicts
       Given ORC evaluation judges scored nodes of a cycle
       When the score stage files the measurement
@@ -178,7 +178,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
   # above, so they state what the spec says rather than what some implementation once did.
   Rule: The instrument's exact behaviour is held by goldens written from the spec
 
-    @item-03-019 @minimum
+    @item-03-019 @minimum @allium-rule-success.WriteInstrumentGolden @allium-guarantee.GoldensFromTheSpec
     Scenario: An instrument golden is written from a scenario, never recorded from an implementation
       Given a scenario that fixes the instrument's exact behaviour, such as stamping, checklist derivation, a score refusal, or the scoreboard's arithmetic
       When its golden is written
@@ -187,7 +187,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
       And it is never captured from any implementation's output
       And it is instrument material, fenced from every clean room like a grader
 
-    @item-03-020 @minimum
+    @item-03-020 @minimum @allium-rule-success.RunHarnessSelfCheck @allium-rule-failure.FenceCleanRoom.3
     Scenario: The harness self-check reproduces every instrument golden before any clean room
       Given the instrument goldens
       When the harness self-check runs

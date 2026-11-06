@@ -8,7 +8,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
   Rule: The neutral source cut is pinned and physically fenced
 
     @e2e
-    @item-01-001 @minimum
+    @item-01-001 @minimum @allium-rule-success.PrepareCut
     Scenario: Preparing a cut returns immutable commit and tree identities
       Given the operator names a full source commit and an execution backend
       When the Pi harness prepares the source cut
@@ -16,7 +16,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       And its fenced tree identity is recorded
       And prior implementation and measurement paths are absent from the reachable cut history
 
-    @item-01-002 @minimum
+    @item-01-002 @minimum @allium-guarantee.BuilderIsolation
     Scenario: The builder cannot modify or escape the cut
       Given a prepared cut and a declared candidate scope
       When a builder session is opened in Gondolin
@@ -24,7 +24,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       And writes outside the declared candidate scope are denied
       And network access, judge material, host credentials, and host session resources are unavailable
 
-    @item-01-003 @minimum
+    @item-01-003 @minimum @allium-rule-success.FenceCleanRoom @allium-rule-failure.FenceCleanRoom.6 @allium-guarantee.PhysicalFence
     Scenario: The clean room holds the spec, not an answer or a judge
       Given the repository holds implementations, measurements, reports, and the instrument
       When the fence builds the clean room
@@ -33,7 +33,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       And the instrument, its calibration fixtures, and the harness that grades are absent from the room
       And a fenced path that matches nothing stops the fence instead of passing silently
 
-    @item-01-004 @deferred
+    @item-01-004 @deferred @allium-rule-success.ComposeCutSystemView @allium-rule-failure.ComposeCutSystemView.2
     Scenario: Slice mappings reconstruct the complete cut-bound system view
       Given a prepared cut contains Gherkin behavior items grouped into slices, components, and containers
       When the harness maps each item and reduces those mappings into a system view
@@ -44,7 +44,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
   Rule: Selection is deterministic and approval binds the reviewed identity
 
     @e2e
-    @item-01-005 @balance
+    @item-01-005 @balance @allium-rule-success.PreviewSelection @allium-boundary.DeterministicSelection
     Scenario: Previewing the same slice produces the same selection identity
       Given the same pinned cut, project, slice, and requested item subset
       And the selection has not already been approved
@@ -54,7 +54,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       And its status is awaiting approval
 
     @e2e
-    @item-01-006 @balance
+    @item-01-006 @balance @allium-rule-failure.ApproveSelection.2
     Scenario: Approval refuses a digest other than the reviewed digest
       Given a selection contract is awaiting approval
       When approval names its selection identity with a different digest
@@ -64,13 +64,13 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
   Rule: Cycle submission is approved, scoped, and idempotent
 
     @e2e
-    @item-01-007 @balance
+    @item-01-007 @balance @allium-guarantee.ApprovedChoicesOnly
     Scenario: An unapproved partial selection cannot start a slice cycle
       Given a recorded partial selection has not been approved
       When the operator submits a slice cycle for that selection
       Then submission is refused before a builder starts
 
-    @item-01-008 @balance
+    @item-01-008 @balance @allium-rule-success.RepeatIdenticalSubmission @allium-rule-failure.RepeatIdenticalSubmission.2 @allium-rule-success.RefuseConflictingSubmission @allium-rule-failure.RefuseConflictingSubmission.1 @allium-invariant.OneRequestNamesOneTask
     Scenario: Repeating the same request identity returns the original receipt
       Given a regeneration request has already been submitted
       When the identical request is submitted with the same request identity
@@ -79,7 +79,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
 
   Rule: The builder produces a new candidate from the pinned contract
 
-    @item-01-009 @minimum
+    @item-01-009 @minimum @allium-guarantee.BuilderIsolation @allium-rule-failure.RegenerateCandidate.8 @allium-rule-failure.RegenerateCandidate.9 @allium-invariant.BuilderSessionIsSeparateFromOperatorSession @allium-guarantee.ImmutableHandoff
     Scenario: The builder starts fresh and must produce workspace output
       Given an approved selection and a prepared cut
       When the builder stage runs
@@ -106,7 +106,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       And every required compose operation and candidate test command must succeed
 
     @playback
-    @item-01-012 @minimum
+    @item-01-012 @minimum @allium-rule-success.FailCycle
     Scenario: A final result requires every independent gate to pass
       Given the gate, the score, and the measurement have completed
       When the final result is derived
@@ -116,14 +116,14 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
 
   Rule: Evidence and measurement survive workflow process restarts
 
-    @item-01-013 @balance
+    @item-01-013 @balance @allium-invariant.OneMeasurementPerCycle
     Scenario: Recording the same evidence twice is idempotent
       Given an observation or cycle measurement has already been recorded
       When the exact same identity and content are recorded again
       Then the existing durable record is returned
       But the same identity with different evidence is refused
 
-    @item-01-014 @balance
+    @item-01-014 @balance @allium-rule-success.ReadDurableMeasurement
     Scenario: A completed measurement is readable after the harness restarts
       Given a cycle measurement was recorded through its validated command
       When the harness restarts against the same event store

@@ -20,13 +20,13 @@ Feature: The harness's public seam is JSON-RPC over stdio
 
   Rule: Cycles are submitted and observed through the seam
 
-    @item-09-003 @balance
+    @item-09-003 @balance @allium-rule-success.RepeatIdenticalSubmission @allium-invariant.OneRequestNamesOneTask
     Scenario: Repeating a cycle request returns the original receipt
       Given a cycle was submitted with a request id
       When the same request id is submitted again
       Then the same receipt is returned and no second cycle starts
 
-    @item-09-004 @balance
+    @item-09-004 @balance @allium-rule-success.WaitForWorkflowTask @allium-rule-success.FailWorkflowTask
     Scenario: Waiting on a submitted cycle returns its one terminal outcome
       Given a cycle was submitted
       When a client waits on its task

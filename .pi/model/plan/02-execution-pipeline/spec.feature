@@ -6,7 +6,7 @@ Feature: The regeneration cycle
 
   Rule: ORC owns the complete ordered cycle
 
-    @item-02-001 @balance
+    @item-02-001 @balance @allium-guarantee.ExactStageOrder
     Scenario: A regeneration cycle follows the declared stage order
       Given an approved selection starts a cycle
       When ORC advances the cycle
@@ -27,7 +27,7 @@ Feature: The regeneration cycle
 
   Rule: The fence and the gate feed the build loop; the score never does
 
-    @item-02-003 @minimum
+    @item-02-003 @minimum @allium-rule-success.RunHarnessSelfCheck @allium-rule-failure.FenceCleanRoom.3
     Scenario: The fence refuses to build a room for an instrument nobody checked
       Given the harness and the sealed instrument for the approved selection
       When the fence stage starts
@@ -35,7 +35,7 @@ Feature: The regeneration cycle
       And a passing self-check is reused only for an identical harness digest
       And a failing self-check stops the cycle before regeneration with the failing check named
 
-    @item-02-004 @minimum
+    @item-02-004 @minimum @allium-guarantee.IndependentMeasurement @allium-invariant.GatePassRequiresObservedRun @allium-rule-success.RepairAfterFailedGate @allium-rule-success.FailAfterThreeGateAttempts
     Scenario: The gate ratifies done; the builder cannot
       Given the builder reports that the candidate is complete
       When the gate stage runs in an independent room
@@ -44,7 +44,7 @@ Feature: The regeneration cycle
       And a failed gate starts a fresh builder session with only the preceding candidate and the gate's evidence
       And the cycle fails at the gate after three regenerate attempts
 
-    @item-02-005 @minimum
+    @item-02-005 @minimum @allium-invariant.ScoreNeverFeedsTheLoop @allium-guarantee.HarnessAndInstrumentStaySeparate
     Scenario: The score reports to a person and never into the loop
       Given a candidate passed the gate
       When the score stage runs the sealed instrument against the checklist
@@ -77,7 +77,7 @@ Feature: The regeneration cycle
 
   Rule: Non-success outcomes remain explicit and measurable
 
-    @item-02-009 @balance
+    @item-02-009 @balance @allium-rule-success.FailCycleStage @allium-guarantee.ExplicitNonSuccess
     Scenario Outline: A non-successful stage cannot disappear from the result
       Given the <stage> stage is refused, skipped, times out, or returns inconclusive evidence
       When the cycle reaches a terminal outcome
@@ -110,7 +110,7 @@ Feature: The regeneration cycle
 
   Rule: The first regenerate attempt builds one slice at a time
 
-    @item-02-012 @balance
+    @item-02-012 @balance @allium-rule-success.BuildSlice @allium-rule-failure.RegenerateCandidate.11 @allium-guarantee.OneFreshBuilderPerSlice
     Scenario: The first attempt starts one fresh builder per selected slice in plan order
       Given an approved selection of several plan slices
       When the regenerate stage runs its first attempt
@@ -118,14 +118,14 @@ Feature: The regeneration cycle
       And each builder is told which slice it carries and reads the whole spec in the clean room
       And the gate runs once, on the candidate the last slice builder left
 
-    @item-02-013 @balance
+    @item-02-013 @balance @allium-rule-failure.BuildSlice.7
     Scenario: A slice builder receives only the clean room and this cycle's candidate so far
       Given an earlier slice builder of the same cycle wrote the candidate
       When the next slice builder starts
       Then it reads the clean room and the candidate as the earlier builder left it
       And it receives no earlier builder's transcript, no candidate from an earlier cycle, and no gate or score evidence
 
-    @item-02-014 @balance
+    @item-02-014 @balance @allium-guarantee.BoundedSliceContinuation
     Scenario: A slice builder continues while it lists its own slice's items uncarried
       Given a slice builder's turn ends while its UNCARRIED.md still names items of its slice
       When ORC continues that same builder session
@@ -137,21 +137,21 @@ Feature: The regeneration cycle
   # shape was learned from"): each guard exists because its absence once lied.
   Rule: The gate trusts only a suite it saw run against the process it started
 
-    @item-02-015 @minimum
+    @item-02-015 @minimum @allium-invariant.GatePassRequiresObservedRun @allium-invariant.FailedGateNamesItsReason
     Scenario: A suite that cannot run, or runs nothing, fails the gate
       Given a candidate whose test.sh names a tool that is not installed, or discovers no suite
       When the gate runs test.sh
       Then the gate fails naming the missing tool or the empty discovery
       And an exit code of zero is not enough to pass
 
-    @item-02-016 @minimum
+    @item-02-016 @minimum @allium-invariant.GatePassRequiresObservedRun
     Scenario: Only the process the gate started can answer the identity probe
       Given state left by an earlier run of the candidate
       When the gate launches start.sh
       Then it launches with a fresh, empty state root
       And it accepts an identity answer only from the process it launched
 
-    @item-02-017 @minimum
+    @item-02-017 @minimum @allium-invariant.FailedGateNamesItsReason
     Scenario: The gate refuses to grade a candidate it cannot reach
       Given the candidate's start.sh exits before answering
       When the gate waits for the identity probe
@@ -160,7 +160,7 @@ Feature: The regeneration cycle
 
   Rule: ORC launches every builder as a durable Pi session in a room ORC chooses
 
-    @item-02-018 @balance
+    @item-02-018 @balance @allium-rule-success.LaunchDurableBuilderSession @allium-rule-success.ResumeDurableBuilderSession @allium-invariant.DurableSessionIsKeyedByTick
     Scenario: A builder session is keyed by its ORC tick and resumes rather than restarts
       Given ORC starts a tick for a slice builder, a repair builder, or a grader author
       When ORC launches that tick's builder session
@@ -169,7 +169,7 @@ Feature: The regeneration cycle
       And a relaunch never starts a second session for the same tick
       And the model credentials stay on the host and never enter the room
 
-    @item-02-019 @balance
+    @item-02-019 @balance @allium-invariant.OrcAloneChoosesTheRoom @allium-invariant.GraderAuthorRoomHoldsOnlySpecAndProtocol @allium-rule-failure.LaunchDurableBuilderSession.2 @allium-rule-failure.LaunchDurableBuilderSession.3 @allium-rule-failure.LaunchDurableBuilderSession.4 @allium-rule-failure.LaunchDurableBuilderSession.6
     Scenario: ORC alone chooses the builder's room
       Given a builder session and its role
       When ORC starts its Gondolin room

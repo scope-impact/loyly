@@ -4,7 +4,7 @@ Feature: Session-independent generation and regeneration control
 
   Rule: The Pi harness is a strictly validated Grain service area inside ORC
 
-    @item-04-001 @deferred
+    @item-04-001 @deferred @allium-rule-failure.ValidatePiHarnessServiceArea.3
     Scenario: Startup refuses a harness topology that differs from its Grain Event Model
       Given ORC and the Pi harness have loaded their registered Grain service areas
       When the shared Grain runtime starts the Pi harness
@@ -20,7 +20,7 @@ Feature: Session-independent generation and regeneration control
       And every public read passes through a registered Grain query over a read model
       And no public operation appends a bare event or reads the event store directly
 
-    @item-04-003 @deferred
+    @item-04-003 @deferred @allium-rule-success.ProjectCycleProgress @allium-rule-success.ReadCycleProgress @allium-guarantee.ProgressIsNeverMirrored
     Scenario: Harness progress is projected from authoritative ORC events
       Given an approved cycle is executing through ORC
       When ORC records tree and node execution events
@@ -30,7 +30,7 @@ Feature: Session-independent generation and regeneration control
 
   Rule: Every public operation refuses malformed or conflicting identities
 
-    @item-04-004 @balance
+    @item-04-004 @balance @allium-rule-success.ProposeSelectionFromIntent @allium-rule-failure.ProposeSelectionFromIntent.2 @allium-guarantee.ExploratorySessionOwnership @allium-guarantee.ImmutableHandoff
     Scenario: An LLM proposes a reviewable slice but cannot approve it
       Given an operator describes the behavior to regenerate against a prepared cut
       When an exploratory Pi, Codex, or other operator session inspects the cut composition and asks the LLM to propose a slice
@@ -41,7 +41,7 @@ Feature: Session-independent generation and regeneration control
       But that transcript is not part of the approved execution contract
       And no generation or regeneration starts until the operator approves its exact digest
 
-    @item-04-005 @balance
+    @item-04-005 @balance @allium-rule-failure.PrepareCutTask.1 @allium-rule-failure.PrepareCutTask.2
     Scenario: Cut preparation refuses an invalid or colliding identity
       Given a cut request does not name a full source commit or supported backend
       When the operator prepares the source cut
@@ -49,14 +49,14 @@ Feature: Session-independent generation and regeneration control
       And an existing cut identity is never replaced by different content
 
     @e2e
-    @item-04-006 @balance
+    @item-04-006 @balance @allium-rule-failure.PreviewSelection.3
     Scenario: Selection preview refuses an empty or ambiguous denominator
       Given the requested slice has missing, duplicate, unstamped, or unknown items
       When the operator previews the selection
       Then no selection contract is recorded
       And the refusal identifies the unresolved denominator
 
-    @item-04-007 @balance
+    @item-04-007 @balance @allium-rule-failure.PrepareCycle.2 @allium-guarantee.RefusalBeforeExecution
     Scenario: Submission refuses an unsafe candidate scope
       Given an approved selection
       When submission names an empty, absolute, escaping, or overlapping candidate scope
@@ -65,7 +65,7 @@ Feature: Session-independent generation and regeneration control
   Rule: Workflow tasks have observable terminal outcomes
 
     @e2e
-    @item-04-008 @balance
+    @item-04-008 @balance @allium-rule-success.WaitForWorkflowTask @allium-invariant.TerminalOutcomeIsStable
     Scenario: Waiting for a known task returns its one terminal outcome
       Given a source-cut, generation, or regeneration task receipt was returned
       When the operator waits for its task identity
@@ -79,7 +79,7 @@ Feature: Session-independent generation and regeneration control
       When the operator waits for that identity
       Then the request is refused without starting new work
 
-    @item-04-010 @deferred
+    @item-04-010 @deferred @allium-guarantee.DurableTaskObservation
     Scenario: A durable task remains observable after worker restart
       Given an ORC task receipt was returned before the worker stopped
       When a replacement worker waits for the task identity
@@ -88,7 +88,7 @@ Feature: Session-independent generation and regeneration control
 
   Rule: The reviewed preparation binds every cycle-defining choice
 
-    @item-04-011 @deferred
+    @item-04-011 @deferred @allium-rule-success.PrepareCycle @allium-rule-success.ApprovePreparation @allium-rule-failure.ApprovePreparation.2 @allium-boundary.DeterministicPreparation @allium-invariant.ApprovedPreparationDigestIsStable
     Scenario: Approval binds the complete cycle preparation and diagram
       Given an approved slice selection
       When an operator session prepares a cycle with scope, target stack, execution profile, pinned inputs, and outer-cycle budget
@@ -96,7 +96,7 @@ Feature: Session-independent generation and regeneration control
       And approval accepts only that exact preparation digest
       And changing any bound field requires a new preparation
 
-    @item-04-012 @balance
+    @item-04-012 @balance @allium-rule-success.ApproveExactGrader @allium-rule-failure.ApproveExactGrader.2 @allium-invariant.ScoreUsesOnlyApprovedGraders
     Scenario: A sealed grader is used only after manual approval of its exact digest
       Given a calibrated grader was sealed for a selection's scenario digests
       When an operator manually approves its exact grader digest
@@ -106,7 +106,7 @@ Feature: Session-independent generation and regeneration control
 
   Rule: Any operator session can drive the outer lifecycle
 
-    @item-04-013 @deferred
+    @item-04-013 @deferred @allium-rule-success.SubmitCycle @allium-guarantee.SessionAgnosticControl @allium-guarantee.FixedContractOwnership
     Scenario: The control plane does not depend on one interactive session implementation
       Given a Codex, Pi, or other authorized operator session
       When it supplies an immutable approved fixed execution contract through the public control plane
@@ -114,7 +114,7 @@ Feature: Session-independent generation and regeneration control
       And ORC owns its bounded prompt, tool surface, retries, termination, and result
       And disconnecting that session does not stop the internal ORC cycle
 
-    @item-04-014 @deferred
+    @item-04-014 @deferred @allium-rule-success.ReadCycleProgress @allium-invariant.ProgressViewMirrorsOrc @allium-guarantee.ObservableNotAuthoritative
     Scenario: Live progress reconciles with durable ORC execution state
       Given a cycle is running and ORC emits stage notifications
       When the observing extension connects or reconnects
@@ -133,7 +133,7 @@ Feature: Session-independent generation and regeneration control
       But observation cannot change the builder transcript or candidate
       And the builder cannot read the operator transcript or independent grader evidence
 
-    @item-04-016 @deferred
+    @item-04-016 @deferred @allium-rule-success.InterveneInBuilderSession @allium-rule-failure.InterveneInBuilderSession.1
     Scenario: Intervention is explicit and provenance-recorded
       Given a builder session is active or completed
       When an operator pauses, steers, or forks its work
@@ -141,7 +141,7 @@ Feature: Session-independent generation and regeneration control
       And the resulting candidate is marked as assisted
       And a completed builder session is never silently mutated
 
-    @item-04-017 @deferred
+    @item-04-017 @deferred @allium-rule-success.BindWorkspaceGeneration @allium-invariant.WorkspaceGenerationMatchesCommittedResult
     Scenario: A builder transcript is restored with its matching workspace generation
       Given a builder session committed model turns and VM tool results
       When its host or execution room restarts

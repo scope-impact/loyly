@@ -5,7 +5,7 @@ Feature: Authoritative and complete runtime evidence
   Rule: Runtime evidence preserves authority and collection quality
 
     @gondolin
-    @item-05-001 @deferred
+    @item-05-001 @deferred @allium-rule-success.BindSuccessfulBaselineTrace @allium-guarantee.ScoreTraceIsBound
     Scenario: A score preserves its Playwright trace
       Given the sealed grader drives the candidate only through its public seam
       When the score stage completes
@@ -13,7 +13,7 @@ Feature: Authoritative and complete runtime evidence
       And the measurement binds the trace archive digest
       And a missing Playwright trace makes the score incomplete
 
-    @item-05-002 @deferred
+    @item-05-002 @deferred @allium-rule-success.RecordRuntimeSignal @allium-invariant.CandidateCannotAuthorIndependentVerdict @allium-guarantee.IndependentVerdictAuthority
     Scenario: Candidate telemetry cannot author an independent verdict
       Given the candidate emits a runtime signal claiming an invariant passed
       But no independent validator evaluated the invariant
@@ -21,7 +21,7 @@ Feature: Authoritative and complete runtime evidence
       Then the candidate signal is retained as evidence
       But it cannot produce a passing item observation
 
-    @item-05-003 @deferred
+    @item-05-003 @deferred @allium-rule-success.MarkIncompleteInvariantInconclusive @allium-invariant.PassingEvaluationRequiresCompleteCollection @allium-invariant.DiagnosticSignalCannotDetermineVerdict @allium-guarantee.IncompleteMeansInconclusive
     Scenario: Missing or dropped required signals are inconclusive
       Given the sealed grader carries the generic evaluator for the runtime signals declared by the approved project model
       And one required signal is missing, incomplete, sampled, or reported as dropped
@@ -31,7 +31,7 @@ Feature: Authoritative and complete runtime evidence
       And collection status identifies the affected signal kind and reason
       And diagnostic profiles remain available but cannot author a verdict
 
-    @item-05-004 @deferred
+    @item-05-004 @deferred @allium-rule-success.EvaluateCompleteInvariant
     Scenario: A passing invariant uses one correlated candidate subject
       Given an accepted domain event and every required projection snapshot
       And every signal names the same cycle, operation, event, aggregate, and subject digest
@@ -64,7 +64,7 @@ Feature: Authoritative and complete runtime evidence
       And a selected item with no contract receives a failing observation
 
     @e2e
-    @item-05-008 @deferred
+    @item-05-008 @deferred @allium-rule-success.ProjectRuntimeEvidence @allium-invariant.EvidenceProjectionIsNotAuthority @allium-guarantee.DurableBeforeProjection
     Scenario: OTel and Allure project the persisted invariant evaluation
       Given an independent invariant evaluation and its evidence digest were persisted
       When an OTel result span and Allure report are emitted
@@ -80,7 +80,7 @@ Feature: Authoritative and complete runtime evidence
       And the profile cannot become an authoritative grade without deterministic validation
 
     @gondolin
-    @item-05-010 @deferred
+    @item-05-010 @deferred @allium-rule-success.OpenValidationRoom @allium-invariant.CapturePolicyIsPinnedReadOnlyInput @allium-invariant.ValidationEvidenceIsCycleIsolated @allium-guarantee.IsolatedCycleEvidence
     Scenario: Each comparison cycle isolates evidence from its pinned OTel capture policy
       Given the sealed harness snapshot supplies a declarative OTel capture policy
       When an independent Gondolin validator room opens for one regeneration cycle
