@@ -43,3 +43,13 @@ self-check runs again before the gate (H24).
 6. Scoreboard rates: one decimal, half to even; a zero denominator reports "n/a".
 7. The self-check reports a missing tool as a loud skip, not a failure; a golden is required where its cycle exists.
 8. Config completeness and the sibling-module check: carried or dropped with a recorded reason.
+
+## Questions raised by R2 (decided 2026-11-06)
+
+1. **Budget exhausted** (outer cycles, a stage timeout, continuations): the cycle fails with reason `budget`, the same shape as the gate-attempt limit.
+2. **Gate refusals** spend no attempt; they are bounded by the gate stage's timeout, and three consecutive infrastructure refusals fail the cycle with reason `infrastructure`.
+3. **A gate that passed without exercising the product** is the score's to catch, not the gate's (legacy README: the gate proves the suite green and says nothing about whether the suite exercises the product).
+4. **The self-check key** covers the approved grader digests; the capture policy waits for runtime evidence.
+5. **A golden whose scenario was reworded** fails the self-check, as legacy's oracle fails on any difference; the fix is to re-record it with a logged reason.
+6. **An empty-title heading** is not an item (legacy @harness-021); the stamper reports it loudly.
+7. **The same selection** means the same selected slices, by name, across cuts; whole-plan cycles compare with the last measured whole-plan cycle.
