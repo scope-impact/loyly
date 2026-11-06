@@ -1,7 +1,12 @@
 -- allium: 3
--- Generic runtime-signal and independent-invariant evidence contract.
--- Project models define what must be true; this model defines who may observe,
--- evaluate, persist, and project claims about one regenerated candidate.
+-- runtime-evidence.allium
+--
+-- Scope: a generic runtime-signal and independent-invariant evidence contract.
+-- Project models define what must be true; this model defines who may observe, evaluate,
+-- persist, and project claims about one regenerated candidate.
+-- Includes: runtime signals and their producers, independent invariant evaluations,
+-- capture policy, per-cycle evidence volumes, browser traces, and evidence projection.
+-- Excludes: what any one project must prove, and telemetry transport details.
 
 enum EvidenceVerdict { pass | fail | inconclusive }
 

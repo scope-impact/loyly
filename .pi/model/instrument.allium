@@ -1,8 +1,13 @@
 -- allium: 3
--- The instrument: a checklist derived from the spec, a grader written once, calibrated,
--- sealed, and approved by digest, a score with an honest denominator, and a scoreboard that
--- compares cycles on shared items in both directions. It reports to a person and never
--- feeds the build loop.
+-- instrument.allium
+--
+-- Scope: the instrument: a checklist derived from the spec, a grader written once,
+-- calibrated, sealed, and approved by digest, a score with an honest denominator, and a
+-- scoreboard that compares cycles on shared items in both directions. It reports to a
+-- person and never feeds the build loop.
+-- Includes: checklist derivation, grader calibration, sealing, approval, reuse and
+-- replacement, score filing, and scoreboard comparison.
+-- Excludes: the grader's own test logic, building candidates, and the gate.
 
 enum GraderStatus { calibrating | sealed | approved | discarded }
 enum GraderReplacementReason { instrument_behavior_changed | wording_replaced | spec_grew }

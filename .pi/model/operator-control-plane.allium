@@ -1,5 +1,14 @@
 -- allium: 3
--- Observable session-agnostic control-plane behavior. ORC owns task execution events.
+-- operator-control-plane.allium
+--
+-- Scope: observable, session-agnostic control-plane behaviour: how an operator
+-- prepares, approves, submits, waits for, and observes regeneration work. ORC owns task
+-- execution events.
+-- Includes: control selections, cycle preparations, task receipts and idempotent
+-- submission, task lifecycle, cycle progress projected from ORC facts, builder session
+-- observation and intervention, child cycles, and durable measurement receipts.
+-- Excludes: ORC's own execution semantics (ORC specs/orc-service.allium), the cycle's
+-- stages (execution-pipeline.allium), and transport (rpc.yaml).
 
 external entity OperatorSession {}
 

@@ -1,10 +1,13 @@
-(ns loyly.pi-harness.regeneration-event-model
-  "Harness-owned Grain service area for selection, preparation, observations, and measurement.
+(ns loyly.pi-harness.event-model
+  "The harness-owned Grain service area: selection, preparation, grader approval,
+   task receipts, observations, and measurement.
 
    It runs inside ORC's Grain runtime. ORC :sheet events describe workflow
-   execution and feed harness projections; the :sheet area below declares only
-   the ORC blocks this harness reads or dispatches, so every edge resolves."
-  (:require [ai.obney.grain.event-model.interface :refer [defeventmodel]]))
+   execution and feed harness projections; orc.sheet.event-model declares the
+   ORC blocks this area reads or dispatches, so every edge resolves.
+   Behaviour lives in the linked .allium rules and surfaces, never here."
+  (:require [ai.obney.grain.event-model.interface :refer [defeventmodel]]
+            [orc.sheet.event-model]))
 
 (defeventmodel :loyly.pi-harness
   {:description "Durable preparation approval and measurement records for session-agnostic ORC regeneration cycles."
@@ -408,81 +411,3 @@
               :to [:query :loyly.pi-harness/cycle-progress]}
              {:from [:query :loyly.pi-harness/cycle-progress]
               :to [:screen :loyly.pi-harness/pi-regeneration]}]}}})
-
-(defeventmodel :sheet
-  {:description "The ORC execution blocks this harness depends on, declared so the harness topology resolves. Schemas copied from obneyai/orc projects/orc-service at af086675 (orc_service/interface/schemas.clj); ORC owns them and registers the live definitions."
-
-   :commands
-   {:sheet/tick-tree
-    {:description "Start one durable ORC tick of a sheet."
-     :schema [:map
-              [:sheet-id :uuid]
-              [:tick-id {:optional true} :uuid]
-              [:parent-tick-id {:optional true} :uuid]
-              [:correlation-id {:optional true} :uuid]
-              [:inputs {:optional true} :map]
-              [:input-sources {:optional true} [:map-of :keyword [:map [:tick-id :uuid] [:event-id :uuid]]]]
-              [:use-version {:optional true} :int]
-              [:force-draft {:optional true} :boolean]
-              [:options {:optional true} :map]
-              [:tool-context {:optional true} :map]]
-     :produces #{:sheet/tree-tick-started}
-     :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
-                     :kind :rule :name "DispatchApprovedPreparationToOrc"}]}}
-
-   :events
-   {:sheet/tree-tick-started
-    {:description "An ORC tick started."
-     :schema [:map
-              [:sheet-id :uuid]
-              [:tick-id :uuid]
-              [:parent-tick-id {:optional true} :uuid]
-              [:correlation-id {:optional true} :uuid]
-              [:iteration {:optional true} :int]
-              [:seed-sources {:optional true} [:map-of :keyword [:map [:tick-id :uuid] [:event-id :uuid]]]]
-              [:execution-snapshot {:optional true} :map]
-              [:version-number {:optional true} :int]
-              [:options {:optional true} :map]
-              [:tool-context {:optional true} :map]]}
-
-    :sheet/node-execution-started
-    {:description "One node of an ORC tick started."
-     :schema [:map
-              [:sheet-id :uuid]
-              [:tick-id :uuid]
-              [:node-id :uuid]
-              [:inputs [:map-of :keyword :any]]
-              [:resumed-from-event-id {:optional true} :uuid]]}
-
-    :sheet/node-execution-completed
-    {:description "One node of an ORC tick completed."
-     :schema [:map
-              [:sheet-id :uuid]
-              [:tick-id :uuid]
-              [:node-id :uuid]
-              [:status [:enum :success :failure :running :tree-generated :partial :timeout :blocked]]
-              [:write-keys {:optional true} [:vector :keyword]]
-              [:write-profile {:optional true} [:map-of :keyword :map]]
-              [:rejected-write-keys {:optional true} [:vector :keyword]]
-              [:rejected-write-profile {:optional true} [:map-of :keyword :map]]
-              [:source-tick-id {:optional true} [:maybe :uuid]]
-              [:timestamp [:fn inst?]]]}
-
-    :sheet/tree-tick-completed
-    {:description "An ORC tick completed with a root status."
-     :schema [:map
-              [:sheet-id :uuid]
-              [:tick-id :uuid]
-              [:correlation-id {:optional true} :uuid]
-              [:iteration {:optional true} :int]
-              [:root-status [:enum :success :failure :running :tree-generated :partial :timeout :blocked]]
-              [:node-id {:optional true} :uuid]
-              [:exec-context {:optional true} :map]
-              [:input-seed? {:optional true} :boolean]]}
-
-    :sheet/tick-cancelled
-    {:description "An ORC tick was cancelled."
-     :schema [:map
-              [:sheet-id :uuid]
-              [:tick-id :uuid]
-              [:reason {:optional true} [:maybe :string]]]}}})

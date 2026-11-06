@@ -1,6 +1,12 @@
 -- allium: 3
--- Project runtime files are resolved by convention, not a duplicate profile JSON.
--- Product truth remains in model/<project-id>; shared harness config remains in .pi/harness/config.
+-- project-vm-config.allium
+--
+-- Scope: project runtime files are resolved by convention, not a duplicate profile
+-- JSON. Product truth remains in model/<project-id>; shared harness config remains in
+-- .pi/harness/config.
+-- Includes: resolving a project's VM config and stack Dockerfile, and refusing a missing
+-- or out-of-project runtime.
+-- Excludes: building or booting the VM, and the files' contents.
 
 enum ProjectRuntimeResolution { resolved | refused }
 

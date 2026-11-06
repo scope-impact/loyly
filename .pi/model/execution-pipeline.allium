@@ -1,7 +1,14 @@
 -- allium: 3
--- The regeneration cycle in the legacy shape: fence, regenerate, gate, score, scoreboard.
--- The fence and the gate are the harness and feed the build loop. The score and the
--- scoreboard are the instrument (instrument.allium) and never feed the loop.
+-- execution-pipeline.allium
+--
+-- Scope: the regeneration cycle in the legacy shape: fence, regenerate, gate, score,
+-- scoreboard. The fence and the gate are the harness and feed the build loop. The score and
+-- the scoreboard are the instrument (instrument.allium) and never feed the loop.
+-- Includes: pipeline stages and their order, the harness self-check, the clean room, one
+-- builder per slice, gate attempts and repair, the candidate subject, observations,
+-- measurement, and the evidence report projection.
+-- Excludes: grader authoring and approval (instrument.allium), operator approval of the
+-- selection (regeneration-cycle.allium), and Grain command/event plumbing.
 
 enum PipelineStage { fence | regenerate | gate | score | scoreboard | result }
 enum PipelineStatus { submitted | running | passed | failed }

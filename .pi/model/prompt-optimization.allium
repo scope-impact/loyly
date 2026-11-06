@@ -1,6 +1,11 @@
 -- allium: 3
--- ORC-owned optimization of complete builder strategies through independent
+-- prompt-optimization.allium
+--
+-- Scope: ORC-owned optimization of complete builder strategies through independent,
 -- purpose-specific regeneration measurements.
+-- Includes: production prompt rendering, builder instructions, reflection model binding,
+-- instruction candidates, their measurement, and selection.
+-- Excludes: GEPA's search algorithm (ORC specs/gepa.allium) and provider transport.
 
 external entity HarnessOperator {}
 

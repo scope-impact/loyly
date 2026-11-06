@@ -61,15 +61,16 @@ executable suite carry no verdict.
   dynamic tools, branching, and steering stay in the operator session; only an immutable
   approved fixed execution contract crosses into ORC.
 - `runtime-evidence.allium` separates candidate telemetry, harness observations, independent invariant verdicts, and report projections.
-- `regeneration_event_model.clj` mandates the harness-owned Grain service area. Its block names
-  use the `:loyly.pi-harness/*` namespace, its public commands, events, read models, queries, and
-  processors must reconcile with live registries, and every event has an explicit `defevent`
-  history contract. Startup and CI fail strict validation on missing, extra, or mismatched blocks.
-  The same file declares a `:sheet` area holding only the ORC command and events the harness
-  dispatches or projects, with schemas copied from ORC's pinned `orc-service`, so every edge
-  resolves. Each command links an Allium rule, the screen links an Allium surface, and each flow
-  covers one operator action. Grain's composition gate (`validate-spec-composition`) passes on the
-  model alone; strict runtime validation needs the implementation loaded.
+- `event-model/loyly/pi_harness/event_model.clj` (`loyly.pi-harness.event-model`) mandates the
+  harness-owned Grain service area. Its block names use the `:loyly.pi-harness/*` namespace, its
+  public commands, events, read models, queries, and processors must reconcile with live
+  registries, and every event has an explicit `defevent` history contract. Startup and CI fail
+  strict validation on missing, extra, or mismatched blocks.
+  `event-model/orc/sheet/event_model.clj` (`orc.sheet.event-model`) declares only the ORC
+  `:sheet` command and events the harness dispatches or projects, copied from ORC's pinned
+  `orc-service`, so every edge resolves. One area per file; each namespace matches its path.
+- `COVERAGE.md` maps each slice to its spec, each command to its Allium rule, and records the
+  verification commands and the accepted Allium diagnostic baseline.
 - `model/<project>/affordances.yaml` defines the minimum actor-facing interaction surface that
   exposes Allium/Gherkin behavior to people and tools for the slices selected by its `slice` or
   `slices` field. A non-selected slice records affordance conformance as non-applicable and does

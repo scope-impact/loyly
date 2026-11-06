@@ -1,6 +1,12 @@
 -- allium: 3
--- Observable behavior of the session-hosted ORC regeneration workflow.
--- Product behavior belongs to model/<project>; ORC runtime behavior belongs to ORC.
+-- regeneration-cycle.allium
+--
+-- Scope: observable behaviour of the session-hosted ORC regeneration workflow.
+-- Product behaviour belongs to model/<project>; ORC runtime behaviour belongs to ORC.
+-- Includes: cuts and their composed system view, slice selection and its approval by
+-- digest, cycle preparation and its approval, submission, and start.
+-- Excludes: the cycle's stages (execution-pipeline.allium), the instrument
+-- (instrument.allium), and ORC's runtime behaviour.
 
 external entity OperatorSession {}
 
