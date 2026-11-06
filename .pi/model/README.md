@@ -65,6 +65,11 @@ executable suite carry no verdict.
   use the `:loyly.pi-harness/*` namespace, its public commands, events, read models, queries, and
   processors must reconcile with live registries, and every event has an explicit `defevent`
   history contract. Startup and CI fail strict validation on missing, extra, or mismatched blocks.
+  The same file declares a `:sheet` area holding only the ORC command and events the harness
+  dispatches or projects, with schemas copied from ORC's pinned `orc-service`, so every edge
+  resolves. Each command links an Allium rule, the screen links an Allium surface, and each flow
+  covers one operator action. Grain's composition gate (`validate-spec-composition`) passes on the
+  model alone; strict runtime validation needs the implementation loaded.
 - `model/<project>/affordances.yaml` defines the minimum actor-facing interaction surface that
   exposes Allium/Gherkin behavior to people and tools for the slices selected by its `slice` or
   `slices` field. A non-selected slice records affordance conformance as non-applicable and does
@@ -145,9 +150,9 @@ approved sealed grader and a scoreboard.
 17. The current harness implementation uses `:loyly/*` runtime blocks, direct read helpers, and a
     duplicate harness progress event. It lacks the declared cycle-preparation blocks, Grain
     `defquery` handlers, registered `defevent` history contracts, the Grain Event Model runtime
-    package, and strict startup/model-conformance validation. ORC also does not yet register the
-    `:sheet` Event Model required to resolve the harness's cross-area command and event edges.
-    These dependencies must converge with the target `:loyly.pi-harness/*` service area before
+    package, and strict startup/model-conformance validation. ORC does not register a `:sheet`
+    Event Model; the spec declares the `:sheet` blocks it depends on, and they must stay in step
+    with ORC's pinned schemas. These dependencies must converge with the target `:loyly.pi-harness/*` service area before
     the harness is Grain-conformant.
 18. GEPA reflection currently uses the runtime's hardcoded OpenRouter provider. The target contract
     requires explicit Bedrock provider registration, a pinned reflection model per optimization,

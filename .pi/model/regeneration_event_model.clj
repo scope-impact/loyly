@@ -2,8 +2,8 @@
   "Harness-owned Grain service area for selection, preparation, observations, and measurement.
 
    It runs inside ORC's Grain runtime. ORC :sheet events describe workflow
-   execution and may feed harness projections without being duplicated. Löyly
-   product events describe the regenerated application."
+   execution and feed harness projections; the :sheet area below declares only
+   the ORC blocks this harness reads or dispatches, so every edge resolves."
   (:require [ai.obney.grain.event-model.interface :refer [defeventmodel]]))
 
 (defeventmodel :loyly.pi-harness
@@ -48,7 +48,7 @@
      :reads #{:loyly.pi-harness/approved-graders}
      :produces #{:loyly.pi-harness/grader-approved}
      :grain/allium [{:spec ".pi/model/instrument.allium"
-                     :kind :surface :name "Instrument"}]}
+                     :kind :rule :name "ApproveExactGrader"}]}
 
     :loyly.pi-harness/record-task-receipt
     {:description "Bind an issued task identity to its ORC tick so a replacement worker can answer for it."
@@ -56,7 +56,7 @@
      :reads #{:loyly.pi-harness/task-receipts}
      :produces #{:loyly.pi-harness/task-receipt-issued}
      :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
-                     :kind :surface :name "RegenerationControlPlane"}]}
+                     :kind :rule :name "StartHarnessTask"}]}
 
     :loyly.pi-harness/record-observation
     {:description "Record one evidence-backed item observation."
@@ -78,12 +78,12 @@
    {:loyly.pi-harness/selection-recorded
     {:description "A deterministic selection contract was recorded for review."
      :schema [:map
-              [:selectionId :string]
-              [:selectionDigest :string]
+              [:selection-id :string]
+              [:selection-digest :string]
               [:status [:enum "awaiting-approval" "approved"]]
-              [:projectId :string]
-              [:containerId :string]
-              [:componentId :string]
+              [:project-id :string]
+              [:container-id :string]
+              [:component-id :string]
               [:cut :string]
               [:slice :string]
               [:items
@@ -97,7 +97,7 @@
 
     :loyly.pi-harness/selection-approved
     {:description "The exact digest of a recorded selection was approved."
-     :schema [:map [:selectionId :string] [:selectionDigest :string]]}
+     :schema [:map [:selection-id :string] [:selection-digest :string]]}
 
     :loyly.pi-harness/cycle-preparation-recorded
     {:description "A complete, deterministic cycle preparation was recorded for review."
@@ -292,30 +292,61 @@
                      :kind :surface :name "RegenerationControlPlane"}]}}
 
    :flows
-   {:loyly.pi-harness/selection-approval
-    {:description "A deterministic selection is recorded and approved by exact digest."
+   {:loyly.pi-harness/record-selection
+    {:description "A deterministic selection is recorded for review."
      :steps [{:from [:screen :loyly.pi-harness/pi-regeneration]
               :to [:command :loyly.pi-harness/record-selection]}
              {:from [:command :loyly.pi-harness/record-selection]
               :to [:event :loyly.pi-harness/selection-recorded]}
              {:from [:event :loyly.pi-harness/selection-recorded]
               :to [:read-model :loyly.pi-harness/selections]}
-             {:from [:screen :loyly.pi-harness/pi-regeneration]
+             {:from [:read-model :loyly.pi-harness/selections]
+              :to [:query :loyly.pi-harness/selection]}
+             {:from [:query :loyly.pi-harness/selection]
+              :to [:screen :loyly.pi-harness/pi-regeneration]}]}
+
+    :loyly.pi-harness/approve-selection
+    {:description "A recorded selection is approved by exact digest."
+     :steps [{:from [:screen :loyly.pi-harness/pi-regeneration]
               :to [:command :loyly.pi-harness/approve-selection]}
              {:from [:command :loyly.pi-harness/approve-selection]
               :to [:event :loyly.pi-harness/selection-approved]}
              {:from [:event :loyly.pi-harness/selection-approved]
-              :to [:read-model :loyly.pi-harness/selections]}]}
+              :to [:read-model :loyly.pi-harness/selections]}
+             {:from [:read-model :loyly.pi-harness/selections]
+              :to [:query :loyly.pi-harness/selection]}
+             {:from [:query :loyly.pi-harness/selection]
+              :to [:screen :loyly.pi-harness/pi-regeneration]}]}
 
-    :loyly.pi-harness/cycle-preparation-approval
-    {:description "A complete cycle preparation is recorded and approved by exact digest."
+    :loyly.pi-harness/record-cycle-preparation
+    {:description "A complete cycle preparation is recorded for review."
      :steps [{:from [:screen :loyly.pi-harness/pi-regeneration]
               :to [:command :loyly.pi-harness/record-cycle-preparation]}
              {:from [:command :loyly.pi-harness/record-cycle-preparation]
               :to [:event :loyly.pi-harness/cycle-preparation-recorded]}
              {:from [:event :loyly.pi-harness/cycle-preparation-recorded]
               :to [:read-model :loyly.pi-harness/cycle-preparations]}
-             {:from [:screen :loyly.pi-harness/pi-regeneration]
+             {:from [:read-model :loyly.pi-harness/cycle-preparations]
+              :to [:query :loyly.pi-harness/cycle-preparation]}
+             {:from [:query :loyly.pi-harness/cycle-preparation]
+              :to [:screen :loyly.pi-harness/pi-regeneration]}]}
+
+    :loyly.pi-harness/approve-grader
+    {:description "An operator approves a sealed grader by exact digest."
+     :steps [{:from [:screen :loyly.pi-harness/pi-regeneration]
+              :to [:command :loyly.pi-harness/approve-grader]}
+             {:from [:command :loyly.pi-harness/approve-grader]
+              :to [:event :loyly.pi-harness/grader-approved]}
+             {:from [:event :loyly.pi-harness/grader-approved]
+              :to [:read-model :loyly.pi-harness/approved-graders]}
+             {:from [:read-model :loyly.pi-harness/approved-graders]
+              :to [:query :loyly.pi-harness/approved-graders]}
+             {:from [:query :loyly.pi-harness/approved-graders]
+              :to [:screen :loyly.pi-harness/pi-regeneration]}]}
+
+    :loyly.pi-harness/approve-cycle-preparation
+    {:description "An approved preparation is dispatched to ORC exactly once."
+     :steps [{:from [:screen :loyly.pi-harness/pi-regeneration]
               :to [:command :loyly.pi-harness/approve-cycle-preparation]}
              {:from [:command :loyly.pi-harness/approve-cycle-preparation]
               :to [:event :loyly.pi-harness/cycle-preparation-approved]}
@@ -328,26 +359,130 @@
              {:from [:todo-processor :loyly.pi-harness/start-approved-cycle]
               :to [:command :sheet/tick-tree]}]}
 
-    :loyly.pi-harness/progress-reconciliation
-    {:description "Reconnectable harness progress is a projection of ORC execution facts."
-     :steps [{:from [:event :sheet/tree-tick-started]
-              :to [:read-model :loyly.pi-harness/cycle-progress]}
-             {:from [:read-model :loyly.pi-harness/cycle-progress]
-              :to [:query :loyly.pi-harness/cycle-progress]}
-             {:from [:query :loyly.pi-harness/cycle-progress]
+    :loyly.pi-harness/record-task-receipt
+    {:description "A task identity is bound to the ORC tick it names."
+     :steps [{:from [:screen :loyly.pi-harness/pi-regeneration]
+              :to [:command :loyly.pi-harness/record-task-receipt]}
+             {:from [:command :loyly.pi-harness/record-task-receipt]
+              :to [:event :loyly.pi-harness/task-receipt-issued]}
+             {:from [:event :loyly.pi-harness/task-receipt-issued]
+              :to [:read-model :loyly.pi-harness/task-receipts]}
+             {:from [:read-model :loyly.pi-harness/task-receipts]
+              :to [:query :loyly.pi-harness/task-receipt]}
+             {:from [:query :loyly.pi-harness/task-receipt]
               :to [:screen :loyly.pi-harness/pi-regeneration]}]}
 
-    :loyly.pi-harness/measurement-recording
-    {:description "Independent observations are reduced and recorded as one strict measurement."
+    :loyly.pi-harness/record-observation
+    {:description "One evidence-backed item observation is recorded."
      :steps [{:from [:screen :loyly.pi-harness/pi-regeneration]
               :to [:command :loyly.pi-harness/record-observation]}
              {:from [:command :loyly.pi-harness/record-observation]
               :to [:event :loyly.pi-harness/observation-recorded]}
              {:from [:event :loyly.pi-harness/observation-recorded]
               :to [:read-model :loyly.pi-harness/cycle-observations]}
-             {:from [:screen :loyly.pi-harness/pi-regeneration]
+             {:from [:read-model :loyly.pi-harness/cycle-observations]
+              :to [:query :loyly.pi-harness/cycle-observations]}
+             {:from [:query :loyly.pi-harness/cycle-observations]
+              :to [:screen :loyly.pi-harness/pi-regeneration]}]}
+
+    :loyly.pi-harness/record-cycle-measurement
+    {:description "The strict measurement for one cycle is recorded."
+     :steps [{:from [:screen :loyly.pi-harness/pi-regeneration]
               :to [:command :loyly.pi-harness/record-cycle-measurement]}
              {:from [:command :loyly.pi-harness/record-cycle-measurement]
               :to [:event :loyly.pi-harness/cycle-measurement-recorded]}
              {:from [:event :loyly.pi-harness/cycle-measurement-recorded]
-              :to [:read-model :loyly.pi-harness/cycle-measurements]}]}}})
+              :to [:read-model :loyly.pi-harness/cycle-measurements]}
+             {:from [:read-model :loyly.pi-harness/cycle-measurements]
+              :to [:query :loyly.pi-harness/cycle-measurement]}
+             {:from [:query :loyly.pi-harness/cycle-measurement]
+              :to [:screen :loyly.pi-harness/pi-regeneration]}]}
+
+    :loyly.pi-harness/progress-reconciliation
+    {:description "Reconnectable harness progress is a projection of ORC execution facts."
+     :steps [{:from [:command :sheet/tick-tree]
+              :to [:event :sheet/tree-tick-started]}
+             {:from [:event :sheet/tree-tick-started]
+              :to [:read-model :loyly.pi-harness/cycle-progress]}
+             {:from [:read-model :loyly.pi-harness/cycle-progress]
+              :to [:query :loyly.pi-harness/cycle-progress]}
+             {:from [:query :loyly.pi-harness/cycle-progress]
+              :to [:screen :loyly.pi-harness/pi-regeneration]}]}}})
+
+(defeventmodel :sheet
+  {:description "The ORC execution blocks this harness depends on, declared so the harness topology resolves. Schemas copied from obneyai/orc projects/orc-service at af086675 (orc_service/interface/schemas.clj); ORC owns them and registers the live definitions."
+
+   :commands
+   {:sheet/tick-tree
+    {:description "Start one durable ORC tick of a sheet."
+     :schema [:map
+              [:sheet-id :uuid]
+              [:tick-id {:optional true} :uuid]
+              [:parent-tick-id {:optional true} :uuid]
+              [:correlation-id {:optional true} :uuid]
+              [:inputs {:optional true} :map]
+              [:input-sources {:optional true} [:map-of :keyword [:map [:tick-id :uuid] [:event-id :uuid]]]]
+              [:use-version {:optional true} :int]
+              [:force-draft {:optional true} :boolean]
+              [:options {:optional true} :map]
+              [:tool-context {:optional true} :map]]
+     :produces #{:sheet/tree-tick-started}
+     :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
+                     :kind :rule :name "DispatchApprovedPreparationToOrc"}]}}
+
+   :events
+   {:sheet/tree-tick-started
+    {:description "An ORC tick started."
+     :schema [:map
+              [:sheet-id :uuid]
+              [:tick-id :uuid]
+              [:parent-tick-id {:optional true} :uuid]
+              [:correlation-id {:optional true} :uuid]
+              [:iteration {:optional true} :int]
+              [:seed-sources {:optional true} [:map-of :keyword [:map [:tick-id :uuid] [:event-id :uuid]]]]
+              [:execution-snapshot {:optional true} :map]
+              [:version-number {:optional true} :int]
+              [:options {:optional true} :map]
+              [:tool-context {:optional true} :map]]}
+
+    :sheet/node-execution-started
+    {:description "One node of an ORC tick started."
+     :schema [:map
+              [:sheet-id :uuid]
+              [:tick-id :uuid]
+              [:node-id :uuid]
+              [:inputs [:map-of :keyword :any]]
+              [:resumed-from-event-id {:optional true} :uuid]]}
+
+    :sheet/node-execution-completed
+    {:description "One node of an ORC tick completed."
+     :schema [:map
+              [:sheet-id :uuid]
+              [:tick-id :uuid]
+              [:node-id :uuid]
+              [:status [:enum :success :failure :running :tree-generated :partial :timeout :blocked]]
+              [:write-keys {:optional true} [:vector :keyword]]
+              [:write-profile {:optional true} [:map-of :keyword :map]]
+              [:rejected-write-keys {:optional true} [:vector :keyword]]
+              [:rejected-write-profile {:optional true} [:map-of :keyword :map]]
+              [:source-tick-id {:optional true} [:maybe :uuid]]
+              [:timestamp [:fn inst?]]]}
+
+    :sheet/tree-tick-completed
+    {:description "An ORC tick completed with a root status."
+     :schema [:map
+              [:sheet-id :uuid]
+              [:tick-id :uuid]
+              [:correlation-id {:optional true} :uuid]
+              [:iteration {:optional true} :int]
+              [:root-status [:enum :success :failure :running :tree-generated :partial :timeout :blocked]]
+              [:node-id {:optional true} :uuid]
+              [:exec-context {:optional true} :map]
+              [:input-seed? {:optional true} :boolean]]}
+
+    :sheet/tick-cancelled
+    {:description "An ORC tick was cancelled."
+     :schema [:map
+              [:sheet-id :uuid]
+              [:tick-id :uuid]
+              [:reason {:optional true} [:maybe :string]]]}}})

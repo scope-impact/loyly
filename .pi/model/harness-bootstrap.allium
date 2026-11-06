@@ -1,3 +1,4 @@
+-- allium: 3
 -- Local build contract for the repository-root Pi harness Makefile target.
 -- This workflow is distinct from candidate regeneration and requires no grader.
 
