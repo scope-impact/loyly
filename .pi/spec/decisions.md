@@ -154,3 +154,38 @@ preparing its cycle; each is a reading of the spec, not a change of behaviour.
    `harness/cycles/`, whose `01` the legacy harness's own check (`harness/oracle.sh`) reads as spec v1's recorded cycle
    (`harness/README.md`, "Where a spec-v2 cycle is filed"). The legacy scoreboard's previous
    cycle is then the slice's previous cycle, the same selection (g).
+
+## Slice 03: grader-lifecycle (decided 2026-11-07)
+
+How the third context, `grader-lifecycle`, is built alone, in the shape of "First light" and
+"Slice 02". Taken while preparing its cycle; each is a reading of the spec, not a change of
+behaviour.
+
+1. **Accepted.** The 4 drafts that cite legacy behaviour and are tier minimum moved into
+   `grader-lifecycle/spec.feature` (`@item-03-001` to `@item-03-004`, all under the Rule of
+   `MoveInstrumentGolden`); `.pi/plan/03-grader-lifecycle` makes it slice 03. Its 4 new minimum
+   drafts (no `# Legacy:` line) and the 3 balance drafts stay drafts. No Scenario Outline, so
+   no Examples table to lose.
+2. **Its model validates alone.** The flow `golden-written-then-moved` ended in two steps of
+   the Regeneration cycle (its read model `instrument-goldens` and its command
+   `record-harness-self-check`): 3 dangling references when the context is validated alone. They
+   are cut, as specification's were ("First light" 3); the Regeneration cycle's read model
+   still consumes both golden events (`harness-self-check.edn`), so nothing of the handoff is
+   lost. Grader lifecycle consumes no handoff: the room holds no other context's file.
+3. **The scenario digests are handed in.** Both rules compare the offered scenario digest with
+   `digest_of_scenario(scenario)` (contract `ScenarioDigests`, which the surface fulfils), and
+   the event model gives the candidate no place to read a scenario from. So the current
+   scenario digests are the issuer's reading of the cut, as the checklist's is ("Slice 02" 5),
+   handed to the candidate in a JSON file named by `LOYLY_SCENARIO_DIGESTS` (scenario as named
+   in `scenario` → its current digest), read at every command so a reworded scenario shows;
+   a scenario it does not name has no digest (`seam.md`). The candidate never computes a
+   digest. Rejected: a seam method per scenario digest (no event or command of the model
+   carries one, and the gate's store check would refuse it), and the candidate hashing the
+   scenario's text (the cut's text is not in the room, and a grader could not offer the
+   scenarios' digests "s-12"). If the product owner wants the candidate to read the cut itself,
+   the commands need a place to read it from; that is a change of the spec, not of the seam.
+4. **A reason outside the three is a schema mismatch.** `@item-03-004` ("never moved for a
+   reason outside the three") has no `requires`: the enumeration `MoveReason` is the event
+   model's `:enum`, so the move is heard as `-32602` and records nothing. An empty note is the
+   refusal `empty-note` (`MoveInstrumentGolden` requires 4), not `-32602`, although the schema's
+   `{:min 1}` says the same: the Allium names it, and orders it.

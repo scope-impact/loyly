@@ -181,3 +181,10 @@ acceptance of measurement's legacy minimum drafts added `.pi/plan/02-measurement
 stamped items, `02-001` to `02-024`; the derived checklist is slice 01's 15 and those 24. The
 spec grew (additions only), so the golden was re-recorded with `harness/oracle.sh record`; its
 diff is additions plus the one `total` line (15 → 39). No approved grader's scenarios changed.
+
+**2026-11-07: the spec grew: slice 03, `grader-lifecycle`, accepted.** The product owner's
+acceptance of grader-lifecycle's legacy minimum drafts added `.pi/plan/03-grader-lifecycle` and
+its 4 stamped items, `03-001` to `03-004`; the derived checklist is slice 01's 15, slice 02's 24
+and those 4. The spec grew (additions only), so the golden was re-recorded with
+`harness/oracle.sh record`; its diff is additions plus the one `total` line (39 → 43). No
+approved grader's scenarios changed.

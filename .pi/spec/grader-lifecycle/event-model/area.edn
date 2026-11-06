@@ -13,7 +13,7 @@
     :commands #{:grader-lifecycle/write-instrument-golden :grader-lifecycle/move-instrument-golden}}}
   :flows
   {:grader-lifecycle/golden-written-then-moved
-   {:description "A golden is written from its scenario; a move carries one of three reasons; the harness self-check reproduces the current goldens exactly."
+   {:description "A golden is written from its scenario; a move carries one of three reasons. The flow stays inside this context: the Regeneration cycle folds both golden events (handoffs) into its own read model, whose harness self-check reproduces the current goldens exactly, so this context's model validates alone, as a candidate registers it (decisions.md, \"Slice 03\")."
     :grain/allium [{:spec ".pi/spec/grader-lifecycle/allium/instrument-golden.allium" :kind :rule :name "WriteInstrumentGolden"}
                    {:spec ".pi/spec/grader-lifecycle/allium/instrument-golden.allium" :kind :rule :name "MoveInstrumentGolden"}]
     :steps [{:from [:screen :grader-lifecycle/instrument-goldens] :to [:command :grader-lifecycle/write-instrument-golden]}
@@ -23,6 +23,4 @@
             {:from [:query :grader-lifecycle/instrument-goldens] :to [:screen :grader-lifecycle/instrument-goldens]}
             {:from [:screen :grader-lifecycle/instrument-goldens] :to [:command :grader-lifecycle/move-instrument-golden]}
             {:from [:command :grader-lifecycle/move-instrument-golden] :to [:event :grader-lifecycle/instrument-golden-moved]}
-            {:from [:event :grader-lifecycle/instrument-golden-moved] :to [:read-model :grader-lifecycle/instrument-goldens]}
-            {:from [:event :grader-lifecycle/instrument-golden-moved] :to [:read-model :regeneration-cycle/instrument-goldens]}
-            {:from [:read-model :regeneration-cycle/instrument-goldens] :to [:command :regeneration-cycle/record-harness-self-check]}]}}}}
+            {:from [:event :grader-lifecycle/instrument-golden-moved] :to [:read-model :grader-lifecycle/instrument-goldens]}]}}}}

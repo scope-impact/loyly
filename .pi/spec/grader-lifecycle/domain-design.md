@@ -56,7 +56,10 @@ README ("The goldens, and the three reasons one can change").
 invariant, each contract invariant, each guarantee), every one tagged; 0 uncovered. Each
 draft names its rule, file and the Gherkin `Rule:` it goes under, cites the legacy
 `@harness-NNN` it preserves, and suggests a tier. Unit-level, not drafted (1): `WriteInstrumentGolden.1` (an idempotent creation), which invariant `OneGoldenPerIdentity` checks through its draft.
-The product owner accepts a draft by moving it into `spec.feature` (R4).
+The product owner accepts a draft by moving it into `spec.feature` (R4). R4.3 (2026-11-07):
+the 4 that cite legacy behaviour and are tier minimum are accepted, `@item-03-001` to
+`@item-03-004` (slice 03, `.pi/plan/03-grader-lifecycle`); 7 stay drafts, 4 of them new minimum.
+Its seam is `seam.md` (`../decisions.md`, "Slice 03").
 
 ## Open questions
 
