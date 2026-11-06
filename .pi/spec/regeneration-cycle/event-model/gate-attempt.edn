@@ -23,7 +23,7 @@
     :reads #{:regeneration-cycle/gate-attempts :regeneration-cycle/regeneration-cycles}
     :produces #{:regeneration-cycle/candidate-installed-in-gate-room}}
    :regeneration-cycle/record-gate-attempt
-   {:description "Record the gate's verdict on one attempt: passed (the contract present, suites discovered and green, answered within the boot budget, the identity probe proved it is this application) or failed with the first guard that did not hold. Refused, recording nothing and spending no attempt, when no self-check passed for the attempt, the identity probe is missing or is not the instrument's, or the seam answered before boot (decisions.md b). Issued by: ORC runtime (the gate node), from the gate room's result."
+   {:description "Record the gate's verdict on one attempt: passed (the contract present, suites discovered and green, answered within the boot budget, the identity probe proved it is this application) or failed with the first guard that did not hold. Refused, recording nothing and spending no attempt, when no self-check passed for the attempt at these approved grader digests (R2 question 4), the identity probe is missing or is not the instrument's, or the seam answered before boot (decisions.md b). Issued by: ORC runtime (the gate node), from the gate room's result."
     :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/gate-attempt.allium" :kind :rule :name "RecordGateAttempt"}]
     :schema [:map
              [:cycle-id :string]
@@ -41,9 +41,20 @@
              [:answered-on-poll {:optional true} pos-int?]
              [:identity-proof {:optional true} :string]
              [:evidence-root :string]
-             [:detail :string]]
+             [:detail :string]
+             [:grader-digests [:vector :string]]]
     :reads #{:regeneration-cycle/gate-attempts :regeneration-cycle/harness-self-checks :regeneration-cycle/regeneration-cycles}
-    :produces #{:regeneration-cycle/gate-attempt-passed :regeneration-cycle/gate-attempt-failed}}}
+    :produces #{:regeneration-cycle/gate-attempt-passed :regeneration-cycle/gate-attempt-failed}}
+   :regeneration-cycle/record-gate-refusal
+   {:description "Record that the gate refused to grade an attempt for infrastructure (the seam answered before boot, the identity probe missing or not the instrument's), after record-gate-attempt was refused. It spends no attempt; three in a row fail the cycle for infrastructure, and the gate stage's timeout bounds them (decisions.md, R2 question 2). Issued by: ORC runtime (the gate node)."
+    :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/gate-attempt.allium" :kind :rule :name "RecordGateRefusal"}]
+    :schema [:map
+             [:cycle-id :string]
+             [:attempt [:int {:min 1 :max 3}]]
+             [:refusal [:enum "seam-answered-before-boot" "identity-probe-missing" "identity-probe-not-the-instruments"]]
+             [:detail :string]]
+    :reads #{:regeneration-cycle/gate-attempts :regeneration-cycle/regeneration-cycles}
+    :produces #{:regeneration-cycle/gate-attempt-refused}}}
   :events
   {:regeneration-cycle/candidate-installed-in-gate-room
    {:description "The attempt's candidate is installed in a fresh gate room."
@@ -66,13 +77,22 @@
              [:boot-polls pos-int?]
              [:evidence-root :string]
              [:detail :string]
-             [:failed-at inst?]]}}
+             [:failed-at inst?]]}
+   :regeneration-cycle/gate-attempt-refused
+   {:description "The gate refused to grade this attempt for infrastructure: nothing was booted or graded and no attempt was spent. Counted: three in a row fail the cycle (R2 question 2)."
+    :schema [:map
+             [:cycle-id :string]
+             [:attempt [:int {:min 1 :max 3}]]
+             [:refusal [:enum "seam-answered-before-boot" "identity-probe-missing" "identity-probe-not-the-instruments"]]
+             [:detail :string]
+             [:refused-at inst?]]}}
   :read-models
   {:regeneration-cycle/gate-attempts
    {:description "Each cycle's attempts: the candidate regenerated for it, whether it is installed, and the gate's verdict with its reason, boot margin and evidence root."
     :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/gate-attempt.allium" :kind :entity :name "GateAttempt"}]
     :consumes #{:regeneration-cycle/candidate-regenerated :regeneration-cycle/candidate-installed-in-gate-room
-                :regeneration-cycle/gate-attempt-passed :regeneration-cycle/gate-attempt-failed}
+                :regeneration-cycle/gate-attempt-passed :regeneration-cycle/gate-attempt-failed
+                :regeneration-cycle/gate-attempt-refused}
     :schema [:map
              [:cycle-id :string]
              [:attempt :int]
@@ -81,4 +101,5 @@
              [:verdict {:optional true} [:enum "passed" "failed"]]
              [:reason {:optional true} :string]
              [:boot-margin-polls {:optional true} :int]
-             [:evidence-root {:optional true} :string]]}}}}
+             [:evidence-root {:optional true} :string]
+             [:last-refusal {:optional true} :string]]}}}}

@@ -55,10 +55,15 @@ identity**, the **stamped scenario** and, since R2, the **one reading of Gherkin
 
 - `StampFirstScenarios`: 1 no spec found; 2 the source is not this slice's spec file; 3 the
   slice already has a ledger; 4 the scenarios offered are not exactly the file's unstamped
-  ones, in file order.
-- `StampSlice`: 1 no spec found; 2 not this slice's file; 3 no ledger yet; 4 as above.
+  ones, in file order; 5 (R2.1) the empty-title headings reported are not exactly the
+  file's.
+- `StampSlice`: 1 no spec found; 2 not this slice's file; 3 no ledger yet; 4 and 5 as above.
 
 ## Open questions
 
-- Legacy `@harness-021`: an empty-title heading is no scenario for both tools; should the
-  stamper refuse the file instead, so the author sees it?
+None. Settled in R2.1 (`../decisions.md`, "Questions raised by R2", 6): **an empty-title
+heading is not an item, and the stamper reports it loudly** (legacy `@harness-021`).
+Applied as: `stamp-slice` carries `empty-title-lines`; refusal 5 of `StampFirstScenarios`
+and `StampSlice` (the lines reported are exactly the file's, none hidden); event
+`empty-title-headings-reported` (emitted whenever the file has one, even with nothing to
+stamp); contract function `empty_title_lines_of`; guarantee `EmptyTitleReportedLoudly`.

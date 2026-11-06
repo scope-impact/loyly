@@ -6,24 +6,34 @@
 {:specification
  {:commands
   {:specification/stamp-slice
-   {:description "Stamp every unstamped scenario of one slice's spec file with the slice's next item identity, in file order. Idempotent: a scenario already stamped produces nothing; no identity is renumbered or reused, and none is derived from wording. Issued by: operator (spec author), through the stamper."
+   {:description "Stamp every unstamped scenario of one slice's spec file with the slice's next item identity, in file order. Idempotent: a scenario already stamped produces nothing; no identity is renumbered or reused, and none is derived from wording. An empty-title heading is not an item: the stamper reports each one loudly, by line (decisions.md, R2 question 6). Issued by: operator (spec author), through the stamper."
     :grain/allium [{:spec ".pi/spec/specification/allium/slice.allium" :kind :rule :name "StampFirstScenarios"}
                    {:spec ".pi/spec/specification/allium/slice.allium" :kind :rule :name "StampSlice"}]
     :schema [:map
              [:slice [:re "^[0-9]+$"]]
              [:source :string]
-             [:unstamped [:vector [:map [:line pos-int?] [:title :string]]]]]
+             [:unstamped [:vector [:map [:line pos-int?] [:title :string]]]]
+             [:empty-title-lines [:vector pos-int?]]]
     :reads #{:specification/stamped-items}
-    :produces #{:specification/scenario-stamped}}}
+    :produces #{:specification/scenario-stamped :specification/empty-title-headings-reported}}}
+  :events
+  {:specification/empty-title-headings-reported
+   {:description "The stamper found Scenario headings with nothing after the colon in a slice's spec file: not items, never stamped or counted, and reported loudly by line so the author sees them (legacy @harness-021; decisions.md, R2 question 6)."
+    :schema [:map
+             [:slice :string]
+             [:source :string]
+             [:lines [:vector pos-int?]]
+             [:reported-at inst?]]}}
   :read-models
   {:specification/stamped-items
    {:description "Per slice: every item identity ever stamped, its source and title, and the next free number."
     :grain/allium [{:spec ".pi/spec/specification/allium/slice.allium" :kind :entity :name "Slice"}]
-    :consumes #{:specification/scenario-stamped}
+    :consumes #{:specification/scenario-stamped :specification/empty-title-headings-reported}
     :schema [:map
              [:slice :string]
              [:next-number pos-int?]
-             [:items [:vector [:map [:item-id :string] [:source :string] [:line pos-int?] [:title :string]]]]]}}
+             [:items [:vector [:map [:item-id :string] [:source :string] [:line pos-int?] [:title :string]]]]
+             [:empty-title-lines {:optional true} [:vector pos-int?]]]}}
   :queries
   {:specification/stamped-items
    {:description "The stamped items of one slice, or of every slice."

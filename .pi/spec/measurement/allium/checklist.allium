@@ -46,7 +46,9 @@ entity PinnedCut {
 
 entity Checklist {
     cut_id: String
-    -- The whole plan in the core (decisions.md H10); an approved selection later.
+    -- The whole plan in the core, "whole-plan" (decisions.md H10); an approved selection
+    -- later, named by its selected slices, so one selection keeps its identity across cuts
+    -- (decisions.md, R2 question 7).
     selection_id: String
     checklist_digest: String
     -- In file order, then position in the file; never sorted by id (@harness-014).

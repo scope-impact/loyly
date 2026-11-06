@@ -74,6 +74,16 @@ reason enums; `install-candidate-in-gate-room` and its event carry `purpose`;
 `record-regenerated-candidate` gains `mounted-evidence`; the cycle read model carries the
 budget; new flow `gate-attempt-repaired`.
 
+## Decisions applied in R2.1 (`../decisions.md`, "Questions raised by R2")
+
+| Decision | Applied as |
+|---|---|
+| 1 budget exhausted fails the cycle with reason `budget` | `FailureReason` `budget`; `RegenerationCycle.stage_entered_at` (set wherever the stage changes) and derived `stage_deadline` (`timeout_of(budget, stage)`); temporal rule `ConcludeOnStageTimeout` (periodic task `stage-clock`, flow `stage-timeout-fails-cycle`) fails the cycle at a stage that outlived its timeout. The outer cycles (counted per approved preparation) and the continuations (per builder session) arrive later and use the same reason: a hook (`Budget` comment), not a rule |
+| 2 gate refusals bounded; three in a row fail with `infrastructure` | `FailureReason` `infrastructure`; enum `GateRefusal`; rule `RecordGateRefusal` (ORC records a refusal after a refused `RecordGateAttempt`: event `gate-attempt-refused`, no attempt spent); `RegenerationCycle.consecutive_gate_refusals` (reset by a verdict, rule `NoteGateAttemptRefused`); policy rule `ConcludeOnRepeatedGateRefusals` (config `max_consecutive_gate_refusals` 3); `FailCycle` refusal 5 (infrastructure only at the gate); the gate stage's clock bounds refusals; contract `GateRoom` `RefusalsAreBoundedAndCounted`; flow `gate-refusals-fail-cycle` |
+| 3 a gate that passed without exercising the product is the score's | contract `GateRoom` `RefusalsAreBoundedAndCounted` (prose); open question removed |
+| 4 the self-check key covers the approved grader digests | `grader_digests` on `RecordHarnessSelfCheck`, `HarnessSelfCheck` and `harness-self-check-passed`; `RecordGateAttempt` gains `grader_digests`, refusal 12 (the attempt's self-check ran at these approved grader digests); contract `HarnessSelfCheckRun` `NeverReusedAcrossAChange`. The capture policy waits for runtime evidence (open question) |
+| 5 a reworded golden fails the self-check | `reworded_goldens` on `RecordHarnessSelfCheck` and `harness-self-check-failed`; refusals 9 (no pass with a reworded golden) and 10 (a reworded golden is a current golden); contract `HarnessSelfCheckRun` `RewordedScenarioFailsItsGolden` |
+
 ## Legacy behaviours added in R2 (decisions.md "to add")
 
 - **3, a missing identity probe**: `RecordGateAttempt` refusal 8 (legacy `verify.sh`, which
@@ -131,7 +141,8 @@ worker replaced, model drift.
   3 already recorded for the cycle, occasion and attempt; 4 failed without a failing check;
   5 before the fence but the cycle exists or the attempt is not 0; 6 before a gate attempt
   but no running cycle of this cut with that attempt's candidate; 7 budget outside 1..3
-  gate attempts or over 3 continuations; 8 passed with a missing golden.
+  gate attempts or over 3 continuations; 8 passed with a missing golden; 9 (R2.1) passed with a reworded golden; 10
+  (R2.1) a reworded golden that is not a current golden.
 - `ProveCleanRoom`: 1 self-check before the fence not passed; 2 a fenced path matched
   nothing; 3 root commits not 1; 4 commits not 1; 5 a fenced path left in the tree; 6 a
   fenced path reachable in the object graph; 7 already proved; 8 not the self-checked cut;
@@ -146,23 +157,23 @@ worker replaced, model drift.
   passed with one; 4 passed without the answering poll and identity proof; 5 answered after
   the last poll; 6 another candidate; 7 no passing self-check for the attempt at this harness
   and the current goldens; 8 identity probe missing; 9 probe not the instrument's; 10 seam
-  answered before boot; 11 concluded.
+  answered before boot; 11 concluded; 12 (R2.1) the self-check ran at other approved grader
+  digests.
+- `RecordGateRefusal` (R2.1): 1 not installed; 2 already has a verdict; 3 concluded.
 - `PassCycle`: 1 no cycle; 2 scoreboard not reported; 3 concluded. `FailCycle`: 1 no cycle;
-  2 concluded; 3 not the stage the cycle reached; 4 a reason that does not belong to the stage.
+  2 concluded; 3 not the stage the cycle reached; 4 a reason that does not belong to the stage;
+  5 (R2.1) infrastructure at a stage other than the gate.
+- `ConcludeOnStageTimeout` (R2.1, the stage clock): 1 concluded; 2 a stage without a
+  timeout (scoreboard, result).
 
 ## Open questions
 
-Settled by `../decisions.md`: H1, H5 (the field), H6, H8, H24 (rerun before the gate), H25,
-b, and "is `seam-answered-before-boot` an attempt" (no). Still open (also as `open question`
-in `allium/context.allium`):
+Settled by `../decisions.md`: H1, H5, H6, H8, H24, H25, b, "is `seam-answered-before-boot`
+an attempt" (no), and in R2.1 the five questions R2 raised (budget, gate refusals, H15, the
+self-check key, the reworded golden). Still open (also as `open question` in
+`allium/context.allium`):
 
-- **H5** (part): what happens when the outer-cycle count, a stage timeout or the
-  continuation limit runs out; R2 enforces only the gate-attempt limit.
-- **New**: a gate that keeps refusing spends no attempt and records nothing; the stage
-  timeout is the proposed bound.
-- **H15** (can wait): who catches a gate that passed without exercising the product?
-- **H24** (part): does the self-check key also cover grader digests and the capture policy?
-- **h** (part): should the self-check fail a golden whose scenario was reworded, or only
-  report it?
+- **H24** (part): does the self-check key also cover the capture policy? It waits for
+  runtime evidence.
 - Is `cycle-failed`'s stage `regenerate` (`candidate-not-regenerated`) enough before builder
-  sessions, timeouts and continuations arrive?
+  sessions and continuations arrive?

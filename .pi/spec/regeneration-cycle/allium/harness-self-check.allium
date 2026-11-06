@@ -39,6 +39,8 @@ entity HarnessSelfCheck {
     attempt: Integer
     harness_digest: String
     goldens_digest: String
+    -- The approved grader digests the self-check ran at: part of its key (R2 question 4).
+    grader_digests: Set<String>
     -- The identity probe the self-check checked: the instrument's, not the candidate's.
     identity_probe_digest: String
     outcome: check_passed | check_failed
@@ -71,9 +73,11 @@ entity CurrentGolden {
 
 -- Record the result of the harness self-check run for a cycle. Issued by ORC runtime: its
 -- fence node first in the cycle, and its gate node before every gate attempt. Refusals 1-4
--- from R1; 5-8 added in R2 (H24, H5, the legacy golden check).
+-- from R1; 5-8 added in R2 (H24, H5, the legacy golden check); 9-10 added in R2.1 (the
+-- reworded golden, R2 question 5). The self-check carries the approved grader digests it
+-- ran at (R2 question 4).
 rule RecordHarnessSelfCheck {
-    when: RecordHarnessSelfCheck(orc, cycle_id, cut_id, occasion, attempt, harness_digest, goldens_digest, identity_probe_digest, outcome, failing_check?, detail?, skipped_checks, missing_goldens, budget)
+    when: RecordHarnessSelfCheck(orc, cycle_id, cut_id, occasion, attempt, harness_digest, goldens_digest, identity_probe_digest, outcome, failing_check?, detail?, skipped_checks, missing_goldens, budget, grader_digests, reworded_goldens)
     let cycle = cyc.RegenerationCycle{cycle_id: cycle_id}
     -- 1. the cut is not pinned
     requires: exists PinnedCut{cut_id: cut_id}
@@ -91,6 +95,12 @@ rule RecordHarnessSelfCheck {
     requires: budget.gate_attempt_limit >= 1 and budget.gate_attempt_limit <= 3 and budget.max_continuations <= 3
     -- 8. a self-check with a missing golden cannot pass (legacy @harness-060, @harness-061)
     requires: outcome = check_passed implies missing_goldens.count = 0
+    -- 9. a self-check with a golden whose scenario was reworded since it was written cannot
+    --    pass: the fix is to re-record the golden with a logged reason (decisions.md h; R2
+    --    question 5)
+    requires: outcome = check_passed implies reworded_goldens.count = 0
+    -- 10. a reworded golden is not one of the current goldens whose scenario digest moved
+    requires: reworded_goldens.all(g => exists CurrentGolden{golden_id: g})
     ensures:
         HarnessSelfCheck.created(
             cycle_id: cycle_id,
@@ -99,6 +109,7 @@ rule RecordHarnessSelfCheck {
             attempt: attempt,
             harness_digest: harness_digest,
             goldens_digest: goldens_digest,
+            grader_digests: grader_digests,
             identity_probe_digest: identity_probe_digest,
             outcome: outcome,
             failing_check: failing_check,
@@ -106,9 +117,9 @@ rule RecordHarnessSelfCheck {
             checked_at: now
         )
         if outcome = check_passed:
-            HarnessSelfCheckPassed(cycle_id: cycle_id, cut_id: cut_id, occasion: occasion, attempt: attempt, harness_digest: harness_digest, goldens_digest: goldens_digest, identity_probe_digest: identity_probe_digest, skipped_checks: skipped_checks, budget: budget)
+            HarnessSelfCheckPassed(cycle_id: cycle_id, cut_id: cut_id, occasion: occasion, attempt: attempt, harness_digest: harness_digest, goldens_digest: goldens_digest, identity_probe_digest: identity_probe_digest, skipped_checks: skipped_checks, budget: budget, grader_digests: grader_digests)
         else:
-            HarnessSelfCheckFailed(cycle_id: cycle_id, cut_id: cut_id, occasion: occasion, attempt: attempt, harness_digest: harness_digest, failing_check: failing_check, detail: detail, budget: budget)
+            HarnessSelfCheckFailed(cycle_id: cycle_id, cut_id: cut_id, occasion: occasion, attempt: attempt, harness_digest: harness_digest, failing_check: failing_check, detail: detail, budget: budget, reworded_goldens: reworded_goldens)
 }
 
 -- A pinned cut, as this context hears it.
@@ -172,7 +183,7 @@ surface HarnessSelfCheckRecording {
     facing orc: OrcRuntime
 
     provides:
-        RecordHarnessSelfCheck(orc, cycle_id, cut_id, occasion, attempt, harness_digest, goldens_digest, identity_probe_digest, outcome, failing_check?, detail?, skipped_checks, missing_goldens, budget)
+        RecordHarnessSelfCheck(orc, cycle_id, cut_id, occasion, attempt, harness_digest, goldens_digest, identity_probe_digest, outcome, failing_check?, detail?, skipped_checks, missing_goldens, budget, grader_digests, reworded_goldens)
 
     contracts:
         fulfils HarnessSelfCheckRun
@@ -180,7 +191,8 @@ surface HarnessSelfCheckRecording {
     @guarantee NoRoomOverAnUncheckedInstrument
         -- No clean room is proved and no gate attempt is recorded unless a self-check
         -- passed for it: before the fence for the room, and before each gate attempt for
-        -- that attempt, at the current goldens (legacy @harness-065; decisions.md H24).
+        -- that attempt, at the current goldens and the approved grader digests (legacy
+        -- @harness-065; decisions.md H24; R2 question 4).
 }
 
 -- Cycle preparation's handoff, as this context hears it.

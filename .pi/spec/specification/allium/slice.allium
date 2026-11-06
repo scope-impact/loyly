@@ -9,7 +9,8 @@
 -- @harness-010).
 --
 -- Stamping is idempotent: a scenario already stamped produces nothing, so a rerun records
--- nothing (legacy @harness-007, @harness-008).
+-- nothing (legacy @harness-007, @harness-008). An empty-title heading is not an item; the
+-- stamper reports it loudly, every time it runs (decisions.md, R2 question 6).
 
 use "context.allium" as ctx
 
@@ -50,7 +51,7 @@ entity StampedItem {
 -- The first stamping of a slice opens its ledger at 1. A spec file with no scenario yet
 -- opens it with nothing stamped (legacy @harness-022: not an error).
 rule StampFirstScenarios {
-    when: StampSlice(author, slice_number, source, unstamped)
+    when: StampSlice(author, slice_number, source, unstamped, empty_title_lines)
     -- 1. no spec found: the answer names where it looked, and is not "fully stamped"
     --    (legacy @harness-011; decisions.md "to add" 2)
     requires: spec_exists(source)
@@ -60,7 +61,12 @@ rule StampFirstScenarios {
     requires: not exists Slice{number: slice_number}
     -- 4. the scenarios offered are not exactly the file's unstamped ones, in file order
     requires: unstamped = unstamped_scenarios(source)
+    -- 5. the empty-title headings reported are not exactly the file's: none is hidden
+    --    (legacy @harness-021; decisions.md, R2 question 6)
+    requires: empty_title_lines = empty_title_lines_of(source)
     ensures:
+        if empty_title_lines.count > 0:
+            EmptyTitleHeadingsReported(slice: slice_number, source: source, lines: empty_title_lines)
         let slice = Slice.created(number: slice_number, next_number: 1 + unstamped.count)
         for s in unstamped:
             StampedItem.created(slice: slice, item_id: item_identity(slice_number, 1 + index_of(unstamped, s)), number: 1 + index_of(unstamped, s), source: source, line: s.line, title: s.title, stamped_at: now)
@@ -71,7 +77,7 @@ rule StampFirstScenarios {
 -- identities, in file order. No identity is renumbered or reused, and none is derived
 -- from wording. With nothing unstamped it records nothing: the slice is fully stamped.
 rule StampSlice {
-    when: StampSlice(author, slice_number, source, unstamped)
+    when: StampSlice(author, slice_number, source, unstamped, empty_title_lines)
     let slice = Slice{number: slice_number}
     -- 1. no spec found (legacy @harness-011; "to add" 2)
     requires: spec_exists(source)
@@ -82,8 +88,13 @@ rule StampSlice {
     -- 4. the scenarios offered are not exactly the file's unstamped ones, in file order: a
     --    scenario already stamped is never stamped again
     requires: unstamped = unstamped_scenarios(source)
+    -- 5. the empty-title headings reported are not exactly the file's: none is hidden
+    --    (legacy @harness-021; decisions.md, R2 question 6)
+    requires: empty_title_lines = empty_title_lines_of(source)
     let first = slice.next_number
     ensures:
+        if empty_title_lines.count > 0:
+            EmptyTitleHeadingsReported(slice: slice_number, source: source, lines: empty_title_lines)
         slice.next_number = first + unstamped.count
         for s in unstamped:
             StampedItem.created(slice: slice, item_id: item_identity(slice_number, first + index_of(unstamped, s)), number: first + index_of(unstamped, s), source: source, line: s.line, title: s.title, stamped_at: now)
@@ -137,7 +148,7 @@ surface SpecAuthoring {
         slice.items
 
     provides:
-        StampSlice(author, slice_number, source, unstamped)
+        StampSlice(author, slice_number, source, unstamped, empty_title_lines)
 
     contracts:
         fulfils ScenarioReading
@@ -155,4 +166,9 @@ surface SpecAuthoring {
         -- "No spec found", naming where the stamper looked, is a different answer from
         -- "fully stamped, nothing to stamp": an absent spec and a finished one are very
         -- different states (legacy @harness-011; "to add" 2).
+
+    @guarantee EmptyTitleReportedLoudly
+        -- A Scenario heading with nothing after the colon is never stamped and never
+        -- counted, and the stamper names each one by line, so the author sees the scenario
+        -- that is not there (legacy @harness-021; decisions.md, R2 question 6).
 }

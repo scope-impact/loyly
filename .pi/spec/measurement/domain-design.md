@@ -100,7 +100,8 @@ rates.
 - `FileScore`: 1 not gated; 2 zero verdicts filed; 3 already filed; 4 stage failed; 5 a grader
   digest no longer approved; 6 a filing for another candidate.
 - `FailScoreStage`: 1 not gated; 2 measurement filed; 3 already failed.
-- `ReportScoreboard`: 1 no measurement filed; 2 already reported.
+- `ReportScoreboard`: 1 no measurement filed; 2 already reported. Invariant (R2.1)
+  `ComparedWithinTheSelection`.
 
 ## Open questions
 
@@ -111,5 +112,10 @@ Settled by `../decisions.md`: H7 (the field), H13, H26, g. Still open (also as
 - **H16** (can wait): a partial outage still files, with the unreached items failed; an
   `outage` reason is recordable but nothing requires it.
 - **H21** (can wait): should the scoreboard also report graded coverage?
-- **g / H10**: until selections arrive every checklist is the whole plan; is a cut-to-cut
-  comparison of the whole plan "the same selection"?
+
+Settled in R2.1 (`../decisions.md`, "Questions raised by R2", 7): **the same selection** is
+the same selected slices, by name, across cuts; whole-plan cycles compare with the last
+measured whole-plan cycle. Applied as: the checklist's `selection_id` is "whole-plan" or the
+selected slices' names, never the cut; `Scoreboard.previous_selection_id` and
+`previous-selection-id` on `scoreboard-reported`; invariant `ComparedWithinTheSelection`;
+contract `Comparison` and guarantee `ComparedWithTheLastMeasuredCycle` reworded.

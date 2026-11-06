@@ -38,9 +38,12 @@
 
 -- The approved preparation's budget (decisions.md H5). The core has no preparation yet,
 -- so ORC gives the budget with the cycle's first fact, the harness self-check before the
--- fence; the later round's approved preparation carries it instead, unchanged. R2 enforces
--- the gate-attempt limit; the other limits are carried for the rounds that add builder
--- sessions, continuations and timeouts.
+-- fence; the later round's approved preparation carries it instead, unchanged. Any limit
+-- that runs out fails the cycle with reason `budget` (decisions.md, R2 question 1). The core
+-- enforces the gate-attempt limit (reason gate_attempts_exhausted) and the stage timeouts
+-- (the stage clock, regeneration-cycle.allium); the outer cycles are counted per approved
+-- preparation and the continuations per builder session, which arrive in a later round and
+-- fail the cycle through the same reason, `budget`, without a new one.
 value Budget {
     gate_attempt_limit: Integer
     max_outer_cycles: Integer
@@ -79,8 +82,15 @@ contract HarnessSelfCheckRun {
         -- fence deletes the cycles.
 
     @invariant NeverReusedAcrossAChange
-        -- A passing self-check stands only for the harness digest and goldens digest it
-        -- ran at; a change of either needs a new run (decisions.md H24).
+        -- A passing self-check stands only for the harness digest, the goldens digest and
+        -- the approved grader digests it ran at; a change of any of them needs a new run
+        -- (decisions.md H24; R2 question 4).
+
+    @invariant RewordedScenarioFailsItsGolden
+        -- A golden whose scenario was reworded since it was written (the scenario's
+        -- current digest is not the one the golden carries) is a failing check, named, as
+        -- the legacy oracle fails on any difference; the fix is to re-record the golden
+        -- with a logged reason, never to pass over it (decisions.md h; R2 question 5).
 }
 
 -- The fence's probe (legacy fence.sh). It proves, it does not assert.
@@ -123,6 +133,13 @@ contract GateRoom {
         -- drift; the margin is the poll that answered, which needs no clock (legacy
         -- @harness-056, verify.sh [3]).
 
+    @invariant RefusalsAreBoundedAndCounted
+        -- A refusal to grade spends no attempt. It is bounded by the gate stage's timeout,
+        -- and three consecutive refusals for infrastructure fail the cycle with reason
+        -- `infrastructure` (R2 question 2). A gate that passed without exercising the
+        -- product is the score's to catch, not the gate's: the gate proves the suite green
+        -- and says nothing about what the suite exercises (R2 question 3).
+
     @invariant IdentityProbeIsTheInstruments
         -- The identity probe belongs to the measuring apparatus, not the product: it sits
         -- in the harness, outside the candidate scope, so the builder cannot write the
@@ -143,8 +160,12 @@ enum Stage { fence | regenerate | gate | score }
 
 enum FailureReason {
     harness_self_check_failed | fence_refused | candidate_not_regenerated
-    | gate_attempts_exhausted | score_stage_failed
+    | gate_attempts_exhausted | score_stage_failed | budget | infrastructure
 }
+
+-- Why the gate refused to grade (infrastructure): recorded by ORC after a refused
+-- RecordGateAttempt so that consecutive refusals can be counted (R2 question 2).
+enum GateRefusal { seam_answered_before_boot | identity_probe_missing | identity_probe_not_the_instruments }
 
 -- The first gate guard that did not hold, when the gate ran and failed the attempt. A seam
 -- that answered before boot and a missing identity probe are not here: they are refusals
@@ -166,14 +187,15 @@ config {
     -- The scoring tools, which the clean room must not hold (decisions.md H25; AGENTS.md:
     -- no grading harness in the room). Each repository declares its own paths.
     scoring_tool_paths: Set<String>
+    -- R2 question 2: three consecutive infrastructure refusals at the gate fail the cycle.
+    max_consecutive_gate_refusals: Integer = 3
 }
 
 ------------------------------------------------------------
 -- Open Questions
 ------------------------------------------------------------
 
-open question "H5: R2 enforces only the gate-attempt limit of the budget. What does the cycle do when the outer-cycle count, a stage timeout or the continuation limit runs out (timed out, worker replaced: later rounds)?"
-open question "A gate that keeps refusing (a seam held by another process, a missing probe) spends no attempt and records nothing: what bounds it? The stage timeout of the budget (H5) is the proposed answer, once timeouts are modelled."
-open question "H15: beyond the guards, who catches a gate that passed without exercising the product? The identity probe proves which application answered, not that the suite exercised it."
-open question "H24: does the self-check key also cover grader digests and the capture policy? R2 keys it on the harness digest and the goldens digest only."
-open question "Golden h: a golden carries its scenario digest; should the self-check fail a golden whose scenario was reworded since it was written, or only report it?"
+-- Settled by decisions.md, "Questions raised by R2": the budget (1), the bound on gate
+-- refusals (2), a gate that passed without exercising the product (3), the self-check key
+-- (4) and the reworded golden (5). Still open:
+open question "H24 (part): does the self-check key also cover the capture policy? It waits for runtime evidence (R2 question 4)."

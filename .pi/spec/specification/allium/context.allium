@@ -38,6 +38,7 @@ contract ScenarioReading {
     item_tag_of: (tag_run: List<String>) -> String?
     spec_exists: (source: String) -> Boolean
     unstamped_scenarios: (source: String) -> List<UnstampedScenario>
+    empty_title_lines_of: (source: String) -> List<Integer>
     slice_of: (source: String) -> String
 
     @invariant OutlineYesTemplateNo
@@ -49,7 +50,8 @@ contract ScenarioReading {
         -- A heading with nothing after the colon is not a scenario, for the stamper as for
         -- the checklist: it is neither stamped nor counted, and no tag rolls forward from
         -- it (legacy @harness-021, where the stamper stamped it and the checklist then
-        -- ignored it).
+        -- ignored it). The stamper reports every such heading loudly, by line, so the
+        -- author sees it (decisions.md, R2 question 6).
 
     @invariant WhitespaceTitleIsAScenario
         -- A heading whose title is only whitespace is a scenario: its title is one space,
@@ -82,4 +84,6 @@ contract ScenarioReading {
 -- Open Questions
 ------------------------------------------------------------
 
-open question "Legacy @harness-021: the stamper stamped an empty-title heading and the checklist ignored it. The one reading treats it as no scenario for both; should the stamper refuse the file instead, so the author sees it?"
+-- Settled (decisions.md, R2 question 6): an empty-title heading is not an item, and the
+-- stamper reports it loudly (StampSlice and StampFirstScenarios, refusal 5 and
+-- EmptyTitleHeadingsReported).

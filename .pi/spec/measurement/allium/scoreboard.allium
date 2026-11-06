@@ -29,6 +29,9 @@ entity Scoreboard {
     rate: String
     -- The last measured cycle of the same selection; null for a baseline cycle.
     previous_cycle_id: String?
+    -- The previous cycle's selection: the same selected slices, by name, possibly at
+    -- another cut (decisions.md, R2 question 7).
+    previous_selection_id: String?
     reported_at: Timestamp
 }
 
@@ -63,9 +66,10 @@ rule ReportScoreboard {
             total: measurement.total,
             rate: rate(measurement.passes, measurement.total),
             previous_cycle_id: previous?.cycle_id,
+            previous_selection_id: previous?.selection_id,
             reported_at: now
         )
-        ScoreboardReported(cycle_id: cycle_id, selection_id: measurement.selection_id, passes: measurement.passes, total: measurement.total, rate: rate(measurement.passes, measurement.total), previous_cycle_id: previous?.cycle_id, shared: shared_items(measurement, previous), new_items: new_items(measurement, previous), dropped_items: dropped_items(measurement, previous))
+        ScoreboardReported(cycle_id: cycle_id, selection_id: measurement.selection_id, passes: measurement.passes, total: measurement.total, rate: rate(measurement.passes, measurement.total), previous_cycle_id: previous?.cycle_id, previous_selection_id: previous?.selection_id, shared: shared_items(measurement, previous), new_items: new_items(measurement, previous), dropped_items: dropped_items(measurement, previous))
         if previous != null and item_set_moved(measurement, previous):
             MovedItemSetRestated(cycle_id: cycle_id, previous_cycle_id: previous.cycle_id, previous_total: previous.total, total: measurement.total, added: new_items(measurement, previous).count, dropped: dropped_items(measurement, previous).count)
 }
@@ -84,6 +88,13 @@ invariant OneScoreboardPerCycle {
 invariant NeverComparedWithItself {
     for s in Scoreboards:
         s.previous_cycle_id != s.cycle_id
+}
+
+-- Never compared across selections: whole-plan with whole-plan, a selection with the same
+-- selected slices (decisions.md g; R2 question 7).
+invariant ComparedWithinTheSelection {
+    for s in Scoreboards:
+        s.previous_cycle_id != null implies s.previous_selection_id = s.selection_id
 }
 
 invariant PassesWithinTotal {
@@ -138,6 +149,7 @@ surface ScoreboardReport {
         -- is restated (legacy @harness-047).
 
     @guarantee ComparedWithTheLastMeasuredCycle
-        -- The previous cycle is the last measured cycle of the same selection, so a cycle
-        -- after an unscored one is not read as a baseline (decisions.md g).
+        -- The previous cycle is the last measured cycle of the same selection (the same
+        -- selected slices by name, across cuts; whole-plan with whole-plan), so a cycle
+        -- after an unscored one is not read as a baseline (decisions.md g; R2 question 7).
 }

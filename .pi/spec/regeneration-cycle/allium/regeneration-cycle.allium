@@ -50,6 +50,8 @@ entity RegenerationCycle {
     status: running | cycle_passed | cycle_failed
     -- The stage reached: fence, regenerate, gate, score, scoreboard; result once passed.
     stage: ctx.Stage
+    -- When the cycle entered its stage: the stage clock runs from here (R2 question 1).
+    stage_entered_at: Timestamp
     clean_room_proved: Boolean
     -- Candidates regenerated so far; the latest is the current attempt.
     attempts: Integer
@@ -58,6 +60,9 @@ entity RegenerationCycle {
     -- Gate evidence of this cycle's failed attempts: the only evidence a repair room may
     -- mount (decisions.md H6).
     gate_evidence_roots: Set<String>
+    -- Gate refusals since the last verdict: a refusal spends no attempt, but three in a
+    -- row fail the cycle (R2 question 2).
+    consecutive_gate_refusals: Integer
     self_check_failed: Boolean
     self_check_failure: String?
     measurement_filed: Boolean
@@ -70,9 +75,13 @@ entity RegenerationCycle {
     -- Gate attempts exhausted is a read-model fact, not an event (domain-design.md, 7).
     attempts_exhausted: failed_attempts >= budget.gate_attempt_limit
 
+    -- The stage's timeout of the budget runs out here (R2 question 1).
+    stage_deadline: stage_entered_at + timeout_of(budget, stage)
+
     -- The conclude-cycle policy's to-do list (cycles-to-conclude).
     awaits_failing_self_check: status = running and self_check_failed
     awaits_failing_gate: status = running and attempts_exhausted
+    awaits_failing_infrastructure: status = running and consecutive_gate_refusals >= ctx/config.max_consecutive_gate_refusals
     awaits_failing_score: status = running and score_stage_failed
     awaits_passing: status = running and scoreboard_reported
 
@@ -100,11 +109,13 @@ rule OpenCycle {
         harness_digest: harness_digest,
         status: running,
         stage: fence,
+        stage_entered_at: now,
         clean_room_proved: false,
         attempts: 0,
         failed_attempts: 0,
         candidate_digest: null,
         gate_evidence_roots: {},
+        consecutive_gate_refusals: 0,
         self_check_failed: false,
         self_check_failure: null,
         measurement_filed: false,
@@ -131,11 +142,13 @@ rule NoteFailedSelfCheck {
                 harness_digest: harness_digest,
                 status: running,
                 stage: fence,
+                stage_entered_at: now,
                 clean_room_proved: false,
                 attempts: 0,
                 failed_attempts: 0,
                 candidate_digest: null,
                 gate_evidence_roots: {},
+                consecutive_gate_refusals: 0,
                 self_check_failed: true,
                 self_check_failure: failing_check,
                 measurement_filed: false,
@@ -159,6 +172,7 @@ rule NoteCleanRoomProved {
     ensures:
         cycle.clean_room_proved = true
         cycle.stage = regenerate
+        cycle.stage_entered_at = now
 }
 
 -- The gate ratified the attempt's candidate.
@@ -166,7 +180,10 @@ rule NoteGateAttemptPassed {
     when: gate/GateAttemptPassed(cycle_id, cut_id, attempt, candidate_digest, boot_budget_seconds, boot_polls, answered_on_poll, identity_proof, evidence_root)
     let cycle = RegenerationCycle{cycle_id: cycle_id}
     requires: exists cycle
-    ensures: cycle.stage = score
+    ensures:
+        cycle.stage = score
+        cycle.stage_entered_at = now
+        cycle.consecutive_gate_refusals = 0
 }
 
 -- A failed attempt adds its gate evidence; while attempts
@@ -179,8 +196,19 @@ rule NoteGateAttemptFailed {
     ensures:
         cycle.failed_attempts = cycle.failed_attempts + 1
         cycle.gate_evidence_roots = cycle.gate_evidence_roots + {evidence_root}
+        cycle.consecutive_gate_refusals = 0
         if cycle.failed_attempts < cycle.budget.gate_attempt_limit:
             cycle.stage = regenerate
+            cycle.stage_entered_at = now
+}
+
+-- The gate refused to grade (infrastructure): no attempt is spent, but the refusal is
+-- counted, and a verdict resets the count (R2 question 2).
+rule NoteGateAttemptRefused {
+    when: gate/GateAttemptRefused(cycle_id, attempt, refusal, detail)
+    let cycle = RegenerationCycle{cycle_id: cycle_id}
+    requires: exists cycle
+    ensures: cycle.consecutive_gate_refusals = cycle.consecutive_gate_refusals + 1
 }
 
 -- Measurement's handoffs, only to conclude: nothing here feeds the build loop.
@@ -191,6 +219,7 @@ rule NoteMeasurementFiled {
     ensures:
         cycle.measurement_filed = true
         cycle.stage = scoreboard
+        cycle.stage_entered_at = now
 }
 
 rule NoteScoreStageFailed {
@@ -239,6 +268,7 @@ rule RecordRegeneratedCandidate {
         cycle.attempts = attempt
         cycle.candidate_digest = candidate_digest
         cycle.stage = gate
+        cycle.stage_entered_at = now
         CandidateRegenerated(cycle_id: cycle_id, attempt: attempt, purpose: purpose, candidate_digest: candidate_digest, parent_candidate_digest: parent_candidate_digest)
 }
 
@@ -259,6 +289,24 @@ rule ConcludeOnExhaustedGateAttempts {
     when: cycle: RegenerationCycle.awaits_failing_gate
     requires: cycle.status = running
     ensures: FailCycle(cycle_id: cycle.cycle_id, stage: gate, reason: gate_attempts_exhausted, detail: "gate attempts exhausted")
+}
+
+-- Whenever three gate refusals in a row recorded no verdict, fail the cycle at the gate for
+-- infrastructure (R2 question 2).
+rule ConcludeOnRepeatedGateRefusals {
+    when: cycle: RegenerationCycle.awaits_failing_infrastructure
+    requires: cycle.status = running
+    ensures: FailCycle(cycle_id: cycle.cycle_id, stage: gate, reason: infrastructure, detail: "three consecutive gate refusals")
+}
+
+-- The stage clock: whenever a running cycle's stage outlives its timeout in the budget,
+-- fail the cycle at that stage for its budget (R2 question 1). Gate refusals are bounded
+-- here too: they spend no attempt, but the gate stage's clock keeps running (question 2).
+rule ConcludeOnStageTimeout {
+    when: cycle: RegenerationCycle.stage_deadline <= now
+    requires: cycle.status = running
+    requires: cycle.stage in {fence, regenerate, gate, score}
+    ensures: FailCycle(cycle_id: cycle.cycle_id, stage: cycle.stage, reason: budget, detail: "stage timeout")
 }
 
 -- Whenever the score stage failed, fail the cycle at the score; it is never retried.
@@ -293,7 +341,8 @@ rule PassCycle {
 
 -- Conclude the cycle failed, once, at a named stage for a named reason. Issued by the
 -- conclude-cycle policy, or by ORC when a stage node's command was refused (the fence) or
--- the node produced nothing (regenerate). Refusals 1-2 from R1; 3-4 added in R2.
+-- the node produced nothing (regenerate), or by the stage clock. Refusals 1-2 from R1; 3-4
+-- added in R2; 5 added in R2.1 (decisions.md, R2 question 2).
 rule FailCycle {
     when: FailCycle(cycle_id, stage, reason, detail)
     let cycle = RegenerationCycle{cycle_id: cycle_id}
@@ -309,6 +358,8 @@ rule FailCycle {
         and (reason = candidate_not_regenerated implies stage = regenerate)
         and (reason = gate_attempts_exhausted implies stage = gate)
         and (reason = score_stage_failed implies stage = score)
+    -- 5. an infrastructure failure is not at the gate
+    requires: reason = infrastructure implies stage = gate
     ensures:
         cycle.status = cycle_failed
         cycle.failed_stage = stage
@@ -391,7 +442,8 @@ surface CycleStages {
     @guarantee OneConclusion
         -- A cycle concludes once, passed after its scoreboard or failed at a named stage
         -- for a named reason; a fence refusal and a regenerate step that produced nothing
-        -- fail it at that stage (decisions.md: a fence failure fails the cycle).
+        -- fail it at that stage (decisions.md: a fence failure fails the cycle). A limit of
+        -- the budget that runs out fails it with reason budget (R2 question 1).
 }
 
 -- What the operator observes of a cycle (screen cycle-progress). Read-only.

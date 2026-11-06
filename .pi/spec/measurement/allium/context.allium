@@ -113,7 +113,10 @@ contract Comparison {
         -- A cycle is compared with the last cycle measured before it for the same
         -- selection; a cycle with no measurement (failed before the score, or its score
         -- refused) is skipped, never taken as a baseline of nothing (decisions.md g;
-        -- legacy @harness-042 took the cycle number minus one).
+        -- legacy @harness-042 took the cycle number minus one). The same selection means
+        -- the same selected slices, by name, across cuts: a selection identity is its
+        -- slices' names, never the cut's; whole-plan cycles compare with the last measured
+        -- whole-plan cycle (decisions.md, R2 question 7).
 
     @invariant BothDirectionsOnTheSharedItemsNeverANet
         -- Newly passing and newly failing are counted apart on the items both cycles
@@ -145,4 +148,5 @@ enum ScoreRefusal {
 open question "H16: can an outage leave a false 'scored' record? Zero verdicts are refused, but a partial outage still files, with the unreached items failed; an 'outage' reason is now recordable (H7) but nothing yet requires it."
 open question "H21: should the scoreboard also report graded coverage, so a low rate is not read as the candidate's quality alone?"
 open question "H7: which runtime evidence makes a verdict 'inconclusive' or 'outage'? R2 records the reason as the grader returns it."
-open question "Selection (g, H10): until approved selections arrive, every checklist is the whole plan at its cut and carries selection 'whole-plan'; is a cut-to-cut comparison of the whole plan the same selection?"
+-- Settled (decisions.md, R2 question 7): the same selection is the same selected slices,
+-- by name, across cuts; whole-plan cycles compare with the last measured whole-plan cycle.

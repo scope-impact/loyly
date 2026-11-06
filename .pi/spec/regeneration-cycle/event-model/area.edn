@@ -97,6 +97,28 @@
             {:from [:command :regeneration-cycle/fail-cycle] :to [:event :regeneration-cycle/cycle-failed]}
             {:from [:event :regeneration-cycle/cycle-failed] :to [:read-model :regeneration-cycle/regeneration-cycles]}]}
 
+   :regeneration-cycle/gate-refusals-fail-cycle
+   {:description "The gate refuses to grade (the seam answered before boot, the identity probe missing or not the instrument's): ORC records each refusal, which spends no attempt; the third in a row fails the cycle at the gate for infrastructure (decisions.md, R2 question 2)."
+    :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/gate-attempt.allium" :kind :rule :name "RecordGateRefusal"}
+                   {:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :rule :name "ConcludeOnRepeatedGateRefusals"}]
+    :steps [{:from nil :to [:command :regeneration-cycle/record-gate-refusal]}
+            {:from [:command :regeneration-cycle/record-gate-refusal] :to [:event :regeneration-cycle/gate-attempt-refused]}
+            {:from [:event :regeneration-cycle/gate-attempt-refused] :to [:read-model :regeneration-cycle/cycles-to-conclude]}
+            {:from [:read-model :regeneration-cycle/cycles-to-conclude] :to [:query :regeneration-cycle/cycles-to-conclude]}
+            {:from [:query :regeneration-cycle/cycles-to-conclude] :to [:todo-processor :regeneration-cycle/conclude-cycle]}
+            {:from [:todo-processor :regeneration-cycle/conclude-cycle] :to [:command :regeneration-cycle/fail-cycle]}
+            {:from [:command :regeneration-cycle/fail-cycle] :to [:event :regeneration-cycle/cycle-failed]}
+            {:from [:event :regeneration-cycle/cycle-failed] :to [:read-model :regeneration-cycle/regeneration-cycles]}]}
+
+   :regeneration-cycle/stage-timeout-fails-cycle
+   {:description "A stage outlives its timeout in the budget: the stage clock fails the cycle at that stage with reason budget (decisions.md, R2 question 1)."
+    :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :rule :name "ConcludeOnStageTimeout"}]
+    :steps [{:from [:periodic-task :regeneration-cycle/stage-clock] :to [:command :regeneration-cycle/fail-cycle]}
+            {:from [:command :regeneration-cycle/fail-cycle] :to [:event :regeneration-cycle/cycle-failed]}
+            {:from [:event :regeneration-cycle/cycle-failed] :to [:read-model :regeneration-cycle/regeneration-cycles]}
+            {:from [:read-model :regeneration-cycle/regeneration-cycles] :to [:query :regeneration-cycle/cycle-progress]}
+            {:from [:query :regeneration-cycle/cycle-progress] :to [:screen :regeneration-cycle/cycle-progress]}]}
+
    :regeneration-cycle/refused-score-fails-cycle
    {:description "A refused score files nothing: ORC's score node records the score stage failed, never retried, and the cycle fails at the score."
     :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :rule :name "ConcludeOnFailedScoreStage"}]

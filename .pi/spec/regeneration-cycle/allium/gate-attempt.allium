@@ -12,7 +12,9 @@
 --   - The gate refused to grade (infrastructure): the seam already answered before boot,
 --     the identity probe is missing or is not the instrument's, or no self-check passed for
 --     this attempt. A refusal records nothing and spends no attempt (legacy verify.sh
---     exits before it boots).
+--     exits before it boots). ORC then records that the gate refused (RecordGateRefusal),
+--     a fact that spends no attempt either; three in a row fail the cycle for
+--     infrastructure, and the gate stage's timeout bounds them (decisions.md, R2 question 2).
 
 use "context.allium" as ctx
 use "regeneration-cycle.allium" as cyc
@@ -41,6 +43,8 @@ entity GateAttempt {
     boot_polls: Integer when verdict = gate_passed | gate_failed
     answered_on_poll: Integer when verdict = gate_passed
     evidence_root: String when verdict = gate_passed | gate_failed
+    -- The last refusal to grade this attempt, if any (R2 question 2).
+    last_refusal: ctx.GateRefusal?
 
     -- The boot margin, said out loud on a green run (legacy @harness-056).
     boot_margin_polls: boot_polls - answered_on_poll
@@ -80,16 +84,17 @@ rule InstallCandidateInGateRoom {
     -- 4. the cycle is concluded
     requires: cycle.status = running
     ensures:
-        GateAttempt.created(cycle_id: cycle_id, attempt: attempt, candidate_digest: candidate_digest, purpose: purpose, gate_room: gate_room, verdict: awaiting)
+        GateAttempt.created(cycle_id: cycle_id, attempt: attempt, candidate_digest: candidate_digest, purpose: purpose, gate_room: gate_room, verdict: awaiting, last_refusal: null)
         CandidateInstalledInGateRoom(cycle_id: cycle_id, attempt: attempt, candidate_digest: candidate_digest, gate_room: gate_room)
 }
 
 -- Record the gate's verdict on one attempt: passed (seam free before boot, contract
 -- present, suites discovered and green, answered within the boot budget, identity proved)
 -- or failed with the first guard that did not hold. Refusals 1-5 from R1; 6-11 added in R2
--- (decisions.md b and H24; legacy verify.sh, probe.sh; decisions.md "to add" 3 and 4).
+-- (decisions.md b and H24; legacy verify.sh, probe.sh; decisions.md "to add" 3 and 4); 12
+-- added in R2.1 (R2 question 4).
 rule RecordGateAttempt {
-    when: RecordGateAttempt(orc, cycle_id, attempt, candidate_digest, harness_digest, outcome, reason?, boot_budget_seconds, boot_polls, answered_on_poll?, identity_proof?, identity_probe_present, identity_probe_digest, seam_answered_before_boot, evidence_root, detail)
+    when: RecordGateAttempt(orc, cycle_id, attempt, candidate_digest, harness_digest, outcome, reason?, boot_budget_seconds, boot_polls, answered_on_poll?, identity_proof?, identity_probe_present, identity_probe_digest, seam_answered_before_boot, evidence_root, detail, grader_digests)
     let gate = GateAttempt{cycle_id: cycle_id, attempt: attempt}
     let check = sc.HarnessSelfCheck{cycle_id: cycle_id, occasion: before_gate, attempt: attempt}
     let cycle = cyc.RegenerationCycle{cycle_id: cycle_id}
@@ -115,6 +120,9 @@ rule RecordGateAttempt {
     requires: not seam_answered_before_boot
     -- 11. the cycle is concluded
     requires: exists cycle and cycle.status = running
+    -- 12. the self-check ran at other approved grader digests than these: its key covers
+    --     them (R2 question 4)
+    requires: check.grader_digests = grader_digests
     ensures:
         if outcome = gate_passed:
             gate.verdict = gate_passed
@@ -130,6 +138,25 @@ rule RecordGateAttempt {
             gate.boot_polls = boot_polls
             gate.evidence_root = evidence_root
             GateAttemptFailed(cycle_id: cycle_id, attempt: attempt, candidate_digest: candidate_digest, reason: reason, boot_budget_seconds: boot_budget_seconds, boot_polls: boot_polls, evidence_root: evidence_root, detail: detail)
+}
+
+-- Record that the gate refused to grade the attempt for infrastructure, after ORC's
+-- RecordGateAttempt was refused: the attempt stays awaiting and is not spent, and the
+-- cycle counts the refusal (R2 question 2). Issued by ORC runtime (the gate node). Added in
+-- R2.1.
+rule RecordGateRefusal {
+    when: RecordGateRefusal(orc, cycle_id, attempt, refusal, detail)
+    let gate = GateAttempt{cycle_id: cycle_id, attempt: attempt}
+    let cycle = cyc.RegenerationCycle{cycle_id: cycle_id}
+    -- 1. not installed
+    requires: exists gate
+    -- 2. already has a verdict: a refusal is never recorded over a verdict
+    requires: gate.verdict = awaiting
+    -- 3. the cycle is concluded
+    requires: exists cycle and cycle.status = running
+    ensures:
+        gate.last_refusal = refusal
+        GateAttemptRefused(cycle_id: cycle_id, attempt: attempt, refusal: refusal, detail: detail)
 }
 
 ------------------------------------------------------------
@@ -171,7 +198,8 @@ surface Gate {
 
     provides:
         InstallCandidateInGateRoom(orc, cycle_id, attempt, candidate_digest, purpose, gate_room)
-        RecordGateAttempt(orc, cycle_id, attempt, candidate_digest, harness_digest, outcome, reason?, boot_budget_seconds, boot_polls, answered_on_poll?, identity_proof?, identity_probe_present, identity_probe_digest, seam_answered_before_boot, evidence_root, detail)
+        RecordGateAttempt(orc, cycle_id, attempt, candidate_digest, harness_digest, outcome, reason?, boot_budget_seconds, boot_polls, answered_on_poll?, identity_proof?, identity_probe_present, identity_probe_digest, seam_answered_before_boot, evidence_root, detail, grader_digests)
+        RecordGateRefusal(orc, cycle_id, attempt, refusal, detail)
 
     contracts:
         fulfils GateRoom
@@ -183,7 +211,9 @@ surface Gate {
     @guarantee ARefusalSpendsNoAttempt
         -- A seam that answered before boot, a missing identity probe, a probe that is not
         -- the instrument's, or no passing self-check for the attempt grades nothing and
-        -- records nothing: the attempt is still awaiting and is not spent (decisions.md b).
+        -- records no verdict: the attempt is still awaiting and is not spent (decisions.md
+        -- b). ORC records the refusal; three in a row fail the cycle for infrastructure,
+        -- and the gate stage's timeout bounds them (R2 question 2).
 
     @guarantee TheMarginIsSaidOutLoud
         -- Both verdicts carry the boot budget in seconds and polls; a pass carries the

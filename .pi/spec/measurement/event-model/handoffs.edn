@@ -32,7 +32,7 @@
              [:detail :string]
              [:failed-at inst?]]}
    :measurement/scoreboard-reported
-   {:description "The cycle's scoreboard was reported to a person: its rate, and against the last measured cycle of the same selection (decisions.md g) the shared items' rates, newly passing and newly failing items apart, new items as the untuned holdout and dropped items. No net is computed. A baseline cycle has no previous cycle. A rate has one decimal, rounded half to even, and is \"n/a\" over zero."
+   {:description "The cycle's scoreboard was reported to a person: its rate, and against the last measured cycle of the same selection (decisions.md g: the same selected slices by name, across cuts; whole-plan with whole-plan) the shared items' rates, newly passing and newly failing items apart, new items as the untuned holdout and dropped items. No net is computed. A baseline cycle has no previous cycle. A rate has one decimal, rounded half to even, and is \"n/a\" over zero."
     :schema [:map
              [:cycle-id :string]
              [:selection-id :string]
@@ -40,6 +40,7 @@
              [:total pos-int?]
              [:rate :string]
              [:previous-cycle-id [:maybe :string]]
+             [:previous-selection-id [:maybe :string]]
              [:shared {:optional true} [:map
                                         [:items :int]
                                         [:previous-passes :int]

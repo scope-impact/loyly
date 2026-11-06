@@ -7,17 +7,19 @@ A from-scratch specification of the Pi harness, built in rounds.
 | R0 | Big Picture EventStorming board | `event-storm.md`, `event-storm.edn` |
 | R1 | Event Model (Grain, EDN) of the legacy core: the 31 storm events the legacy harness already has | `<context>/event-model/`, `<context>/domain-design.md` |
 | R2 | Allium (behaviour, the refusals as `requires`) of the legacy core, the product owner's decisions applied, and the `:grain/allium` links | `<context>/allium/`, `legacy-trace.md`, `<context>/domain-design.md` (done) |
-| | Decisions of the product owner after R1 | `decisions.md` |
+| R2.1 | The product owner's decisions on R2's questions applied: budget exhaustion fails the cycle (reason `budget`, the stage clock), gate refusals counted (three in a row: reason `infrastructure`), the self-check key covers the approved grader digests, a reworded golden fails the self-check, the stamper reports an empty-title heading loudly, "the same selection" is the same slices by name across cuts | `<context>/allium/`, `<context>/event-model/`, `<context>/domain-design.md` (done) |
+| | Decisions of the product owner after R1 and R2 | `decisions.md` |
 
 ## Contexts in R1
 
 ```text
-specification       Slice                      1 command  1 event
+specification       Slice                      1 command  2 events
 cycle-preparation   SourceCut                  1 command  1 event
 grader-lifecycle    InstrumentGolden           2 commands 2 events
 regeneration-cycle  HarnessSelfCheck, CleanRoom,
                     RegenerationCycle, GateAttempt
-                                               7 commands 9 events  policy conclude-cycle
+                                               8 commands 10 events policy conclude-cycle,
+                                                                    clock stage-clock
 measurement         Checklist, CycleMeasurement,
                     Scoreboard                 5 commands 6 events  policy report-scoreboard-once
 
@@ -52,12 +54,15 @@ screen its surface, every aggregate read model its entity (`:grain/allium`).
 
 ```text
 context             files  rules  requires (of commands)  invariants  must-cover (allium plan)
-specification       2      2       8  (8)                3           13
+specification       2      2      10 (10)                3           15
 cycle-preparation   2      1       3  (3)                1            5
 grader-lifecycle    2      2       7  (7)                3           12
-measurement         4      9      32 (28)               11           52
-regeneration-cycle  5     22      65 (49)               12           99
+measurement         4      9      32 (28)               12           53
+regeneration-cycle  5     26      76 (56)               12          114
 ```
+
+(After R2.1. R2 had specification 8 requires, 13 must-cover; measurement 11 invariants, 52;
+regeneration-cycle 22 rules, 65 (49) requires, 99.)
 
 Rules count every rule: commands, policies, and the folds of handoffs and sibling events.
 Requires count every `requires`; in brackets those of the commands' rules, the refusals an
