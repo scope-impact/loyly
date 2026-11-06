@@ -1,0 +1,373 @@
+{
+ "grader_digest": "sha256:3efb14e2951bd5fddf6db0e55a687f66daf2c92cfb2ea29e34473967219ccf9a",
+ "entry": "grade_measurement.exs",
+ "items": [
+  "02-001",
+  "02-002",
+  "02-003",
+  "02-004",
+  "02-005",
+  "02-006",
+  "02-007",
+  "02-008",
+  "02-009",
+  "02-010",
+  "02-011",
+  "02-012",
+  "02-013",
+  "02-014",
+  "02-015",
+  "02-016",
+  "02-017",
+  "02-018",
+  "02-019",
+  "02-020",
+  "02-021",
+  "02-022",
+  "02-023",
+  "02-024"
+ ],
+ "protocol": "AGENTS.md, The instrument: carried behaviour passes and uncarried behaviour fails for every item",
+ "fixtures": "harness/v2/graders/calibration-measurement/stub.py (reference and MUTANT=<name>), written from the spec alone",
+ "calibrated": true,
+ "summary": [
+  "reference              24/24 pass",
+  "digest-constant        targets 02-001: fails; failing 1/24: 02-001",
+  "sort-items             targets 02-002: fails; failing 1/24: 02-002",
+  "rule-empty             targets 02-002: fails; failing 3/24: 02-001,02-002,02-003",
+  "drop-skipped           targets 02-003: fails; failing 1/24: 02-003",
+  "first-unstamped-only   targets 02-004: fails; failing 1/24: 02-004",
+  "allow-empty            targets 02-005: fails; failing 1/24: 02-005",
+  "no-identity-check      targets 02-006: fails; failing 1/24: 02-006",
+  "no-title-check         targets 02-007: fails; failing 1/24: 02-007",
+  "no-checklist-check     targets 02-008: fails; failing 1/24: 02-008",
+  "accept-zero            targets 02-009: fails; failing 1/24: 02-009",
+  "unknown-first          targets 02-010: fails; failing 1/24: 02-010",
+  "no-unknown-check       targets 02-011: fails; failing 1/24: 02-011",
+  "verdict-order          targets 02-012: fails; failing 2/24: 02-012,02-013",
+  "drop-unreached         targets 02-013: fails; failing 1/24: 02-013",
+  "drop-reason            targets 02-014: fails; failing 1/24: 02-014",
+  "first-wins             targets 02-015: fails; failing 1/24: 02-015",
+  "no-superseded          targets 02-015: fails; failing 1/24: 02-015",
+  "evidence-absent        targets 02-016: fails; failing 1/24: 02-016",
+  "score-zero             targets 02-017: fails; failing 5/24: 02-008,02-009,02-010,02-011,02-017",
+  "no-policy              targets 02-018: fails; failing 6/24: 02-018,02-020,02-021,02-022,02-023,02-024",
+  "report-unfiled         targets 02-019: fails; failing 1/24: 02-019",
+  "previous-minus-one     targets 02-020: fails; failing 2/24: 02-018,02-020",
+  "net-key                targets 02-021: fails; failing 1/24: 02-021",
+  "no-restatement         targets 02-022: fails; failing 1/24: 02-022",
+  "always-restate         targets 02-022: fails; failing 1/24: 02-022",
+  "half-up                targets 02-023: fails; failing 1/24: 02-023",
+  "zero-percent           targets 02-024: fails; failing 1/24: 02-024",
+  "never-starts           0 verdicts filed, 24 unreached",
+  "exit-after-one         24 verdicts filed, none unreached; fail where a second answer was needed: 24/24"
+ ],
+ "calibration": [
+  {
+   "item": "02-001",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-002",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-003",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-004",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-005",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-006",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-007",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-008",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-009",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-010",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-011",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-012",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-013",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-014",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-015",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-016",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-017",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-018",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-019",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-020",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-021",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-022",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-023",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-024",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-001",
+   "role": "uncarried",
+   "fixture": "digest-constant",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-002",
+   "role": "uncarried",
+   "fixture": "sort-items",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-002",
+   "role": "uncarried",
+   "fixture": "rule-empty",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-003",
+   "role": "uncarried",
+   "fixture": "drop-skipped",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-004",
+   "role": "uncarried",
+   "fixture": "first-unstamped-only",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-005",
+   "role": "uncarried",
+   "fixture": "allow-empty",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-006",
+   "role": "uncarried",
+   "fixture": "no-identity-check",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-007",
+   "role": "uncarried",
+   "fixture": "no-title-check",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-008",
+   "role": "uncarried",
+   "fixture": "no-checklist-check",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-009",
+   "role": "uncarried",
+   "fixture": "accept-zero",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-010",
+   "role": "uncarried",
+   "fixture": "unknown-first",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-011",
+   "role": "uncarried",
+   "fixture": "no-unknown-check",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-012",
+   "role": "uncarried",
+   "fixture": "verdict-order",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-013",
+   "role": "uncarried",
+   "fixture": "drop-unreached",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-014",
+   "role": "uncarried",
+   "fixture": "drop-reason",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-015",
+   "role": "uncarried",
+   "fixture": "first-wins",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-015",
+   "role": "uncarried",
+   "fixture": "no-superseded",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-016",
+   "role": "uncarried",
+   "fixture": "evidence-absent",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-017",
+   "role": "uncarried",
+   "fixture": "score-zero",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-018",
+   "role": "uncarried",
+   "fixture": "no-policy",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-019",
+   "role": "uncarried",
+   "fixture": "report-unfiled",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-020",
+   "role": "uncarried",
+   "fixture": "previous-minus-one",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-021",
+   "role": "uncarried",
+   "fixture": "net-key",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-022",
+   "role": "uncarried",
+   "fixture": "no-restatement",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-022",
+   "role": "uncarried",
+   "fixture": "always-restate",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-023",
+   "role": "uncarried",
+   "fixture": "half-up",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-024",
+   "role": "uncarried",
+   "fixture": "zero-percent",
+   "verdict": "fail"
+  }
+ ]
+}
