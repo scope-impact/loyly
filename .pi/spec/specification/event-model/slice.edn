@@ -1,0 +1,28 @@
+;; .pi/spec/specification/event-model/slice.edn: aggregate Slice, in the project repository
+;; (one per slice's spec.feature). The consistency boundary for "an item identity is handed
+;; out once and never renumbered or reused": the next number of a slice is one past the
+;; highest it ever carried. Legacy: stamp_item_ids.clj.
+;; TODO R2: :grain/allium links (rule StampScenario, entity Slice, surface SpecAuthoring).
+{:specification
+ {:commands
+  {:specification/stamp-slice
+   {:description "Stamp every unstamped scenario of one slice's spec file with the slice's next item identity, in file order. Idempotent: a scenario already stamped produces nothing; no identity is renumbered or reused, and none is derived from wording. Issued by: operator (spec author), through the stamper."
+    :schema [:map
+             [:slice [:re "^[0-9]+$"]]
+             [:source :string]
+             [:unstamped [:vector [:map [:line pos-int?] [:title :string]]]]]
+    :reads #{:specification/stamped-items}
+    :produces #{:specification/scenario-stamped}}}
+  :read-models
+  {:specification/stamped-items
+   {:description "Per slice: every item identity ever stamped, its source and title, and the next free number."
+    :consumes #{:specification/scenario-stamped}
+    :schema [:map
+             [:slice :string]
+             [:next-number pos-int?]
+             [:items [:vector [:map [:item-id :string] [:source :string] [:line pos-int?] [:title :string]]]]]}}
+  :queries
+  {:specification/stamped-items
+   {:description "The stamped items of one slice, or of every slice."
+    :schema [:map [:slice {:optional true} :string]]
+    :reads #{:specification/stamped-items}}}}}

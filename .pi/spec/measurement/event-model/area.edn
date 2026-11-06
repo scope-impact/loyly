@@ -1,0 +1,30 @@
+;; .pi/spec/measurement/event-model/area.edn
+;; Measurement (instrument: score and scoreboard): its screen and its flow. Each aggregate's
+;; blocks are in its own fragment (checklist.edn, cycle-measurement.edn, scoreboard.edn,
+;; handoffs.edn). The instrument reports to a person, once a cycle, and never into the build
+;; loop: no block here produces a command of the Regeneration cycle.
+;;
+;; Handoffs consumed: specification/scenario-stamped, cycle-preparation/source-cut-pinned,
+;; regeneration-cycle/gate-attempt-passed. Produced: measurement-filed, score-stage-failed,
+;; scoreboard-reported (handoffs.edn), which only conclude the cycle.
+;; TODO R2: :grain/allium links on the screen and the flow.
+{:measurement
+ {:description "Measurement (instrument: score and scoreboard): the checklist that sets the denominator, one filed measurement per cycle with unreached items failed and counted, and the scoreboard to a person."
+  :screens
+  {:measurement/instrument-desk
+   {:description "The operator's instrument view: derive a cut's checklist; read a cycle's measurement and its scoreboard (newly passing and newly failing on the shared items, new items as the holdout, a moved item set restated, never a net)."
+    :queries #{:measurement/checklist :measurement/cycle-measurement :measurement/scoreboard}
+    :commands #{:measurement/derive-checklist}}}
+  :flows
+  {:measurement/scoreboard-restates-moved-item-set
+   {:description "A filed measurement is reported once against the previous measured cycle; when the item set moved, the comparison is restated on the shared items."
+    :steps [{:from [:event :measurement/measurement-filed] :to [:read-model :measurement/measurements-to-report]}
+            {:from [:read-model :measurement/measurements-to-report] :to [:query :measurement/measurements-to-report]}
+            {:from [:query :measurement/measurements-to-report] :to [:todo-processor :measurement/report-scoreboard-once]}
+            {:from [:todo-processor :measurement/report-scoreboard-once] :to [:command :measurement/report-scoreboard]}
+            {:from [:command :measurement/report-scoreboard] :to [:event :measurement/moved-item-set-restated]}
+            {:from [:command :measurement/report-scoreboard] :to [:event :measurement/scoreboard-reported]}
+            {:from [:event :measurement/moved-item-set-restated] :to [:read-model :measurement/scoreboards]}
+            {:from [:event :measurement/scoreboard-reported] :to [:read-model :measurement/scoreboards]}
+            {:from [:read-model :measurement/scoreboards] :to [:query :measurement/scoreboard]}
+            {:from [:query :measurement/scoreboard] :to [:screen :measurement/instrument-desk]}]}}}}

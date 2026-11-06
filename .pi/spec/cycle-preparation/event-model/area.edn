@@ -1,0 +1,26 @@
+;; .pi/spec/cycle-preparation/event-model/area.edn
+;; Cycle preparation (operator control), R1 part only: pinning the source cut. Selection,
+;; approval, submission and the receipt arrive in a later round and add blocks here without
+;; renaming these (the cycle identity is minted at submission; domain-design.md, H8).
+;; TODO R2: :grain/allium links on the screen and the flow.
+{:cycle-preparation
+ {:description "Cycle preparation (operator control): what a cycle is built from. R1 holds the source cut only; selection, approval and submission come later."
+  :screens
+  {:cycle-preparation/preparation
+   {:description "The operator's preparation view: pin a source cut, see the pinned cuts."
+    :queries #{:cycle-preparation/source-cuts}
+    :commands #{:cycle-preparation/pin-source-cut}}}
+  :flows
+  {:cycle-preparation/cut-to-fence
+   {:description "A pinned cut is what the checklist is derived from and what the fence builds a clean room of; the harness self-check of a cycle names its cut."
+    :steps [{:from [:screen :cycle-preparation/preparation] :to [:command :cycle-preparation/pin-source-cut]}
+            {:from [:command :cycle-preparation/pin-source-cut] :to [:event :cycle-preparation/source-cut-pinned]}
+            {:from [:event :cycle-preparation/source-cut-pinned] :to [:read-model :cycle-preparation/source-cuts]}
+            {:from [:read-model :cycle-preparation/source-cuts] :to [:query :cycle-preparation/source-cuts]}
+            {:from [:query :cycle-preparation/source-cuts] :to [:screen :cycle-preparation/preparation]}
+            {:from [:event :cycle-preparation/source-cut-pinned] :to [:read-model :measurement/pinned-cuts]}
+            {:from [:read-model :measurement/pinned-cuts] :to [:command :measurement/derive-checklist]}
+            {:from [:command :measurement/derive-checklist] :to [:event :measurement/checklist-derived]}
+            {:from [:event :cycle-preparation/source-cut-pinned] :to [:read-model :regeneration-cycle/pinned-cuts]}
+            {:from [:read-model :regeneration-cycle/pinned-cuts] :to [:command :regeneration-cycle/record-harness-self-check]}
+            {:from [:command :regeneration-cycle/record-harness-self-check] :to [:event :regeneration-cycle/harness-self-check-passed]}]}}}}

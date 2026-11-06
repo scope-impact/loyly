@@ -1,0 +1,40 @@
+;; .pi/spec/grader-lifecycle/event-model/instrument-golden.edn: aggregate InstrumentGolden,
+;; in the harness repository (one per instrument scenario). Written from its scenario, never
+;; recorded from a run; a move carries exactly one recorded reason. Legacy: harness/oracle/
+;; and "The goldens, and the three reasons one can change".
+;; TODO R2: :grain/allium links (rules WriteInstrumentGolden, MoveInstrumentGolden).
+{:grader-lifecycle
+ {:commands
+  {:grader-lifecycle/write-instrument-golden
+   {:description "Write the exact expected output, refusal reasons included, of one instrument scenario (stamping, checklist derivation, a score refusal, the scoreboard's arithmetic), from that scenario. Issued by: instrument maintainer."
+    :schema [:map
+             [:golden-id :string]
+             [:scenario :string]
+             [:path :string]
+             [:digest :string]]
+    :reads #{:grader-lifecycle/instrument-goldens}
+    :produces #{:grader-lifecycle/instrument-golden-written}}
+   :grader-lifecycle/move-instrument-golden
+   {:description "Move a golden to new content, with its one recorded reason. 'spec-grew' holds only when the diff is additions only (no existing item's id, name, rule or source moved; only the total line removed). Issued by: instrument maintainer."
+    :schema [:map
+             [:golden-id :string]
+             [:digest :string]
+             [:reason [:enum "instrument-behavior-changed" "wording-replaced" "spec-grew"]]
+             [:additions-only :boolean]
+             [:note [:string {:min 1}]]]
+    :reads #{:grader-lifecycle/instrument-goldens}
+    :produces #{:grader-lifecycle/instrument-golden-moved}}}
+  :read-models
+  {:grader-lifecycle/instrument-goldens
+   {:description "Each instrument golden: its scenario, path, current digest and the history of its moves with their reasons."
+    :consumes #{:grader-lifecycle/instrument-golden-written :grader-lifecycle/instrument-golden-moved}
+    :schema [:map
+             [:golden-id :string]
+             [:path :string]
+             [:digest :string]
+             [:moves [:vector [:map [:from-digest :string] [:to-digest :string] [:reason :string] [:note :string]]]]]}}
+  :queries
+  {:grader-lifecycle/instrument-goldens
+   {:description "Every instrument golden with its move history."
+    :schema [:map]
+    :reads #{:grader-lifecycle/instrument-goldens}}}}}

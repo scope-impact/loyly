@@ -1,0 +1,19 @@
+;; .pi/spec/regeneration-cycle/event-model/handoffs.edn: the events the Regeneration cycle
+;; hands to other contexts. gate-attempt-passed goes to Measurement (gated-cycles), one way:
+;; the score binds the candidate the gate ratified, and nothing flows back into the loop.
+;; Later rounds add builder-session-launched and repair-builder-launched here.
+{:regeneration-cycle
+ {:events
+  {:regeneration-cycle/gate-attempt-passed
+   {:description "The gate ratified this attempt's candidate: booted fresh through its launch entrypoint within the boot budget (the margin is recorded), identity proved, suite green. Done is this verdict, never the builder's claim."
+    :schema [:map
+             [:cycle-id :string]
+             [:cut-id :string]
+             [:attempt [:int {:min 1 :max 3}]]
+             [:candidate-digest :string]
+             [:boot-budget-seconds pos-int?]
+             [:boot-polls pos-int?]
+             [:answered-on-poll pos-int?]
+             [:identity-proof :string]
+             [:evidence-root :string]
+             [:passed-at inst?]]}}}}

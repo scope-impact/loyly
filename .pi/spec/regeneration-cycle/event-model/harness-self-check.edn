@@ -1,0 +1,44 @@
+;; .pi/spec/regeneration-cycle/event-model/harness-self-check.edn: aggregate
+;; HarnessSelfCheck, in the harness's event store (one per cycle, naming its harness
+;; digest). No clean room is built over an unchecked instrument. Legacy: fence.sh and
+;; verify.sh call check.sh --local first, which runs the oracle over the instrument goldens.
+;; TODO R2: :grain/allium links (rule RecordHarnessSelfCheck, entity HarnessSelfCheck).
+{:regeneration-cycle
+ {:commands
+  {:regeneration-cycle/record-harness-self-check
+   {:description "Record the result of the harness self-check run for a cycle: the harness's calibration fixtures, every instrument golden reproduced exactly, the committed revision and runtime assets. A failed check is named. Issued by: ORC runtime (the fence node), first in the cycle."
+    :schema [:map
+             [:cycle-id :string]
+             [:cut-id :string]
+             [:harness-digest :string]
+             [:goldens-digest :string]
+             [:outcome [:enum "passed" "failed"]]
+             [:failing-check {:optional true} :string]
+             [:detail {:optional true} :string]]
+    :reads #{:regeneration-cycle/regeneration-cycles :regeneration-cycle/pinned-cuts :regeneration-cycle/instrument-goldens}
+    :produces #{:regeneration-cycle/harness-self-check-passed :regeneration-cycle/harness-self-check-failed}}}
+  :events
+  {:regeneration-cycle/harness-self-check-passed
+   {:description "The harness passed its self-check for this cycle, at this harness digest and these goldens. A cycle starts here: it is the first fact that names the cycle and its cut."
+    :schema [:map
+             [:cycle-id :string]
+             [:cut-id :string]
+             [:harness-digest :string]
+             [:goldens-digest :string]
+             [:checked-at inst?]]}
+   :regeneration-cycle/harness-self-check-failed
+   {:description "The harness failed its self-check for this cycle; the failing check is named. No clean room is built and the cycle fails."
+    :schema [:map
+             [:cycle-id :string]
+             [:cut-id :string]
+             [:harness-digest :string]
+             [:failing-check :string]
+             [:detail :string]
+             [:checked-at inst?]]}}
+  :read-models
+  {:regeneration-cycle/pinned-cuts
+   {:description "The cuts Cycle preparation pinned; a cycle may only fence a pinned cut."
+    :consumes #{:cycle-preparation/source-cut-pinned}}
+   :regeneration-cycle/instrument-goldens
+   {:description "The current digest of every instrument golden, and their combined goldens digest, which the self-check must reproduce."
+    :consumes #{:grader-lifecycle/instrument-golden-written :grader-lifecycle/instrument-golden-moved}}}}}

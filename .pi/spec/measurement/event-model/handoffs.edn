@@ -1,0 +1,47 @@
+;; .pi/spec/measurement/event-model/handoffs.edn: the events Measurement hands to other
+;; contexts. All three go to the Regeneration cycle, only to conclude it (cycles-to-conclude,
+;; regeneration-cycles); none feeds the build loop. Later rounds add prompt optimisation as a
+;; consumer of measurement-filed.
+{:measurement
+ {:events
+  {:measurement/measurement-filed
+   {:description "A cycle's one measurement was filed: a pass or fail verdict for every checklist item, the denominator of its checklist, unreached items failed with their reason, and any verdict superseded by a later one for the same item. It cannot be untaken."
+    :schema [:map
+             [:cycle-id :string]
+             [:cut-id :string]
+             [:candidate-digest :string]
+             [:checklist-digest :string]
+             [:grader-digests [:vector {:min 1} :string]]
+             [:total pos-int?]
+             [:passes :int]
+             [:unreached :int]
+             [:items [:vector {:min 1} [:map
+                                        [:item-id [:re "^[0-9]+-[0-9]{3,}$"]]
+                                        [:verdict [:enum "pass" "fail"]]
+                                        [:reason {:optional true} [:enum "unreached"]]
+                                        [:evidence :string]]]]
+             [:superseded [:vector [:map [:item-id :string] [:grader-digest :string] [:verdict [:enum "pass" "fail"]]]]]
+             [:filed-at inst?]]}
+   :measurement/score-stage-failed
+   {:description "The cycle's score was refused, so no measurement was filed and the score stage failed; it is not retried within the cycle. Not scored is not all failed."
+    :schema [:map
+             [:cycle-id :string]
+             [:refusal [:enum "not-the-gated-candidate" "no-checklist" "zero-verdicts" "unknown-item" "bad-verdict-value"]]
+             [:detail :string]
+             [:failed-at inst?]]}
+   :measurement/scoreboard-reported
+   {:description "The cycle's scoreboard was reported to a person: its rate, and against the previous measured cycle the shared items' rates, newly passing and newly failing items apart, new items as the untuned holdout and dropped items. No net is computed. A baseline cycle has no previous cycle."
+    :schema [:map
+             [:cycle-id :string]
+             [:passes :int]
+             [:total pos-int?]
+             [:previous-cycle-id [:maybe :string]]
+             [:shared {:optional true} [:map
+                                        [:items :int]
+                                        [:previous-passes :int]
+                                        [:passes :int]
+                                        [:newly-passing [:vector :string]]
+                                        [:newly-failing [:vector :string]]]]
+             [:new-items [:vector :string]]
+             [:dropped-items [:vector :string]]
+             [:reported-at inst?]]}}}}

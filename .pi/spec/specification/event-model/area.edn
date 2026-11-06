@@ -1,0 +1,30 @@
+;; .pi/spec/specification/event-model/area.edn
+;; The Specification context: the published language every other context conforms to
+;; (item identity, stamped scenario). Its screen and its flow. The aggregate's blocks are in
+;; slice.edn; the handoff it publishes is in handoffs.edn. The loader merges them into one
+;; Grain :event-model and refuses a block defined twice.
+;;
+;; Commands produce only what happened. A refusal is the command's answer, written as a
+;; `requires` in R2's Allium, and is not an event (domain-design.md).
+;; TODO R2: :grain/allium links on the screen and the flow.
+{:specification
+ {:description "Specification: the Gherkin scenarios and the item identity stamped on each. Upstream of every cycle; owns the published language (item identity, stamped scenario)."
+  :screens
+  {:specification/spec-authoring
+   {:description "Where the operator (spec author) edits a slice's spec and runs the stamper; shows each slice's stamped items and the next free item number."
+    :queries #{:specification/stamped-items}
+    :commands #{:specification/stamp-slice}}}
+  :flows
+  {:specification/stamping-to-checklist
+   {:description "A scenario is stamped once; its item identity is what a checklist may count. The operator derives the checklist of a pinned cut (legacy: gen_checklist), refused if any scenario is unstamped or the checklist would be empty."
+    :steps [{:from [:screen :specification/spec-authoring] :to [:command :specification/stamp-slice]}
+            {:from [:command :specification/stamp-slice] :to [:event :specification/scenario-stamped]}
+            {:from [:event :specification/scenario-stamped] :to [:read-model :specification/stamped-items]}
+            {:from [:read-model :specification/stamped-items] :to [:query :specification/stamped-items]}
+            {:from [:query :specification/stamped-items] :to [:screen :specification/spec-authoring]}
+            {:from [:event :specification/scenario-stamped] :to [:read-model :measurement/item-identities]}
+            {:from [:read-model :measurement/item-identities] :to [:command :measurement/derive-checklist]}
+            {:from [:command :measurement/derive-checklist] :to [:event :measurement/checklist-derived]}
+            {:from [:event :measurement/checklist-derived] :to [:read-model :measurement/checklists]}
+            {:from [:read-model :measurement/checklists] :to [:query :measurement/checklist]}
+            {:from [:query :measurement/checklist] :to [:screen :measurement/instrument-desk]}]}}}}

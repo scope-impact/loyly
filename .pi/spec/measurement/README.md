@@ -1,0 +1,10 @@
+# Measurement (instrument: score and scoreboard)
+
+The checklist, the one filed measurement per cycle, and the scoreboard to a person.
+
+- `event-model/checklist.edn`: Checklist (`derive-checklist`).
+- `event-model/cycle-measurement.edn`: CycleMeasurement (`file-item-verdicts`, `file-score`, `fail-score-stage`).
+- `event-model/scoreboard.edn`: Scoreboard (`report-scoreboard`; policy `report-scoreboard-once`).
+- `event-model/handoffs.edn`: `measurement-filed`, `score-stage-failed`, `scoreboard-reported`, consumed by the Regeneration cycle to conclude it.
+- `event-model/area.edn`: screen `instrument-desk`; flow `scoreboard-restates-moved-item-set`.
+- `domain-design.md`: the Files table, decisions, storm mapping, open questions.

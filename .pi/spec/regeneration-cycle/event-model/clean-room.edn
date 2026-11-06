@@ -1,0 +1,35 @@
+;; .pi/spec/regeneration-cycle/event-model/clean-room.edn: aggregate CleanRoom, in the
+;; harness's event store (one per cycle). The fence is physical and proved, never asserted:
+;; one commit, every fenced path absent from the working tree AND the object graph, and a
+;; fenced path that matches nothing stops the fence. Legacy: fence.sh.
+;;
+;; The fence's refusals (fenced path matched nothing, prior implementation reachable,
+;; history not one commit, path left in the tree, harness not self-checked) are R2
+;; `requires` on prove-clean-room, not events. ORC's fence node then fails the cycle
+;; (regeneration-cycle/fail-cycle, stage fence).
+;; TODO R2: :grain/allium links (rule ProveCleanRoom, entity CleanRoom).
+{:regeneration-cycle
+ {:commands
+  {:regeneration-cycle/prove-clean-room
+   {:description "Record the proof of the clean room ORC's fence built from the cycle's cut: the probe's counts and the paths it found. Accepted only when the proof holds. Issued by: ORC runtime (the fence node)."
+    :schema [:map
+             [:cycle-id :string]
+             [:cut-id :string]
+             [:clean-room-commit :string]
+             [:fenced-paths [:vector {:min 1} :string]]
+             [:root-commits :int]
+             [:commits :int]
+             [:unmatched-paths [:vector :string]]
+             [:paths-left-in-tree [:vector :string]]
+             [:paths-reachable-in-object-graph [:vector :string]]]
+    :reads #{:regeneration-cycle/regeneration-cycles}
+    :produces #{:regeneration-cycle/clean-room-proved}}}
+  :events
+  {:regeneration-cycle/clean-room-proved
+   {:description "The cycle's clean room is proved: a single-commit repository of the cut in which every fenced path is absent from the working tree and the object graph."
+    :schema [:map
+             [:cycle-id :string]
+             [:cut-id :string]
+             [:clean-room-commit :string]
+             [:fenced-paths [:vector {:min 1} :string]]
+             [:proved-at inst?]]}}}}

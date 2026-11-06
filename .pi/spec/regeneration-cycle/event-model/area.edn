@@ -1,0 +1,99 @@
+;; .pi/spec/regeneration-cycle/event-model/area.edn
+;; The Regeneration cycle (harness: fence and gate): its screen and its flows. Each
+;; aggregate's blocks are in its own fragment (harness-self-check.edn, clean-room.edn,
+;; regeneration-cycle.edn, gate-attempt.edn, handoffs.edn).
+;;
+;; Commands issued by ORC runtime (its workflow nodes) enter a flow from nil: ORC owns the
+;; execution order; the harness records the stage facts and guards them. Policies are to-do
+;; processors reading a to-do query. A refusal is the command's answer, not an event.
+;;
+;; Handoffs consumed: cycle-preparation/source-cut-pinned, grader-lifecycle/instrument-golden-*,
+;; measurement/measurement-filed, score-stage-failed, scoreboard-reported.
+;; Produced: gate-attempt-passed (handoffs.edn).
+;; TODO R2: :grain/allium links on the screen and the flows.
+{:regeneration-cycle
+ {:description "Regeneration cycle (harness: fence and gate): one cycle in the legacy shape, fence -> regenerate -> gate -> score -> scoreboard, and its one conclusion. The fence and the gate feed the build loop; the gated candidate goes one way to the measurement."
+  :screens
+  {:regeneration-cycle/cycle-progress
+   {:description "What the operator observes of a cycle: stage, status, candidate, gate attempts with their reasons and boot margins, and the conclusion. Read-only: observing changes nothing."
+    :queries #{:regeneration-cycle/cycle-progress}}}
+  :flows
+  {:regeneration-cycle/fence-to-scoreboard
+   {:description "The legacy cycle end to end: the harness self-checks, the fence proves the clean room, a candidate is regenerated, the gate ratifies it, the grader files item verdicts, the instrument files the measurement and reports the scoreboard, and the cycle concludes passed."
+    :steps [{:from nil :to [:command :regeneration-cycle/record-harness-self-check]}
+            {:from [:command :regeneration-cycle/record-harness-self-check] :to [:event :regeneration-cycle/harness-self-check-passed]}
+            {:from [:event :regeneration-cycle/harness-self-check-passed] :to [:read-model :regeneration-cycle/regeneration-cycles]}
+            {:from [:read-model :regeneration-cycle/regeneration-cycles] :to [:command :regeneration-cycle/prove-clean-room]}
+            {:from [:command :regeneration-cycle/prove-clean-room] :to [:event :regeneration-cycle/clean-room-proved]}
+            {:from [:event :regeneration-cycle/clean-room-proved] :to [:read-model :regeneration-cycle/regeneration-cycles]}
+            {:from [:read-model :regeneration-cycle/regeneration-cycles] :to [:command :regeneration-cycle/record-regenerated-candidate]}
+            {:from [:command :regeneration-cycle/record-regenerated-candidate] :to [:event :regeneration-cycle/candidate-regenerated]}
+            {:from [:event :regeneration-cycle/candidate-regenerated] :to [:read-model :regeneration-cycle/gate-attempts]}
+            {:from [:read-model :regeneration-cycle/gate-attempts] :to [:command :regeneration-cycle/install-candidate-in-gate-room]}
+            {:from [:command :regeneration-cycle/install-candidate-in-gate-room] :to [:event :regeneration-cycle/candidate-installed-in-gate-room]}
+            {:from [:event :regeneration-cycle/candidate-installed-in-gate-room] :to [:read-model :regeneration-cycle/gate-attempts]}
+            {:from [:read-model :regeneration-cycle/gate-attempts] :to [:command :regeneration-cycle/record-gate-attempt]}
+            {:from [:command :regeneration-cycle/record-gate-attempt] :to [:event :regeneration-cycle/gate-attempt-passed]}
+            {:from [:event :regeneration-cycle/gate-attempt-passed] :to [:read-model :measurement/gated-cycles]}
+            {:from [:read-model :measurement/gated-cycles] :to [:command :measurement/file-item-verdicts]}
+            {:from [:command :measurement/file-item-verdicts] :to [:event :measurement/item-verdicts-filed]}
+            {:from [:event :measurement/item-verdicts-filed] :to [:read-model :measurement/item-verdicts]}
+            {:from [:read-model :measurement/item-verdicts] :to [:command :measurement/file-score]}
+            {:from [:command :measurement/file-score] :to [:event :measurement/measurement-filed]}
+            {:from [:event :measurement/measurement-filed] :to [:read-model :measurement/measurements-to-report]}
+            {:from [:read-model :measurement/measurements-to-report] :to [:query :measurement/measurements-to-report]}
+            {:from [:query :measurement/measurements-to-report] :to [:todo-processor :measurement/report-scoreboard-once]}
+            {:from [:todo-processor :measurement/report-scoreboard-once] :to [:command :measurement/report-scoreboard]}
+            {:from [:command :measurement/report-scoreboard] :to [:event :measurement/scoreboard-reported]}
+            {:from [:event :measurement/scoreboard-reported] :to [:read-model :regeneration-cycle/cycles-to-conclude]}
+            {:from [:read-model :regeneration-cycle/cycles-to-conclude] :to [:query :regeneration-cycle/cycles-to-conclude]}
+            {:from [:query :regeneration-cycle/cycles-to-conclude] :to [:todo-processor :regeneration-cycle/conclude-cycle]}
+            {:from [:todo-processor :regeneration-cycle/conclude-cycle] :to [:command :regeneration-cycle/pass-cycle]}
+            {:from [:command :regeneration-cycle/pass-cycle] :to [:event :regeneration-cycle/cycle-passed]}
+            {:from [:event :regeneration-cycle/cycle-passed] :to [:read-model :regeneration-cycle/regeneration-cycles]}
+            {:from [:read-model :regeneration-cycle/regeneration-cycles] :to [:query :regeneration-cycle/cycle-progress]}
+            {:from [:query :regeneration-cycle/cycle-progress] :to [:screen :regeneration-cycle/cycle-progress]}]}
+
+   :regeneration-cycle/self-check-failed-fails-cycle
+   {:description "No room is built over an unchecked instrument: a failed self-check names its check and the cycle fails at the fence."
+    :steps [{:from nil :to [:command :regeneration-cycle/record-harness-self-check]}
+            {:from [:command :regeneration-cycle/record-harness-self-check] :to [:event :regeneration-cycle/harness-self-check-failed]}
+            {:from [:event :regeneration-cycle/harness-self-check-failed] :to [:read-model :regeneration-cycle/cycles-to-conclude]}
+            {:from [:read-model :regeneration-cycle/cycles-to-conclude] :to [:query :regeneration-cycle/cycles-to-conclude]}
+            {:from [:query :regeneration-cycle/cycles-to-conclude] :to [:todo-processor :regeneration-cycle/conclude-cycle]}
+            {:from [:todo-processor :regeneration-cycle/conclude-cycle] :to [:command :regeneration-cycle/fail-cycle]}
+            {:from [:command :regeneration-cycle/fail-cycle] :to [:event :regeneration-cycle/cycle-failed]}
+            {:from [:event :regeneration-cycle/cycle-failed] :to [:read-model :regeneration-cycle/regeneration-cycles]}
+            {:from [:read-model :regeneration-cycle/regeneration-cycles] :to [:query :regeneration-cycle/cycle-progress]}
+            {:from [:query :regeneration-cycle/cycle-progress] :to [:screen :regeneration-cycle/cycle-progress]}]}
+
+   :regeneration-cycle/fence-refused-fails-cycle
+   {:description "prove-clean-room is refused (a fenced path matched nothing, or the prior implementation is reachable): nothing is recorded for the room, and ORC's fence node fails the cycle at the fence, naming the refusal."
+    :steps [{:from nil :to [:command :regeneration-cycle/fail-cycle]}
+            {:from [:command :regeneration-cycle/fail-cycle] :to [:event :regeneration-cycle/cycle-failed]}
+            {:from [:event :regeneration-cycle/cycle-failed] :to [:read-model :regeneration-cycle/regeneration-cycles]}
+            {:from [:read-model :regeneration-cycle/regeneration-cycles] :to [:query :regeneration-cycle/cycle-progress]}
+            {:from [:query :regeneration-cycle/cycle-progress] :to [:screen :regeneration-cycle/cycle-progress]}]}
+
+   :regeneration-cycle/gate-attempts-exhausted
+   {:description "The third gate attempt fails: the build loop ends and the cycle fails without a score. (The repair builder between attempts arrives with the builder sessions, in a later round.)"
+    :steps [{:from nil :to [:command :regeneration-cycle/record-gate-attempt]}
+            {:from [:command :regeneration-cycle/record-gate-attempt] :to [:event :regeneration-cycle/gate-attempt-failed]}
+            {:from [:event :regeneration-cycle/gate-attempt-failed] :to [:read-model :regeneration-cycle/gate-attempts]}
+            {:from [:event :regeneration-cycle/gate-attempt-failed] :to [:read-model :regeneration-cycle/cycles-to-conclude]}
+            {:from [:read-model :regeneration-cycle/cycles-to-conclude] :to [:query :regeneration-cycle/cycles-to-conclude]}
+            {:from [:query :regeneration-cycle/cycles-to-conclude] :to [:todo-processor :regeneration-cycle/conclude-cycle]}
+            {:from [:todo-processor :regeneration-cycle/conclude-cycle] :to [:command :regeneration-cycle/fail-cycle]}
+            {:from [:command :regeneration-cycle/fail-cycle] :to [:event :regeneration-cycle/cycle-failed]}
+            {:from [:event :regeneration-cycle/cycle-failed] :to [:read-model :regeneration-cycle/regeneration-cycles]}]}
+
+   :regeneration-cycle/refused-score-fails-cycle
+   {:description "A refused score files nothing: ORC's score node records the score stage failed, never retried, and the cycle fails at the score."
+    :steps [{:from nil :to [:command :measurement/fail-score-stage]}
+            {:from [:command :measurement/fail-score-stage] :to [:event :measurement/score-stage-failed]}
+            {:from [:event :measurement/score-stage-failed] :to [:read-model :regeneration-cycle/cycles-to-conclude]}
+            {:from [:read-model :regeneration-cycle/cycles-to-conclude] :to [:query :regeneration-cycle/cycles-to-conclude]}
+            {:from [:query :regeneration-cycle/cycles-to-conclude] :to [:todo-processor :regeneration-cycle/conclude-cycle]}
+            {:from [:todo-processor :regeneration-cycle/conclude-cycle] :to [:command :regeneration-cycle/fail-cycle]}
+            {:from [:command :regeneration-cycle/fail-cycle] :to [:event :regeneration-cycle/cycle-failed]}
+            {:from [:event :regeneration-cycle/cycle-failed] :to [:read-model :regeneration-cycle/regeneration-cycles]}]}}}}

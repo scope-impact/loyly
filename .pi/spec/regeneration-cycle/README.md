@@ -1,0 +1,11 @@
+# Regeneration cycle (harness: fence and gate)
+
+One cycle in the legacy shape and its one conclusion.
+
+- `event-model/harness-self-check.edn`: HarnessSelfCheck (`record-harness-self-check`).
+- `event-model/clean-room.edn`: CleanRoom (`prove-clean-room`).
+- `event-model/regeneration-cycle.edn`: RegenerationCycle (`record-regenerated-candidate`, `pass-cycle`, `fail-cycle`; policy `conclude-cycle`).
+- `event-model/gate-attempt.edn`: GateAttempt (`install-candidate-in-gate-room`, `record-gate-attempt`).
+- `event-model/handoffs.edn`: `gate-attempt-passed`, consumed by Measurement.
+- `event-model/area.edn`: screen `cycle-progress`; flows `fence-to-scoreboard`, `self-check-failed-fails-cycle`, `fence-refused-fails-cycle`, `gate-attempts-exhausted`, `refused-score-fails-cycle`.
+- `domain-design.md`: the Files table, decisions, storm mapping, open questions.

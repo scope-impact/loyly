@@ -1,0 +1,47 @@
+;; .pi/spec/measurement/event-model/scoreboard.edn: aggregate Scoreboard, in the harness's
+;; event store (one per measured cycle). Reports to a person: the rate, and against the
+;; previous measured cycle only the shared items, newly passing and newly failing apart, new
+;; items as the untuned holdout, never a net. Legacy: scoreboard.clj.
+;;
+;; R2 refusals of report-scoreboard: no measurement filed for the cycle; already reported.
+;; TODO R2: :grain/allium links (rule ReportScoreboard, entity Scoreboard, surface Scoreboard).
+{:measurement
+ {:commands
+  {:measurement/report-scoreboard
+   {:description "Report the cycle's scoreboard against the previous measured cycle; restate it on the shared items when the item set moved. Issued by: the report-scoreboard-once policy."
+    :schema [:map [:cycle-id :string]]
+    :reads #{:measurement/cycle-measurements :measurement/scoreboards}
+    :produces #{:measurement/scoreboard-reported :measurement/moved-item-set-restated}}}
+  :events
+  {:measurement/moved-item-set-restated
+   {:description "The item set moved since the previous measured cycle, so the two headline rates count different things; the comparison is restated on the shared items only."
+    :schema [:map
+             [:cycle-id :string]
+             [:previous-cycle-id :string]
+             [:previous-total pos-int?]
+             [:total pos-int?]
+             [:added :int]
+             [:dropped :int]
+             [:restated-at inst?]]}}
+  :read-models
+  {:measurement/measurements-to-report
+   {:description "The report-scoreboard-once policy's to-do list: filed measurements with no scoreboard yet."
+    :consumes #{:measurement/measurement-filed :measurement/scoreboard-reported}}
+   :measurement/scoreboards
+   {:description "Each measured cycle's scoreboard, with its restatement when the item set moved."
+    :consumes #{:measurement/scoreboard-reported :measurement/moved-item-set-restated}}}
+  :queries
+  {:measurement/measurements-to-report
+   {:description "The report-scoreboard-once policy's to-do list."
+    :schema [:map]
+    :reads #{:measurement/measurements-to-report}}
+   :measurement/scoreboard
+   {:description "One cycle's scoreboard."
+    :schema [:map [:cycle-id :string]]
+    :reads #{:measurement/scoreboards}}}
+  :todo-processors
+  {:measurement/report-scoreboard-once
+   {:description "Whenever a measurement is filed, report its scoreboard, once."
+    :subscribes #{:measurement/measurement-filed}
+    :reads #{:measurement/measurements-to-report}
+    :produces #{:measurement/report-scoreboard}}}}}

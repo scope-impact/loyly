@@ -1,0 +1,60 @@
+;; .pi/spec/measurement/event-model/checklist.edn: aggregate Checklist, in the harness's
+;; event store (one per pinned cut in R1; one per approved selection once selection
+;; arrives). Derived, never written; it sets the denominator. Legacy: gen_checklist.clj.
+;;
+;; R2 refusals of derive-checklist (requires, not events): the cut is not pinned; a
+;; scenario is unstamped (storm: "Unstamped scenario found"); the checklist would be empty
+;; (storm: "Empty selection refused"); an item identity the stamper never handed out; an
+;; item identity twice.
+;; TODO R2: :grain/allium links (rule DeriveChecklist, entity Checklist).
+{:measurement
+ {:commands
+  {:measurement/derive-checklist
+   {:description "Derive the checklist of a pinned cut: one stamped item per stamped scenario of every slice not planned or backlog, in file order. The slices skipped by status are recorded, never only warned about. Issued by: operator (legacy: gen_checklist); a later round adds the policy that derives it when a selection is approved."
+    :schema [:map
+             [:cut-id :string]
+             [:items [:vector [:map
+                               [:item-id [:re "^[0-9]+-[0-9]{3,}$"]]
+                               [:scenario-digest :string]
+                               [:rule [:maybe :string]]
+                               [:source :string]
+                               [:title :string]]]]
+             [:unstamped [:vector [:map [:source :string] [:title :string]]]]
+             [:skipped-slices [:vector [:map [:slice :string] [:status [:enum "planned" "backlog"]]]]]]
+    :reads #{:measurement/pinned-cuts :measurement/item-identities :measurement/checklists}
+    :produces #{:measurement/checklist-derived}}}
+  :events
+  {:measurement/checklist-derived
+   {:description "A cut's checklist was derived: its stamped items, its total (the denominator) and the slices skipped by status."
+    :schema [:map
+             [:cut-id :string]
+             [:checklist-digest :string]
+             [:items [:vector {:min 1} [:map
+                                        [:item-id [:re "^[0-9]+-[0-9]{3,}$"]]
+                                        [:scenario-digest :string]
+                                        [:rule [:maybe :string]]
+                                        [:source :string]
+                                        [:title :string]]]]
+             [:total pos-int?]
+             [:skipped-slices [:vector [:map [:slice :string] [:status [:enum "planned" "backlog"]]]]]
+             [:derived-at inst?]]}}
+  :read-models
+  {:measurement/pinned-cuts
+   {:description "The cuts Cycle preparation pinned; a checklist is derived only from a pinned cut."
+    :consumes #{:cycle-preparation/source-cut-pinned}}
+   :measurement/item-identities
+   {:description "Every item identity the stamper handed out; a checklist counts no other."
+    :consumes #{:specification/scenario-stamped}}
+   :measurement/checklists
+   {:description "Each cut's checklist: its items, total and digest."
+    :consumes #{:measurement/checklist-derived}
+    :schema [:map
+             [:cut-id :string]
+             [:checklist-digest :string]
+             [:total pos-int?]
+             [:items [:vector [:map [:item-id :string] [:scenario-digest :string] [:rule [:maybe :string]] [:source :string] [:title :string]]]]]}}
+  :queries
+  {:measurement/checklist
+   {:description "One cut's checklist."
+    :schema [:map [:cut-id :string]]
+    :reads #{:measurement/checklists}}}}}

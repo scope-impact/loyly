@@ -1,0 +1,6 @@
+;; Grain's event-model validator and code-agent tools, from the Löyly Grain checkout.
+;; The spec-v2 worktree has no submodules, so this points at the main checkout's grain/
+;; (dbf5b52). In a checkout with the submodule initialised, ../../../grain/projects/... works too.
+{:paths ["."]
+ :deps {grain/event-model {:local/root "/Users/sathish.narayanan/Documents/git/loyly/grain/projects/grain-event-model"}
+        grain/code-agent-tools {:local/root "/Users/sathish.narayanan/Documents/git/loyly/grain/projects/grain-code-agent-tools"}}}

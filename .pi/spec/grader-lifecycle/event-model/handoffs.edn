@@ -1,0 +1,24 @@
+;; .pi/spec/grader-lifecycle/event-model/handoffs.edn: the events Grader lifecycle hands to
+;; other contexts. Both golden events go to the Regeneration cycle (instrument-goldens): the
+;; harness self-check must reproduce the current goldens exactly. Later rounds add
+;; grader-digest-approved here.
+{:grader-lifecycle
+ {:events
+  {:grader-lifecycle/instrument-golden-written
+   {:description "An instrument golden was written from its scenario, never recorded from a run."
+    :schema [:map
+             [:golden-id :string]
+             [:scenario :string]
+             [:path :string]
+             [:digest :string]
+             [:written-at inst?]]}
+   :grader-lifecycle/instrument-golden-moved
+   {:description "An instrument golden moved to new content, with its one recorded reason."
+    :schema [:map
+             [:golden-id :string]
+             [:from-digest :string]
+             [:to-digest :string]
+             [:reason [:enum "instrument-behavior-changed" "wording-replaced" "spec-grew"]]
+             [:additions-only :boolean]
+             [:note :string]
+             [:moved-at inst?]]}}}}

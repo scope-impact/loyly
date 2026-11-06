@@ -1,0 +1,99 @@
+;; .pi/spec/regeneration-cycle/event-model/regeneration-cycle.edn: aggregate
+;; RegenerationCycle, in the harness's event store (one per cycle identity). It owns the
+;; stage order (fence -> regenerate -> gate -> score -> scoreboard -> result), the attempt
+;; count and the one conclusion. The cycle identity is given by its issuer in R1 and minted
+;; at submission in a later round (H8), which then adds cycle-preparation/cycle-submitted to
+;; regeneration-cycles' :consumes without renaming anything here.
+;; TODO R2: :grain/allium links (rules RecordRegeneratedCandidate, PassCycle, FailCycle;
+;; entity RegenerationCycle; surface CycleProgress).
+{:regeneration-cycle
+ {:commands
+  {:regeneration-cycle/record-regenerated-candidate
+   {:description "Record the candidate a regenerate step produced in the cycle's candidate scope, for the next gate attempt: attempt 1 by fresh generation, later attempts by verification repair. A claim, not done. Issued by: ORC runtime (the regenerate node)."
+    :schema [:map
+             [:cycle-id :string]
+             [:attempt [:int {:min 1 :max 3}]]
+             [:purpose [:enum "fresh-generation" "verification-repair"]]
+             [:candidate-digest :string]
+             [:parent-candidate-digest {:optional true} :string]]
+    :reads #{:regeneration-cycle/regeneration-cycles}
+    :produces #{:regeneration-cycle/candidate-regenerated}}
+   :regeneration-cycle/pass-cycle
+   {:description "Conclude the cycle passed, once, after its scoreboard is reported. Issued by: the conclude-cycle policy."
+    :schema [:map [:cycle-id :string]]
+    :reads #{:regeneration-cycle/regeneration-cycles}
+    :produces #{:regeneration-cycle/cycle-passed}}
+   :regeneration-cycle/fail-cycle
+   {:description "Conclude the cycle failed, once, naming the stage and the reason. Issued by: the conclude-cycle policy (self-check failed, gate attempts exhausted, score stage failed), or ORC runtime when a stage node fails because its command was refused (the fence) or it produced nothing (regenerate)."
+    :schema [:map
+             [:cycle-id :string]
+             [:stage [:enum "fence" "regenerate" "gate" "score"]]
+             [:reason [:enum "harness-self-check-failed" "fence-refused" "candidate-not-regenerated" "gate-attempts-exhausted" "score-stage-failed"]]
+             [:detail :string]]
+    :reads #{:regeneration-cycle/regeneration-cycles}
+    :produces #{:regeneration-cycle/cycle-failed}}}
+  :events
+  {:regeneration-cycle/candidate-regenerated
+   {:description "A candidate was regenerated for the cycle's next gate attempt: its digest, its attempt and purpose, and the candidate it repairs. It dies with the cycle."
+    :schema [:map
+             [:cycle-id :string]
+             [:attempt [:int {:min 1 :max 3}]]
+             [:purpose [:enum "fresh-generation" "verification-repair"]]
+             [:candidate-digest :string]
+             [:parent-candidate-digest {:optional true} :string]
+             [:regenerated-at inst?]]}
+   :regeneration-cycle/cycle-passed
+   {:description "The cycle concluded passed: the gate ratified its candidate and its measurement is filed and reported. Recorded once."
+    :schema [:map
+             [:cycle-id :string]
+             [:candidate-digest :string]
+             [:concluded-at inst?]]}
+   :regeneration-cycle/cycle-failed
+   {:description "The cycle concluded failed at a named stage for a named reason. Recorded once. A cycle failed before the score has no measurement, and shows as 'no score', never as all failed."
+    :schema [:map
+             [:cycle-id :string]
+             [:stage [:enum "fence" "regenerate" "gate" "score"]]
+             [:reason [:enum "harness-self-check-failed" "fence-refused" "candidate-not-regenerated" "gate-attempts-exhausted" "score-stage-failed"]]
+             [:detail :string]
+             [:candidate-digest {:optional true} :string]
+             [:concluded-at inst?]]}}
+ :read-models
+  {:regeneration-cycle/regeneration-cycles
+   {:description "Each cycle: its cut, status and stage, its harness digest, clean room, current candidate and gate attempts, and its conclusion. Folded from its stage facts and the measurement's handoffs."
+    :consumes #{:regeneration-cycle/harness-self-check-passed :regeneration-cycle/harness-self-check-failed
+                :regeneration-cycle/clean-room-proved :regeneration-cycle/candidate-regenerated
+                :regeneration-cycle/candidate-installed-in-gate-room
+                :regeneration-cycle/gate-attempt-passed :regeneration-cycle/gate-attempt-failed
+                :measurement/measurement-filed :measurement/score-stage-failed :measurement/scoreboard-reported
+                :regeneration-cycle/cycle-passed :regeneration-cycle/cycle-failed}
+    :schema [:map
+             [:cycle-id :string]
+             [:cut-id :string]
+             [:status [:enum "submitted" "running" "passed" "failed"]]
+             [:stage [:enum "fence" "regenerate" "gate" "score" "scoreboard" "result"]]
+             [:harness-digest {:optional true} :string]
+             [:clean-room-commit {:optional true} :string]
+             [:candidate-digest {:optional true} :string]
+             [:gate-attempts :int]
+             [:failure {:optional true} [:map [:stage :string] [:reason :string] [:detail :string]]]]}
+   :regeneration-cycle/cycles-to-conclude
+   {:description "The conclude-cycle policy's to-do list: running cycles whose self-check failed, whose third gate attempt failed, whose score stage failed, or whose scoreboard is reported; a concluded cycle leaves it."
+    :consumes #{:regeneration-cycle/harness-self-check-failed :regeneration-cycle/gate-attempt-failed
+                :measurement/score-stage-failed :measurement/scoreboard-reported
+                :regeneration-cycle/cycle-passed :regeneration-cycle/cycle-failed}}}
+  :queries
+  {:regeneration-cycle/cycle-progress
+   {:description "One cycle's status, stage, candidate and gate attempts, or every cycle's. A view, never an authority."
+    :schema [:map [:cycle-id {:optional true} :string]]
+    :reads #{:regeneration-cycle/regeneration-cycles :regeneration-cycle/gate-attempts}}
+   :regeneration-cycle/cycles-to-conclude
+   {:description "The conclude-cycle policy's to-do list."
+    :schema [:map]
+    :reads #{:regeneration-cycle/cycles-to-conclude}}}
+  :todo-processors
+  {:regeneration-cycle/conclude-cycle
+   {:description "Whenever the scoreboard is reported, conclude the cycle passed; whenever its self-check failed, its third gate attempt failed, or its score stage failed, conclude it failed. Once per cycle."
+    :subscribes #{:regeneration-cycle/harness-self-check-failed :regeneration-cycle/gate-attempt-failed
+                  :measurement/score-stage-failed :measurement/scoreboard-reported}
+    :reads #{:regeneration-cycle/cycles-to-conclude}
+    :produces #{:regeneration-cycle/pass-cycle :regeneration-cycle/fail-cycle}}}}}

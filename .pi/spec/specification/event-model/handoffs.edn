@@ -1,0 +1,15 @@
+;; .pi/spec/specification/event-model/handoffs.edn: the events Specification hands to other
+;; contexts, defined once here and only referenced by the consumer.
+;; scenario-stamped goes to Measurement (item-identities), whose checklist may count only
+;; identities the stamper handed out.
+{:specification
+ {:events
+  {:specification/scenario-stamped
+   {:description "A scenario received its item identity, @item-<slice>-<number>. It keeps it through every rewording; the scenario digest, not the identity, changes with the behavior."
+    :schema [:map
+             [:item-id [:re "^[0-9]+-[0-9]{3,}$"]]
+             [:slice [:re "^[0-9]+$"]]
+             [:source :string]
+             [:line pos-int?]
+             [:title :string]
+             [:stamped-at inst?]]}}}}
