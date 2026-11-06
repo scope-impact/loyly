@@ -132,3 +132,8 @@ tag line. No approved grader's scenarios changed.
 `01-015`. As on 2026-11-04 this is the measured spec changing, not the instrument: the golden
 was re-recorded with `harness/oracle.sh record` for that reason and no other. The approved
 graders in `graders.approved.json` were written for spec v1 and cover none of these items.
+
+**2026-11-06: wording restored.** R4.1 moved the Scenario Outlines `@item-01-008` and
+`@item-01-010` into `specification/spec.feature` and left their `Examples:` tables behind in
+`drafts.feature`. The tables moved to their Outlines; ids, names, rules and the total are
+unchanged, and the golden's diff is only the `source` line numbers of `01-009` to `01-015`.

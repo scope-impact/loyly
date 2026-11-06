@@ -52,43 +52,43 @@
    "id": "01-009",
    "name": "A Scenario heading with nothing after the colon is reported, not stamped",
    "rule": "An empty-title heading is not an item, and the stamper says so out loud",
-   "source": ".pi/plan/01-specification/spec.feature:108"
+   "source": ".pi/plan/01-specification/spec.feature:113"
   },
   {
    "id": "01-010",
    "name": "A stamping that hides an empty-title heading is refused",
    "rule": "An empty-title heading is not an item, and the stamper says so out loud",
-   "source": ".pi/plan/01-specification/spec.feature:120"
+   "source": ".pi/plan/01-specification/spec.feature:125"
   },
   {
    "id": "01-011",
    "name": "A Scenario Outline is stamped and a Scenario Template is not",
    "rule": "One reading of Gherkin decides what is a scenario and what stamps it",
-   "source": ".pi/plan/01-specification/spec.feature:133"
+   "source": ".pi/plan/01-specification/spec.feature:143"
   },
   {
    "id": "01-012",
    "name": "A heading whose title is only whitespace is a scenario",
    "rule": "One reading of Gherkin decides what is a scenario and what stamps it",
-   "source": ".pi/plan/01-specification/spec.feature:144"
+   "source": ".pi/plan/01-specification/spec.feature:154"
   },
   {
    "id": "01-013",
    "name": "A stamped item's title is the heading's title with surrounding whitespace stripped",
    "rule": "One reading of Gherkin decides what is a scenario and what stamps it",
-   "source": ".pi/plan/01-specification/spec.feature:154"
+   "source": ".pi/plan/01-specification/spec.feature:164"
   },
   {
    "id": "01-014",
    "name": "An item tag separated from its heading by a blank line does not stamp it",
    "rule": "One reading of Gherkin decides what is a scenario and what stamps it",
-   "source": ".pi/plan/01-specification/spec.feature:164"
+   "source": ".pi/plan/01-specification/spec.feature:174"
   },
   {
    "id": "01-015",
    "name": "Tags that are not item tags do not make a scenario stamped",
    "rule": "One reading of Gherkin decides what is a scenario and what stamps it",
-   "source": ".pi/plan/01-specification/spec.feature:174"
+   "source": ".pi/plan/01-specification/spec.feature:184"
   }
  ],
  "counts": {

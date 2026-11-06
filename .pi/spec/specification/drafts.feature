@@ -33,15 +33,3 @@ Feature: Specification, draft scenarios
         | history                                       | after                               |
         | has never been stamped                        | still has no stamped item           |
         | has stamped "@item-03-001" and "@item-03-002" | still hands out "@item-03-003" next |
-
-      Examples:
-        | history                                     | offered                    |
-        | has never been stamped                      | "b" before "a"             |
-        | has stamped "@item-03-001" as "boots fresh" | "boots fresh", "a" and "b" |
-
-  Rule: An empty-title heading is not an item, and the stamper says so out loud
-
-      Examples:
-        | history                                       |
-        | has never been stamped                        |
-        | has stamped "@item-03-001" and "@item-03-002" |

@@ -99,6 +99,11 @@ Feature: Specification
       Then the stamping is refused
       And no scenario of slice 03 is stamped by it
 
+      Examples:
+        | history                                     | offered                    |
+        | has never been stamped                      | "b" before "a"             |
+        | has stamped "@item-03-001" as "boots fresh" | "boots fresh", "a" and "b" |
+
   Rule: An empty-title heading is not an item, and the stamper says so out loud
 
     # specification/allium/context.allium, contract ScenarioReading, invariant EmptyTitleIsNoScenario; slice.allium, surface SpecAuthoring, guarantee EmptyTitleReportedLoudly
@@ -123,6 +128,11 @@ Feature: Specification
       When the operator stamps slice 03 reporting no empty-title heading
       Then the stamping is refused
       And no scenario of slice 03 is stamped by it
+
+      Examples:
+        | history                                       |
+        | has never been stamped                        |
+        | has stamped "@item-03-001" and "@item-03-002" |
 
   Rule: One reading of Gherkin decides what is a scenario and what stamps it
 
