@@ -13,9 +13,8 @@ read passes through a Grain query over a registered read model. Grain processors
 when asynchronous coordination is required. ORC `:sheet/*` events remain execution authority and
 are consumed directly by harness projections rather than copied into harness progress events.
 
-The C4 architecture and supporting runtime views derived from this contract are maintained in
-[`.pi/architecture.md`](../../.pi/architecture.md). That document identifies target versus
-current behavior explicitly; this model remains the observable source of truth.
+The architecture this contract specifies is summarized in
+[`.pi/architecture.md`](../../.pi/architecture.md); this model remains the source of truth.
 
 The target contract must not be read as a claim that every behavior is already
 implemented. A regenerated harness is measured by the sealed graders an operator approved
@@ -96,78 +95,3 @@ executable suite carry no verdict.
 ORC's own `:sheet/*` execution events remain governed by ORC but may feed Pi-harness read models
 and processors. Löyly product events remain governed by `model/loyly`. The three service areas
 share Grain infrastructure without duplicating one another's facts.
-
-## Implementation namespace map
-
-ORC tick state remains workflow authority. The Pi-harness Grain service area projects durable
-stage/attempt views directly from ORC events for reconnecting clients and owns preparation
-approval, observations, and measurements. The projection cannot advance ORC and emits no mirror
-progress event.
-
-## Known implementation limits and gaps
-
-The contract exposes gaps found while deriving it from the current implementation. The current
-runtime still runs the twelve-stage slice cycle with routes, a per-cycle grader author, and
-proposal-based promotion; the contract now requires the five-stage legacy cycle with an
-approved sealed grader and a scoreboard.
-
-1. A host-backed cycle can be submitted, but independent grading currently requires Gondolin,
-   so only Gondolin can produce a passing complete measurement.
-2. Selection preview currently reads `docs/plan/<slice>/spec.feature`, accepts an explicitly
-   named slice, and hashes the project model inventory. It does not yet propose a slice from
-   operator intent or resolve stable item identities and full scenario digests directly from the
-   canonical product Gherkin contract.
-3. The activated optimized instruction is held in worker memory rather than durable state. The
-   target contract requires one recoverable active instruction per purpose: regeneration and
-   gate repair.
-4. Refused, skipped, timed-out, and errored stages currently collapse into failure.
-5. The production prompt renderer now measures the complete purpose-specific strategy and binds
-   deterministic runtime context, including the selected stack and base image, to the exact prompt
-   digest. Candidate scoring remains responsible for the gate and a complete score by an approved
-   sealed grader. The selected
-   instruction and its metric evidence are not yet durable harness records.
-6. Full source-commit and candidate-scope validation occurs inside asynchronous cut
-   or builder execution, after a task receipt has been created, rather than at submission.
-7. Gondolin provides the declared builder isolation. The host backend executes through
-   a normal host shell with the host environment and is not capability-equivalent.
-8. Re-previewing an already approved deterministic selection returns its current
-    `approved` status; it does not regress to `awaiting-approval`.
-9. Standalone runtime conformance is selected from each pinned project's JSONL contract;
-    the evaluator contains no project, item, event, projection, or field identities. Live
-    Löyly evidence covers `@item-01-007` and `@item-01-008`. General producer authority, collection
-    completeness, OBI capture, semantic runtime-signal OTLP conventions, and `inconclusive`
-    outcomes remain unimplemented. Persisted invariant results are projected as OTLP JSON
-    spans alongside Allure with the same evaluation identity and evidence-manifest digest.
-10. Supported target stacks are now independently bound to language-specific Gondolin builder
-    rooms and checked against the candidate. Rust, Java, Ruby on Rails, and the Node family fail
-    closed on a stack mismatch; this is a finite supported-stack registry, not universal
-    language independence. The host backend remains non-ratifying and is not isolation-equivalent.
-11. Gate repair is bounded to three attempts. Each repair uses a fresh builder seeded with the
-    previous candidate and a read-only gate evidence root; score evidence never enters it.
-12. Approval currently binds only the slice selection. It does not yet bind a complete cycle
-    preparation containing scope, target stack, execution profile, pinned inputs, diagram, and
-    outer-cycle budget.
-13. The control RPC reconciles ORC's authoritative durable tick status with a harness-owned
-    durable stage/attempt projection and opaque builder-session reference. The Pi extension can
-    query this state after reconnect; push notification subscription and an automatic live UI
-    remain unimplemented.
-14. Builder sessions are fresh, isolated, and persisted as append-only Pi transcripts. The
-    read-only RPC exposes committed entries, tool-call count, generated top-level workspace
-    entries, status, and attempt progress. Steering, attachment, and forking remain unimplemented.
-15. Builder transcripts are not yet bound to durable workspace generations. Restoring an agent
-    transcript without the VM-visible filesystem it changed would be invalid.
-16. Parent-cycle lineage and bounded continuation heuristics are not yet recorded when an
-    operator session decides to begin another complete cycle.
-17. The current harness implementation uses `:loyly/*` runtime blocks, direct read helpers, and a
-    duplicate harness progress event. It lacks the declared cycle-preparation blocks, Grain
-    `defquery` handlers, registered `defevent` history contracts, the Grain Event Model runtime
-    package, and strict startup/model-conformance validation. ORC does not register a `:sheet`
-    Event Model; the spec declares the `:sheet` blocks it depends on, and they must stay in step
-    with ORC's pinned schemas. These dependencies must converge with the target `:loyly.pi-harness/*` service area before
-    the harness is Grain-conformant.
-18. GEPA reflection currently uses the runtime's hardcoded OpenRouter provider. The target contract
-    requires explicit Bedrock provider registration, a pinned reflection model per optimization,
-    and durable sanitized provider/model/call provenance. AWS credentials must remain outside
-    prompts, events, transcripts, and repository state.
-
-These are reconciliation obligations, not alternative sources of truth.

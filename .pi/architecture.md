@@ -1,126 +1,177 @@
 # Pi harness architecture
 
-## The shape
+The architecture the contract in [`.pi/model/`](model/) specifies. It describes the target,
+derived from the model alone; it makes no claim about any implementation. Where this page and
+the model disagree, the model wins.
 
-The legacy harness regenerates a new harness from the Pi harness contract, the same way it
-regenerated Löyly. The contract is treated as one more product spec; the output is a harness
-built on ORC and Grain.
-
-```text
-  driver                      project                        product
-  ───────────────────────     ─────────────────────────      ──────────────────────────
-  harness/  (legacy tools)    .pi/model/                     .pi/harness/harness-impl/
-    fence.sh  ─────────────►    plan/NN-slug/spec.feature  ─►  a harness on ORC + Grain
-    Pi builder                  *.allium (behaviour)             ORC: the cycle, retries,
-    verify.sh (gate)            event-model/ (Grain topology)         resume
-    sealed graders              affordances.yaml (the seam)      Grain: facts that span runs
-    score.clj, scoreboard.clj   COVERAGE.md, GLOSSARY.md          (approvals, receipts,
-                                                                   measurements)
-```
-
-`bb harness/regen.clj <run-id>` runs the loop end to end. ORC belongs only in the product. The driver keeps its records as committed files:
-`harness/cycles/NN/` for each cycle and `harness/graders.approved.json` for the approved graders.
-
-## The contract
-
-`.pi/model/` follows ORC's and Grain's conventions. Each kind of spec states one thing, once,
-and links to the others by name:
-
-| Kind | Where | States | Checked by |
-|---|---|---|---|
-| Gherkin | `plan/NN-slug/spec.feature` | one stamped scenario per checklist item (83) | the checklist, sealed graders, score |
-| Allium | `*.allium`, flat as in ORC's `specs/`, each with a Scope / Includes / Excludes header | behaviour: entities, rules, invariants, surfaces | `allium check` and `allium analyse` on the folder: 0 errors, 0 warnings |
-| Grain Event Model | `event-model/<ns path>/event_model.clj`, one area per file, namespace matching path | topology: commands, events, read models, queries, the dispatch processor, the screen, flows | Grain's `validate-spec-composition`: every command links an Allium rule, the screen an Allium surface |
-| Affordances | `affordances.yaml`, in the format of `model/loyly/affordances.yaml` | the public seam: 16 actions over JSON-RPC on stdio, each naming its Allium rule and its Grain command or query | `.pi/affordances.schema.json` (its `seam` variant) |
-
-`COVERAGE.md` is the ledger, as in ORC: slice → spec, command → rule, action → method → Grain
-block → rule, ownership, the verification commands, and the diagnostic baseline.
+## Context
 
 ```text
-          seam (affordances.yaml)        topology (event-model/)            behaviour (*.allium)
-operator ──► SubmitApprovedSlice ──► submit-cycle-task ──► task-submitted ──► SubmitCycleTask
-                                                │
-                                   dispatch-submitted-task ──► :sheet/tick-tree (ORC)
-                                                                     │
-          ExecutionStatus ◄── cycle-progress ◄── :sheet/* events ◄───┘
+                    ┌───────────────────────── Pi harness ─────────────────────────┐
+  Operator ────────►│ seam: JSON-RPC over stdio (affordances.yaml)                  │
+  (person, or Pi /  │                                                               │
+   Codex session)   │ :loyly.pi-harness service area ──► ORC (:sheet ticks) ────────┼──► Pi/Codex builder
+  Gate ────────────►│   commands, events, read models,     the cycle, retries,      │    sessions
+  Grader ──────────►│   queries, one dispatch processor    resume                   │
+                    │            shared Grain runtime (tenant-scoped event store)   │──► Gondolin rooms
+                    └───────────────────────────────────────────────────────────────┘──► Bedrock (reflection)
+                                     │ PI_HARNESS_PROJECT_ROOT
+                                     ▼
+                       the project repository: commits to cut, its PLAN_DIR
 ```
 
-Ownership in Allium: `regeneration-cycle.allium` owns cuts, composition, selections,
-preparations, and cycles, and declares the one `actor Operator`. `operator-control-plane.allium`
-owns tasks, idempotent submission, dispatch, progress, builder sessions, and measurement reads,
-and imports the domain. Approval starts nothing: ORC is dispatched once per submitted task.
-`submit-cycle` submits the whole plan under a fixed preparation that submission approves;
-a slice runs through preview, approve, `prepare-cycle`, `approve-preparation`, and
-`submit-approved-slice`.
+- **Operator** (`actor Operator`, identified by its `OperatorSession`): approves selections,
+  preparations, and graders, submits cycles, and reads outcomes. Exploratory transcripts,
+  skills, and branches stay in the operator session; only an approved preparation crosses into
+  ORC.
+- **Gate** and **grader** drive the harness only through the seam, like the operator.
+- **ORC** owns execution: the cycle's ticks, retries, termination, and durable resume. Its
+  `:sheet/*` events are the authority for execution.
+- **Grain** is the shared runtime. The harness is one service area in it; ORC's facts and the
+  harness's facts are never duplicated into each other.
 
-ORC registers no `:sheet` Event Model, so `event-model/orc/sheet/event_model.clj` declares the
-one command and five events the harness uses, copied from ORC's pinned `orc-service`
-(`af086675`); it must stay in step with that pin (ADR 0002, amended).
+## The seam
 
-## The loop
+`APP_DIR/start.sh` reads one JSON request per line on stdin and writes one response per line
+on stdout; every request gets exactly one response carrying its id. `PI_HARNESS_PROJECT_ROOT`
+names the repository worked on; `PI_HARNESS_STATE_ROOT` holds the harness's own state, and a
+fresh directory means fresh state.
+
+| Group | Actions (method) |
+|---|---|
+| Cycle | `CycleContract` (`cycle-contract`), `WorkflowContract` (`workflow-contract`), `SubmitCycle` (`submit-cycle`), `Wait` (`wait`), `ExecutionStatus` (`execution-status`) |
+| Cut and selection | `PrepareCut` (`prepare-cut`), `SliceComposition` (`slice-composition`), `PreviewSelection` (`preview-selection`), `ApproveSelection` (`approve-selection`) |
+| Preparation | `PrepareCycle` (`prepare-cycle`), `ApprovePreparation` (`approve-preparation`), `SubmitApprovedSlice` (`submit-approved-slice`) |
+| Instrument | `ApproveGrader` (`approve-grader`), `Measurement` (`measurement`) |
+| Builder sessions | `BuilderSession` (`builder-session`) |
+| Prompt optimization | `OptimizePrompt` (`optimize-prompt`) |
+
+Each action names the Allium rule its outcomes and rejections realise and the Grain command or
+query it reaches. A rejection is a refused response naming what and why; the harness keeps
+running.
+
+## Control plane
+
+```text
+prepare-cut ─► slice-composition ─► preview-selection ─► approve-selection
+                                                              │
+                         prepare-cycle ─► approve-preparation ┘
+                                │
+              submit-approved-slice ──┐        submit-cycle (whole plan) ──┐
+                                      ▼                                    ▼
+                               task-submitted ─► dispatch-submitted-task ─► :sheet/tick-tree (ORC)
+                                                                                 │
+              execution-status ◄─ cycle-progress ◄─ :sheet/* events ◄────────────┤
+              wait             ◄─ task-outcomes  ◄─ :sheet/tree-tick-completed ◄─┘
+```
+
+- Every identity is deterministic: previewing or preparing the same choices again returns the
+  same identity and digest, and approval accepts only that exact digest.
+- **Approval starts nothing.** ORC is dispatched once per submitted task.
+- A **slice cycle** runs an approved preparation, which binds the selection, scope, target
+  stack, execution profile, cut digest, grader digest, diagram digest, and outer-cycle budget.
+- A **whole-plan cycle** (`submit-cycle`) runs the whole plan of the pinned cut under a fixed
+  preparation (configured scope, stack, and profile, approved graders, one outer cycle);
+  submitting it is that preparation's approval, as in the legacy shape.
+- Repeating a request identity returns the original receipt; reusing it for a different
+  request is refused. A replacement worker answers `wait` from ORC's durable state and never
+  reruns a task.
+- Progress and builder-session views are projections of ORC facts; they never advance ORC.
+
+## The cycle
 
 ```text
 fence → regenerate → gate → score → scoreboard
 ```
 
-| Step | Tool | Notes |
-|---|---|---|
-| fence | `harness/fence.sh` | A proved clean room holding only the contract; refuses unless `harness/check.sh --local` is green. `.pi/harness` and this file are fenced. |
-| regenerate | `.pi/harness/src/builder-worker.ts` | One fresh Pi/Codex builder per slice, in plan order, each seeded with this cycle's candidate so far; continued in the same session, at most three times, while its own `UNCARRIED.md` lists items of its slice (`@item-02-014`). |
-| gate | `harness/verify.sh` | Runs `APP_DIR/test.sh`, then proves identity over the stdio seam within 30 s. A failed gate may start a fresh repair builder with the previous candidate and the gate log, at most three attempts. |
-| score | sealed graders, then `harness/score.clj` | Only graders whose digest is in `harness/graders.approved.json`. One verdict per checklist item; an unreached item fails and stays in the denominator. |
-| scoreboard | `harness/scoreboard.clj` | Shared items with the previous cycle, newly passing and newly failing, never a net. |
+| Stage | Behaviour |
+|---|---|
+| fence | Builds a clean room from the pinned cut only after the harness self-check passes. The fence is physical: fenced paths are absent from the tree and the object graph. |
+| regenerate | One fresh builder session per slice, in plan order, each extending the cycle's candidate; continued in the same session at most three times while its slice is uncarried. The builder reads the clean room read-only and writes only its declared scope. |
+| gate | A room the builder does not control boots the candidate fresh and proves its suite green. A failed gate may start a fresh repair builder with only the previous candidate and the gate's evidence, at most three attempts. |
+| score | Approved sealed graders file one verdict per checklist item through the seam. An unreached item fails and stays in the denominator. |
+| scoreboard | Compares with the previous cycle on shared items, newly passing and newly failing separately; new items are the untuned holdout; never a net. |
 
-`harness/config.sh` names the product: `APP_DIR=harness-impl`, `PLAN_DIR=.pi/model/plan`.
+The fence and the gate are the **harness** and feed the build loop. The score and the
+scoreboard are the **instrument** and never do: no score evidence reaches a builder, and a
+failed score is measured, not retried within the cycle.
 
-## The instrument
+## Grain service area
 
-Three sealed graders cover 17 of 83 items, each calibrated so carried behavior passes and
-uncarried behavior fails, and approved by the operator by exact digest:
+`:loyly.pi-harness` (`event-model/loyly/pi_harness/event_model.clj`):
 
-| Digest | Entry | Items |
-|---|---|---|
-| `sha256:302072fd…` | `grade.py` | 02-001, 02-002, 02-010, 04-009, 04-010, 09-001, 09-002, 09-003 |
-| `sha256:da4d43e5…` | `grade_seam.py` | 01-005, 01-006, 01-007, 04-008, 06-001 |
-| `sha256:dac9f462…` | `grade_contract.py` | 01-010, 04-005, 04-006, 05-005 |
+| Concern | Commands | Events | Read models → queries |
+|---|---|---|---|
+| Selection | `record-selection`, `approve-selection` | `selection-recorded`, `selection-approved` | `selections` → `selection` |
+| Preparation | `record-cycle-preparation`, `approve-cycle-preparation` | `cycle-preparation-recorded`, `cycle-preparation-approved` | `cycle-preparations` → `cycle-preparation` |
+| Tasks | `submit-cut-task`, `submit-cycle-task`, `submit-whole-plan-cycle`, `record-task-receipt` | `task-submitted`, `task-receipt-issued` | `task-receipts` → `task-receipt`, `highest-task-id`; `task-outcomes` → `task-outcome` |
+| Cuts | | | `prepared-cuts` → `slice-composition` |
+| Progress | | | `cycle-progress` → `cycle-progress`; `builder-sessions` → `builder-session` |
+| Instrument | `approve-grader`, `record-observation`, `record-cycle-measurement` | `grader-approved`, `observation-recorded`, `cycle-measurement-recorded` | `approved-graders`, `cycle-observations`, `cycle-measurements` → same-named queries |
+| Prompt optimization | `start-prompt-optimization` | `prompt-optimization-started` | `prompt-optimizations` → `prompt-optimization` |
 
-Sources are in `.pi/harness/instrument/`; the sealed copies are in `.pi/harness/.state/graders/sealed/`.
+One todo processor, `dispatch-submitted-task`, turns each `task-submitted` into ORC's
+`:sheet/tick-tree`. One screen, `pi-regeneration`, is the operator's control surface. Every
+command links an Allium rule and the screen links the `RegenerationControlPlane` surface.
 
-## Scoreboard
+`:sheet` (`event-model/orc/sheet/event_model.clj`) declares the ORC blocks the area uses: the
+command `tick-tree` and the events `tree-tick-started`, `node-execution-started`,
+`node-execution-completed`, `tree-tick-completed`, and `tick-cancelled`, copied from ORC's
+pinned `orc-service` schemas. Startup validates the registered model strictly against the live
+registries and refuses to start on drift.
 
-| Cycle | Run | Builder | Candidate | Score | vs previous |
-|---|---|---|---|---:|---|
-| 01 | `harness-regen-5` | gpt-5.6-luna | stub with canned stage results | 6/80 | baseline |
-| 02 | `harness-regen-6` | gpt-5.6-luna | stub, 62 lines | 7/80 | +1 / −0 |
-| 03 | `harness-regen-7` | gpt-6.1-sol | first real candidate | 8/80 | +1 / −0 |
-| 04 | `harness-regen-8` | gpt-6.1-sol | real core on a fetchable ORC pin | 8/80 | +0 / −0 |
-| 05 | `harness-regen-9` | gpt-6.1-sol | three items broken by a spec ambiguity | 5/82 | +0 / −3 |
-| 06 | `harness-regen-10` | gpt-6.1-sol | one builder per slice; 17 graded items | 6/82 | +1 / −0 |
-| 07 | `harness-regen-11` | gpt-6.1-sol | spec names the repository | 12/82 | +6 / −0 |
-| 08 | `harness-regen-13` | gpt-6.1-sol | spec states slice-composition's shape; **promoted** | 14/82 | +3 / −1 |
+## Instrument
 
-Cycles 01–08 were driven by `orc-worker`, a hand-written ORC program that ran the same legacy
-tools. It left the loop on 2026-11-05; git keeps it (last present at `358e4ca`).
-`harness-regen-14` and `harness-regen-15` were stopped unscored.
+- The **checklist** is one item per stamped scenario of the approved selection, derived and
+  never written; an unstamped scenario or an empty selection stops the cycle.
+- A **grader** is written once from the selected Gherkin and the public calibration protocol by
+  an author who cannot read any candidate, transcript, or prior verdict. It is calibrated so
+  carried behaviour passes and uncarried behaviour fails, sealed by digest, discarded and
+  re-authored at most three times if uncalibrated, and used only after the operator approves
+  its exact digest. It is reused until its scenarios change and replaced only for a recorded
+  reason; never to turn a score green.
 
-## The promoted harness
+## Runtime evidence
 
-Cycle 08's candidate (subject `sha256:f5e1611e…`) is at `.pi/harness/harness-impl/`, promoted
-by the operator on 2026-11-05. Its own suite is green (25 tests). It passes 14 of 17 graded
-items and lists 60 items uncarried in its `UNCARRIED.md`, among them sealed scoring, gate
-repair, Gondolin and resume.
+Producers record runtime signals with their authority (candidate, harness observer,
+independent validator) and purpose (assertion, diagnostic, calibration). Only an independent
+validator files a verdict, only from complete, unsampled collection; incomplete collection is
+inconclusive, and a diagnostic signal never decides a verdict. Validation runs in an
+independent room with a pinned read-only capture policy and a per-cycle writable evidence
+volume; a passing baseline is bound to its complete Playwright trace. Reports are projections
+and never authority.
 
-It was built from the contract before 2026-11-06: the seam was `rpc.yaml`, with no
-`prepare-cycle` or `approve-preparation`. It records six `:loyly.pi-harness/*` events with
-open `[:map]` schemas by appending them directly, with no commands, read models, queries, or
-registered Event Model, so strict Event Model validation would refuse it. The 14 earlier seam
-methods are unchanged, so the sealed graders still apply to it and to the next cycle.
+## Prompt optimization
 
-## Open
+ORC owns every production prompt. A builder instruction is optimized per purpose (fresh
+generation, verification repair) as a complete strategy: GEPA proposes candidates through a
+pinned Bedrock reflection model, each candidate is measured by independent regeneration, and
+the winner is activated durably with its provenance. The builder cannot author its own metric,
+and enforcement never depends on the prompt being followed.
 
-- Grader coverage: 17 of 83 items. The two new seam actions are not graded.
-- No cycle has run from the current contract; the next (`harness-regen-16`) is cycle 09 and is
-  compared with cycle 08 on shared items.
-- Nothing in the repository runs the Allium and Grain checks automatically; `COVERAGE.md`
-  gives the commands.
-- `harness/config.sh` points at the Pi harness contract; regenerating Löyly needs its own config.
+## Bootstrap and project runtime
+
+`harness/Makefile`'s bootstrap installs dependencies, builds and verifies the harness and
+supported-stack runtime assets, and binds them to a snapshot manifest and calibration digest;
+it needs no grader and regenerates nothing. A project's VM configuration and stack Dockerfiles
+are resolved by convention from `harness/<project-id>/`, never across projects, and an unknown
+or mismatched stack fails closed.
+
+## Where the model states it
+
+| Concern | Gherkin slice | Allium | Grain | Seam |
+|---|---|---|---|---|
+| Cuts, selection, preparation, cycles | `01-regeneration-cycle` | `regeneration-cycle.allium` | selection, preparation, cuts | cut and selection, preparation |
+| The cycle's stages | `02-execution-pipeline` | `execution-pipeline.allium` | | `CycleContract`, `WorkflowContract` |
+| Instrument | `03-instrument` | `instrument.allium` | instrument | `ApproveGrader`, `Measurement` |
+| Control plane | `04-operator-control-plane` | `operator-control-plane.allium` | tasks, progress, dispatch | cycle, builder sessions |
+| Runtime evidence | `05-runtime-evidence` | `runtime-evidence.allium` | `record-observation` | |
+| Prompt optimization | `06-prompt-optimization` | `prompt-optimization.allium` | prompt optimization | `OptimizePrompt` |
+| Bootstrap | `07-harness-bootstrap` | `harness-bootstrap.allium` | | |
+| Project runtime | `08-project-vm-config` | `project-vm-config.allium` | | |
+| The seam | `09-rpc-seam` | | | `affordances.yaml` `seam` |
+
+[`model/COVERAGE.md`](model/COVERAGE.md) holds the exact mappings, the ownership between Allium
+files, the verification commands, and the diagnostic baseline (no Allium errors or warnings;
+Grain's composition gate clean). The vocabulary is [`model/GLOSSARY.md`](model/GLOSSARY.md);
+the decisions are in [`model/docs/adr/`](model/docs/adr/).
