@@ -112,7 +112,50 @@
      :reads #{:loyly.pi-harness/cycle-measurements}
      :produces #{:loyly.pi-harness/cycle-measurement-recorded}
      :grain/allium [{:spec ".pi/model/instrument.allium"
-                     :kind :rule :name "FileScore"}]}}
+                     :kind :rule :name "FileScore"}]}
+
+    :loyly.pi-harness/launch-builder-session
+    {:description "Launch one durable Pi builder session for an ORC builder tick, in the room ORC chose."
+     :schema [:map
+              [:tick-id :string]
+              [:role [:enum "slice-builder" "repair-builder" "grader-author"]]
+              [:room [:map
+                     [:image :string]
+                     [:cut-read-only :boolean]
+                     [:writable-scope [:set :string]]
+                     [:evidence-root {:optional true} :string]
+                     [:egress-allowed :boolean]
+                     [:inherits-host-environment :boolean]]]
+              [:prompt-digest :string]]
+     :reads #{:loyly.pi-harness/builder-sessions}
+     :produces #{:loyly.pi-harness/builder-session-launched}
+     :grain/allium [{:spec ".pi/model/execution-pipeline.allium"
+                     :kind :rule :name "LaunchDurableBuilderSession"}]}
+
+    :loyly.pi-harness/relaunch-builder-session
+    {:description "Relaunch the durable session of a builder tick; it resumes from its committed turns."
+     :schema [:map
+              [:tick-id :string]
+              [:room [:map
+                     [:image :string]
+                     [:cut-read-only :boolean]
+                     [:writable-scope [:set :string]]
+                     [:evidence-root {:optional true} :string]
+                     [:egress-allowed :boolean]
+                     [:inherits-host-environment :boolean]]]
+              [:prompt-digest :string]]
+     :reads #{:loyly.pi-harness/builder-sessions}
+     :produces #{:loyly.pi-harness/builder-session-resumed}
+     :grain/allium [{:spec ".pi/model/execution-pipeline.allium"
+                     :kind :rule :name "ResumeDurableBuilderSession"}]}
+
+    :loyly.pi-harness/bind-workspace-generation
+    {:description "Bind the workspace generation a committed builder tool result produced."
+     :schema [:map [:tick-id :string] [:committed-result :string] [:generation :int]]
+     :reads #{:loyly.pi-harness/builder-sessions}
+     :produces #{:loyly.pi-harness/workspace-generation-bound}
+     :grain/allium [{:spec ".pi/model/execution-pipeline.allium"
+                     :kind :rule :name "BindWorkspaceGeneration"}]}}
 
    :events
    {:loyly.pi-harness/selection-recorded
@@ -187,6 +230,29 @@
     {:description "An operator approved a sealed, calibrated grader by its exact digest."
      :schema [:map [:grader-digest :string] [:entry :string] [:items [:vector :string]]
               [:approved-by :string] [:approved-at :string]]}
+
+    :loyly.pi-harness/builder-session-launched
+    {:description "A durable Pi builder session was launched for one ORC tick, in the room ORC chose."
+     :schema [:map
+              [:tick-id :string]
+              [:role [:enum "slice-builder" "repair-builder" "grader-author"]]
+              [:session-id :string]
+              [:room [:map
+                      [:image :string]
+                      [:cut-read-only :boolean]
+                      [:writable-scope [:set :string]]
+                      [:evidence-root {:optional true} :string]
+                      [:egress-allowed :boolean]
+                      [:inherits-host-environment :boolean]]]
+              [:prompt-digest :string]]}
+
+    :loyly.pi-harness/builder-session-resumed
+    {:description "The durable session of a builder tick was relaunched and resumed; never a second session."
+     :schema [:map [:tick-id :string] [:session-id :string] [:launches :int]]}
+
+    :loyly.pi-harness/workspace-generation-bound
+    {:description "A committed builder tool result was bound to the workspace generation it produced."
+     :schema [:map [:tick-id :string] [:committed-result :string] [:generation :int]]}
 
     :loyly.pi-harness/observation-recorded
     {:description "One identified producer recorded a purpose-scoped claim for one cycle item."
@@ -264,8 +330,10 @@
      :version 1}
 
     :loyly.pi-harness/builder-sessions
-    {:description "Builder-session references and their progress, projected from ORC node facts."
-     :consumes #{:loyly.pi-harness/task-receipt-issued :sheet/node-execution-started :sheet/node-execution-completed}
+    {:description "Builder sessions: each ORC builder tick, its durable session, room, launches, and workspace generations."
+     :consumes #{:loyly.pi-harness/task-receipt-issued :sheet/node-execution-started :sheet/node-execution-completed
+                 :loyly.pi-harness/builder-session-launched :loyly.pi-harness/builder-session-resumed
+                 :loyly.pi-harness/workspace-generation-bound}
      :version 1}
 
     :loyly.pi-harness/prompt-optimizations
@@ -373,7 +441,17 @@
      :reads #{:loyly.pi-harness/task-receipt}
      :produces #{:sheet/tick-tree}
      :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
-                     :kind :rule :name "DispatchSubmittedTaskToOrc"}]}}
+                     :kind :rule :name "DispatchSubmittedTaskToOrc"}]}
+
+    :loyly.pi-harness/launch-builder-for-tick
+    {:description "When ORC starts a builder node, launch its durable Pi session; when ORC resumes it, relaunch the same session."
+     :subscribes #{:sheet/node-execution-started}
+     :reads #{:loyly.pi-harness/builder-session}
+     :produces #{:loyly.pi-harness/launch-builder-session :loyly.pi-harness/relaunch-builder-session}
+     :grain/allium [{:spec ".pi/model/execution-pipeline.allium"
+                     :kind :rule :name "LaunchDurableBuilderSession"}
+                    {:spec ".pi/model/execution-pipeline.allium"
+                     :kind :rule :name "ResumeDurableBuilderSession"}]}}
 
    :screens
    {:loyly.pi-harness/pi-regeneration
@@ -548,6 +626,21 @@
               :to [:query :loyly.pi-harness/task-outcome]}
              {:from [:query :loyly.pi-harness/task-outcome]
               :to [:screen :loyly.pi-harness/pi-regeneration]}]}
+
+    :loyly.pi-harness/durable-builder-launch
+    {:description "ORC starts a builder tick; its durable Pi session is launched once, in the room ORC chose, and observed read-only."
+     :steps [{:from [:event :sheet/node-execution-started]
+              :to [:read-model :loyly.pi-harness/builder-sessions]}
+             {:from [:read-model :loyly.pi-harness/builder-sessions]
+              :to [:query :loyly.pi-harness/builder-session]}
+             {:from [:query :loyly.pi-harness/builder-session]
+              :to [:todo-processor :loyly.pi-harness/launch-builder-for-tick]}
+             {:from [:todo-processor :loyly.pi-harness/launch-builder-for-tick]
+              :to [:command :loyly.pi-harness/launch-builder-session]}
+             {:from [:command :loyly.pi-harness/launch-builder-session]
+              :to [:event :loyly.pi-harness/builder-session-launched]}
+             {:from [:event :loyly.pi-harness/builder-session-launched]
+              :to [:read-model :loyly.pi-harness/builder-sessions]}]}
 
     :loyly.pi-harness/builder-session
     {:description "A builder session is observed read-only from ORC node facts."

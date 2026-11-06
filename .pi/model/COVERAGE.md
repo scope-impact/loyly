@@ -139,10 +139,10 @@ Judge scores are diagnostic runtime evidence only (03-018, `SealedGraderIsTheOnl
 
 | Behaviour | Spec |
 |---|---|
-| A builder session is a durable Pi session keyed by its ORC tick; a relaunch resumes it | 02-018, `LaunchDurableBuilderSession`, `ResumeDurableBuilderSession`, `DurableSessionIsKeyedByTick` |
+| A builder session is a durable Pi session keyed by its ORC tick; a relaunch resumes it | 02-018, `LaunchDurableBuilderSession`, `ResumeDurableBuilderSession`, `DurableSessionIsKeyedByTick`; Grain `launch-builder-for-tick` → `launch-builder-session` / `relaunch-builder-session` → `builder-session-launched` / `builder-session-resumed` → `builder-sessions` |
 | ORC alone chooses the room; the host only forwards tool calls | 02-019, `BuilderRoomPolicy`, `OrcAloneChoosesTheRoom` |
 | A grader author's room holds only the selected Gherkin and the calibration protocol | 02-019, 03-002, `GraderAuthorRoomHoldsOnlySpecAndProtocol` |
-| A restored transcript is paired only with its own workspace | 04-017, `BindWorkspaceGeneration`, `BuilderWorkspaceMatchesCommittedSession` |
+| A restored transcript is paired only with its own workspace | 04-017, `BindWorkspaceGeneration`, `BuilderWorkspaceMatchesCommittedSession`; Grain `bind-workspace-generation` → `workspace-generation-bound` |
 | Every production prompt is ORC's, for all three roles | 06-007, `ProductionPromptRole` |
 
 ## Ownership

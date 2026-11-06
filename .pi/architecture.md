@@ -16,29 +16,29 @@ runnable containers.
 Who uses the harness and what it depends on.
 
 ```mermaid
----
-title: "System Context: the Pi harness, as .pi/model specifies it"
----
-%%{init: {"flowchart": {"wrappingWidth": 230, "nodeSpacing": 40, "rankSpacing": 70}}}%%
+
 flowchart TB
   operator(["<b>Operator</b><br/>[Person]<br/>A person, or a Pi or Codex session acting for one"])
   driver["<b>Regeneration driver</b><br/>[Software System, external]<br/>Legacy gate and sealed graders"]
   harness["<b>Pi harness</b><br/>[Software System]<br/>Regenerates a project from an approved slice of its contract in a fenced clean room, gates the candidate, and measures it with approved sealed graders"]
   repo["<b>Project repository</b><br/>[Software System, external]<br/>Commits and stamped Gherkin plan"]
-  pi["<b>Pi / Codex</b><br/>[Software System, external]<br/>Model sessions that write candidates"]
+  host["<b>Durable builder host</b><br/>[Software System, provided]<br/>TypeScript on pi-durable; one durable Pi session per ORC builder tick"]
+  pi["<b>Codex</b><br/>[Software System, external]<br/>The model the builder session talks to"]
   gondolin["<b>Gondolin</b><br/>[Software System, external]<br/>Micro-VMs for isolated rooms"]
-  bedrock["<b>Amazon Bedrock</b><br/>[Software System, external]<br/>Pinned reflection model"]
+  bedrock["<b>Amazon Bedrock</b><br/>[Software System, external; deferred, slice 06]<br/>Pinned reflection model"]
 
   operator -- "Approves and submits work, reads outcomes<br/>[JSON-RPC over stdio]" --> harness
   driver -- "Starts it, proves identity, drives graded actions<br/>[JSON-RPC over stdio]" --> harness
   harness -- "Cuts a commit, reads its plan<br/>[git]" --> repo
-  harness -- "Runs one builder session per slice" --> pi
-  harness -- "Runs builder and validation rooms in" --> gondolin
-  harness -- "Asks for instruction candidates<br/>[HTTPS]" --> bedrock
+  harness -- "Launches one durable session per builder tick<br/>(prompt, room policy, tick as request id)" --> host
+  harness -- "Starts and stops the room ORC chose;<br/>runs gate and validation rooms" --> gondolin
+  host -- "Model turns; credentials stay on the host" --> pi
+  host -- "Forwards each tool call into the room" --> gondolin
+  harness -. "Asks for instruction candidates<br/>[HTTPS, deferred]" .-> bedrock
 
   class operator person
   class harness system
-  class driver,repo,pi,gondolin,bedrock external
+  class driver,repo,host,pi,gondolin,bedrock external
   classDef person fill:#08427b,stroke:#052e56,color:#fff
   classDef system fill:#1168bd,stroke:#0b4884,color:#fff
   classDef external fill:#8a8a8a,stroke:#6b6b6b,color:#fff
@@ -58,10 +58,7 @@ flowchart TB
 The runnable parts of the harness and the stores they use.
 
 ```mermaid
----
-title: "Container: Pi harness"
----
-%%{init: {"flowchart": {"wrappingWidth": 230, "nodeSpacing": 40, "rankSpacing": 70}}}%%
+
 flowchart LR
   operator(["<b>Operator</b><br/>[Person]"])
   driver["<b>Regeneration driver</b><br/>[Software System, external]"]
@@ -70,7 +67,8 @@ flowchart LR
     proc["<b>Harness process</b><br/>[Container: Clojure, ORC, Grain; start.sh]<br/>Serves the seam; runs the :loyly.pi-harness service area and the ORC cycle workflow"]
     events[("<b>Event store</b><br/>[Container: Grain, tenant-scoped]<br/>Harness facts and ORC :sheet facts, never duplicated into each other")]
     state[("<b>Cycle state</b><br/>[Container: files under PI_HARNESS_STATE_ROOT]<br/>Clean rooms, candidates, gate evidence, per-cycle evidence volumes")]
-    builder["<b>Builder room</b><br/>[Container: Gondolin VM chosen by ORC, offline; provided durable Pi host]<br/>One durable Pi/Codex session per tick; clean room read-only, writes only the declared scope"]
+    host["<b>Builder host</b><br/>[Container: TypeScript, pi-durable; provided, on the host]<br/>Runs the durable Pi loop for one tick; submits ORC's prompt with the tick as request id; holds the Codex credentials"]
+    builder["<b>Builder room</b><br/>[Container: Gondolin VM chosen by ORC, offline]<br/>Image for the stack; clean room read-only, writes only the declared scope; no host environment"]
     gate["<b>Gate room</b><br/>[Container: independent of the builder]<br/>Boots the candidate fresh, proves its suite green"]
     validator["<b>Validation room</b><br/>[Container: Gondolin VM]<br/>Graders and independent invariant checks against the candidate's seam"]
   end
@@ -78,8 +76,8 @@ flowchart LR
   subgraph ext ["External software systems"]
     direction TB
     repo["<b>Project repository</b><br/>[Software System]"]
-    pi["<b>Pi / Codex</b><br/>[Software System]"]
-    bedrock["<b>Amazon Bedrock</b><br/>[Software System]"]
+    pi["<b>Codex</b><br/>[Software System]"]
+    bedrock["<b>Amazon Bedrock</b><br/>[Software System; deferred, slice 06]"]
   end
 
   operator -- "Approves, submits, observes<br/>[JSON-RPC over stdio]" --> proc
@@ -87,16 +85,18 @@ flowchart LR
   proc -- "Appends facts, projects read models" --> events
   proc -- "Cuts a commit [git]" --> repo
   proc -- "Fences clean rooms, keeps candidates" --> state
-  proc -- "Starts with the production prompt" --> builder
+  proc -- "Launches per builder tick: prompt and digest, tick as request id" --> host
+  proc -- "Starts and stops with the room policy" --> builder
   proc -- "Gates each candidate" --> gate
   proc -- "Scores with approved graders" --> validator
-  builder -- "Runs the session" --> pi
+  host -- "Model turns" --> pi
+  host -- "Forwards tool calls" --> builder
   builder -- "Reads clean room, writes scope" --> state
   validator -- "Writes evidence" --> state
-  proc -- "Requests instruction candidates [HTTPS]" --> bedrock
+  proc -. "Requests instruction candidates [HTTPS, deferred]" .-> bedrock
 
   class operator person
-  class proc,builder,gate,validator container
+  class proc,host,builder,gate,validator container
   class events,state container
   class driver,repo,pi,bedrock external
   class h,ext boundary
@@ -121,10 +121,7 @@ flowchart LR
 The responsibilities inside the harness process.
 
 ```mermaid
----
-title: "Component: Harness process"
----
-%%{init: {"flowchart": {"wrappingWidth": 230, "nodeSpacing": 40, "rankSpacing": 70}}}%%
+
 flowchart TB
   operator(["<b>Operator / driver</b><br/>[Person, external system]"])
 
@@ -133,6 +130,7 @@ flowchart TB
     control["<b>Control plane commands</b><br/>[Component: Grain defcommand]<br/>Selections, preparations, task submission and receipts, grader approval, observations, measurements"]
     views["<b>Projections and queries</b><br/>[Component: Grain defreadmodel, defquery]<br/>Selections, preparations, receipts, outcomes, prepared cuts, progress, builder sessions, measurements"]
     dispatch["<b>Task dispatcher</b><br/>[Component: Grain defprocessor]<br/>One ORC tick per task-submitted"]
+    launcher["<b>Builder launcher</b><br/>[Component: Grain defprocessor launch-builder-for-tick]<br/>Launches, or relaunches, the durable session of each builder tick in the room ORC chose"]
     workflow["<b>Cycle workflow</b><br/>[Component: ORC sheet]<br/>fence, regenerate, gate, score, scoreboard; continuation, gate repair, durable resume"]
     prompts["<b>Prompt strategy</b><br/>[Component: ORC, GEPA]<br/>Renders every production prompt; optimizes instructions per purpose"]
     instrument["<b>Instrument</b><br/>[Component: approved sealed graders]<br/>Checklist, one verdict per item, scoreboard"]
@@ -140,7 +138,8 @@ flowchart TB
   end
 
   events[("<b>Event store</b><br/>[Container: Grain]")]
-  rooms["<b>Builder, gate, validation rooms</b><br/>[Containers]"]
+  rooms["<b>Builder, gate, validation rooms</b><br/>[Containers: Gondolin VMs]"]
+  host["<b>Builder host</b><br/>[Container: pi-durable, provided]"]
 
   operator -- "One request per line [stdio]" --> seam
   seam -- "Issues commands" --> control
@@ -151,14 +150,17 @@ flowchart TB
   workflow -- "Appends :sheet events" --> events
   views -- "Fold harness and :sheet events from" --> events
   prompts -- "Supplies every production prompt to" --> workflow
-  workflow -- "Runs builders, gates, validators in" --> rooms
+  events -- ":sheet/node-execution-started" --> launcher
+  launcher -- "launch-builder-session, one per tick" --> host
+  host -- "Forwards tool calls into" --> rooms
+  workflow -- "Starts rooms; runs gates and validators in" --> rooms
   workflow -- "Scores a gated candidate with" --> instrument
   instrument -- "Records observations, measurement" --> control
   guard -. "Checks registered blocks at startup" .-> control
 
   class operator person
-  class seam,control,views,dispatch,workflow,prompts,instrument,guard component
-  class events,rooms container
+  class seam,control,views,dispatch,launcher,workflow,prompts,instrument,guard component
+  class events,rooms,host container
   class p boundary
   classDef person fill:#08427b,stroke:#052e56,color:#fff
   classDef system fill:#1168bd,stroke:#0b4884,color:#fff
@@ -256,10 +258,13 @@ failed score is measured, not retried within the cycle.
 | Tasks | `submit-cut-task`, `submit-cycle-task`, `submit-whole-plan-cycle`, `record-task-receipt` | `task-submitted`, `task-receipt-issued` | `task-receipts` → `task-receipt`, `highest-task-id`; `task-outcomes` → `task-outcome` |
 | Cuts | | | `prepared-cuts` → `slice-composition` |
 | Progress | | | `cycle-progress` → `cycle-progress`; `builder-sessions` → `builder-session` |
+| Builder sessions | `launch-builder-session`, `relaunch-builder-session`, `bind-workspace-generation` | `builder-session-launched`, `builder-session-resumed`, `workspace-generation-bound` | `builder-sessions` → `builder-session` |
 | Instrument | `approve-grader`, `record-observation`, `record-cycle-measurement` | `grader-approved`, `observation-recorded`, `cycle-measurement-recorded` | `approved-graders`, `cycle-observations`, `cycle-measurements` → same-named queries |
 | Prompt optimization | `start-prompt-optimization` | `prompt-optimization-started` | `prompt-optimizations` → `prompt-optimization` |
 
-One todo processor, `dispatch-submitted-task`, turns each `task-submitted` into ORC's
+Two todo processors: `launch-builder-for-tick` launches, or relaunches, the durable Pi session of
+each ORC builder tick (`launch-builder-session`, `relaunch-builder-session`,
+`bind-workspace-generation`). `dispatch-submitted-task` turns each `task-submitted` into ORC's
 `:sheet/tick-tree`. One screen, `pi-regeneration`, is the operator's control surface. Every
 command links an Allium rule and the screen links the `RegenerationControlPlane` surface.
 
