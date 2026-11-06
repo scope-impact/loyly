@@ -1,0 +1,27 @@
+{
+  "name": "spec-review",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MCP App for reviewing the Pi harness behavioural spec with an agent",
+  "type": "module",
+  "bin": {
+    "spec-review": "dist/server.js"
+  },
+  "scripts": {
+    "build": "tsc && tsc --ignoreConfig --noEmit --strict --skipLibCheck --target ES2022 --module ESNext --moduleResolution Bundler --lib ES2022,DOM src/app.ts && esbuild src/app.ts --bundle --format=iife --minify --outfile=dist/app.js",
+    "start": "node dist/server.js",
+    "test": "node test/smoke.mjs && node test/http.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/ext-apps": "^2.0.4",
+    "@modelcontextprotocol/node": "^2.1.2",
+    "@modelcontextprotocol/server": "^2.4.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.4.0",
+    "@types/node": "^22.20.5",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  }
+}
