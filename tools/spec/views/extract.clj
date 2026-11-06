@@ -1,5 +1,6 @@
-;; Extract the event-model page's data from the Pi harness specs, as one JSON projection.
-;;   bb extract.clj <repo-root> <model.edn> <coverage.json> <out.json>   (called by build.sh)
+;; Extract the event-model page's data from the Pi harness specs, as one map: `spec`.
+;; Loaded by render.clj, which first defines `opts`: {:root <repo-root> :model <model.edn>
+;; :coverage <coverage.json>}.
 ;; Sources, all read-only:
 ;;   .pi/model/*.allium                      behaviour (entities, rules, invariants, surfaces)
 ;;   <model.edn>                              the Grain Event Model, as grain-validate.clj --dump
@@ -11,7 +12,7 @@
 ;; The page holds no facts of its own: everything it shows comes from here.
 (require '[clojure.edn :as edn] '[clojure.string :as str] '[cheshire.core :as json] '[clojure.java.io :as io]
          '[clojure.java.shell :as sh])
-(def root (nth *command-line-args* 0))
+(def root (:root opts))
 (def model-dir (str root "/.pi/model"))
 (def plan-dir (str model-dir "/plan"))
 (defn rel [p] (str/replace (str p) (str root "/") ""))
@@ -57,20 +58,22 @@
 ;; ---------- the Grain Event Model, as evaluated ----------
 ;; a schema may hold a function ([:fn inst?]); it prints as #object[clojure.core$inst_QMARK_ ..]
 (defn obj [_ v] (let [c (str (first v))] (symbol (-> (subs c (inc (.lastIndexOf c "$"))) (str/replace "_QMARK_" "?") (str/replace "_BANG_" "!") (str/replace "_" "-")))))
-(def dump (edn/read-string {:default obj} (slurp (nth *command-line-args* 1))))
-(def kinds {:commands "commands" :events "events" :read-models "readModels" :queries "queries"
-            :todo-processors "processors" :periodic-tasks "periodic" :screens "screens"})
-(defn kv [m] (into {} (for [[k v] m] [(nm k) (cond (keyword? v) (nm v) (set? v) (vec (sort (map nm v))) (map? v) (kv v)
-                                                    (vector? v) (mapv #(if (map? %) (kv %) (if (keyword? %) (nm %) (str %))) v) :else v)])))
-(defn block-json [v]
-  (-> (select-keys v [:description :reads :produces :consumes :subscribes :queries :commands :schedule])
-      kv (assoc "schema" (some-> (:schema v) pr-str) "allium" (mapv #(-> (select-keys % [:kind :name :spec]) kv) (:grain/allium v)))))
+(def dump (edn/read-string {:default obj} (slurp (:model opts))))
+;; block kinds by Grain's own keys; a block keyed by "<area>/<name>"
+(def kinds [:commands :events :read-models :queries :todo-processors :periodic-tasks :screens])
+(defn names [v] (if (set? v) (vec (sort (map nm v))) (mapv nm v)))
+(defn kv [m] (into {} (for [[k v] m] [(nm k) (cond (keyword? v) (nm v) (map? v) (kv v) (coll? v) (names v) :else v)])))
+(defn block-data [v]
+  (merge {:description (:description v) :schema (:schema v) :schema-src (some-> (:schema v) pr-str)
+          :allium (mapv (fn [a] {:kind (nm (:kind a)) :name (nm (:name a)) :spec (:spec a)}) (:grain/allium v))
+          :schedule (some-> (:schedule v) kv)}
+         (into {} (for [k [:reads :produces :consumes :subscribes :queries :commands] :when (seq (get v k))] [k (names (get v k))]))))
 (def areas
   (into (sorted-map)
         (for [[area am] (:model dump)]
           [(nm area)
            (merge {:file (get-in dump [:files area]) :description (:description am)}
-                  (into {} (for [[k label] kinds] [label (into (sorted-map) (for [[bk bv] (get am k)] [(nm bk) (block-json bv)]))]))
+                  (into {} (for [k kinds] [k (into (sorted-map) (for [[bk bv] (get am k)] [(nm bk) (block-data bv)]))]))
                   {:flows (into (sorted-map) (for [[fk f] (:flows am)]
                                                [(nm fk) {:description (:description f)
                                                          :steps (mapv (fn [{:keys [from to]}] [(some-> from first nm) (some-> from second nm) (some-> to first nm) (some-> to second nm)]) (:steps f))}]))})])))
@@ -119,18 +122,17 @@
               (re-seq #"(?s)### (Level \d: [^\n]+)\n.*?```mermaid\n(.*?)```" arch)))
 
 (def modules (into (sorted-map) (for [f (files model-dir ".allium")] [(str/replace f ".allium" "") (parse-allium f)])))
-(def coverage (json/parse-string (slurp (nth *command-line-args* 2)) true))
+(def coverage (json/parse-string (slurp (:coverage opts)) true))
 (def commit (str/trim (:out (sh/sh "git" "-C" root "log" "-1" "--format=%h" "--" ".pi/model" ".pi/architecture.md"))))
 (def dirty (not (str/blank? (:out (sh/sh "git" "-C" root "status" "--porcelain" "--" ".pi/model" ".pi/architecture.md")))))
 
-(spit (nth *command-line-args* 3)
-      (json/generate-string {:title "Pi Harness" :source ".pi/model" :commit commit :dirty dirty
-                             :modules modules :areas areas :slices slices :scenarios scenarios
-                             :coverage coverage :c4 c4}))
+(def spec {:title "Pi Harness" :source ".pi/model" :commit commit :dirty dirty
+           :modules modules :areas areas :slices slices :scenarios scenarios
+           :coverage coverage :c4 c4})
 (println "modules" (count modules)
          "rules" (reduce + (map (comp count :rules) (vals modules)))
          "areas" (count areas)
-         "blocks" (reduce + (for [a (vals areas) k (vals kinds)] (count (get a k))))
+         "blocks" (reduce + (for [a (vals areas) k kinds] (count (get a k))))
          "flows" (reduce + (map (comp count :flows) (vals areas)))
          "slices" (count slices)
          "scenarios" (count (filter #(= "spec" (:kind %)) scenarios))
