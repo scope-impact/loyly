@@ -5,7 +5,8 @@
 # contract declares a seam instead of screens.
 #
 # Behaviour is stated once, in Allium. An outcome or a rejection names the Allium rule it
-# realises; a rejection is a `requires:` of that rule that does not hold.
+# realises; a rejection is a `requires:` of that rule that does not hold. `grain` names the
+# Event Model command or query (area :loyly.pi-harness) the action reaches.
 slices: [01-regeneration-cycle, 02-execution-pipeline, 03-instrument, 04-operator-control-plane, 06-prompt-optimization, 09-rpc-seam]
 version: 1
 
@@ -69,7 +70,7 @@ actions:
     outcomes:
       CycleSubmitted:
         result: {cycleId: requestId, tickId: string, taskId: integer}
-        allium: {spec: operator-control-plane.allium, rule: SubmitCycleTask}
+        allium: {spec: operator-control-plane.allium, rule: SubmitWholePlanCycle}
       OriginalReceipt:
         when: the requestId was already submitted with the same request
         result: the original receipt
@@ -79,10 +80,13 @@ actions:
         when: the requestId was already submitted with a different request
         allium: {spec: operator-control-plane.allium, rule: RefuseConflictingSubmission}
     selection: >-
-      submit-cycle takes no selection. It regenerates the whole plan of the pinned cut, and that
-      whole-plan selection is the approved selection of the cycle, as in the legacy shape. A
-      partial selection is previewed, approved by exact digest, and submitted as a slice cycle
-      (SubmitApprovedSlice); an unapproved partial selection is refused there, never here.
+      submit-cycle takes no selection and no preparation. It regenerates the whole plan of the
+      pinned cut under a fixed preparation (the whole-plan selection, the configured scope,
+      target stack, and execution profile, the approved graders, one outer cycle), and
+      submitting it is that preparation's approval, as in the legacy shape. A partial selection
+      is previewed, approved by exact digest, prepared, the preparation approved by exact
+      digest, and submitted as a slice cycle (SubmitApprovedSlice).
+    grain: {command: submit-whole-plan-cycle}
     tool: {name: submitCycle}
 
   Wait:
@@ -96,6 +100,7 @@ actions:
       TerminalOutcome:
         result: {status: "completed | failed", error: "string when failed", result: "stage outputs"}
         allium: {spec: operator-control-plane.allium, rule: WaitForHarnessTask}
+    grain: {query: task-outcome}
     tool: {name: wait}
 
   ExecutionStatus:
@@ -109,6 +114,7 @@ actions:
       Progress:
         result: {tickId: string, status: "not-started | running | completed | failed", stage: "string when known", attempt: "integer when known", builderSessionRef: "string when a builder is running"}
         allium: {spec: operator-control-plane.allium, rule: ReadCycleProgress}
+    grain: {query: cycle-progress}
     tool: {name: executionStatus}
 
   # The cut and partial selections (slices 01, 04). A partial selection is previewed, approved
@@ -136,6 +142,7 @@ actions:
       CollidingIdentity:
         when: a task already exists for this identity; nothing is written
         allium: {spec: operator-control-plane.allium, rule: PrepareCutTask}
+    grain: {command: submit-cut-task}
     tool: {name: prepareCut}
 
   SliceComposition:
@@ -150,6 +157,7 @@ actions:
         result: {slices: "list of the cut's product slices, each {slice: bare directory name NN-slug, items: its stamped items, each named by its full tag (@item-NN-SSS)}"}
         shape: "the result is an object whose slices field holds the list, never a bare list"
         allium: {spec: regeneration-cycle.allium, rule: ComposeCutSystemView}
+    grain: {query: slice-composition}
     tool: {name: sliceComposition}
 
   PreviewSelection:
@@ -169,6 +177,7 @@ actions:
       UnresolvedDenominator:
         when: the denominator is empty or ambiguous; nothing is recorded
         allium: {spec: regeneration-cycle.allium, rule: PreviewSelection}
+    grain: {command: record-selection}
     tool: {name: previewSelection}
 
   ApproveSelection:
@@ -186,7 +195,55 @@ actions:
       DigestMismatch:
         when: the digest is not the reviewed one; the selection stays awaiting approval
         allium: {spec: regeneration-cycle.allium, rule: ApproveSelection}
+    grain: {command: approve-selection}
     tool: {name: approveSelection}
+
+  PrepareCycle:
+    intent: Prepare a cycle for an approved selection, binding every cycle-defining choice
+    audience: [operator, pi]
+    input:
+      selectionId: {type: string, required: true, description: an approved selection}
+      scope: {type: list, of: string, required: true, description: list of candidate paths}
+      targetStack: {type: string, required: true}
+      executionProfile: {type: profile, required: true}
+      maxOuterCycles: {type: integer, required: true, description: at least 1}
+    call: {rpc: prepare-cycle}
+    outcomes:
+      AwaitingApproval:
+        result: {preparationId: string, preparationDigest: string, status: "awaiting-approval", diagram: "the deterministic preparation diagram", bound: "selection, scope, target stack, execution profile, cut digest, grader digest, diagram digest, and outer-cycle budget"}
+        stable: "preparing the same choices again returns the same preparationId and preparationDigest; changing any bound choice is a new preparation"
+        allium: {spec: operator-control-plane.allium, rule: PrepareCycle}
+    rejections:
+      Unapproved:
+        when: the selection is not approved
+        allium: {spec: operator-control-plane.allium, rule: PrepareCycle}
+      UnsafeScope:
+        when: the scope is empty, absolute, escaping, or overlapping
+        allium: {spec: operator-control-plane.allium, rule: PrepareCycle}
+      InvalidBudget:
+        when: the execution profile is not supported or maxOuterCycles is below 1
+        allium: {spec: operator-control-plane.allium, rule: PrepareCycle}
+    grain: {command: record-cycle-preparation}
+    tool: {name: prepareCycle}
+
+  ApprovePreparation:
+    intent: Approve a prepared cycle by its exact digest
+    audience: [operator]
+    input:
+      preparationId: {type: string, required: true}
+      preparationDigest: {type: string, required: true}
+    call: {rpc: approve-preparation}
+    outcomes:
+      Approved:
+        result: {preparationId: string, preparationDigest: string, status: "approved"}
+        note: "approval alone starts nothing; SubmitApprovedSlice starts the cycle"
+        allium: {spec: operator-control-plane.allium, rule: ApproveCyclePreparation}
+    rejections:
+      DigestMismatch:
+        when: the digest is not the reviewed one; the preparation stays awaiting approval
+        allium: {spec: operator-control-plane.allium, rule: ApproveCyclePreparation}
+    grain: {command: approve-cycle-preparation}
+    tool: {name: approvePreparation}
 
   SubmitApprovedSlice:
     intent: Submit an approved selection as a slice cycle
@@ -213,6 +270,15 @@ actions:
       UnsafeScope:
         when: the scope is empty, absolute, escaping, or overlapping; refused before a builder starts
         allium: {spec: operator-control-plane.allium, rule: SubmitCycleTask}
+      Unprepared:
+        when: no approved preparation binds this selection, scope, and target stack with an execution profile that admits this backend; refused before a builder starts
+        allium: {spec: operator-control-plane.allium, rule: SubmitCycleTask}
+    preparation: >-
+      The submission names the choices its approved preparation binds; the harness submits that
+      preparation. host-development admits host, gondolin-isolated admits gondolin, and automatic
+      admits either. An unapproved selection is refused as Unapproved before any preparation is
+      looked up.
+    grain: {command: submit-cycle-task}
     tool: {name: submitApprovedSlice}
 
   # The instrument (slice 03). Only an operator approves a sealed grader, by its exact digest.
@@ -231,6 +297,7 @@ actions:
       NotASealedGrader:
         when: the digest names no sealed grader; a cycle never scores without an approved grader
         allium: {spec: instrument.allium, rule: ApproveExactGrader}
+    grain: {command: approve-grader}
     tool: {name: approveGrader}
 
   Measurement:
@@ -244,6 +311,7 @@ actions:
       Measurement:
         result: "the cycle's filed verdicts against its full denominator, or null when no score was filed"
         allium: {spec: operator-control-plane.allium, rule: ReadDurableMeasurement}
+    grain: {query: cycle-measurement}
     tool: {name: measurement}
 
   # Builder sessions (slice 04). Observation is read-only.
@@ -259,6 +327,7 @@ actions:
         result: {builderSessionRef: string, status: "running | completed | failed", entries: "committed turns and tool results", toolCalls: integer, workspaceGeneration: "list of top-level paths", progress: {stage: string, attempt: integer}}
         unchanged: "reading a session changes neither its transcript nor its candidate"
         allium: {spec: operator-control-plane.allium, rule: ObserveBuilderSession}
+    grain: {query: builder-session}
     tool: {name: builderSession}
 
   # Prompt optimization (slice 06).
@@ -280,11 +349,13 @@ actions:
       MissingExamples:
         when: training or validation examples are missing
         allium: {spec: prompt-optimization.allium, rule: StartPromptOptimization}
+    grain: {command: start-prompt-optimization}
     tool: {name: optimizePrompt}
 
 types:
   backend: {enum: [host, gondolin]}
   purpose: {enum: [fresh-generation, verification-repair]}
+  profile: {enum: [host-development, gondolin-isolated, automatic]}
 
 conformance:
   - every action is reached by its call's rpc method over the seam, and no undeclared method is answered except as unknown-method
@@ -292,6 +363,7 @@ conformance:
   - an outcome's result carries every field its result names, verbatim; extra fields are allowed, renamed ones are not
   - a rejection is a refused error naming what was refused and why, and the harness keeps running
   - a read-only action changes no state
+  - approving a selection or a preparation starts nothing; only a submission starts a cycle
 
 # Gherkin wording that drives an action, as the slices write it.
 steps:
@@ -309,6 +381,7 @@ steps:
   "the operator previews the selection": PreviewSelection
   "the selection is previewed more than once": PreviewSelection
   "approval names its selection identity with a different digest": ApproveSelection
+  "an operator session prepares a cycle with scope, target stack, execution profile, pinned inputs, and outer-cycle budget": PrepareCycle
   "the operator submits a slice cycle for that selection": SubmitApprovedSlice
   "submission names an empty, absolute, escaping, or overlapping candidate scope": SubmitApprovedSlice
   "an operator manually approves its exact grader digest": ApproveGrader

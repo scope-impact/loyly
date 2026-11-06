@@ -61,6 +61,43 @@
      :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
                      :kind :rule :name "StartHarnessTask"}]}
 
+    :loyly.pi-harness/submit-cut-task
+    {:description "Submit a source-cut preparation task for one full commit and backend."
+     :schema [:map [:request-id :string] [:source-commit :string] [:execution-backend [:enum "host" "gondolin"]]]
+     :reads #{:loyly.pi-harness/task-receipts}
+     :produces #{:loyly.pi-harness/task-submitted}
+     :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
+                     :kind :rule :name "PrepareCutTask"}]}
+
+    :loyly.pi-harness/submit-cycle-task
+    {:description "Submit a regeneration cycle for an approved preparation."
+     :schema [:map [:request-id :string] [:preparation-id :string] [:parent-cycle-id {:optional true} :string]]
+     :reads #{:loyly.pi-harness/cycle-preparations :loyly.pi-harness/task-receipts}
+     :produces #{:loyly.pi-harness/task-submitted}
+     :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
+                     :kind :rule :name "SubmitCycleTask"}]}
+
+    :loyly.pi-harness/submit-whole-plan-cycle
+    {:description "Submit the whole plan of the pinned cut; its fixed preparation is approved by submission."
+     :schema [:map [:request-id :string]]
+     :reads #{:loyly.pi-harness/task-receipts}
+     :produces #{:loyly.pi-harness/cycle-preparation-recorded :loyly.pi-harness/cycle-preparation-approved :loyly.pi-harness/task-submitted}
+     :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
+                     :kind :rule :name "SubmitWholePlanCycle"}]}
+
+    :loyly.pi-harness/start-prompt-optimization
+    {:description "Start optimizing the builder instruction for one purpose."
+     :schema [:map
+              [:purpose [:enum "fresh-generation" "verification-repair"]]
+              [:reflection-provider :string]
+              [:reflection-model :string]
+              [:trainset [:vector :any]]
+              [:valset [:vector :any]]]
+     :reads #{:loyly.pi-harness/prompt-optimizations}
+     :produces #{:loyly.pi-harness/prompt-optimization-started}
+     :grain/allium [{:spec ".pi/model/prompt-optimization.allium"
+                     :kind :rule :name "StartPromptOptimization"}]}
+
     :loyly.pi-harness/record-observation
     {:description "Record one evidence-backed item observation."
      :schema [:map [:observation :map]]
@@ -114,13 +151,33 @@
               [:target-stack :string]
               [:execution-profile [:enum "host-development" "gondolin-isolated" "automatic"]]
               [:cut-digest :string]
-              [:oracle-digest :string]
+              [:grader-digest :string]
               [:diagram-digest :string]
               [:max-outer-cycles :int]]}
 
     :loyly.pi-harness/cycle-preparation-approved
     {:description "The exact digest of a complete cycle preparation was approved."
      :schema [:map [:preparation-id :string] [:preparation-digest :string]]}
+
+    :loyly.pi-harness/task-submitted
+    {:description "A cut or regeneration task was submitted under a request identity."
+     :schema [:map
+              [:task-id :int]
+              [:kind [:enum "cut-preparation" "regeneration-cycle"]]
+              [:request-id :string]
+              [:request-digest :string]
+              [:preparation-id {:optional true} :string]
+              [:parent-cycle-id {:optional true} :string]]}
+
+    :loyly.pi-harness/prompt-optimization-started
+    {:description "A builder-instruction optimization started for one purpose."
+     :schema [:map
+              [:optimization-id :string]
+              [:purpose [:enum "fresh-generation" "verification-repair"]]
+              [:reflection-provider :string]
+              [:reflection-model :string]
+              [:trainset-digest :string]
+              [:valset-digest :string]]}
 
     :loyly.pi-harness/task-receipt-issued
     {:description "A task identity was bound to its durable ORC tick."
@@ -164,7 +221,7 @@
                             [:digest :string]
                             [:media-type :string]
                             [:location :string]]]]
-              [:oracle-digest :string]]}
+              [:grader-digest :string]]}
 
     :loyly.pi-harness/cycle-measurement-recorded
     {:description "The immutable strict measurement for one cycle was recorded."
@@ -192,8 +249,28 @@
      :version 1}
 
     :loyly.pi-harness/task-receipts
-    {:description "Issued task identities and the ORC ticks they name."
-     :consumes #{:loyly.pi-harness/task-receipt-issued}
+    {:description "Submitted tasks, their request identities, and the ORC ticks they name."
+     :consumes #{:loyly.pi-harness/task-submitted :loyly.pi-harness/task-receipt-issued}
+     :version 1}
+
+    :loyly.pi-harness/task-outcomes
+    {:description "Each task's terminal outcome, reconstructed from ORC's durable tick facts."
+     :consumes #{:loyly.pi-harness/task-receipt-issued :sheet/tree-tick-completed :sheet/tick-cancelled}
+     :version 1}
+
+    :loyly.pi-harness/prepared-cuts
+    {:description "Prepared cuts and their slice composition, from completed cut tasks."
+     :consumes #{:loyly.pi-harness/task-submitted :loyly.pi-harness/task-receipt-issued :sheet/tree-tick-completed}
+     :version 1}
+
+    :loyly.pi-harness/builder-sessions
+    {:description "Builder-session references and their progress, projected from ORC node facts."
+     :consumes #{:loyly.pi-harness/task-receipt-issued :sheet/node-execution-started :sheet/node-execution-completed}
+     :version 1}
+
+    :loyly.pi-harness/prompt-optimizations
+    {:description "Builder-instruction optimizations and their winning instructions."
+     :consumes #{:loyly.pi-harness/prompt-optimization-started :loyly.pi-harness/task-receipt-issued :sheet/tree-tick-completed}
      :version 1}
 
     :loyly.pi-harness/approved-graders
@@ -258,19 +335,45 @@
      :schema [:map]
      :reads #{:loyly.pi-harness/task-receipts}}
 
+    :loyly.pi-harness/task-outcome
+    {:description "Return a task's one terminal outcome, without rerunning it."
+     :schema [:map [:task-id :int]]
+     :reads #{:loyly.pi-harness/task-outcomes}
+     :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
+                     :kind :rule :name "WaitForHarnessTask"}]}
+
+    :loyly.pi-harness/slice-composition
+    {:description "Return a prepared cut's product slices and their stamped items."
+     :schema [:map [:cut :string]]
+     :reads #{:loyly.pi-harness/prepared-cuts}
+     :grain/allium [{:spec ".pi/model/regeneration-cycle.allium"
+                     :kind :rule :name "ComposeCutSystemView"}]}
+
+    :loyly.pi-harness/builder-session
+    {:description "Return a read-only view of one builder session."
+     :schema [:map [:builder-session-ref :string]]
+     :reads #{:loyly.pi-harness/builder-sessions}
+     :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
+                     :kind :rule :name "ObserveBuilderSession"}]}
+
+    :loyly.pi-harness/prompt-optimization
+    {:description "Return an optimization's winning instruction and its measured score."
+     :schema [:map [:optimization-id :string]]
+     :reads #{:loyly.pi-harness/prompt-optimizations}}
+
     :loyly.pi-harness/approved-graders
     {:description "Return every grader an operator approved, in approval order."
      :schema [:map]
      :reads #{:loyly.pi-harness/approved-graders}}}
 
    :todo-processors
-   {:loyly.pi-harness/start-approved-cycle
-    {:description "Dispatch an approved preparation through ORC's Grain command boundary exactly once."
-     :subscribes #{:loyly.pi-harness/cycle-preparation-approved}
-     :reads #{:loyly.pi-harness/cycle-preparation}
+   {:loyly.pi-harness/dispatch-submitted-task
+    {:description "Dispatch each submitted task through ORC's Grain command boundary exactly once."
+     :subscribes #{:loyly.pi-harness/task-submitted}
+     :reads #{:loyly.pi-harness/task-receipt}
      :produces #{:sheet/tick-tree}
      :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
-                     :kind :rule :name "DispatchApprovedPreparationToOrc"}]}}
+                     :kind :rule :name "DispatchSubmittedTaskToOrc"}]}}
 
    :screens
    {:loyly.pi-harness/pi-regeneration
@@ -282,8 +385,16 @@
                 :loyly.pi-harness/cycle-preparation
                 :loyly.pi-harness/cycle-progress
                 :loyly.pi-harness/cycle-observations
-                :loyly.pi-harness/cycle-measurement}
-     :commands #{:loyly.pi-harness/record-selection
+                :loyly.pi-harness/cycle-measurement
+                :loyly.pi-harness/task-outcome
+                :loyly.pi-harness/slice-composition
+                :loyly.pi-harness/builder-session
+                :loyly.pi-harness/prompt-optimization}
+     :commands #{:loyly.pi-harness/submit-cut-task
+                 :loyly.pi-harness/submit-cycle-task
+                 :loyly.pi-harness/submit-whole-plan-cycle
+                 :loyly.pi-harness/start-prompt-optimization
+                 :loyly.pi-harness/record-selection
                  :loyly.pi-harness/approve-selection
                  :loyly.pi-harness/record-task-receipt
                  :loyly.pi-harness/approve-grader
@@ -295,7 +406,31 @@
                      :kind :surface :name "RegenerationControlPlane"}]}}
 
    :flows
-   {:loyly.pi-harness/record-selection
+   {:loyly.pi-harness/submit-cut-task
+    {:description "A source-cut task is submitted and dispatched to ORC once."
+     :steps [{:from [:screen :loyly.pi-harness/pi-regeneration]
+              :to [:command :loyly.pi-harness/submit-cut-task]}
+             {:from [:command :loyly.pi-harness/submit-cut-task]
+              :to [:event :loyly.pi-harness/task-submitted]}
+             {:from [:event :loyly.pi-harness/task-submitted]
+              :to [:read-model :loyly.pi-harness/task-receipts]}
+             {:from [:read-model :loyly.pi-harness/task-receipts]
+              :to [:query :loyly.pi-harness/task-receipt]}
+             {:from [:query :loyly.pi-harness/task-receipt]
+              :to [:todo-processor :loyly.pi-harness/dispatch-submitted-task]}
+             {:from [:todo-processor :loyly.pi-harness/dispatch-submitted-task]
+              :to [:command :sheet/tick-tree]}]}
+
+    :loyly.pi-harness/slice-composition
+    {:description "A prepared cut's slice composition is read from completed cut tasks."
+     :steps [{:from [:event :sheet/tree-tick-completed]
+              :to [:read-model :loyly.pi-harness/prepared-cuts]}
+             {:from [:read-model :loyly.pi-harness/prepared-cuts]
+              :to [:query :loyly.pi-harness/slice-composition]}
+             {:from [:query :loyly.pi-harness/slice-composition]
+              :to [:screen :loyly.pi-harness/pi-regeneration]}]}
+
+    :loyly.pi-harness/record-selection
     {:description "A deterministic selection is recorded for review."
      :steps [{:from [:screen :loyly.pi-harness/pi-regeneration]
               :to [:command :loyly.pi-harness/record-selection]}
@@ -334,21 +469,8 @@
              {:from [:query :loyly.pi-harness/cycle-preparation]
               :to [:screen :loyly.pi-harness/pi-regeneration]}]}
 
-    :loyly.pi-harness/approve-grader
-    {:description "An operator approves a sealed grader by exact digest."
-     :steps [{:from [:screen :loyly.pi-harness/pi-regeneration]
-              :to [:command :loyly.pi-harness/approve-grader]}
-             {:from [:command :loyly.pi-harness/approve-grader]
-              :to [:event :loyly.pi-harness/grader-approved]}
-             {:from [:event :loyly.pi-harness/grader-approved]
-              :to [:read-model :loyly.pi-harness/approved-graders]}
-             {:from [:read-model :loyly.pi-harness/approved-graders]
-              :to [:query :loyly.pi-harness/approved-graders]}
-             {:from [:query :loyly.pi-harness/approved-graders]
-              :to [:screen :loyly.pi-harness/pi-regeneration]}]}
-
     :loyly.pi-harness/approve-cycle-preparation
-    {:description "An approved preparation is dispatched to ORC exactly once."
+    {:description "A recorded preparation is approved by exact digest; approval alone starts nothing."
      :steps [{:from [:screen :loyly.pi-harness/pi-regeneration]
               :to [:command :loyly.pi-harness/approve-cycle-preparation]}
              {:from [:command :loyly.pi-harness/approve-cycle-preparation]
@@ -358,8 +480,40 @@
              {:from [:read-model :loyly.pi-harness/cycle-preparations]
               :to [:query :loyly.pi-harness/cycle-preparation]}
              {:from [:query :loyly.pi-harness/cycle-preparation]
-              :to [:todo-processor :loyly.pi-harness/start-approved-cycle]}
-             {:from [:todo-processor :loyly.pi-harness/start-approved-cycle]
+              :to [:screen :loyly.pi-harness/pi-regeneration]}]}
+
+    :loyly.pi-harness/submit-cycle-task
+    {:description "A cycle is submitted for an approved preparation and dispatched to ORC once."
+     :steps [{:from [:screen :loyly.pi-harness/pi-regeneration]
+              :to [:command :loyly.pi-harness/submit-cycle-task]}
+             {:from [:command :loyly.pi-harness/submit-cycle-task]
+              :to [:event :loyly.pi-harness/task-submitted]}
+             {:from [:event :loyly.pi-harness/task-submitted]
+              :to [:read-model :loyly.pi-harness/task-receipts]}
+             {:from [:read-model :loyly.pi-harness/task-receipts]
+              :to [:query :loyly.pi-harness/task-receipt]}
+             {:from [:query :loyly.pi-harness/task-receipt]
+              :to [:todo-processor :loyly.pi-harness/dispatch-submitted-task]}
+             {:from [:todo-processor :loyly.pi-harness/dispatch-submitted-task]
+              :to [:command :sheet/tick-tree]}]}
+
+    :loyly.pi-harness/submit-whole-plan-cycle
+    {:description "The whole plan is submitted with its fixed preparation and dispatched to ORC once."
+     :steps [{:from [:screen :loyly.pi-harness/pi-regeneration]
+              :to [:command :loyly.pi-harness/submit-whole-plan-cycle]}
+             {:from [:command :loyly.pi-harness/submit-whole-plan-cycle]
+              :to [:event :loyly.pi-harness/cycle-preparation-recorded]}
+             {:from [:command :loyly.pi-harness/submit-whole-plan-cycle]
+              :to [:event :loyly.pi-harness/cycle-preparation-approved]}
+             {:from [:command :loyly.pi-harness/submit-whole-plan-cycle]
+              :to [:event :loyly.pi-harness/task-submitted]}
+             {:from [:event :loyly.pi-harness/task-submitted]
+              :to [:read-model :loyly.pi-harness/task-receipts]}
+             {:from [:read-model :loyly.pi-harness/task-receipts]
+              :to [:query :loyly.pi-harness/task-receipt]}
+             {:from [:query :loyly.pi-harness/task-receipt]
+              :to [:todo-processor :loyly.pi-harness/dispatch-submitted-task]}
+             {:from [:todo-processor :loyly.pi-harness/dispatch-submitted-task]
               :to [:command :sheet/tick-tree]}]}
 
     :loyly.pi-harness/record-task-receipt
@@ -373,6 +527,48 @@
              {:from [:read-model :loyly.pi-harness/task-receipts]
               :to [:query :loyly.pi-harness/task-receipt]}
              {:from [:query :loyly.pi-harness/task-receipt]
+              :to [:screen :loyly.pi-harness/pi-regeneration]}]}
+
+    :loyly.pi-harness/progress-reconciliation
+    {:description "Reconnectable harness progress is a projection of ORC execution facts."
+     :steps [{:from [:command :sheet/tick-tree]
+              :to [:event :sheet/tree-tick-started]}
+             {:from [:event :sheet/tree-tick-started]
+              :to [:read-model :loyly.pi-harness/cycle-progress]}
+             {:from [:read-model :loyly.pi-harness/cycle-progress]
+              :to [:query :loyly.pi-harness/cycle-progress]}
+             {:from [:query :loyly.pi-harness/cycle-progress]
+              :to [:screen :loyly.pi-harness/pi-regeneration]}]}
+
+    :loyly.pi-harness/task-outcome
+    {:description "A task's terminal outcome is reconstructed from ORC facts, never by rerunning it."
+     :steps [{:from [:event :sheet/tree-tick-completed]
+              :to [:read-model :loyly.pi-harness/task-outcomes]}
+             {:from [:read-model :loyly.pi-harness/task-outcomes]
+              :to [:query :loyly.pi-harness/task-outcome]}
+             {:from [:query :loyly.pi-harness/task-outcome]
+              :to [:screen :loyly.pi-harness/pi-regeneration]}]}
+
+    :loyly.pi-harness/builder-session
+    {:description "A builder session is observed read-only from ORC node facts."
+     :steps [{:from [:event :sheet/node-execution-started]
+              :to [:read-model :loyly.pi-harness/builder-sessions]}
+             {:from [:read-model :loyly.pi-harness/builder-sessions]
+              :to [:query :loyly.pi-harness/builder-session]}
+             {:from [:query :loyly.pi-harness/builder-session]
+              :to [:screen :loyly.pi-harness/pi-regeneration]}]}
+
+    :loyly.pi-harness/approve-grader
+    {:description "An operator approves a sealed grader by exact digest."
+     :steps [{:from [:screen :loyly.pi-harness/pi-regeneration]
+              :to [:command :loyly.pi-harness/approve-grader]}
+             {:from [:command :loyly.pi-harness/approve-grader]
+              :to [:event :loyly.pi-harness/grader-approved]}
+             {:from [:event :loyly.pi-harness/grader-approved]
+              :to [:read-model :loyly.pi-harness/approved-graders]}
+             {:from [:read-model :loyly.pi-harness/approved-graders]
+              :to [:query :loyly.pi-harness/approved-graders]}
+             {:from [:query :loyly.pi-harness/approved-graders]
               :to [:screen :loyly.pi-harness/pi-regeneration]}]}
 
     :loyly.pi-harness/record-observation
@@ -401,13 +597,15 @@
              {:from [:query :loyly.pi-harness/cycle-measurement]
               :to [:screen :loyly.pi-harness/pi-regeneration]}]}
 
-    :loyly.pi-harness/progress-reconciliation
-    {:description "Reconnectable harness progress is a projection of ORC execution facts."
-     :steps [{:from [:command :sheet/tick-tree]
-              :to [:event :sheet/tree-tick-started]}
-             {:from [:event :sheet/tree-tick-started]
-              :to [:read-model :loyly.pi-harness/cycle-progress]}
-             {:from [:read-model :loyly.pi-harness/cycle-progress]
-              :to [:query :loyly.pi-harness/cycle-progress]}
-             {:from [:query :loyly.pi-harness/cycle-progress]
+    :loyly.pi-harness/start-prompt-optimization
+    {:description "A builder-instruction optimization is started and its winner read."
+     :steps [{:from [:screen :loyly.pi-harness/pi-regeneration]
+              :to [:command :loyly.pi-harness/start-prompt-optimization]}
+             {:from [:command :loyly.pi-harness/start-prompt-optimization]
+              :to [:event :loyly.pi-harness/prompt-optimization-started]}
+             {:from [:event :loyly.pi-harness/prompt-optimization-started]
+              :to [:read-model :loyly.pi-harness/prompt-optimizations]}
+             {:from [:read-model :loyly.pi-harness/prompt-optimizations]
+              :to [:query :loyly.pi-harness/prompt-optimization]}
+             {:from [:query :loyly.pi-harness/prompt-optimization]
               :to [:screen :loyly.pi-harness/pi-regeneration]}]}}})

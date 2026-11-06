@@ -25,7 +25,7 @@
               [:tool-context {:optional true} :map]]
      :produces #{:sheet/tree-tick-started}
      :grain/allium [{:spec ".pi/model/operator-control-plane.allium"
-                     :kind :rule :name "DispatchApprovedPreparationToOrc"}]}}
+                     :kind :rule :name "DispatchSubmittedTaskToOrc"}]}}
 
    :events
    {:sheet/tree-tick-started

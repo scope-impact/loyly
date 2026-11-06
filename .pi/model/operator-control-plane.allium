@@ -114,14 +114,14 @@ rule ValidateHarnessGrainServiceArea {
     ensures: PiHarnessControlPlaneAvailable(runtime: runtime)
 }
 
-rule DispatchApprovedPreparationToOrc {
-    when: CyclePreparationApproved(preparation)
-    requires: preparation.status = approved
-    requires: not orc_tick_dispatched_for(preparation.identity)
+-- Approval alone starts nothing: ORC is dispatched once for each submitted task.
+rule DispatchSubmittedTaskToOrc {
+    when: task: HarnessTask.created
+    requires: not orc_tick_dispatched_for(task.identity)
     ensures: OrcGrainCommandDispatched(
-        preparation_identity: preparation.identity,
-        command_identity: deterministic_orc_command_identity(preparation),
-        preparation_digest: preparation.digest
+        task_identity: task.identity,
+        command_identity: deterministic_orc_command_identity(task),
+        preparation_identity: task.preparation_identity
     )
 }
 
@@ -230,6 +230,40 @@ rule SubmitCycleTask {
         outcome: null,
         preparation_identity: preparation.identity,
         parent_cycle_identity: parent_cycle_identity
+    )
+}
+
+-- The whole plan of the pinned cut is a fixed preparation: the whole-plan selection, the
+-- configured scope, target stack, and execution profile, the approved graders, and one outer
+-- cycle. Submitting it is its approval, as in the legacy shape.
+rule SubmitWholePlanCycle {
+    when: SubmitWholePlanRegeneration(operator_session, request_identity, request_digest)
+    requires: not exists HarnessTask{request_identity: request_identity}
+    let preparation = whole_plan_preparation(pinned_cut())
+    requires: preparation.selection.items.count > 0
+    ensures: CyclePreparation.created(
+        identity: preparation.identity,
+        digest: preparation.digest,
+        status: approved,
+        selection: preparation.selection,
+        candidate_scope: preparation.candidate_scope,
+        target_stack: preparation.target_stack,
+        execution_profile: preparation.execution_profile,
+        cut_digest: preparation.cut_digest,
+        grader_digest: preparation.grader_digest,
+        diagram_digest: preparation.diagram_digest,
+        max_outer_cycles: 1
+    )
+    ensures: HarnessTask.created(
+        identity: next_task_identity(),
+        kind: regeneration_cycle,
+        request_identity: request_identity,
+        request_digest: request_digest,
+        status: submitted,
+        trace_identity: null,
+        outcome: null,
+        preparation_identity: preparation.identity,
+        parent_cycle_identity: null
     )
 }
 
@@ -409,6 +443,7 @@ surface RegenerationControlPlane {
         ApprovePreparedCycle(operator_session, preparation, supplied_digest)
         SubmitRegenerationCycle(operator_session, request_identity, request_digest,
                                 preparation, parent_cycle_identity)
+        SubmitWholePlanRegeneration(operator_session, request_identity, request_digest)
         WaitRegenerationTask(operator_session, task)
         QueryCycleProgress(operator_session, cycle_identity)
         ReadCycleMeasurement(operator_session, cycle_identity)
