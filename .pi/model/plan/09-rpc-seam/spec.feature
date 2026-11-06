@@ -1,6 +1,6 @@
 Feature: The harness's public seam is JSON-RPC over stdio
   The harness is driven the same way by Pi, an operator, the gate, and a grader: one JSON
-  object per line on stdin, one response per line on stdout, as declared in .pi/model/rpc.yaml.
+  object per line on stdin, one response per line on stdout, as declared in .pi/model/affordances.yaml.
 
   Rule: Every request gets exactly one response carrying its id
 

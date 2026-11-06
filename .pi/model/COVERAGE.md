@@ -17,7 +17,7 @@ an Allium rule.
 | `06-prompt-optimization` | Builder strategy optimization | `prompt-optimization.allium` | 9 | Specified and checked |
 | `07-harness-bootstrap` | Local runtime build | `harness-bootstrap.allium` | 3 | Specified and checked |
 | `08-project-vm-config` | Project runtime file resolution | `project-vm-config.allium` | 2 | Specified and checked |
-| `09-rpc-seam` | JSON-RPC over stdio | `rpc.yaml` | 4 | Specified as a transport contract; no Allium spec by design |
+| `09-rpc-seam` | JSON-RPC over stdio | `affordances.yaml` (`seam`) | 4 | Specified as the seam; no Allium spec by design |
 
 83 items in total. The glossary is `GLOSSARY.md`.
 
@@ -48,6 +48,39 @@ Every command links an Allium rule and the screen links an Allium surface:
 | `record-cycle-measurement` | `instrument.allium` `FileScore` |
 | `:sheet/tick-tree` | `operator-control-plane.allium` `DispatchApprovedPreparationToOrc` |
 | screen `pi-regeneration` | `operator-control-plane.allium` surface `RegenerationControlPlane` |
+
+## Affordances
+
+`affordances.yaml` is the public seam, in the same format as `model/loyly/affordances.yaml`.
+The harness has no UI, so it declares a `seam` (JSON-RPC over stdio) instead of `screens` and
+`ui`, and each action's `call` names an `rpc` method. It is validated by
+`.pi/affordances.schema.json`. Every outcome and rejection names the Allium rule or surface it
+realises; `steps` maps the Gherkin wording that drives each action.
+
+| Action | Method | Allium |
+|---|---|---|
+| `CycleContract` | `cycle-contract` | `execution-pipeline.allium` surface `RegenerationCycleExecution` |
+| `WorkflowContract` | `workflow-contract` | `execution-pipeline.allium` surface `RegenerationCycleExecution` |
+| `SubmitCycle` | `submit-cycle` | `operator-control-plane.allium` `SubmitCycleTask`, `RepeatIdenticalSubmission`, `RefuseConflictingSubmission` |
+| `Wait` | `wait` | `operator-control-plane.allium` `WaitForHarnessTask` |
+| `ExecutionStatus` | `execution-status` | `operator-control-plane.allium` `ReadCycleProgress` |
+| `PrepareCut` | `prepare-cut` | `operator-control-plane.allium` `PrepareCutTask` |
+| `SliceComposition` | `slice-composition` | `regeneration-cycle.allium` `ComposeCutSystemView` |
+| `PreviewSelection` | `preview-selection` | `regeneration-cycle.allium` `PreviewSelection` |
+| `ApproveSelection` | `approve-selection` | `regeneration-cycle.allium` `ApproveSelection` |
+| `SubmitApprovedSlice` | `submit-approved-slice` | `operator-control-plane.allium` `SubmitCycleTask`, `RepeatIdenticalSubmission` |
+| `ApproveGrader` | `approve-grader` | `instrument.allium` `ApproveExactGrader` |
+| `Measurement` | `measurement` | `operator-control-plane.allium` `ReadDurableMeasurement` |
+| `BuilderSession` | `builder-session` | `operator-control-plane.allium` `ObserveBuilderSession` |
+| `OptimizePrompt` | `optimize-prompt` | `prompt-optimization.allium` `StartPromptOptimization` |
+
+Open:
+
+- No action prepares or approves a cycle preparation, though `PrepareCycle`,
+  `ApprovePreparation`, and the Event Model's preparation commands require one before ORC is
+  dispatched. `SubmitCycle` treats the whole-plan run as its own approved selection.
+- These actions have no Event Model command or query: `PrepareCut`, `SliceComposition`,
+  `SubmitCycle`, `SubmitApprovedSlice`, `Wait`, `BuilderSession`, `OptimizePrompt`.
 
 ## Verification
 

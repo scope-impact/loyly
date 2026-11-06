@@ -71,6 +71,10 @@ executable suite carry no verdict.
   `orc-service`, so every edge resolves. One area per file; each namespace matches its path.
 - `COVERAGE.md` maps each slice to its spec, each command to its Allium rule, and records the
   verification commands and the accepted Allium diagnostic baseline.
+- `affordances.yaml` is this contract's public seam, in the affordance format: the harness has no
+  UI, so it declares a `seam` (JSON-RPC over stdio) instead of screens, and each action's call
+  names an `rpc` method. Every outcome and rejection names the Allium rule it realises. A
+  sealed grader drives a candidate only through it.
 - `model/<project>/affordances.yaml` defines the minimum actor-facing interaction surface that
   exposes Allium/Gherkin behavior to people and tools for the slices selected by its `slice` or
   `slices` field. A non-selected slice records affordance conformance as non-applicable and does

@@ -1,0 +1,316 @@
+# The Pi harness's affordance contract: what can be done, by whom, through which call, and
+# what comes back. It is the public seam Pi and an operator drive, the gate's identity probe
+# uses, and a grader drives. It names no implementation; any harness that speaks it is driven
+# the same way. The harness has no UI: every action is reached through the seam below, so this
+# contract declares a seam instead of screens.
+#
+# Behaviour is stated once, in Allium. An outcome or a rejection names the Allium rule it
+# realises; a rejection is a `requires:` of that rule that does not hold.
+slices: [01-regeneration-cycle, 02-execution-pipeline, 03-instrument, 04-operator-control-plane, 06-prompt-optimization, 09-rpc-seam]
+version: 1
+
+seam:
+  transport: json-rpc-over-stdio
+  framing:
+    request: "one JSON object per line on stdin: {id, method, params}"
+    response: "one JSON object per line on stdout: {id, ok: true, result} or {id, ok: false, error}"
+    rule: "every request gets exactly one response carrying its id; nothing else is written to stdout"
+  start: "APP_DIR/start.sh starts the harness reading stdin and writing stdout until stdin closes"
+  environment:
+    PI_HARNESS_PROJECT_ROOT: >-
+      the repository the harness works on: prepare-cut cuts its commits, a selection reads the
+      product slices inside such a cut, and submit-cycle regenerates its PLAN_DIR (declared in its
+      harness/config.sh). Whoever starts the harness sets it; the clean room the harness was
+      built in is not that repository.
+    PI_HARNESS_STATE_ROOT: "where the harness keeps its own state (event store, rooms, evidence); a fresh directory means fresh state"
+  errors:
+    unknown-method: "{id, ok: false, error} naming the method"
+    refused: "{id, ok: false, error} naming what was refused and why; the harness keeps running"
+
+audience:
+  operator: a person approving selections, graders, and cycles, and reading their outcomes
+  pi: a Pi, Codex, or other operator session driving the harness on the operator's behalf
+  gate: the legacy gate, which starts a candidate and proves its identity over the seam
+  grader: a sealed, approved grader, which drives a candidate only through this contract
+
+actions:
+  # The cycle (slices 02, 09).
+  CycleContract:
+    intent: Name the harness and the stages of its cycle, in order
+    audience: [pi, gate, grader]
+    readOnly: true
+    input: {}
+    call: {rpc: cycle-contract}
+    outcomes:
+      CycleContract:
+        result: {workflowName: "string naming the harness", stages: [fence, regenerate, gate, score, scoreboard]}
+        allium: {spec: execution-pipeline.allium, surface: RegenerationCycleExecution}
+    tool: {name: cycleContract}
+
+  WorkflowContract:
+    intent: Read the executable regeneration workflow contract from the workflow itself
+    audience: [pi, grader]
+    readOnly: true
+    input: {}
+    call: {rpc: workflow-contract}
+    outcomes:
+      WorkflowContract:
+        result: {workflowName: string, rootType: string, stages: "list of slice-cycle stage names", builderResultFields: "field names of a builder result, including builderSessionId", observationFields: "field names of an observation, including artifacts"}
+        note: "what a slice cycle's builder results and observations carry"
+        allium: {spec: execution-pipeline.allium, surface: RegenerationCycleExecution}
+    tool: {name: workflowContract}
+
+  SubmitCycle:
+    intent: Regenerate the whole plan of the pinned cut as one cycle
+    audience: [operator, pi, grader]
+    input:
+      requestId: {type: string, required: true, description: safe identifier}
+    call: {rpc: submit-cycle}
+    outcomes:
+      CycleSubmitted:
+        result: {cycleId: requestId, tickId: string, taskId: integer}
+        allium: {spec: operator-control-plane.allium, rule: SubmitCycleTask}
+      OriginalReceipt:
+        when: the requestId was already submitted with the same request
+        result: the original receipt
+        allium: {spec: operator-control-plane.allium, rule: RepeatIdenticalSubmission}
+    rejections:
+      RequestIdentityConflict:
+        when: the requestId was already submitted with a different request
+        allium: {spec: operator-control-plane.allium, rule: RefuseConflictingSubmission}
+    selection: >-
+      submit-cycle takes no selection. It regenerates the whole plan of the pinned cut, and that
+      whole-plan selection is the approved selection of the cycle, as in the legacy shape. A
+      partial selection is previewed, approved by exact digest, and submitted as a slice cycle
+      (SubmitApprovedSlice); an unapproved partial selection is refused there, never here.
+    tool: {name: submitCycle}
+
+  Wait:
+    intent: Wait for a submitted task's one terminal outcome
+    audience: [operator, pi, grader]
+    readOnly: true
+    input:
+      taskId: {type: integer, required: true}
+    call: {rpc: wait}
+    outcomes:
+      TerminalOutcome:
+        result: {status: "completed | failed", error: "string when failed", result: "stage outputs"}
+        allium: {spec: operator-control-plane.allium, rule: WaitForHarnessTask}
+    tool: {name: wait}
+
+  ExecutionStatus:
+    intent: Read where a running cycle is
+    audience: [operator, pi]
+    readOnly: true
+    input:
+      tickId: {type: string, required: true}
+    call: {rpc: execution-status}
+    outcomes:
+      Progress:
+        result: {tickId: string, status: "not-started | running | completed | failed", stage: "string when known", attempt: "integer when known", builderSessionRef: "string when a builder is running"}
+        allium: {spec: operator-control-plane.allium, rule: ReadCycleProgress}
+    tool: {name: executionStatus}
+
+  # The cut and partial selections (slices 01, 04). A partial selection is previewed, approved
+  # by exact digest, and only then submitted as a slice cycle. Selections are made over the
+  # product slices inside a prepared cut.
+  PrepareCut:
+    intent: Prepare a fenced source cut of one commit
+    audience: [operator, pi, grader]
+    input:
+      sourceCommit: {type: string, required: true, description: 40-hex commit}
+      executionBackend: {type: backend, required: true}
+    call: {rpc: prepare-cut}
+    outcomes:
+      CutTaskSubmitted:
+        result: {cutId: "the request's identity (the source commit)", taskId: integer, executionBackend: string}
+        then: >-
+          wait(taskId) completes with the prepared cut; its identity, the one SliceComposition and
+          PreviewSelection accept, is result.outputs.cut-result.cutId. The receipt's cutId is not a
+          prepared cut.
+        allium: {spec: operator-control-plane.allium, rule: PrepareCutTask}
+    rejections:
+      InvalidIdentity:
+        when: the source commit is not a full commit or the backend is not supported; nothing is written
+        allium: {spec: operator-control-plane.allium, rule: PrepareCutTask}
+      CollidingIdentity:
+        when: a task already exists for this identity; nothing is written
+        allium: {spec: operator-control-plane.allium, rule: PrepareCutTask}
+    tool: {name: prepareCut}
+
+  SliceComposition:
+    intent: List a prepared cut's product slices and their stamped items
+    audience: [operator, pi, grader]
+    readOnly: true
+    input:
+      cut: {type: string, required: true, description: a prepared cut's identity}
+    call: {rpc: slice-composition}
+    outcomes:
+      Composition:
+        result: {slices: "list of the cut's product slices, each {slice: bare directory name NN-slug, items: its stamped items, each named by its full tag (@item-NN-SSS)}"}
+        shape: "the result is an object whose slices field holds the list, never a bare list"
+        allium: {spec: regeneration-cycle.allium, rule: ComposeCutSystemView}
+    tool: {name: sliceComposition}
+
+  PreviewSelection:
+    intent: Preview a slice selection for review, with its identity and digest
+    audience: [operator, pi, grader]
+    input:
+      cut: {type: string, required: true, description: a prepared cut's identity}
+      slice: {type: string, required: true, description: bare slice directory name, NN-slug}
+      itemIds: {type: list, of: string, description: "optional list of full item tags (@item-NN-SSS) as SliceComposition returns them; omitted or empty selects the whole slice"}
+    call: {rpc: preview-selection}
+    outcomes:
+      AwaitingApproval:
+        result: {selectionId: string, selectionDigest: string, status: "awaiting-approval", items: "list of full item tags"}
+        stable: "previewing the same slice and items again returns the same selectionId and selectionDigest"
+        allium: {spec: regeneration-cycle.allium, rule: PreviewSelection}
+    rejections:
+      UnresolvedDenominator:
+        when: the denominator is empty or ambiguous; nothing is recorded
+        allium: {spec: regeneration-cycle.allium, rule: PreviewSelection}
+    tool: {name: previewSelection}
+
+  ApproveSelection:
+    intent: Approve a previewed selection by its exact digest
+    audience: [operator]
+    input:
+      selectionId: {type: string, required: true}
+      selectionDigest: {type: string, required: true}
+    call: {rpc: approve-selection}
+    outcomes:
+      Approved:
+        result: {selectionId: string, selectionDigest: string, status: "approved"}
+        allium: {spec: regeneration-cycle.allium, rule: ApproveSelection}
+    rejections:
+      DigestMismatch:
+        when: the digest is not the reviewed one; the selection stays awaiting approval
+        allium: {spec: regeneration-cycle.allium, rule: ApproveSelection}
+    tool: {name: approveSelection}
+
+  SubmitApprovedSlice:
+    intent: Submit an approved selection as a slice cycle
+    audience: [operator, pi, grader]
+    input:
+      requestId: {type: string, required: true}
+      selectionId: {type: string, required: true}
+      scope: {type: list, of: string, required: true, description: list of candidate paths}
+      targetStack: {type: string, required: true}
+      executionBackend: {type: backend, required: true}
+    call: {rpc: submit-approved-slice}
+    outcomes:
+      SliceCycleSubmitted:
+        result: {operationId: string, selectionId: string, tickId: string, correlationId: string, taskId: integer, targetStack: string, executionBackend: string}
+        allium: {spec: operator-control-plane.allium, rule: SubmitCycleTask}
+      OriginalReceipt:
+        when: the requestId was already submitted with the same request
+        result: the original receipt
+        allium: {spec: operator-control-plane.allium, rule: RepeatIdenticalSubmission}
+    rejections:
+      Unapproved:
+        when: the selection is not approved; refused before a builder starts
+        allium: {spec: operator-control-plane.allium, rule: SubmitCycleTask}
+      UnsafeScope:
+        when: the scope is empty, absolute, escaping, or overlapping; refused before a builder starts
+        allium: {spec: operator-control-plane.allium, rule: SubmitCycleTask}
+    tool: {name: submitApprovedSlice}
+
+  # The instrument (slice 03). Only an operator approves a sealed grader, by its exact digest.
+  ApproveGrader:
+    intent: Approve a sealed, calibrated grader by its exact digest
+    audience: [operator]
+    input:
+      graderDigest: {type: string, required: true, description: "sha256:<hex> of a sealed, calibrated grader"}
+      approvedBy: {type: string, required: true}
+    call: {rpc: approve-grader}
+    outcomes:
+      GraderApproved:
+        result: {graderDigest: string, approvedBy: string, items: "list of item ids the grader covers"}
+        allium: {spec: instrument.allium, rule: ApproveExactGrader}
+    rejections:
+      NotASealedGrader:
+        when: the digest names no sealed grader; a cycle never scores without an approved grader
+        allium: {spec: instrument.allium, rule: ApproveExactGrader}
+    tool: {name: approveGrader}
+
+  Measurement:
+    intent: Read a cycle's filed verdicts against its full denominator
+    audience: [operator, pi]
+    readOnly: true
+    input:
+      cycleId: {type: string, required: true}
+    call: {rpc: measurement}
+    outcomes:
+      Measurement:
+        result: "the cycle's filed verdicts against its full denominator, or null when no score was filed"
+        allium: {spec: operator-control-plane.allium, rule: ReadDurableMeasurement}
+    tool: {name: measurement}
+
+  # Builder sessions (slice 04). Observation is read-only.
+  BuilderSession:
+    intent: Observe a builder session without changing it
+    audience: [operator, pi]
+    readOnly: true
+    input:
+      builderSessionRef: {type: string, required: true}
+    call: {rpc: builder-session}
+    outcomes:
+      SessionView:
+        result: {builderSessionRef: string, status: "running | completed | failed", entries: "committed turns and tool results", toolCalls: integer, workspaceGeneration: "list of top-level paths", progress: {stage: string, attempt: integer}}
+        unchanged: "reading a session changes neither its transcript nor its candidate"
+        allium: {spec: operator-control-plane.allium, rule: ObserveBuilderSession}
+    tool: {name: builderSession}
+
+  # Prompt optimization (slice 06).
+  OptimizePrompt:
+    intent: Optimize the builder instruction for one purpose
+    audience: [operator]
+    input:
+      purpose: {type: purpose, required: true}
+      reflectionProvider: {type: string, required: true}
+      reflectionModel: {type: string, required: true}
+      trainset: {type: list, required: true, description: non-empty list}
+      valset: {type: list, required: true, description: non-empty list}
+    call: {rpc: optimize-prompt}
+    outcomes:
+      WinningInstruction:
+        result: "the winning instruction for the purpose with its independently measured score"
+        allium: {spec: prompt-optimization.allium, rule: StartPromptOptimization}
+    rejections:
+      MissingExamples:
+        when: training or validation examples are missing
+        allium: {spec: prompt-optimization.allium, rule: StartPromptOptimization}
+    tool: {name: optimizePrompt}
+
+types:
+  backend: {enum: [host, gondolin]}
+  purpose: {enum: [fresh-generation, verification-repair]}
+
+conformance:
+  - every action is reached by its call's rpc method over the seam, and no undeclared method is answered except as unknown-method
+  - every request gets exactly one response carrying its id, and nothing else is written to stdout
+  - an outcome's result carries every field its result names, verbatim; extra fields are allowed, renamed ones are not
+  - a rejection is a refused error naming what was refused and why, and the harness keeps running
+  - a read-only action changes no state
+
+# Gherkin wording that drives an action, as the slices write it.
+steps:
+  "a client sends the cycle-contract request": CycleContract
+  "Pi requests the executable cycle workflow contract": CycleContract
+  "Pi requests the executable regeneration workflow contract": WorkflowContract
+  "the identical request is submitted with the same request identity": SubmitCycle
+  "the same request id is submitted again": SubmitCycle
+  "a client waits on its task": Wait
+  "the operator waits for its task identity": Wait
+  "the operator waits for that identity": Wait
+  "a replacement worker waits for the task identity": Wait
+  "the operator prepares the source cut": PrepareCut
+  "the Pi harness prepares the source cut": PrepareCut
+  "the operator previews the selection": PreviewSelection
+  "the selection is previewed more than once": PreviewSelection
+  "approval names its selection identity with a different digest": ApproveSelection
+  "the operator submits a slice cycle for that selection": SubmitApprovedSlice
+  "submission names an empty, absolute, escaping, or overlapping candidate scope": SubmitApprovedSlice
+  "an operator manually approves its exact grader digest": ApproveGrader
+  "an operator session opens that builder-session reference": BuilderSession
+  "the operator requests builder-prompt optimization": OptimizePrompt

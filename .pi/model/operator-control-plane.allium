@@ -8,7 +8,7 @@
 -- submission, task lifecycle, cycle progress projected from ORC facts, builder session
 -- observation and intervention, child cycles, and durable measurement receipts.
 -- Excludes: ORC's own execution semantics (ORC specs/orc-service.allium), the cycle's
--- stages (execution-pipeline.allium), and transport (rpc.yaml).
+-- stages (execution-pipeline.allium), and the seam (affordances.yaml).
 
 external entity OperatorSession {}
 
