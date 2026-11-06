@@ -9,6 +9,8 @@
 -- replacement, score filing, and scoreboard comparison.
 -- Excludes: the grader's own test logic, building candidates, and the gate.
 
+use "./regeneration-cycle.allium" as cycle
+
 enum GraderStatus { calibrating | sealed | approved | discarded }
 enum GraderReplacementReason { instrument_behavior_changed | wording_replaced | spec_grew }
 enum ItemVerdict { pass | fail | inconclusive }
@@ -179,7 +181,7 @@ invariant GraderAuthorIsCandidateBlind {
 }
 
 surface Instrument {
-    facing operator: OperatorSession
+    facing operator: cycle/Operator
 
     provides:
         ChecklistRequested(selection_identity, scenarios)

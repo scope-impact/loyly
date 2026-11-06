@@ -292,7 +292,7 @@ invariant BuilderObservationDoesNotAssist {
 }
 
 surface RegenerationControlPlane {
-    facing operator_session: cycle/OperatorSession
+    facing operator_session: cycle/Operator
 
     provides:
         PrepareRegenerationCut(operator_session, request_identity, request_digest, source_commit, backend)

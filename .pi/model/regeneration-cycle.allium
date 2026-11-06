@@ -8,7 +8,15 @@
 -- Excludes: the cycle's stages (execution-pipeline.allium), the instrument
 -- (instrument.allium), and ORC's runtime behaviour.
 
-external entity OperatorSession {}
+-- A person, or a Pi or Codex session acting for one, who approves and submits work. The
+-- session is the handle the operator acts through; no other spec governs it.
+entity OperatorSession {
+    identity: String
+}
+
+actor Operator {
+    identified_by: OperatorSession where identity != ""
+}
 
 enum ExecutionBackend { host | gondolin }
 enum SelectionStatus { awaiting_approval | approved }
@@ -272,7 +280,7 @@ invariant ApprovedPreparationDigestIsStable {
 }
 
 surface RegenerationHarness {
-    facing operator: OperatorSession
+    facing operator: Operator
 
     provides:
         PrepareRegenerationCut(operator, source_commit, backend)

@@ -7,7 +7,7 @@
 -- instruction candidates, their measurement, and selection.
 -- Excludes: GEPA's search algorithm (ORC specs/gepa.allium) and provider transport.
 
-external entity HarnessOperator {}
+use "./regeneration-cycle.allium" as cycle
 
 enum PromptOptimizationStatus { evaluating | optimized | failed }
 enum InstructionCandidateStatus { proposed | measured | rejected | selected }
@@ -252,7 +252,7 @@ invariant ReflectionProvenanceIsDurable {
 }
 
 surface BuilderPromptOptimization {
-    facing operator: HarnessOperator
+    facing operator: cycle/Operator
 
     provides:
         OptimizeBuilderInstruction(

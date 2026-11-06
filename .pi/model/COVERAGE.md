@@ -120,15 +120,9 @@ expected. Any other finding is drift. Strict runtime validation needs the implem
 
 ## Allium diagnostic baseline
 
-`allium check .pi/model` and `allium analyse .pi/model` report no errors and these 2 warnings.
-Compare results with this list, not merely the exit code; a new warning is drift until
-justified here.
+`allium check .pi/model` and `allium analyse .pi/model` report no errors and no warnings. Any
+warning is drift. The operator is one `actor Operator`, identified by its `OperatorSession`,
+declared in `regeneration-cycle.allium` and imported by every spec whose surface faces it.
 
-| Spec | Line | Code | Interpretation |
-|---|---:|---|---|
-| `prompt-optimization.allium` | 10 | `allium.externalEntity.missingSourceHint` | `HarnessOperator` is a person; no spec governs it. Accepted. |
-| `regeneration-cycle.allium` | 11 | `allium.externalEntity.missingSourceHint` | `OperatorSession` is the Pi or Codex session; no spec governs it. Accepted. |
-
-Check the folder, not single files: `operator-control-plane.allium` imports
-`regeneration-cycle.allium`, which resolves only within the check set. Info-level diagnostics
-(unused fields and similar) are not tracked.
+Check the folder, not single files: the imports resolve only within the check set.
+Info-level diagnostics (unused fields and similar) are not tracked.
