@@ -76,8 +76,8 @@ Gherkin wording that drives each action.
 | `SliceComposition` | `slice-composition` | query `slice-composition` | `regeneration-cycle.allium` `ComposeCutSystemView` |
 | `PreviewSelection` | `preview-selection` | command `record-selection` | `regeneration-cycle.allium` `PreviewSelection` |
 | `ApproveSelection` | `approve-selection` | command `approve-selection` | `regeneration-cycle.allium` `ApproveSelection` |
-| `PrepareCycle` | `prepare-cycle` | command `record-cycle-preparation` | `operator-control-plane.allium` `PrepareCycle` |
-| `ApprovePreparation` | `approve-preparation` | command `approve-cycle-preparation` | `operator-control-plane.allium` `ApproveCyclePreparation` |
+| `PrepareCycle` | `prepare-cycle` | command `record-cycle-preparation` | `regeneration-cycle.allium` `PrepareCycle` |
+| `ApprovePreparation` | `approve-preparation` | command `approve-cycle-preparation` | `regeneration-cycle.allium` `ApprovePreparation` |
 | `SubmitApprovedSlice` | `submit-approved-slice` | command `submit-cycle-task` | `operator-control-plane.allium` `SubmitCycleTask`, `RepeatIdenticalSubmission` |
 | `ApproveGrader` | `approve-grader` | command `approve-grader` | `instrument.allium` `ApproveExactGrader` |
 | `Measurement` | `measurement` | query `cycle-measurement` | `operator-control-plane.allium` `ReadDurableMeasurement` |
@@ -87,14 +87,19 @@ Gherkin wording that drives each action.
 `prepare-cycle` and `approve-preparation` are new; the 14 earlier methods keep their names,
 params, and result shapes, so the sealed graders stay valid.
 
-Open:
+The queries `task-receipt`, `highest-task-id`, `selection`, `cycle-preparation`,
+`approved-graders`, `cycle-observations`, and `prompt-optimization` have no seam action of
+their own: dispatch, task numbering, and the actions' results read them.
 
-- `regeneration-cycle.allium` and `operator-control-plane.allium` both declare
-  `CyclePreparation` and its prepare/approve rules (`ApprovePreparation` and
-  `ApproveCyclePreparation`). One of them should own it.
-- The queries `task-receipt`, `highest-task-id`, `selection`, `cycle-preparation`,
-  `approved-graders`, `cycle-observations`, and `prompt-optimization` have no seam action of
-  their own: dispatch, task numbering, and the actions' results read them.
+## Ownership
+
+Each concept is declared once. `regeneration-cycle.allium` owns the domain: cuts, their
+composition, selections, preparations, and cycles. `operator-control-plane.allium` owns the
+control plane: tasks and receipts, idempotent submission, dispatch to ORC, progress, builder
+sessions, and measurement reads. It imports the domain with
+`use "./regeneration-cycle.allium" as cycle`. One operator act may fire a rule in each, for
+example `SubmitWholePlanRegeneration` creates the approved whole-plan preparation and cycle
+(`ApproveWholePlanBySubmission`) and its task (`SubmitWholePlanCycle`).
 
 ## Verification
 
@@ -115,18 +120,15 @@ expected. Any other finding is drift. Strict runtime validation needs the implem
 
 ## Allium diagnostic baseline
 
-`allium check` and `allium analyse` report no errors and these 8 warnings. Compare results
-with this list, not merely the exit code; a new warning is drift until justified here.
+`allium check .pi/model` and `allium analyse .pi/model` report no errors and these 2 warnings.
+Compare results with this list, not merely the exit code; a new warning is drift until
+justified here.
 
 | Spec | Line | Code | Interpretation |
 |---|---:|---|---|
-| `harness-bootstrap.allium` | 11 | `allium.entity.unused` | `HarnessRuntimeBootstrap` appears only in invariants over the collection; no rule creates it. Open. |
-| `operator-control-plane.allium` | 13 | `allium.externalEntity.missingSourceHint` | `OperatorSession` is the Pi or Codex session; no spec governs it. Accepted. |
-| `operator-control-plane.allium` | 21 | `allium.definition.unused` | `InterveneInBuilderSession` takes an untyped `intervention_kind`, not `InterventionKind`. Open. |
 | `prompt-optimization.allium` | 10 | `allium.externalEntity.missingSourceHint` | `HarnessOperator` is a person; no spec governs it. Accepted. |
-| `regeneration-cycle.allium` | 11 | `allium.externalEntity.missingSourceHint` | `OperatorSession`, as above. Accepted. |
-| `runtime-evidence.allium` | 66 | `allium.entity.unused` | `OtelCapturePolicy` is not yet used by a rule; open. |
-| `runtime-evidence.allium` | 73 | `allium.entity.unused` | `CycleEvidenceVolume` is not yet used by a rule; open. |
-| `runtime-evidence.allium` | 80 | `allium.entity.unused` | `BrowserTraceArtifact` is not yet used by a rule; open. |
+| `regeneration-cycle.allium` | 11 | `allium.externalEntity.missingSourceHint` | `OperatorSession` is the Pi or Codex session; no spec governs it. Accepted. |
 
-Info-level diagnostics (unused fields and similar) are not tracked.
+Check the folder, not single files: `operator-control-plane.allium` imports
+`regeneration-cycle.allium`, which resolves only within the check set. Info-level diagnostics
+(unused fields and similar) are not tracked.

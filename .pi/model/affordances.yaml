@@ -212,17 +212,17 @@ actions:
       AwaitingApproval:
         result: {preparationId: string, preparationDigest: string, status: "awaiting-approval", diagram: "the deterministic preparation diagram", bound: "selection, scope, target stack, execution profile, cut digest, grader digest, diagram digest, and outer-cycle budget"}
         stable: "preparing the same choices again returns the same preparationId and preparationDigest; changing any bound choice is a new preparation"
-        allium: {spec: operator-control-plane.allium, rule: PrepareCycle}
+        allium: {spec: regeneration-cycle.allium, rule: PrepareCycle}
     rejections:
       Unapproved:
         when: the selection is not approved
-        allium: {spec: operator-control-plane.allium, rule: PrepareCycle}
+        allium: {spec: regeneration-cycle.allium, rule: PrepareCycle}
       UnsafeScope:
         when: the scope is empty, absolute, escaping, or overlapping
-        allium: {spec: operator-control-plane.allium, rule: PrepareCycle}
+        allium: {spec: regeneration-cycle.allium, rule: PrepareCycle}
       InvalidBudget:
         when: the execution profile is not supported or maxOuterCycles is below 1
-        allium: {spec: operator-control-plane.allium, rule: PrepareCycle}
+        allium: {spec: regeneration-cycle.allium, rule: PrepareCycle}
     grain: {command: record-cycle-preparation}
     tool: {name: prepareCycle}
 
@@ -237,11 +237,11 @@ actions:
       Approved:
         result: {preparationId: string, preparationDigest: string, status: "approved"}
         note: "approval alone starts nothing; SubmitApprovedSlice starts the cycle"
-        allium: {spec: operator-control-plane.allium, rule: ApproveCyclePreparation}
+        allium: {spec: regeneration-cycle.allium, rule: ApprovePreparation}
     rejections:
       DigestMismatch:
         when: the digest is not the reviewed one; the preparation stays awaiting approval
-        allium: {spec: operator-control-plane.allium, rule: ApproveCyclePreparation}
+        allium: {spec: regeneration-cycle.allium, rule: ApprovePreparation}
     grain: {command: approve-cycle-preparation}
     tool: {name: approvePreparation}
 

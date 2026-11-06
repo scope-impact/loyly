@@ -194,8 +194,38 @@ rule ApprovePreparation {
     ensures: preparation.status = approved
 }
 
+-- The whole plan of the pinned cut is a fixed preparation: the whole-plan selection, the
+-- configured scope, target stack, and execution profile, the approved graders, and one outer
+-- cycle. Submitting it is its approval, as in the legacy shape.
+rule ApproveWholePlanBySubmission {
+    when: SubmitWholePlanRegeneration(operator, request_identity, request_digest)
+    let preparation = whole_plan_preparation(pinned_cut())
+    requires: preparation.selection.items.count > 0
+    requires: not exists RegenerationCycle{identity: request_identity}
+    ensures: CyclePreparation.created(
+        identity: whole_plan_preparation_identity(pinned_cut()),
+        digest: preparation.digest,
+        status: approved,
+        selection: preparation.selection,
+        scope: preparation.scope,
+        target_stack: preparation.target_stack,
+        execution_profile: preparation.execution_profile,
+        cut_digest: preparation.cut_digest,
+        grader_digest: preparation.grader_digest,
+        diagram_digest: preparation.diagram_digest,
+        max_outer_cycles: 1
+    )
+    ensures: RegenerationCycle.created(
+        identity: request_identity,
+        preparation: last_created_preparation(whole_plan_preparation_identity(pinned_cut())),
+        parent_cycle_identity: null,
+        status: submitted,
+        candidate_digest: null
+    )
+}
+
 rule SubmitCycle {
-    when: SubmitRegenerationCycle(operator, request_identity, preparation, parent_cycle_identity)
+    when: SubmitRegenerationCycle(operator, request_identity, request_digest, preparation, parent_cycle_identity)
     requires: preparation.status = approved
     requires: preparation.selection.items.count > 0
     requires: not exists RegenerationCycle{identity: request_identity}
@@ -254,8 +284,8 @@ surface RegenerationHarness {
                                  target_stack, execution_profile, cut_digest,
                                  grader_digest, diagram_digest, max_outer_cycles)
         ApproveCyclePreparation(operator, preparation, digest)
-        SubmitRegenerationCycle(operator, request_identity, preparation, parent_cycle_identity)
-        ObserveBuilderSession(operator, builder_session)
+        SubmitRegenerationCycle(operator, request_identity, request_digest, preparation, parent_cycle_identity)
+        SubmitWholePlanRegeneration(operator, request_identity, request_digest)
 
     @guarantee BuilderIsolation
         -- The builder reads a fenced cut, writes only the declared scope, and does not inherit the operator transcript.
