@@ -4,7 +4,7 @@
 
 # Where the regenerated harness is built inside the clean room. It must provide
 # APP_DIR/test.sh (the whole suite) and APP_DIR/start.sh (speaks JSON-RPC on stdio, as
-# declared in .pi/model/rpc.yaml). The harness has no port: it is not a web product.
+# declared in .pi/model/affordances.yaml). The harness has no port: it is not a web product.
 APP_DIR=harness-impl
 
 # The stack the regenerated harness must use. The builder is told this; the gate does not

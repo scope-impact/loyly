@@ -11,7 +11,7 @@ built on ORC and Grain.
   ───────────────────────     ─────────────────────────      ──────────────────────────
   harness/  (legacy tools)    .pi/model/                     .pi/harness/harness-impl/
     fence.sh  ─────────────►    plan/NN-slug/spec.feature  ─►  a harness on ORC + Grain
-    Pi builder                  rpc.yaml (stdio seam)            ORC: the cycle, retries,
+    Pi builder                  affordances.yaml (seam)          ORC: the cycle, retries,
     verify.sh (gate)            *.allium, GLOSSARY.md                 resume
     sealed graders              Grain event model                Grain: facts that span runs
     score.clj, scoreboard.clj                                     (approvals, receipts,

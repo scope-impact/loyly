@@ -19,7 +19,7 @@ The archive stays untouched as the parity reference.
 - `modules.sh` declares `harness/Makefile` as a local file: it is this repository's runtime
   bootstrap, not part of the instrument.
 - `verify.sh` and `probe.sh` drive the harness's real seam, JSON-RPC over stdio
-  (`.pi/model/rpc.yaml`), instead of HTTP: the harness is not a web product, and a page served
+  (`.pi/model/affordances.yaml`), instead of HTTP: the harness is not a web product, and a page served
   only for the gate is exactly what a builder can fake (harness-regen-3 served a static page).
   The legacy rules stay: the instrument is checked first, the suite is trusted by exit code
   only, the boot is fresh and timed with its margin reported, and identity is proved by domain

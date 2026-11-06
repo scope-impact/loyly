@@ -6,7 +6,7 @@
 #
 # Same rules as the legacy gate (archive/legacy-harness/verify.sh); the transport is the
 # product's real seam instead of HTTP. The harness is not a web product: its public
-# interface is JSON-RPC over stdio (.pi/model/rpc.yaml), so the gate drives that.
+# interface is JSON-RPC over stdio (.pi/model/affordances.yaml), so the gate drives that.
 #
 #   <APP_DIR>/test.sh    runs the whole suite; exits non-zero on any failure
 #   <APP_DIR>/start.sh   starts the product reading JSON-RPC on stdin, writing stdout

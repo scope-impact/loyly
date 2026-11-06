@@ -101,7 +101,7 @@
 
 (def slice-work
   (str "You carry one slice, named in the runtime context. Read every scenario of that slice, then only the "
-       "contracts it meets: the public seam (.pi/model/rpc.yaml), the Grain Event Model "
+       "contracts it meets: the public seam (.pi/model/affordances.yaml), the Grain Event Model "
        "(.pi/model/event-model/), the glossary, and the Allium file for your slice's domain. "
        "Open another slice's feature only when one of your scenarios depends on it; do not read the whole spec "
        "up front, because everything you read is carried through every later turn. Earlier slice builders of this cycle carried the "
@@ -134,7 +134,7 @@
                                    (str "Spec: $HARNESS_CUT_ROOT/" plan-dir "/NN-slug/spec.feature (the only spec; build this product)")
                                    (str "Target stack: " app-stack)
                                    (str "APP_DIR: " app-dir " (write everything under $HARNESS_WORKSPACE_ROOT/" app-dir ")")
-                                   "Public seam: $HARNESS_CUT_ROOT/.pi/model/rpc.yaml (JSON-RPC over stdio)"
+                                   "Public seam: $HARNESS_CUT_ROOT/.pi/model/affordances.yaml (JSON-RPC over stdio)"
                                    (str "APP_MARKER: " app-marker)]
                             slice
                             (conj (str "Slice: $HARNESS_CUT_ROOT/" plan-dir "/" slice "/spec.feature (the slice you carry)"))
