@@ -19,7 +19,17 @@
     :queries #{:measurement/checklist :measurement/cycle-measurement :measurement/scoreboard}
     :commands #{:measurement/derive-checklist}}}
   :flows
-  {:measurement/scoreboard-restates-moved-item-set
+  {:measurement/stamping-to-checklist
+   {:description "A stamped scenario (handoff from Specification) becomes an item identity; the operator derives the checklist of a pinned cut (legacy: gen_checklist), refused if any scenario is unstamped or the checklist would be empty. Moved here from Specification's flow, which now ends at its own screen, so each context's model validates alone with the handoffs it consumes."
+    :grain/allium [{:spec ".pi/spec/measurement/allium/checklist.allium" :kind :rule :name "NoteItemIdentity"}
+                   {:spec ".pi/spec/measurement/allium/checklist.allium" :kind :rule :name "DeriveChecklist"}]
+    :steps [{:from [:event :specification/scenario-stamped] :to [:read-model :measurement/item-identities]}
+            {:from [:read-model :measurement/item-identities] :to [:command :measurement/derive-checklist]}
+            {:from [:command :measurement/derive-checklist] :to [:event :measurement/checklist-derived]}
+            {:from [:event :measurement/checklist-derived] :to [:read-model :measurement/checklists]}
+            {:from [:read-model :measurement/checklists] :to [:query :measurement/checklist]}
+            {:from [:query :measurement/checklist] :to [:screen :measurement/instrument-desk]}]}
+   :measurement/scoreboard-restates-moved-item-set
    {:description "A filed measurement is reported once against the previous measured cycle; when the item set moved, the comparison is restated on the shared items."
     :grain/allium [{:spec ".pi/spec/measurement/allium/scoreboard.allium" :kind :rule :name "ReportScoreboardOnce"}
                    {:spec ".pi/spec/measurement/allium/scoreboard.allium" :kind :rule :name "ReportScoreboard"}]

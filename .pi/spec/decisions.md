@@ -71,3 +71,31 @@ self-check runs again before the gate (H24).
    invariant that a command cannot show says "Verified by: gate <name>", naming a gate of
    `tools/spec/v2` or a harness check; one that cannot exist yet says "(planned)" and is an
    open item of its context.
+
+## First light (decided 2026-11-06)
+
+How the first regeneration cycles of spec v2 run, with the legacy driver (`harness/`), before
+the harness can rebuild itself.
+
+1. **One context per cycle.** A cycle rebuilds ONE context from scratch, in a clean room that
+   holds only that context's spec (`.pi/spec/<context>/`) plus the handoff contracts it
+   consumes (the producer's `event-model/handoffs.edn`), no other spec and no earlier candidate.
+   Each context has its own candidate, `harness-impl/NN-<context>/`. A context becomes a slice
+   when it is accepted: `.pi/plan/NN-<context>` is a relative symlink to `../spec/<context>`,
+   the legacy tools' `PLAN_DIR`, so they find it as slice `NN`, and `tools/spec/v2/stamp.clj`
+   takes the slice number from the link. `SLICE=NN` selects the cycle (`harness/config.sh`).
+2. **The builder is a person-run `pi` session** in the room, given the builder instructions
+   `harness/v2/prompt.clj` renders (the legacy way). The durable Pi builder host is not
+   needed for this and is not built.
+3. **Architecture inside a context is enforced by the stack and by the gate.** The candidate
+   is Clojure on ORC with Grain; it registers the room's event model as given, and Grain's
+   boot guard refuses drift between the model and the running blocks. After the suite and
+   the identity probe, the gate reads the Grain store it handed the candidate directly, not
+   through the candidate's seam (`harness/v2/event-store-check.sh`): it holds events, every
+   event type is an event of the slice's event model, and every event's fields are exactly
+   its schema. Grain's own bookkeeping (`grain/*`, such as the `grain/tx` its appender
+   writes) is the stack's and is listed, not refused. Each context's seam is its
+   `seam.md`; so that a context's model validates on its own, a flow stays inside its
+   context (`stamping-to-checklist` moved from Specification to Measurement).
+4. **Assembly later.** A gate that wires the contexts together through their handoffs comes
+   later, not now.

@@ -13,7 +13,7 @@ identity**, the **stamped scenario** and, since R2, the **one reading of Gherkin
 
 | Module | Event Model | Allium | Aggregate | Lives |
 |---|---|---|---|---|
-| Context | `event-model/area.edn` (screen `spec-authoring`, flow `stamping-to-checklist`) | `allium/context.allium` (value `UnstampedScenario`, contract `ScenarioReading`, open question) | none | |
+| Context | `event-model/area.edn` (screen `spec-authoring`, flow `stamping`, which stays inside the context) | `allium/context.allium` (value `UnstampedScenario`, contract `ScenarioReading`, open question) | none | |
 | Slice | `event-model/slice.edn` | `allium/slice.allium` (rules `StampFirstScenarios`, `StampSlice`; surface `SpecAuthoring`) | **Slice** (its stamped items, the ledger's next number) | the project repository; one per slice's `spec.feature` |
 | Handoffs produced | `event-model/handoffs.edn` (`scenario-stamped`) | emitted by both stamping rules | | consumed by Measurement |
 

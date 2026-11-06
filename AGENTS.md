@@ -1,6 +1,7 @@
 # Löyly Agent Instructions
 
-The maintained assets are the behavioral specifications under `model/`; generated
+The maintained assets are the behavioral specifications under `.pi/spec/` (spec v2, one folder
+per bounded context; `.pi/model/` is spec v1, kept for its glossary); generated
 implementation is a reproducible build product. Keep specification planning and
 implementation in separate rounds. Never repair a specification from inside a fenced
 builder run.
@@ -20,10 +21,10 @@ Each part has one language. Do not mix them.
 
 | Part | Language and tools | Where |
 |---|---|---|
-| The model: behaviour | Gherkin scenarios, one stamped `@item-NN-SSS` per checklist item | `.pi/model/plan/` |
-| The model: event storming and rules | Grain Event Model (commands, events, read models, queries, processors) and Allium (entities, rules, invariants, surfaces) | `.pi/model/event-model/`, `.pi/model/*.allium` |
-| The harness implementation | Clojure on ORC, with Grain for the event store | `harness-impl/`, generated from the model |
-| The builder host and Gondolin rooms | TypeScript on `@earendil-works/pi-durable`: one durable Pi session per ORC tick, tool calls forwarded into a Gondolin room ORC chose. Provided, like ORC and Grain: ORC launches it, never regenerates it | `.pi/harness/`, `harness/Makefile`, `harness/<project-id>/` |
+| The model: behaviour | Gherkin scenarios, one stamped `@item-NN-SSS` per checklist item | `.pi/spec/<context>/spec.feature`; an accepted context is slice `NN` through its link `.pi/plan/NN-<context>` |
+| The model: event storming and rules | Grain Event Model (commands, events, read models, queries, processors) and Allium (entities, rules, invariants, surfaces); the public seam | `.pi/spec/<context>/event-model/*.edn`, `.pi/spec/<context>/allium/`, `.pi/spec/<context>/seam.md` |
+| The harness implementation | Clojure on ORC, with Grain for the event store; each context registers its room's event model as given | `harness-impl/NN-<context>/`, one per context, generated from the model |
+| The builder host and Gondolin rooms | TypeScript on `@earendil-works/pi-durable`: one durable Pi session per ORC tick, tool calls forwarded into a Gondolin room ORC chose. Provided, like ORC and Grain: ORC launches it, never regenerates it. Not needed for first light: the builder is a person-run `pi` session | `.pi/harness/`, `harness/Makefile`, `harness/<project-id>/` |
 | The graders | Elixir scripts (`.exs`), driving the candidate only over its JSON-RPC seam | sealed under `.pi/harness/.state/graders/` |
 | The legacy driver | Babashka and shell, the legacy harness tools | `harness/` |
 
@@ -33,7 +34,12 @@ stay in use until they are ported, re-calibrated, and re-approved.
 
 ## The regeneration cycle
 
-ORC runs one cycle, in the shape of the legacy harness (`archive/legacy-harness/`):
+ORC runs one cycle, in the shape of the legacy harness (`archive/legacy-harness/`). Until the
+harness can rebuild itself (first light, `.pi/spec/decisions.md`), the legacy driver runs it:
+`SLICE=NN harness/fence.sh ROOM`, a person-run `pi` session in ROOM with the prompt
+`bb harness/v2/prompt.clj NN` renders, then `harness/v2/gate.sh NN ROOM`. A cycle rebuilds
+**one context** from scratch, into `harness-impl/NN-<context>/`; an assembly gate wiring the
+contexts through their handoffs comes later.
 
 ```text
 fence → regenerate → gate → score → scoreboard
@@ -44,7 +50,9 @@ fence → regenerate → gate → score → scoreboard
   that matches nothing stops the fence. No room is built until the harness self-check passes.
 - **Regenerate**: a fresh builder session rebuilds the selection from the clean room only.
 - **Gate**: a room the builder does not control boots the candidate fresh and proves its
-  suite green. Done is the gate's verdict, never the builder's claim. A failed gate may start
+  suite green and its identity over its seam, then reads the Grain store it handed the
+  candidate directly, not through the seam: it holds events, and each is an event of the
+  context's event model with exactly that event's fields. Done is the gate's verdict, never the builder's claim. A failed gate may start
   a fresh builder with only the previous candidate and the gate's evidence, at most three
   attempts.
 - **Score**: the approved sealed grader files one verdict per checklist item.
@@ -56,8 +64,9 @@ loop. Anything not written into the spec dies with the implementation.
 
 ## The clean room
 
-The clean room holds the spec, the domain sources, and the public application contract. It
-holds no prior implementation, recorded measurement, report, grader, calibration fixture, or
+The clean room holds the spec of the one context being rebuilt, the handoff contracts it
+consumes, the glossary, the domain sources, and its public seam. It holds no other context's
+spec, no spec v1, no prior implementation, recorded measurement, report, grader, calibration fixture, or
 grading harness. The builder reads it read-only and writes only its declared scope.
 
 ## The instrument

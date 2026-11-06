@@ -9,7 +9,7 @@ the glossary's words.
 
 | Module | Event Model | Allium | Aggregate | Lives |
 |---|---|---|---|---|
-| Context | `event-model/area.edn` (screen `instrument-desk`, flow `scoreboard-restates-moved-item-set`) | `allium/context.allium` (values, enums, contracts `Scoring`, `RateFormat`, `Comparison`, open questions) | none | |
+| Context | `event-model/area.edn` (screen `instrument-desk`, flows `stamping-to-checklist` (moved from Specification, 2026-11-06) and `scoreboard-restates-moved-item-set`) | `allium/context.allium` (values, enums, contracts `Scoring`, `RateFormat`, `Comparison`, open questions) | none | |
 | Checklist | `event-model/checklist.edn` | `allium/checklist.allium` (rule `DeriveChecklist`; the stamp and cut handoffs; surface `InstrumentDesk`) | **Checklist** | event store; one per pinned cut (later: per approved selection) |
 | Cycle measurement | `event-model/cycle-measurement.edn` | `allium/cycle-measurement.allium` (rules `FileItemVerdicts`, `FileScore`, `FailScoreStage`; the gate handoff; surfaces `VerdictFilingSeam`, `ScoreStage`, `MeasurementReceipt`) | **CycleMeasurement** (filings, the one measurement, or the failed stage) | event store; one per gated cycle |
 | Scoreboard | `event-model/scoreboard.edn` | `allium/scoreboard.allium` (rule `ReportScoreboard`; policy `ReportScoreboardOnce`; surface `ScoreboardReport`) | **Scoreboard** | event store; one per measured cycle |

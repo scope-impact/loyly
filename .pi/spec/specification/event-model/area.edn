@@ -16,17 +16,11 @@
     :queries #{:specification/stamped-items}
     :commands #{:specification/stamp-slice}}}
   :flows
-  {:specification/stamping-to-checklist
-   {:description "A scenario is stamped once; its item identity is what a checklist may count. The operator derives the checklist of a pinned cut (legacy: gen_checklist), refused if any scenario is unstamped or the checklist would be empty."
+  {:specification/stamping
+   {:description "A scenario is stamped once; its item identity is what a checklist may count. The flow stays inside this context: what Measurement does with a stamped scenario is its own flow (measurement/stamping-to-checklist), so this context's model validates on its own, as a candidate registers it."
     :grain/allium [{:spec ".pi/spec/specification/allium/slice.allium" :kind :rule :name "StampSlice"}]
     :steps [{:from [:screen :specification/spec-authoring] :to [:command :specification/stamp-slice]}
             {:from [:command :specification/stamp-slice] :to [:event :specification/scenario-stamped]}
             {:from [:event :specification/scenario-stamped] :to [:read-model :specification/stamped-items]}
             {:from [:read-model :specification/stamped-items] :to [:query :specification/stamped-items]}
-            {:from [:query :specification/stamped-items] :to [:screen :specification/spec-authoring]}
-            {:from [:event :specification/scenario-stamped] :to [:read-model :measurement/item-identities]}
-            {:from [:read-model :measurement/item-identities] :to [:command :measurement/derive-checklist]}
-            {:from [:command :measurement/derive-checklist] :to [:event :measurement/checklist-derived]}
-            {:from [:event :measurement/checklist-derived] :to [:read-model :measurement/checklists]}
-            {:from [:read-model :measurement/checklists] :to [:query :measurement/checklist]}
-            {:from [:query :measurement/checklist] :to [:screen :measurement/instrument-desk]}]}}}}
+            {:from [:query :specification/stamped-items] :to [:screen :specification/spec-authoring]}]}}}}
