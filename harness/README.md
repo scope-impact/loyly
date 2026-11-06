@@ -198,3 +198,10 @@ its 4 stamped items, `03-001` to `03-004`; the derived checklist is slice 01's 1
 and those 4. The spec grew (additions only), so the golden was re-recorded with
 `harness/oracle.sh record`; its diff is additions plus the one `total` line (39 → 43). No
 approved grader's scenarios changed.
+
+**2026-11-07: the spec grew: slice 04, `regeneration-cycle`, accepted.** The product owner's
+acceptance of regeneration-cycle's legacy minimum drafts added `.pi/plan/04-regeneration-cycle`
+and its 27 stamped items, `04-001` to `04-027`; the derived checklist is slice 01's 15, slice
+02's 24, slice 03's 4 and those 27. The spec grew (additions only), so the golden was
+re-recorded with `harness/oracle.sh record`; its diff is additions plus the one `total` line
+(43 → 70). No approved grader's scenarios changed.

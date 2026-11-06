@@ -20,7 +20,7 @@
     :queries #{:regeneration-cycle/cycle-progress}}}
   :flows
   {:regeneration-cycle/fence-to-scoreboard
-   {:description "The legacy cycle end to end: the harness self-checks, the fence proves the clean room, a candidate is regenerated, the gate ratifies it, the grader files item verdicts, the instrument files the measurement and reports the scoreboard, and the cycle concludes passed."
+   {:description "The legacy cycle end to end: the harness self-checks, the fence proves the clean room, a candidate is regenerated, the gate ratifies it, the grader files item verdicts, the instrument files the measurement and reports the scoreboard, and the cycle concludes passed. The score and the scoreboard are Measurement's (its flow scoring): this flow stays inside this context and hears them as the handoffs measurement-filed and scoreboard-reported, which enter it from nil, as a command ORC runtime issues does, so its model validates alone with the handoffs it consumes (decisions.md, \"Slice 04\")."
     :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/harness-self-check.allium" :kind :rule :name "RecordHarnessSelfCheck"}
                    {:spec ".pi/spec/regeneration-cycle/allium/clean-room.allium" :kind :rule :name "ProveCleanRoom"}
                    {:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :rule :name "RecordRegeneratedCandidate"}
@@ -40,17 +40,10 @@
             {:from [:event :regeneration-cycle/candidate-installed-in-gate-room] :to [:read-model :regeneration-cycle/gate-attempts]}
             {:from [:read-model :regeneration-cycle/gate-attempts] :to [:command :regeneration-cycle/record-gate-attempt]}
             {:from [:command :regeneration-cycle/record-gate-attempt] :to [:event :regeneration-cycle/gate-attempt-passed]}
-            {:from [:event :regeneration-cycle/gate-attempt-passed] :to [:read-model :measurement/gated-cycles]}
-            {:from [:read-model :measurement/gated-cycles] :to [:command :measurement/file-item-verdicts]}
-            {:from [:command :measurement/file-item-verdicts] :to [:event :measurement/item-verdicts-filed]}
-            {:from [:event :measurement/item-verdicts-filed] :to [:read-model :measurement/item-verdicts]}
-            {:from [:read-model :measurement/item-verdicts] :to [:command :measurement/file-score]}
-            {:from [:command :measurement/file-score] :to [:event :measurement/measurement-filed]}
-            {:from [:event :measurement/measurement-filed] :to [:read-model :measurement/measurements-to-report]}
-            {:from [:read-model :measurement/measurements-to-report] :to [:query :measurement/measurements-to-report]}
-            {:from [:query :measurement/measurements-to-report] :to [:todo-processor :measurement/report-scoreboard-once]}
-            {:from [:todo-processor :measurement/report-scoreboard-once] :to [:command :measurement/report-scoreboard]}
-            {:from [:command :measurement/report-scoreboard] :to [:event :measurement/scoreboard-reported]}
+            {:from [:event :regeneration-cycle/gate-attempt-passed] :to [:read-model :regeneration-cycle/regeneration-cycles]}
+            {:from nil :to [:event :measurement/measurement-filed]}
+            {:from [:event :measurement/measurement-filed] :to [:read-model :regeneration-cycle/regeneration-cycles]}
+            {:from nil :to [:event :measurement/scoreboard-reported]}
             {:from [:event :measurement/scoreboard-reported] :to [:read-model :regeneration-cycle/cycles-to-conclude]}
             {:from [:read-model :regeneration-cycle/cycles-to-conclude] :to [:query :regeneration-cycle/cycles-to-conclude]}
             {:from [:query :regeneration-cycle/cycles-to-conclude] :to [:todo-processor :regeneration-cycle/conclude-cycle]}
@@ -120,11 +113,9 @@
             {:from [:query :regeneration-cycle/cycle-progress] :to [:screen :regeneration-cycle/cycle-progress]}]}
 
    :regeneration-cycle/refused-score-fails-cycle
-   {:description "A refused score files nothing: ORC's score node records the score stage failed, never retried, and the cycle fails at the score."
+   {:description "A refused score files nothing: ORC's score node records the score stage failed (Measurement's fail-score-stage, heard here as the handoff score-stage-failed), never retried, and the cycle fails at the score."
     :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :rule :name "ConcludeOnFailedScoreStage"}]
-    :steps [{:from nil :to [:command :measurement/fail-score-stage]}
-            {:from [:command :measurement/fail-score-stage] :to [:event :measurement/score-stage-failed]}
-            {:from [:event :measurement/score-stage-failed] :to [:read-model :regeneration-cycle/cycles-to-conclude]}
+    :steps [{:from [:event :measurement/score-stage-failed] :to [:read-model :regeneration-cycle/cycles-to-conclude]}
             {:from [:read-model :regeneration-cycle/cycles-to-conclude] :to [:query :regeneration-cycle/cycles-to-conclude]}
             {:from [:query :regeneration-cycle/cycles-to-conclude] :to [:todo-processor :regeneration-cycle/conclude-cycle]}
             {:from [:todo-processor :regeneration-cycle/conclude-cycle] :to [:command :regeneration-cycle/fail-cycle]}

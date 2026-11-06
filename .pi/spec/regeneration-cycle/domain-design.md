@@ -202,7 +202,10 @@ R3.1 merged six pairs whose Given and When were the same: the self-check before 
 with the cycle it opens; the second self-check before the fence with `OneCyclePerIdentity`;
 the proved clean room with the stage it moves to; each gate verdict with its fold into the
 cycle; the first regenerated candidate with `DoneIsTheGatesVerdict`.
-The product owner accepts a draft by moving it into `spec.feature` (R4).
+The product owner accepts a draft by moving it into `spec.feature` (R4). R4.4 (2026-11-07):
+the 27 that cite legacy behaviour and are tier minimum are accepted, `@item-04-001` to
+`@item-04-027` (slice 04, `.pi/plan/04-regeneration-cycle`); 56 stay drafts, 12 of them new
+minimum. Its seam is `seam.md` (`../decisions.md`, "Slice 04").
 
 ## Checks
 

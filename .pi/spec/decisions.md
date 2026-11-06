@@ -189,3 +189,81 @@ behaviour.
    model's `:enum`, so the move is heard as `-32602` and records nothing. An empty note is the
    refusal `empty-note` (`MoveInstrumentGolden` requires 4), not `-32602`, although the schema's
    `{:min 1}` says the same: the Allium names it, and orders it.
+
+## Slice 04: regeneration-cycle (decided 2026-11-07)
+
+How the fourth context, `regeneration-cycle`, is built alone, in the shape of "First light",
+"Slice 02" and "Slice 03". Taken while preparing its cycle; each is a reading of the spec, not a
+change of behaviour.
+
+1. **Accepted.** The 27 drafts that cite legacy behaviour and are tier minimum moved into
+   `regeneration-cycle/spec.feature` (`@item-04-001` to `@item-04-027`) under their Rules;
+   `.pi/plan/04-regeneration-cycle` makes it slice 04. Its 12 new minimum drafts (no `# Legacy:`
+   line) and the balance and deferred drafts stay drafts (56). No accepted draft is a Scenario
+   Outline; the two Outlines stay in `drafts.feature` with their `Examples:` tables.
+2. **Its model validates alone with the handoffs it consumes.** Two flows ran through
+   Measurement's blocks (20 dangling references alone): `fence-to-scoreboard` from the passed
+   gate attempt through `measurement/gated-cycles`, `file-item-verdicts`, `file-score`,
+   `measurements-to-report`, `report-scoreboard-once` and `report-scoreboard`, and
+   `refused-score-fails-cycle` from `measurement/fail-score-stage`. Those steps are cut, as
+   specification's and grader-lifecycle's were; Measurement's own flow `scoring` keeps its side.
+   Here the passed gate attempt now folds into `regeneration-cycles`, and Measurement's facts
+   are the handoffs this context consumes: `measurement-filed` and `scoreboard-reported` enter
+   `fence-to-scoreboard` from nil, as a command ORC runtime issues does, and
+   `score-stage-failed` starts `refused-score-fails-cycle`. `grain-validate.clj`: regeneration-
+   cycle alone with its 6 handoffs, 0 errors, 0 warnings; slices 01 to 03 still valid; the
+   merged model still valid.
+3. **Consumed handoffs are handed in through the seam** ("Slice 02" 4): one method per consumed
+   event, `cycle-preparation/source-cut-pinned`, `grader-lifecycle/instrument-golden-written`
+   and `-moved`, `measurement/measurement-filed`, `score-stage-failed` and
+   `scoreboard-reported`. The room keeps the three producers' `handoffs.edn` and nothing else of
+   them. A fold whose rule does not take a handed-in event (a duplicate, a golden never written,
+   an unknown cycle: each guarded upstream) ignores it.
+4. **The candidate records the real world; it does not act on it.** Every command of this
+   context is issued by ORC runtime from what one of its nodes did in a room, and the event
+   model gives each command that result as params: the self-check run's outcome, failing check,
+   skipped checks, missing and reworded goldens; the fence probe's commit counts and the paths
+   it found; the gate room's boot budget, the poll that answered, whether the seam answered
+   before boot, and the identity probe it held. So the contracts `HarnessSelfCheckRun`,
+   `FenceProbe` and `GateRoom` describe results the issuer hands in, and the candidate records
+   them and guards them; it runs no `git`, builds no room, runs no self-check and boots nothing.
+   A grader plays ORC runtime. Read so, the scenarios that state a contract invariant
+   (`@item-04-003` reproduces every golden, `@item-04-006` a golden with no cycle beside it,
+   `@item-04-007` a missing tool is a loud skip, `@item-04-010` and `@item-04-014` the probe's
+   paths, `@item-04-019` the boot clock starts at launch, `@item-04-022` the probe is the
+   instrument's) are carried by recording the offered result faithfully and refusing what the
+   `requires` refuse; what the boot clock covers (`@item-04-019`'s "a build inside the suite
+   would not have counted") is the gate's own doing, and in first light that is still
+   `harness/verify.sh`. Rejected: the candidate building and probing a clean room, running the
+   self-check or booting a candidate itself (the event model has no command or param for any of
+   them: a command records a node's result, "ORC runs, the harness records", `domain-design.md`
+   1). The ORC nodes that act in rooms come with ORC's room policy and the builder host; if the
+   product owner wants this context to own them, the model needs the commands and their
+   issuers, a change of the spec, not of the seam.
+5. **The goldens digest is the candidate's, by a stated formula.** `RecordHarnessSelfCheck`
+   (requires 2) and `RecordGateAttempt` (requires 7) compare a goldens digest with
+   `goldens_digest_of(CurrentGoldens)`, a function of `HarnessSelfCheckRun` the surface
+   fulfils, over the goldens the candidate folds from the handed-in golden events. Unlike a
+   scenario digest ("Slice 03" 3), everything it needs is in the candidate's store, so it
+   computes it, and `seam.md` fixes the formula (SHA-256 over one `<golden-id> TAB <digest>` line
+   per current golden, by golden id) so that a grader offers the same digest.
+6. **The scoring tools are handed in.** `ProveCleanRoom` (requires 9) reads
+   `config.scoring_tool_paths`, which each repository declares and the event model gives no
+   place: `LOYLY_SCORING_TOOL_PATHS`, a JSON array, read at start; unset, there is none.
+7. **A fence with no fenced paths is a schema mismatch** (`@item-04-016`): invariant
+   `AFenceHidesSomething` has no `requires`, and `fenced-paths` is `[:vector {:min 1} :string]`,
+   so it is heard as `-32602` and records nothing, as a reason outside the three is in
+   "Slice 03" 4.
+8. **The policy and the clock, through the seam.** The conclude-cycle policy concludes a cycle
+   before the method whose event made it due responds, as Measurement's policy does ("Slice
+   02", `seam.md`); its events are read through `cycle-progress`. Each command runs as the ORC
+   workflow of a flow that holds it, by its issuer (`seam.md` names one per issuer; the gate
+   takes any flow holding the command). The stage clock runs on the wall clock at the model's
+   30-second schedule and is observed through `cycle-progress`; no accepted scenario waits for
+   it, and the identity probe's budgets outlast its run.
+9. **"No score" is a failed cycle's status.** The view holds no item verdict; a failed cycle
+   never had a measurement (`FailedBeforeScoreHasNoMeasurement`, and `FailCycle` never fails a
+   cycle at the scoreboard), so `cycle-progress` shows its failure and nothing of a score.
+10. **Room policy stays out.** `TheClaimantNeverControlsTheGate`, `ProbeOutOfReach` and
+    Measurement's `PublicSeamOnly` are verified by the planned gate `room-policy`; they are not
+    in this slice's builder scope, and no accepted scenario names them.

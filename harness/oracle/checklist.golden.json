@@ -257,9 +257,171 @@
    "name": "A golden is never moved for a reason outside the three",
    "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
    "source": ".pi/plan/03-grader-lifecycle/spec.feature:43"
+  },
+  {
+   "id": "04-001",
+   "name": "A passing harness self-check before the fence opens the cycle on a pinned source cut",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:12"
+  },
+  {
+   "id": "04-002",
+   "name": "A harness self-check at goldens that are no longer current is refused",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:24"
+  },
+  {
+   "id": "04-003",
+   "name": "A golden the harness self-check does not reproduce exactly fails it, by name",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:36"
+  },
+  {
+   "id": "04-004",
+   "name": "A harness self-check before a gate attempt with no candidate for that attempt is refused",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:48"
+  },
+  {
+   "id": "04-005",
+   "name": "A cycle with scores and no scoreboard golden cannot pass the harness self-check",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:60"
+  },
+  {
+   "id": "04-006",
+   "name": "An instrument golden with no cycle beside it does not fail the harness self-check",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:71"
+  },
+  {
+   "id": "04-007",
+   "name": "A scoring tool fenced out of the clean room is a listed skip, not a failure",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:83"
+  },
+  {
+   "id": "04-008",
+   "name": "A clean room is proved when every check of the fence's probe holds, and the cycle moves to regenerate",
+   "rule": "The fence proves the clean room; it never asserts it",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:96"
+  },
+  {
+   "id": "04-009",
+   "name": "No clean room is proved after a failed harness self-check",
+   "rule": "The fence proves the clean room; it never asserts it",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:106"
+  },
+  {
+   "id": "04-010",
+   "name": "A fenced path that matches nothing stops the fence",
+   "rule": "The fence proves the clean room; it never asserts it",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:116"
+  },
+  {
+   "id": "04-011",
+   "name": "A clean room with two root commits is refused",
+   "rule": "The fence proves the clean room; it never asserts it",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:127"
+  },
+  {
+   "id": "04-012",
+   "name": "A clean room whose history is more than one commit is refused",
+   "rule": "The fence proves the clean room; it never asserts it",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:137"
+  },
+  {
+   "id": "04-013",
+   "name": "A fenced path left in the working tree is refused",
+   "rule": "The fence proves the clean room; it never asserts it",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:147"
+  },
+  {
+   "id": "04-014",
+   "name": "A prior candidate reachable in the object graph is refused even when the working tree is clean",
+   "rule": "The fence proves the clean room; it never asserts it",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:157"
+  },
+  {
+   "id": "04-015",
+   "name": "A clean room that keeps a scoring tool is refused",
+   "rule": "The fence proves the clean room; it never asserts it",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:169"
+  },
+  {
+   "id": "04-016",
+   "name": "A fence with no fenced paths proves no clean room",
+   "rule": "The fence proves the clean room; it never asserts it",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:180"
+  },
+  {
+   "id": "04-017",
+   "name": "A candidate that responded inside the boot budget passes, the margin is said out loud, and the cycle moves to the score",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:193"
+  },
+  {
+   "id": "04-018",
+   "name": "A candidate that has not responded when the boot budget runs out fails the attempt, and the cycle goes back to regenerate",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:206"
+  },
+  {
+   "id": "04-019",
+   "name": "The boot clock covers everything the launch entrypoint does, a build included",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:220"
+  },
+  {
+   "id": "04-020",
+   "name": "No candidate is graded over a harness the self-check did not check",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:232"
+  },
+  {
+   "id": "04-021",
+   "name": "The gate refuses to grade without the identity probe",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:243"
+  },
+  {
+   "id": "04-022",
+   "name": "An identity probe that is not the one the self-check checked does not judge the candidate",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:254"
+  },
+  {
+   "id": "04-023",
+   "name": "A failed harness self-check before the fence fails the cycle at the fence with no score",
+   "rule": "A failed harness self-check fails the cycle, and a cycle failed before the score has no score",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:269"
+  },
+  {
+   "id": "04-024",
+   "name": "A failed harness self-check before a gate attempt fails the cycle at the gate and spends no attempt",
+   "rule": "A failed harness self-check fails the cycle, and a cycle failed before the score has no score",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:280"
+  },
+  {
+   "id": "04-025",
+   "name": "No candidate is regenerated before the clean room is proved",
+   "rule": "A candidate is regenerated for the next gate attempt, within the budget",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:293"
+  },
+  {
+   "id": "04-026",
+   "name": "The last gate attempt the budget allows fails, and the cycle fails without a score",
+   "rule": "A cycle concludes once, passed after its scoreboard or failed at a named stage for a named reason",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:306"
+  },
+  {
+   "id": "04-027",
+   "name": "A refused fence fails the cycle at the fence",
+   "rule": "A cycle concludes once, passed after its scoreboard or failed at a named stage for a named reason",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:318"
   }
  ],
  "counts": {
-  "total": 43
+  "total": 70
  }
 }
