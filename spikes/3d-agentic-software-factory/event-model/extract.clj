@@ -104,10 +104,35 @@
       (let [form (read r false ::eof)]
         (if (= form ::eof) forms (recur (conj forms form)))))))
 
-(def event-model-form
-  (some #(when (and (seq? %) (= 'defeventmodel (first %))) %) 
-        (read-forms (str model-dir "/regeneration_event_model.clj"))))
-(def event-model (json-value (nth event-model-form 2)))
+(def event-model-files
+  (relative-files-with (str model-dir "/event-model") ".clj"))
+
+(def event-model-sources
+  (mapcat
+   (fn [filename]
+     (let [path (str model-dir "/event-model/" filename)
+           source (slurp path)]
+       (for [form (read-forms path)
+             :when (and (seq? form) (= 'defeventmodel (first form)))]
+         {:area (name-of (nth form 1))
+          :file (str model-root-rel "/event-model/" filename)
+          :digest (sha256 source)
+          :model (nth form 2)})))
+   event-model-files))
+
+(def event-model-kinds
+  [:commands :events :read-models :queries :todo-processors :screens :flows])
+
+(def event-model
+  (json-value
+   (into {}
+         (for [kind event-model-kinds
+               :let [blocks (apply merge (keep #(get-in % [:model kind]) event-model-sources))]
+               :when (seq blocks)]
+           [kind blocks]))))
+
+(def event-model-areas
+  (mapv #(select-keys % [:area :file :digest]) event-model-sources))
 
 (defn parse-feature [filename]
   (let [path (str model-dir "/" filename)
@@ -200,7 +225,9 @@
    :sourceCommit source-commit
    :modules modules
    :eventModel event-model
+   :eventModelAreas event-model-areas
    :scenarios scenarios
+   :architecture architecture-source
    :c4 c4-views
    :conformance conformance})
 (spit out (json/generate-string (assoc payload :modelDigest (sha256 (json/generate-string payload)))))
