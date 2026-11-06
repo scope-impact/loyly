@@ -132,7 +132,8 @@ rule FileScore {
     requires: measurement.status = awaiting_score
     -- 5. a grader digest no longer approved, re-checked when the score is filed (H13)
     requires: measurement.filings.all(f => f.grader_digest in approved_grader_digests)
-    -- 6. a filing for another candidate than the gated one (H13)
+    -- 6. a filing for another candidate than the gated one (H13); guarded by:
+    --    FileItemVerdicts.2 (a filing for another candidate is refused when it is filed)
     requires: measurement.filings.all(f => f.candidate_digest = measurement.candidate_digest)
     let checklist = cl/Checklist{cut_id: measurement.cut_id}
     let items = scored_items(checklist, measurement.filings)
@@ -229,6 +230,8 @@ surface VerdictFilingSeam {
     @guarantee PublicSeamOnly
         -- The grader drove the candidate only over its public seam, from fresh state, in
         -- a validation room; nothing it files reaches a builder (AGENTS.md, Ratification).
+        -- Structural: ORC's room policy, not a command, decides it. Verified by: gate
+        -- room-policy (planned; ../regeneration-cycle/domain-design.md, "Checks").
 
     @guarantee ApprovedDigestOnly
         -- Only an approved grader digest files verdicts, and only for the candidate the

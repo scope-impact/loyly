@@ -43,7 +43,10 @@ states what it can rely on and never reach.
    `suite-discovery-empty`, `suite-red`, `boot-budget-exhausted`, `identity-probe-failed`.
    The infrastructure guards are refusals of `record-gate-attempt`, record nothing and spend
    no attempt: no passing self-check for the attempt, the identity probe missing, the probe
-   not the instrument's, the seam answered before boot.
+   not the instrument's, the seam answered before boot. ORC then records the refusal as the
+   event `gate-attempt-refused` (`RecordGateRefusal`), a fact about the room that lets three
+   in a row be counted: the one exception to "refusals are `requires`, not events"
+   (`../decisions.md`, "Calls after R3", 1).
 6. **The boot budget and its margin are recorded** on both verdicts; the margin is the poll
    that answered (`GateAttempt.boot_margin_polls`).
 7. **Gate attempts exhausted is a read-model fact**: `failed_attempts >= budget.gate_attempt_limit`.
@@ -166,28 +169,61 @@ worker replaced, model drift.
 - `ConcludeOnStageTimeout` (R2.1, the stage clock): 1 concluded; 2 a stage without a
   timeout (scoreboard, result).
 
-## Drafts (R3, 2026-11-06)
+## Drafts (R3, 2026-11-06; trimmed in R3.1)
 
-`drafts.feature`: 95 draft scenarios for the 126 must-cover obligations of this context
-(`tools/spec/v2/coverage.py`: each rule's success, each `requires` that is behaviour, each
-invariant, each contract invariant, each guarantee), every one tagged; 0 uncovered. Each
-draft names its rule, file and the Gherkin `Rule:` it goes under, cites the legacy
-`@harness-NNN` it preserves, and suggests a tier. Unit-level, not drafted (15): the idempotent creations (`ProveCleanRoom.7`, `InstallCandidateInGateRoom.3`, `RecordHarnessSelfCheck.3`, `NotePinnedCut.1`, `NoteGoldenWritten.1`, `OpenCycle.2`) and the cycle's own status (`RecordRegeneratedCandidate.6`, the six conclude-policy guards, `PassCycle.3`, `FailCycle.2`). A test of another aggregate's status (a concluded cycle refusing a gate verdict) is behaviour and is drafted.
+`drafts.feature`: 83 draft scenarios (95 in R3) for the 114 must-cover obligations of this
+context (126 in R3; `tools/spec/v2/coverage.py`: each rule's success, each `requires` that
+is behaviour, each invariant, each contract invariant, each guarantee not verified by a
+gate), every one tagged; 0 uncovered. Each draft names its rule, file and the Gherkin
+`Rule:` it goes under, cites the legacy `@harness-NNN` it preserves, and suggests a tier
+(39 minimum, 39 balance, 5 deferred).
+
+Set aside, not drafted (24 unit level, 3 gate-verified):
+
+- **Idempotent creations** (6): `ProveCleanRoom.7`, `InstallCandidateInGateRoom.3`,
+  `RecordHarnessSelfCheck.3`, `NotePinnedCut.1`, `NoteGoldenWritten.1`, `OpenCycle.2`.
+- **The cycle's own status** (9): `RecordRegeneratedCandidate.6`, the six conclude-policy
+  guards, `PassCycle.3`, `FailCycle.2`. A test of another aggregate's status (a concluded
+  cycle refusing a gate verdict) is behaviour and is drafted (`../decisions.md`, "Calls
+  after R3", 2).
+- **Guarded upstream** (9), each by a `guarded by:` comment the coverage gate checks: the
+  seven folds' `exists cycle` (`NoteCleanRoomProved.1` behind `ProveCleanRoom.1`;
+  `NoteGateAttemptPassed.1`, `NoteGateAttemptFailed.1` behind `RecordGateAttempt.11`;
+  `NoteGateAttemptRefused.1` behind `RecordGateRefusal.3`; `NoteMeasurementFiled.1`,
+  `NoteScoreStageFailed.1`, `NoteScoreboardReported.1` behind measurement's `FileScore.1`,
+  `FailScoreStage.1`, `ReportScoreboard.1` and `RecordGateAttempt.11`),
+  `NoteFailedSelfCheck.1` behind `RecordHarnessSelfCheck.5` and `.6`, and
+  `NoteGoldenMoved.1` behind grader lifecycle's `MoveInstrumentGolden.1`.
+- **Gate-verified** (3, "Calls after R3", 3): `BudgetInSecondsAndPolls` (gate
+  `budget-in-seconds-and-polls`), `TheClaimantNeverControlsTheGate` and `ProbeOutOfReach`
+  (gate `room-policy`, planned; see Checks).
+
+R3.1 merged six pairs whose Given and When were the same: the self-check before the fence
+with the cycle it opens; the second self-check before the fence with `OneCyclePerIdentity`;
+the proved clean room with the stage it moves to; each gate verdict with its fold into the
+cycle; the first regenerated candidate with `DoneIsTheGatesVerdict`.
 The product owner accepts a draft by moving it into `spec.feature` (R4).
 
-Glossary lint (R3): the words the glossary says to avoid left the Allium and the event
-model. The field formerly named for the identity check is now `identity_probe_result`
-(`record-gate-attempt`, `gate-attempt-passed`); the fence records its probe; the room loses
-every prior candidate; a refused command's reply is a reply.
+## Checks
+
+The checks that verify this context's structural obligations ("Verified by: gate <name>").
+
+| Check | Verifies | State |
+|---|---|---|
+| `budget-in-seconds-and-polls` (`tools/spec/v2/structural.py`, in `gates.sh`) | contract `GateRoom`, `BudgetInSecondsAndPolls`: the boot budget declared once as seconds and polls (one config block), both on every gate verdict in the Allium and the event model, the margin derived from the poll that answered | real |
+| `room-policy` | guarantees `TheClaimantNeverControlsTheGate`, `ProbeOutOfReach` and measurement's `PublicSeamOnly`: for each room ORC builds (builder, repair, gate, validation) it reads ORC's room policy and proves what is mounted, writable and reachable. The builder and repair rooms hold neither the identity probe nor a scoring tool; the gate room is not a builder room and no builder session has a handle on it; the validation room reaches the candidate only through its public seam. The "fence-like check" of decisions.md H6 | planned: needs ORC's room policy, which arrives with the builder host (open item) |
 
 ## Open questions
 
 Settled by `../decisions.md`: H1, H5, H6, H8, H24, H25, b, "is `seam-answered-before-boot`
 an attempt" (no), and in R2.1 the five questions R2 raised (budget, gate refusals, H15, the
-self-check key, the reworded golden). Still open (also as `open question` in
+self-check key, the reworded golden). Still open (the first also as `open question` in
 `allium/context.allium`):
 
 - **H24** (part): does the self-check key also cover the capture policy? It waits for
   runtime evidence.
 - Is `cycle-failed`'s stage `regenerate` (`candidate-not-regenerated`) enough before builder
   sessions and continuations arrive?
+- **R3.1, the planned `room-policy` check** (Checks): it cannot exist before ORC's room
+  policy does; until then `TheClaimantNeverControlsTheGate`, `ProbeOutOfReach` and
+  `PublicSeamOnly` are verified by nothing that runs.

@@ -1,7 +1,7 @@
 Feature: Measurement, draft scenarios
   Drafts for the Allium obligations of this context (2026-11-06): each rule's success, each
   refusal that is behaviour, each invariant, each contract invariant and each guarantee of
-  allium/. The harness does not read this file. Only the product owner moves a draft into
+  allium/ that no gate verifies. The harness does not read this file. Only the product owner moves a draft into
   spec.feature, under the Rule it names, where the stamper gives it an @item id and the @draft
   tag is dropped. Every noun is a term of .pi/model/GLOSSARY.md.
 
@@ -225,15 +225,6 @@ Feature: Measurement, draft scenarios
       Then filing the item verdicts is refused as a bad verdict reason
       And C-7's measurement has no item verdicts filed
 
-    # cycle-measurement.allium, surface VerdictFilingSeam, guarantee PublicSeamOnly
-    # Suggested tier: deferred
-    @draft @allium-guarantee.PublicSeamOnly
-    Scenario: The grader drives the candidate only over its public seam, from fresh state
-      Given gate attempt 1 of cycle C-7 passed for candidate D-1
-      When ORC runtime runs the grader with approved digest G-1 against D-1 in a validation room
-      Then the grader reaches D-1 only through its public seam, from fresh state
-      And no builder room of C-7 receives anything the grader files
-
   Rule: The score files one measurement of every checklist item; an unreached item fails and stays counted
 
     # cycle-measurement.allium, rule FileScore; invariants CountedWithinTheDenominator and FiledFromAtLeastOneFiling; contract Scoring, invariant EveryChecklistItemInChecklistOrder
@@ -336,16 +327,6 @@ Feature: Measurement, draft scenarios
       Then filing the score is refused as grader not approved
       And C-7's measurement is still awaiting its score
 
-    # cycle-measurement.allium, rule FileScore (requires 6)
-    # Suggested tier: deferred
-    @draft @allium-rule-failure.FileScore.6
-    Scenario: A score holding item verdicts for another candidate than the gated one is refused
-      Given gate attempt 1 of cycle C-7 passed for candidate D-1
-      And item verdicts for candidate D-0 are on record for C-7
-      When ORC runtime files the score of C-7
-      Then filing the score is refused as not the gated candidate
-      And C-7's measurement is still awaiting its score
-
   Rule: A refused score fails the score stage, once, and the score is never retaken within the cycle
 
     # cycle-measurement.allium, rule FailScoreStage
@@ -413,9 +394,9 @@ Feature: Measurement, draft scenarios
       And it has no previous cycle
       And no command of the build loop reads it
 
-    # scoreboard.allium, rule ReportScoreboardOnce (requires 1); invariant OneScoreboardPerCycle
+    # scoreboard.allium, invariant OneScoreboardPerCycle (rule ReportScoreboardOnce, requires 1, is guarded by FileScore 3)
     # Suggested tier: balance
-    @draft @allium-rule-failure.ReportScoreboardOnce.1 @allium-invariant.OneScoreboardPerCycle
+    @draft @allium-invariant.OneScoreboardPerCycle
     Scenario: A cycle's scoreboard is reported once
       Given the measurement of cycle C-7 was filed
       And the scoreboard of C-7 was reported

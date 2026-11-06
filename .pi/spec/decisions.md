@@ -53,3 +53,21 @@ self-check runs again before the gate (H24).
 5. **A golden whose scenario was reworded** fails the self-check, as legacy's oracle fails on any difference; the fix is to re-record it with a logged reason.
 6. **An empty-title heading** is not an item (legacy @harness-021); the stamper reports it loudly.
 7. **The same selection** means the same selected slices, by name, across cuts; whole-plan cycles compare with the last measured whole-plan cycle.
+
+## Calls after R3 (decided 2026-11-06)
+
+1. **Gate refusals are recorded as the event `gate-attempt-refused`.** It is a fact about the
+   room, needed to count three consecutive infrastructure refusals (R2 question 2). This is
+   an exception to "refusals are `requires`, not events", and stated as one: the refused
+   `record-gate-attempt` still records nothing; ORC then records the refusal with
+   `record-gate-refusal`, which spends no attempt.
+2. **The unit-level rule is narrower than Halla Health's.** A status, stage or path refusal
+   is unit level only on the rule's own aggregate (a concluded cycle refusing a gate verdict
+   is behaviour); an `exists`/`not exists` pair is unit level only between sibling rules
+   with the same trigger. A refusal that an earlier `requires` already makes unreachable is
+   set aside only through a checked `guarded by: <Rule>.<n>` annotation
+   (`tools/spec/v2/coverage.py`).
+3. **Structural obligations are not drafted as scenarios.** A guarantee or contract
+   invariant that a command cannot show says "Verified by: gate <name>", naming a gate of
+   `tools/spec/v2` or a harness check; one that cannot exist yet says "(planned)" and is an
+   open item of its context.

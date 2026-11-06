@@ -15,6 +15,8 @@
 --     exits before it boots). ORC then records that the gate refused (RecordGateRefusal),
 --     a fact that spends no attempt either; three in a row fail the cycle for
 --     infrastructure, and the gate stage's timeout bounds them (decisions.md, R2 question 2).
+--     GateAttemptRefused is the one exception to "refusals are requires, not events": a
+--     fact about the room, needed to count the refusals (decisions.md, Calls after R3, 1).
 
 use "context.allium" as ctx
 use "regeneration-cycle.allium" as cyc
@@ -206,7 +208,8 @@ surface Gate {
 
     @guarantee TheClaimantNeverControlsTheGate
         -- The gate room is chosen by ORC and is not the builder's; the gate's verdict,
-        -- never the builder's claim, is done.
+        -- never the builder's claim, is done. Structural: ORC's room policy, not a command,
+        -- decides it. Verified by: gate room-policy (planned; domain-design.md, "Checks").
 
     @guarantee ARefusalSpendsNoAttempt
         -- A seam that answered before boot, a missing identity probe, a probe that is not

@@ -1,22 +1,23 @@
 Feature: Regeneration cycle, draft scenarios
   Drafts for the Allium obligations of this context (2026-11-06): each rule's success, each
   refusal that is behaviour, each invariant, each contract invariant and each guarantee of
-  allium/. The harness does not read this file. Only the product owner moves a draft into
+  allium/ that no gate verifies. The harness does not read this file. Only the product owner moves a draft into
   spec.feature, under the Rule it names, where the stamper gives it an @item id and the @draft
   tag is dropped. Every noun is a term of .pi/model/GLOSSARY.md.
 
   Rule: No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence
 
-    # harness-self-check.allium, rules RecordHarnessSelfCheck, NotePinnedCut and NoteGoldenWritten
+    # harness-self-check.allium, rules RecordHarnessSelfCheck, NotePinnedCut and NoteGoldenWritten; regeneration-cycle.allium, rule OpenCycle
     # Legacy: @harness-065
     # Suggested tier: minimum
-    @draft @allium-rule-success.RecordHarnessSelfCheck @allium-rule-success.NotePinnedCut @allium-rule-success.NoteGoldenWritten
+    @draft @allium-rule-success.RecordHarnessSelfCheck @allium-rule-success.NotePinnedCut @allium-rule-success.NoteGoldenWritten @allium-rule-success.OpenCycle
     Scenario: A passing harness self-check before the fence opens the cycle on a pinned source cut
       Given the operator pinned source cut K-3
       And the instrument goldens "checklist" and "scoreboard-01" were written, goldens digest G-1
       When ORC runtime records the harness self-check of cycle C-7 before the fence, attempt 0, on source cut K-3 at goldens digest G-1 and approved grader digests D-1, outcome passed, with a budget of 3 gate attempts
       Then harness self-check passed is recorded for cycle C-7 before the fence
       And it names harness digest, goldens digest G-1, approved grader digests D-1, its identity probe and the budget
+      And the cycle progress view shows cycle C-7 running at the fence stage for source cut K-3, with the budget of 3 gate attempts, 0 attempts and no candidate
 
     # harness-self-check.allium, rule RecordHarnessSelfCheck (requires 1)
     # Suggested tier: balance
@@ -39,16 +40,6 @@ Feature: Regeneration cycle, draft scenarios
       Then the harness self-check is refused
       And no regeneration cycle C-7 exists
 
-    # harness-self-check.allium, rule NoteGoldenMoved (requires 1)
-    # Suggested tier: deferred
-    @draft @allium-rule-failure.NoteGoldenMoved.1
-    Scenario: A move of an instrument golden the regeneration cycle never heard of changes nothing
-      Given source cut K-3 was pinned
-      And the instrument golden "checklist" was written, goldens digest G-1
-      When grader lifecycle reports that instrument golden "scoreboard-09", never written, moved
-      Then the current goldens digest is still G-1
-      And a harness self-check of cycle C-7 before the fence at goldens digest G-1 is still recorded
-
     # contract HarnessSelfCheckRun, invariant ReproducesEveryGolden
     # Legacy: oracle.sh (legacy-trace 60)
     # Suggested tier: minimum
@@ -70,14 +61,16 @@ Feature: Regeneration cycle, draft scenarios
       Then the harness self-check is refused
       And no regeneration cycle C-7 exists
 
-    # harness-self-check.allium, rule RecordHarnessSelfCheck (requires 5)
+    # harness-self-check.allium, rule RecordHarnessSelfCheck (requires 5); regeneration-cycle.allium, invariant OneCyclePerIdentity
     # Suggested tier: balance
-    @draft @allium-rule-failure.RecordHarnessSelfCheck.5
+    @draft @allium-rule-failure.RecordHarnessSelfCheck.5 @allium-invariant.OneCyclePerIdentity
     Scenario: A second harness self-check before the fence of a cycle that already exists is refused
       Given harness self-check passed was recorded for cycle C-7 before the fence, attempt 0, on source cut K-3
-      When ORC runtime records a harness self-check of cycle C-7 before the fence, attempt 1
+      And the clean room of cycle C-7 was proved
+      When ORC runtime records another harness self-check of cycle C-7 before the fence, attempt 1, outcome passed
       Then the harness self-check is refused
       And cycle C-7's harness self-checks are unchanged
+      And the cycle progress view lists cycle C-7 once, at the regenerate stage, with its clean room
 
     # harness-self-check.allium, rule RecordHarnessSelfCheck (requires 6)
     # Legacy: @harness-065
@@ -168,14 +161,15 @@ Feature: Regeneration cycle, draft scenarios
 
   Rule: The fence proves the clean room; it never asserts it
 
-    # clean-room.allium, rule ProveCleanRoom; surface Fence, guarantee ProvedNotAsserted
-    # Legacy: fence.sh (legacy-trace 63 to 65)
+    # clean-room.allium, rule ProveCleanRoom; surface Fence, guarantee ProvedNotAsserted; regeneration-cycle.allium, rule NoteCleanRoomProved
+    # Legacy: fence.sh (legacy-trace 63 to 65), @harness-065
     # Suggested tier: minimum
-    @draft @allium-rule-success.ProveCleanRoom @allium-guarantee.ProvedNotAsserted
-    Scenario: A clean room is proved when every check of the fence's probe holds
+    @draft @allium-rule-success.ProveCleanRoom @allium-guarantee.ProvedNotAsserted @allium-rule-success.NoteCleanRoomProved
+    Scenario: A clean room is proved when every check of the fence's probe holds, and the cycle moves to regenerate
       Given harness self-check passed was recorded for cycle C-7 before the fence on source cut K-3
       When ORC runtime records the clean room of cycle C-7 from source cut K-3 with one root commit, one commit, fenced paths "harness/score.clj" and "harness/cycles", every fenced path matched, none left in the tree and none reachable in the object graph
       Then clean room proved is recorded for cycle C-7, naming its commit and its fenced paths
+      And the cycle progress view shows cycle C-7 at the regenerate stage with its clean room proved
 
     # clean-room.allium, rule ProveCleanRoom (requires 1); surface HarnessSelfCheckRecording, guarantee NoRoomOverAnUncheckedInstrument
     # Legacy: @harness-065
@@ -314,17 +308,6 @@ Feature: Regeneration cycle, draft scenarios
       Then candidate D-1 is installed, read-only, in gate room G-1 for gate attempt 1
       And gate attempt 1 of C-7 awaits its verdict
 
-    # gate-attempt.allium, surface Gate, guarantee TheClaimantNeverControlsTheGate
-    # Suggested tier: minimum
-    @draft @allium-guarantee.TheClaimantNeverControlsTheGate
-    Scenario: A regenerated candidate is a claim until the gate passes it
-      Given candidate D-1 was regenerated for gate attempt 1 of regeneration cycle C-7
-      And the builder session reported the slice built
-      And candidate D-1 was installed in gate room G-1, which ORC chose and the builder room does not reach
-      When the operator reads the cycle progress view of C-7
-      Then C-7 is at the gate, not at the score
-      And gate attempt 1 awaits the verdict of gate room G-1
-
     # gate-attempt.allium, rule InstallCandidateInGateRoom (requires 1)
     # Suggested tier: balance
     @draft @allium-rule-failure.InstallCandidateInGateRoom.1
@@ -365,30 +348,33 @@ Feature: Regeneration cycle, draft scenarios
 
   Rule: The gate records one verdict per attempt, with the boot budget and its margin
 
-    # gate-attempt.allium, rule RecordGateAttempt; invariant AnsweredInsideTheBudget;
-    # surface Gate, guarantee TheMarginIsSaidOutLoud; contract GateRoom, invariant BudgetInSecondsAndPolls
+    # gate-attempt.allium, rule RecordGateAttempt; invariant AnsweredInsideTheBudget; surface Gate, guarantee TheMarginIsSaidOutLoud;
+    # regeneration-cycle.allium, rule NoteGateAttemptPassed
     # Legacy: @harness-056
     # Suggested tier: minimum
-    @draft @allium-rule-success.RecordGateAttempt @allium-invariant.AnsweredInsideTheBudget @allium-guarantee.TheMarginIsSaidOutLoud @allium-boundary.BudgetInSecondsAndPolls
-    Scenario: A candidate that responded inside the boot budget passes, and the margin is said out loud
+    @draft @allium-rule-success.RecordGateAttempt @allium-invariant.AnsweredInsideTheBudget @allium-guarantee.TheMarginIsSaidOutLoud @allium-rule-success.NoteGateAttemptPassed
+    Scenario: A candidate that responded inside the boot budget passes, the margin is said out loud, and the cycle moves to the score
       Given candidate D-1 was installed in gate room G-1 for gate attempt 1 of regeneration cycle C-7
       And the harness self-check before gate attempt 1 passed at harness digest H-1, the current goldens, grader digests R-1 and identity probe digest P-1
       When ORC runtime records gate attempt 1 passed: boot budget 10 seconds as 20 polls, responded on poll 2, identity probe result "kalibra", suite green
       Then gate attempt 1 passed for candidate D-1
       And the verdict carries the boot budget of 10 seconds and 20 polls and the poll that responded, 2
-      And the cycle progress view shows a boot margin of 18 polls
+      And the cycle progress view shows cycle C-7 at the score stage with candidate D-1 and a boot margin of 18 polls
 
-    # gate-attempt.allium, rule RecordGateAttempt (the failed branch); surface Gate, guarantee TheMarginIsSaidOutLoud
+    # gate-attempt.allium, rule RecordGateAttempt (the failed branch); surface Gate, guarantee TheMarginIsSaidOutLoud;
+    # regeneration-cycle.allium, rule NoteGateAttemptFailed and invariant FailedAttemptsNeverExceedAttempts
     # Legacy: @harness-057
     # Suggested tier: minimum
-    @draft @allium-rule-success.RecordGateAttempt @allium-guarantee.TheMarginIsSaidOutLoud
-    Scenario: A candidate that has not responded when the boot budget runs out fails the attempt
-      Given candidate D-1 was installed in gate room G-1 for gate attempt 1 of regeneration cycle C-7
+    @draft @allium-rule-success.RecordGateAttempt @allium-guarantee.TheMarginIsSaidOutLoud @allium-rule-success.NoteGateAttemptFailed @allium-invariant.FailedAttemptsNeverExceedAttempts
+    Scenario: A candidate that has not responded when the boot budget runs out fails the attempt, and the cycle goes back to regenerate
+      Given regeneration cycle C-7 has a budget of 3 gate attempts
+      And candidate D-1 was installed in gate room G-1 for gate attempt 1 of C-7
       And the harness self-check before gate attempt 1 passed
-      When ORC runtime records gate attempt 1 failed with reason boot-budget-exhausted, boot budget 10 seconds as 20 polls
+      When ORC runtime records gate attempt 1 failed with reason boot-budget-exhausted, boot budget 10 seconds as 20 polls, gate evidence root E-1
       Then gate attempt 1 failed with reason boot-budget-exhausted
       And the verdict names the boot budget of 10 seconds and 20 polls
-      And the attempt is spent
+      And the cycle progress view shows cycle C-7 at the regenerate stage with 1 attempt and 1 failed gate attempt
+      And gate evidence root E-1 is the gate evidence a repair room for attempt 2 may mount
 
     # context.allium, contract GateRoom, invariant BootClockStartsAtLaunch
     # Legacy: @harness-058
@@ -604,16 +590,6 @@ Feature: Regeneration cycle, draft scenarios
 
   Rule: A regeneration cycle opens at its first harness self-check, before the fence
 
-    # regeneration-cycle.allium, rule OpenCycle
-    # Legacy: @harness-065
-    # Suggested tier: minimum
-    @draft @allium-rule-success.OpenCycle
-    Scenario: A passing harness self-check before the fence opens the cycle at the fence
-      Given cut K-3 was pinned
-      When ORC runtime records a passing harness self-check before the fence for cycle C-7 at cut K-3, with a budget of 3 gate attempts
-      Then the cycle progress view shows cycle C-7 running at the fence stage for cut K-3
-      And it shows the budget of 3 gate attempts, 0 attempts and no candidate
-
     # regeneration-cycle.allium, rule OpenCycle (requires 1)
     # Suggested tier: deferred
     @draft @allium-rule-failure.OpenCycle.1
@@ -622,16 +598,6 @@ Feature: Regeneration cycle, draft scenarios
       When ORC runtime records a passing harness self-check before the gate for cycle C-7, attempt 1
       Then the cycle progress view still lists cycle C-7 once, at the gate stage
       And its attempts, budget and harness digest are unchanged
-
-    # regeneration-cycle.allium, invariant OneCyclePerIdentity
-    # Suggested tier: balance
-    @draft @allium-invariant.OneCyclePerIdentity
-    Scenario: A second harness self-check before the fence never opens cycle C-7 again
-      Given a passing harness self-check before the fence opened cycle C-7 at cut K-3
-      And the clean room of cycle C-7 was proved
-      When ORC runtime records another passing harness self-check before the fence for cycle C-7
-      Then the harness self-check is refused
-      And the cycle progress view lists cycle C-7 once, at the regenerate stage, with its clean room
 
   Rule: A failed harness self-check fails the cycle, and a cycle failed before the score has no score
 
@@ -658,70 +624,17 @@ Feature: Regeneration cycle, draft scenarios
       And no candidate is installed in a gate room for attempt 2
       And the cycle progress view still shows 1 failed gate attempt
 
-    # regeneration-cycle.allium, rule NoteFailedSelfCheck (requires 1)
-    # Suggested tier: deferred
-    @draft @allium-rule-failure.NoteFailedSelfCheck.1
-    Scenario: A failed harness self-check before a gate attempt of an unknown cycle opens no cycle
-      Given no harness self-check was ever recorded for cycle C-9
-      When ORC runtime records a failed harness self-check before the gate for cycle C-9, attempt 1
-      Then the cycle progress view shows no cycle C-9
-      And no regeneration cycle is failed
-
-  Rule: The stages advance only on recorded stage facts
-
-    # regeneration-cycle.allium, rule NoteCleanRoomProved
-    # Legacy: @harness-065
-    # Suggested tier: minimum
-    @draft @allium-rule-success.NoteCleanRoomProved
-    Scenario: A proved clean room moves the cycle to regenerate
-      Given a passing harness self-check before the fence opened cycle C-7 at cut K-3
-      When ORC runtime proves the clean room of cycle C-7
-      Then the cycle progress view shows cycle C-7 at the regenerate stage with its clean room proved
-
-    # regeneration-cycle.allium, rule NoteGateAttemptPassed
-    # Suggested tier: minimum
-    @draft @allium-rule-success.NoteGateAttemptPassed
-    Scenario: A passed gate attempt moves the cycle to the score
-      Given cycle C-7 is running at the gate stage with its candidate for attempt 1 installed in a gate room
-      And a passing harness self-check before the gate was recorded for attempt 1
-      When ORC runtime records gate attempt 1 of cycle C-7 passed
-      Then the cycle progress view shows cycle C-7 at the score stage with candidate digest of attempt 1
-
-    # regeneration-cycle.allium, rule NoteGateAttemptFailed; invariant FailedAttemptsNeverExceedAttempts
-    # Suggested tier: minimum
-    @draft @allium-rule-success.NoteGateAttemptFailed @allium-invariant.FailedAttemptsNeverExceedAttempts
-    Scenario: A failed gate attempt with attempts left sends the cycle back to regenerate
-      Given cycle C-7 has a budget of 3 gate attempts and its candidate for attempt 1 installed in a gate room
-      When ORC runtime records gate attempt 1 of cycle C-7 failed with reason suite red and gate evidence root E-1
-      Then the cycle progress view shows cycle C-7 at the regenerate stage with 1 attempt and 1 failed gate attempt
-      And gate evidence root E-1 is the gate evidence a repair room for attempt 2 may mount
-
-    # regeneration-cycle.allium, rules NoteCleanRoomProved, NoteGateAttemptPassed, NoteGateAttemptFailed,
-    # NoteGateAttemptRefused (requires 1 each)
-    # Suggested tier: deferred
-    @draft @allium-rule-failure.NoteCleanRoomProved.1 @allium-rule-failure.NoteGateAttemptPassed.1 @allium-rule-failure.NoteGateAttemptFailed.1 @allium-rule-failure.NoteGateAttemptRefused.1
-    Scenario Outline: A stage fact naming a cycle that never opened changes no cycle
-      Given no harness self-check was ever recorded for cycle C-9
-      When the stage fact "<fact>" arrives for cycle C-9
-      Then the cycle progress view shows no cycle C-9
-
-      Examples:
-        | fact                 |
-        | clean room proved    |
-        | gate attempt passed  |
-        | gate attempt failed  |
-        | gate attempt refused |
-
   Rule: A candidate is regenerated for the next gate attempt, within the budget
 
-    # regeneration-cycle.allium, rule RecordRegeneratedCandidate
+    # regeneration-cycle.allium, rule RecordRegeneratedCandidate; surface BuilderRoomBoundary, guarantee DoneIsTheGatesVerdict
     # Suggested tier: minimum
-    @draft @allium-rule-success.RecordRegeneratedCandidate
-    Scenario: The first candidate is a fresh generation for gate attempt 1
+    @draft @allium-rule-success.RecordRegeneratedCandidate @allium-guarantee.DoneIsTheGatesVerdict
+    Scenario: The first candidate is a fresh generation for gate attempt 1, and a claim, not done
       Given the clean room of cycle C-7 was proved
-      When ORC runtime records the candidate D-1 regenerated for cycle C-7, attempt 1, by fresh generation, mounting no evidence
+      When ORC runtime records the candidate D-1 regenerated for cycle C-7, attempt 1, by fresh generation, mounting no evidence, its builder session reporting the slice done
       Then a candidate regenerated for attempt 1 is recorded with digest D-1
-      And the cycle progress view shows cycle C-7 at the gate stage with 1 attempt and candidate D-1
+      And the cycle progress view shows cycle C-7 running at the gate stage with 1 attempt and candidate D-1, not passed
+      And cycle C-7 concludes only after a gate attempt is recorded in a gate room the builder does not control
 
     # regeneration-cycle.allium, rule RecordRegeneratedCandidate (requires 1)
     # Suggested tier: balance
@@ -809,15 +722,6 @@ Feature: Regeneration cycle, draft scenarios
         | the clean room of cycle C-7 was proved                         | 1       | fresh generation    | gate evidence root E-0              | 0        |
         | gate attempt 1 of cycle C-7 failed with gate evidence root E-1 | 2       | verification repair | the score evidence of cycle C-6     | 1        |
         | gate attempt 1 of cycle C-7 failed with gate evidence root E-1 | 2       | verification repair | gate evidence root E-5 of cycle C-6 | 1        |
-
-    # regeneration-cycle.allium, surface BuilderRoomBoundary, guarantee DoneIsTheGatesVerdict
-    # Suggested tier: minimum
-    @draft @allium-guarantee.DoneIsTheGatesVerdict
-    Scenario: A regenerated candidate is a claim, not done
-      Given the clean room of cycle C-7 was proved
-      When ORC runtime records candidate D-1 regenerated for cycle C-7, attempt 1, its builder session reporting the slice done
-      Then the cycle progress view shows cycle C-7 running at the gate stage, not passed
-      And cycle C-7 concludes only after a gate attempt is recorded in a gate room the builder does not control
 
   Rule: A stage that outlives its timeout fails the cycle for its budget
 
@@ -980,22 +884,7 @@ Feature: Regeneration cycle, draft scenarios
       Then the cycle progress view shows cycle C-7 running at the scoreboard stage with 1 attempt
       And no candidate is regenerated and no gate attempt is recorded for cycle C-7
 
-    # regeneration-cycle.allium, rules NoteMeasurementFiled, NoteScoreStageFailed, NoteScoreboardReported (requires 1 each)
-    # Suggested tier: deferred
-    @draft @allium-rule-failure.NoteMeasurementFiled.1 @allium-rule-failure.NoteScoreStageFailed.1 @allium-rule-failure.NoteScoreboardReported.1
-    Scenario Outline: A measurement fact naming a cycle that never opened changes no cycle
-      Given no harness self-check was ever recorded for cycle C-9
-      When the measurement hands over "<fact>" for cycle C-9
-      Then the cycle progress view shows no cycle C-9
-      And no regeneration cycle is concluded
-
-      Examples:
-        | fact                |
-        | measurement filed   |
-        | score stage failed  |
-        | scoreboard reported |
-
-  Rule: The operator observes a cycle, and the builder never reaches what judges it
+  Rule: The operator observes a cycle, and observing changes nothing
 
     # regeneration-cycle.allium, surface CycleProgress, guarantee ObservingChangesNothing
     # Suggested tier: balance
@@ -1006,11 +895,3 @@ Feature: Regeneration cycle, draft scenarios
       Then both readings show cycle C-7 at the gate stage with 1 attempt
       And no stage fact is recorded for cycle C-7
 
-    # regeneration-cycle.allium, surface BuilderRoomBoundary, guarantee ProbeOutOfReach
-    # Suggested tier: balance
-    @draft @allium-guarantee.ProbeOutOfReach
-    Scenario: The identity probe and the scoring tools are outside the candidate scope
-      Given gate attempt 1 of cycle C-7 failed with gate evidence root E-1
-      When ORC runtime records candidate D-2 regenerated for attempt 2 by verification repair, its builder room mounting E-1
-      Then the candidate scope of that builder room holds neither the identity probe nor any scoring tool
-      And the builder session sees only cut K-3 of cycle C-7

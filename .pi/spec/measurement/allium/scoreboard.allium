@@ -43,6 +43,8 @@ entity Scoreboard {
 -- scoreboard, once.
 rule ReportScoreboardOnce {
     when: cm/MeasurementFiled(cycle_id)
+    -- 1. already reported; guarded by: FileScore.3 (a measurement is filed once, so it
+    --    is handed over once)
     requires: not exists Scoreboard{cycle_id: cycle_id}
     ensures: ReportScoreboard(cycle_id: cycle_id)
 }

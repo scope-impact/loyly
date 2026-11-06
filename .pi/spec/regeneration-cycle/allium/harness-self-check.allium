@@ -138,6 +138,8 @@ rule NoteGoldenWritten {
 rule NoteGoldenMoved {
     when: InstrumentGoldenMoved(lifecycle, golden_id, to_digest, scenario_digest)
     let golden = CurrentGolden{golden_id: golden_id}
+    -- 1. a golden this context never heard written; guarded by:
+    --    grader-lifecycle/MoveInstrumentGolden.1 (only a written golden is moved)
     requires: exists golden
     ensures:
         golden.digest = to_digest

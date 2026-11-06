@@ -1,7 +1,7 @@
 Feature: Cycle preparation, draft scenarios
   Drafts for the Allium obligations of this context (2026-11-06): each rule's success, each
   refusal that is behaviour, each invariant, each contract invariant and each guarantee of
-  allium/. The harness does not read this file. Only the product owner moves a draft into
+  allium/ that no gate verifies. The harness does not read this file. Only the product owner moves a draft into
   spec.feature, under the Rule it names, where the stamper gives it an @item id and the @draft
   tag is dropped. Every noun is a term of .pi/model/GLOSSARY.md.
 

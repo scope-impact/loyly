@@ -103,13 +103,22 @@ rates.
 - `ReportScoreboard`: 1 no measurement filed; 2 already reported. Invariant (R2.1)
   `ComparedWithinTheSelection`.
 
-## Drafts (R3, 2026-11-06)
+## Drafts (R3, 2026-11-06; trimmed in R3.1)
 
-`drafts.feature`: 47 draft scenarios for the 69 must-cover obligations of this context
-(`tools/spec/v2/coverage.py`: each rule's success, each `requires` that is behaviour, each
-invariant, each contract invariant, each guarantee), every one tagged; 0 uncovered. Each
-draft names its rule, file and the Gherkin `Rule:` it goes under, cites the legacy
-`@harness-NNN` it preserves, and suggests a tier. Unit-level, not drafted (8): `DeriveChecklist.6`, `NoteItemIdentity.1`, `NotePinnedCut.1`, `OpenMeasurement.1`, `ReportScoreboard.2` (idempotent creations) and `FileItemVerdicts.8`, `FileScore.4`, `FailScoreStage.3` (the measurement's own status).
+`drafts.feature`: 45 draft scenarios (47 in R3) for the 66 must-cover obligations of this
+context (69 in R3; `tools/spec/v2/coverage.py`: each rule's success, each `requires` that is
+behaviour, each invariant, each contract invariant, each guarantee not verified by a gate),
+every one tagged; 0 uncovered. Each draft names its rule, file and the Gherkin `Rule:` it
+goes under, cites the legacy `@harness-NNN` it preserves, and suggests a tier (32 minimum,
+13 balance). Set aside, not drafted (10 unit level, 1 gate-verified):
+`DeriveChecklist.6`, `NoteItemIdentity.1`, `NotePinnedCut.1`, `OpenMeasurement.1`,
+`ReportScoreboard.2` (idempotent creations); `FileItemVerdicts.8`, `FileScore.4`,
+`FailScoreStage.3` (the measurement's own status); `FileScore.6` (guarded by
+`FileItemVerdicts.2`: a filing for another candidate is refused when it is filed) and
+`ReportScoreboardOnce.1` (guarded by `FileScore.3`: a measurement is filed, so handed over,
+once), each by a `guarded by:` comment the coverage gate checks; guarantee `PublicSeamOnly`
+(gate `room-policy`, planned: `../regeneration-cycle/domain-design.md`, "Checks"; decisions.md,
+"Calls after R3", 3).
 The product owner accepts a draft by moving it into `spec.feature` (R4).
 
 ## Open questions
@@ -121,6 +130,7 @@ Settled by `../decisions.md`: H7 (the field), H13, H26, g. Still open (also as
 - **H16** (can wait): a partial outage still files, with the unreached items failed; an
   `outage` reason is recordable but nothing requires it.
 - **H21** (can wait): should the scoreboard also report graded coverage?
+- **R3.1**: `PublicSeamOnly` waits for the planned `room-policy` check.
 
 Settled in R2.1 (`../decisions.md`, "Questions raised by R2", 7): **the same selection** is
 the same selected slices, by name, across cuts; whole-plan cycles compare with the last

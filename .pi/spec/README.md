@@ -9,6 +9,7 @@ A from-scratch specification of the Pi harness, built in rounds.
 | R2 | Allium (behaviour, the refusals as `requires`) of the legacy core, the product owner's decisions applied, and the `:grain/allium` links | `<context>/allium/`, `legacy-trace.md`, `<context>/domain-design.md` (done) |
 | R2.1 | The product owner's decisions on R2's questions applied: budget exhaustion fails the cycle (reason `budget`, the stage clock), gate refusals counted (three in a row: reason `infrastructure`), the self-check key covers the approved grader digests, a reworded golden fails the self-check, the stamper reports an empty-title heading loudly, "the same selection" is the same slices by name across cuts | `<context>/allium/`, `<context>/event-model/`, `<context>/domain-design.md` (done) |
 | R3 | Draft scenarios for every must-cover Allium obligation (239 obligations, 175 drafts, 0 uncovered), the coverage gate, the Given/When/Then lint and the glossary lint ported to `tools/spec/v2/` | `<context>/drafts.feature`, `<context>/domain-design.md` (done) |
+| R3.1 | Trimmed before review: structural obligations reclassified (11 refusals guarded upstream, set aside by a checked `guarded by:`; 4 guarantees and contract invariants "Verified by: gate", one real check in `tools/spec/v2/structural.py`, one planned), six pairs of drafts merged; 175 drafts → 161, must-cover 239 → 224 | `<context>/drafts.feature`, `<context>/allium/`, `decisions.md` ("Calls after R3"), `tools/spec/v2/` (done) |
 | R4 | The product owner's acceptance: each accepted draft moves into `<context>/spec.feature`, where the stamper gives it an `@item` id and `@draft` is dropped | `<context>/spec.feature` (next) |
 | | Decisions of the product owner after R1 and R2 | `decisions.md` |
 
@@ -86,18 +87,22 @@ Validate: `tools/spec/v2/README.md` (`tools/spec/v2/gates.sh`).
 ## R3: the drafts
 
 ```text
-context             drafts  must-cover  unit-level  obligations per draft
-specification       17      24           2          1.4
-cycle-preparation    5       6           1          1.2
-grader-lifecycle    11      14           1          1.3
-measurement         47      69           8          1.5
-regeneration-cycle  95     126          15          1.4
-total              175     239          27          1.4 (248 tags)
+context             drafts  must-cover  unit-level  gate-verified  obligations per draft
+specification       17      24           2          0              1.4
+cycle-preparation    5       6           1          0              1.2
+grader-lifecycle    11      14           1          0              1.3
+measurement         45      66          10          1              1.5
+regeneration-cycle  83     114          24          3              1.4
+total              161     224          38          4              1.4 (233 tags)
 ```
+
+(After R3.1. R3 had 175 drafts, 239 must-cover, 27 unit-level, 248 tags; measurement 47
+and 69, regeneration-cycle 95 and 126.)
 
 Must-cover (`tools/spec/v2/coverage.py`) = each rule's success, each `requires` less the
 unit-level ones (the rule's own aggregate's status, stage or path; one half of an
 `exists`/`not exists` pair between sibling rules of one trigger; the guard of an idempotent
-creation), each invariant, each contract invariant, and each guarantee not "Verified by:
-gate". Suggested tiers: 104 minimum (every legacy-preserving behaviour), 60 balance, 11
-deferred. Nothing in `drafts.feature` is read by the harness.
+creation; a refusal guarded upstream, by a checked `guarded by:`), each invariant, each
+contract invariant, and each guarantee not "Verified by: gate" (`decisions.md`, "Calls
+after R3"). Suggested tiers: 98 minimum (every legacy-preserving behaviour), 58 balance, 5
+deferred (R3: 104, 60, 11). Nothing in `drafts.feature` is read by the harness.

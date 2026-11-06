@@ -132,6 +132,8 @@ rule OpenCycle {
 rule NoteFailedSelfCheck {
     when: sc/HarnessSelfCheckFailed(cycle_id, cut_id, occasion, attempt, harness_digest, failing_check, detail, budget)
     let cycle = RegenerationCycle{cycle_id: cycle_id}
+    -- 1. the cycle exists before the fence, or not before a gate attempt; guarded by:
+    --    RecordHarnessSelfCheck.5, RecordHarnessSelfCheck.6 (the self-check refuses both)
     requires: (occasion = before_fence implies not exists cycle) and (occasion = before_gate implies exists cycle)
     ensures:
         if occasion = before_fence:
@@ -168,6 +170,8 @@ rule NoteFailedSelfCheck {
 rule NoteCleanRoomProved {
     when: room/CleanRoomProved(cycle_id, cut_id, clean_room_commit, fenced_paths)
     let cycle = RegenerationCycle{cycle_id: cycle_id}
+    -- 1. no such cycle; guarded by: ProveCleanRoom.1 (a clean room is proved only for a
+    --    cycle whose self-check before the fence passed)
     requires: exists cycle
     ensures:
         cycle.clean_room_proved = true
@@ -179,6 +183,8 @@ rule NoteCleanRoomProved {
 rule NoteGateAttemptPassed {
     when: gate/GateAttemptPassed(cycle_id, cut_id, attempt, candidate_digest, boot_budget_seconds, boot_polls, answered_on_poll, identity_probe_result, evidence_root)
     let cycle = RegenerationCycle{cycle_id: cycle_id}
+    -- 1. no such cycle; guarded by: RecordGateAttempt.11 (a verdict is recorded only for an
+    --    existing, running cycle)
     requires: exists cycle
     ensures:
         cycle.stage = score
@@ -192,6 +198,8 @@ rule NoteGateAttemptPassed {
 rule NoteGateAttemptFailed {
     when: gate/GateAttemptFailed(cycle_id, attempt, candidate_digest, reason, boot_budget_seconds, boot_polls, evidence_root, detail)
     let cycle = RegenerationCycle{cycle_id: cycle_id}
+    -- 1. no such cycle; guarded by: RecordGateAttempt.11 (a verdict is recorded only for an
+    --    existing, running cycle)
     requires: exists cycle
     ensures:
         cycle.failed_attempts = cycle.failed_attempts + 1
@@ -207,6 +215,8 @@ rule NoteGateAttemptFailed {
 rule NoteGateAttemptRefused {
     when: gate/GateAttemptRefused(cycle_id, attempt, refusal, detail)
     let cycle = RegenerationCycle{cycle_id: cycle_id}
+    -- 1. no such cycle; guarded by: RecordGateRefusal.3 (a refusal is recorded only for an
+    --    existing, running cycle)
     requires: exists cycle
     ensures: cycle.consecutive_gate_refusals = cycle.consecutive_gate_refusals + 1
 }
@@ -215,6 +225,8 @@ rule NoteGateAttemptRefused {
 rule NoteMeasurementFiled {
     when: MeasurementFiled(measurement, cycle_id)
     let cycle = RegenerationCycle{cycle_id: cycle_id}
+    -- 1. no such cycle; guarded by: measurement/FileScore.1, RecordGateAttempt.11 (a
+    --    measurement opens only on a gate-attempt-passed of an existing cycle)
     requires: exists cycle
     ensures:
         cycle.measurement_filed = true
@@ -225,6 +237,8 @@ rule NoteMeasurementFiled {
 rule NoteScoreStageFailed {
     when: ScoreStageFailed(measurement, cycle_id, refusal)
     let cycle = RegenerationCycle{cycle_id: cycle_id}
+    -- 1. no such cycle; guarded by: measurement/FailScoreStage.1, RecordGateAttempt.11 (a
+    --    measurement opens only on a gate-attempt-passed of an existing cycle)
     requires: exists cycle
     ensures: cycle.score_stage_failed = true
 }
@@ -232,6 +246,9 @@ rule NoteScoreStageFailed {
 rule NoteScoreboardReported {
     when: ScoreboardReported(measurement, cycle_id)
     let cycle = RegenerationCycle{cycle_id: cycle_id}
+    -- 1. no such cycle; guarded by: measurement/ReportScoreboard.1, RecordGateAttempt.11 (a
+    --    scoreboard needs a filed measurement, opened only on a gate-attempt-passed of an
+    --    existing cycle)
     requires: exists cycle
     ensures: cycle.scoreboard_reported = true
 }
@@ -494,6 +511,8 @@ surface BuilderRoomBoundary {
     @guarantee ProbeOutOfReach
         -- The identity probe and the scoring tools are not in the candidate scope; the
         -- builder cannot write what judges it (decisions.md H25; legacy probe.sh).
+        -- Structural: ORC's room policy, not a command, decides it. Verified by: gate
+        -- room-policy (planned; domain-design.md, "Checks").
 }
 
 -- Measurement's handoffs, as this context hears them: only to conclude the cycle.

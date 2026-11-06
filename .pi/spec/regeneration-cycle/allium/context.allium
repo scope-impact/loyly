@@ -131,7 +131,8 @@ contract GateRoom {
     @invariant BudgetInSecondsAndPolls
         -- The boot budget is declared once as seconds and polls together, so they cannot
         -- drift; the margin is the poll that answered, which needs no clock (legacy
-        -- @harness-056, verify.sh [3]).
+        -- @harness-056, verify.sh [3]). Verified by: gate budget-in-seconds-and-polls
+        -- (tools/spec/v2/structural.py).
 
     @invariant RefusalsAreBoundedAndCounted
         -- A refusal to grade spends no attempt. It is bounded by the gate stage's timeout,
