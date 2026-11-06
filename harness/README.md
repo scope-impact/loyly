@@ -97,3 +97,8 @@ not generated. The golden's diff removes exactly their five items (`07-001` to `
 slice 02: ORC launches every builder as a durable Pi session keyed by its tick, in a Gondolin
 room ORC alone chooses. The golden's diff is additions plus the one `total` line (92 → 94). No
 approved grader's scenarios changed.
+
+**2026-11-06: wording replaced.** Every `@skip` tag left on the spec by an earlier executable
+suite was removed. Tags carry no verdict, so item ids, names, rules, and the total are
+unchanged; the golden's diff is only the `source` line numbers of the items below each removed
+tag line. No approved grader's scenarios changed.
