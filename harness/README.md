@@ -31,15 +31,37 @@ the room's candidate, `verify.sh` runs unchanged (with `v2/probe-01.sh`), and th
 event a command produced must lie inside a completed run of its workflow. `v2/event-store-check-test.sh` judges that check on hand-made
 stores.
 
+A context that consumes other contexts' handoffs is built alone too: its room keeps each
+producer's `event-model/handoffs.edn` and nothing else of it (`config.sh` finds them in the
+context's event model), and the gate and the grader hand those events in through the
+candidate's seam, one method per consumed event (`.pi/spec/decisions.md`, "Slice 02"). The
+event-store check allows exactly the consumed handoff types, each held to its contract's
+schema and never counted as the candidate's own, and refuses any other foreign type. Slice 02,
+`measurement`, consumes `specification/scenario-stamped`, `cycle-preparation/source-cut-pinned`
+and `regeneration-cycle/gate-attempt-passed`; its probe is `v2/probe-02.sh`.
+
 After the gate, `harness/v2/score.sh 01 ROOM` scores the cycle: the sealed graders approved for
 spec v2 in `v2/graders.approved.json` (never v1's `graders.approved.json`, whose `01-005`
 is a v1 scenario) run against `ROOM/harness-impl/01-specification/start.sh`, and the legacy
-`score.clj` and `scoreboard.clj` file and report into `harness/cycles/NN/`. With no approved
+`score.clj` and `scoreboard.clj` file and report into `v2/cycles/01/MM/`, cycle `MM` of slice
+01. With no approved
 grader covering the slice it refuses: "score refused: no approved sealed grader". The grader
 of slice 01, `v2/graders/grade_specification.exs`, was authored from the spec alone,
 calibrated by `v2/graders/calibration/calibrate.sh` (a reference stub passes all 15 items,
 each mutant fails the item it breaks), and sealed; `v2/graders.pending.json` asks the
 operator to approve its digest. Until the operator does, a cycle ends at the gate.
+
+**Where a spec-v2 cycle is filed (2026-11-07).** Each slice numbers its own cycles under
+`v2/cycles/NN/` (`01`, `02`, ...), never under `harness/cycles/`. `oracle.sh`, a shared module
+file, reads `harness/cycles/01` as this repository's recorded cycle 01 and judges it against
+`oracle/scoreboard-01.golden`, recorded from spec v1's cycle 01; the first v2 score filed as
+`harness/cycles/01` would have collided with that and turned the oracle red with no instrument
+defect, and moving the golden needs a recorded reason this is not. `score.clj` and
+`scoreboard.clj` find `harness/cycles` from their own location, not from an argument, so
+`v2/score.sh` runs unchanged copies of them in its scratch root, whose `harness/cycles` is a
+link to `v2/cycles/NN`; no shared module file changed and no golden moved. One root per slice
+also makes the legacy scoreboard's "previous cycle" (the number minus one) the last cycle of
+the same selection, the slice, as `.pi/spec/decisions.md` g asks.
 
 ## Differences from the archive, each with its reason
 

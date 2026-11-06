@@ -12,7 +12,8 @@
 #      (harness/v2/probe-NN.sh) within the thirty-second boot budget
 #   2. the event-store check (harness/v2/event-store-check.sh): the Grain store this gate
 #      handed the candidate through LOYLY_GRAIN_STORE, read directly, holds events, each an
-#      event of the slice's event model with exactly its fields (or Grain's or ORC's own), and
+#      event of the slice's event model or a handoff it consumes (handed in through the seam,
+#      as the stubbed producer's fact) with exactly its fields, or Grain's or ORC's own, and
 #      each event a command produced lies inside a completed run of its ORC workflow there
 #
 # Exit 0 is the gate's verdict that the candidate is done. Nothing else is.

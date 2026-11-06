@@ -45,9 +45,13 @@ FENCED_PATHS="archive/legacy-harness/cycles docs/plan impl raw"
 #   FENCED_PATHS  everything a builder of that context must not read, on top of the above:
 #     spec v1      .pi/model (all but GLOSSARY.md, which spec v2 uses), .pi/architecture.md,
 #                  .pi/affordances.schema.json, and its tools (tools/spec, all but v2)
-#     other spec   every other .pi/spec/<context> and .pi/plan link (none is consumed yet: a
-#                  context that consumes a handoff will keep its producer's handoffs.edn),
-#                  the R0 board and the legacy trace (event-storm.*, legacy-trace.md)
+#     other spec   every other .pi/spec/<context> and .pi/plan link, the R0 board and the
+#                  legacy trace (event-storm.*, legacy-trace.md). A producer whose handoff
+#                  events the context consumes (a :<producer>/<event> its event-model names
+#                  that the producer's event-model/handoffs.edn defines) is fenced file by
+#                  file, all but that handoffs.edn: the contract the stubbed neighbour keeps
+#                  (decisions.md, "Slice 02"). Slice 01 consumes none; slice 02 keeps the
+#                  handoffs.edn of specification, cycle-preparation and regeneration-cycle.
 #     prior work   the legacy driver in harness/ (it implements the stamper, the checklist,
 #                  the score, the fence and the gate: every context's earlier answer), its
 #                  archive, tools/spec/v2/stamp.clj, the instrument in harness/v2, and every
@@ -71,13 +75,29 @@ if [[ -n "${SLICE:-}" ]]; then
     _cfg_fence="docs/plan impl raw archive/legacy-harness tools/spec/v2/stamp.clj"
     _cfg_fence+=" .pi/architecture.md .pi/affordances.schema.json"
     _cfg_fence+=" .pi/spec/event-storm.md .pi/spec/event-storm.edn .pi/spec/legacy-trace.md"
+    _cfg_producers=" "
+    for _cfg_k in $(git -C "$_cfg_root" grep -h -o -E ':[a-z][a-z0-9-]*/[a-z][a-z0-9-]*' HEAD \
+                      -- ".pi/spec/$_cfg_ctx/event-model/" 2>/dev/null | sort -u); do
+      _cfg_ns="${_cfg_k#:}"; _cfg_ns="${_cfg_ns%%/*}"
+      [[ "$_cfg_ns" != "$_cfg_ctx" && "$_cfg_producers" != *" $_cfg_ns "* ]] || continue
+      git -C "$_cfg_root" show "HEAD:.pi/spec/$_cfg_ns/event-model/handoffs.edn" 2>/dev/null \
+        | grep -qE "(^|[{[:space:]])$_cfg_k([[:space:]]|\$)" && _cfg_producers+="$_cfg_ns "
+    done
     for _cfg_p in $(git -C "$_cfg_root" ls-tree --name-only HEAD \
                       .pi/model/ tools/spec/ harness/ .pi/spec/ .pi/plan/ harness-impl/ 2>/dev/null); do
       case "$_cfg_p" in
         .pi/model/GLOSSARY.md|tools/spec/v2|harness/config.sh|harness/Makefile|harness/loyly) ;;
         .pi/spec/"$_cfg_ctx"|"$_cfg_link"|"$APP_DIR") ;;
         .pi/spec/*.md|.pi/spec/*.edn) ;;
-        *) _cfg_fence+=" $_cfg_p" ;;
+        *)
+          _cfg_ns="${_cfg_p#.pi/spec/}"
+          if [[ "$_cfg_p" == .pi/spec/* && "$_cfg_producers" == *" $_cfg_ns "* ]]; then
+            for _cfg_f in $(git -C "$_cfg_root" ls-tree -r --name-only HEAD "$_cfg_p/"); do
+              [[ "$_cfg_f" == "$_cfg_p/event-model/handoffs.edn" ]] || _cfg_fence+=" $_cfg_f"
+            done
+          else
+            _cfg_fence+=" $_cfg_p"
+          fi ;;
       esac
     done
     FENCED_PATHS="$_cfg_fence"

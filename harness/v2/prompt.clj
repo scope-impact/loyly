@@ -46,17 +46,39 @@
 (defn- sha256 [s]
   (format "%064x" (BigInteger. 1 (.digest (java.security.MessageDigest/getInstance "SHA-256") (.getBytes s "UTF-8")))))
 
-(def identity-words
-  "What each slice's identity probe (harness/v2/probe-NN.sh) asks, in the builder's words. A
-  slice with no probe has no entry, and no prompt."
-  {"01" (str "the product must stamp a fresh spec file's unstamped scenario through "
-             "`specification/stamp-slice` and report it through `specification/stamped-items`")})
+(def slice-words
+  "What differs between the slices, in the builder's words: :allium, what the context's Allium
+  holds beyond its rules, refusals and invariants; :product, the real work it does; :handoffs,
+  the producers whose handoff contracts it consumes (each .pi/spec/<producer>/event-model/
+  handoffs.edn, the only file of a producer in the room), with how they reach the candidate;
+  :identity, what its identity probe (harness/v2/probe-NN.sh) asks. A slice with no entry has
+  no probe, and no prompt."
+  {"01" {:allium "the contract `ScenarioReading`"
+         :product (str "it reads the spec file it is given with the one "
+                       "reading of Gherkin the contract `ScenarioReading` describes, refuses what the Allium refuses, records "
+                       "its facts as Grain events, answers its query from its read model, and writes each identity it hands "
+                       "out into the spec file.")
+         :identity (str "the product must stamp a fresh spec file's unstamped scenario through "
+                        "`specification/stamp-slice` and report it through `specification/stamped-items`")}
+   "02" {:allium "the contracts `Scoring`, `RateFormat` and `Comparison`"
+         :product (str "it takes the handoffs other contexts hand it, derives a pinned cut's checklist from the "
+                       "reading it is offered, files the approved grader's item verdicts for the gated candidate, files "
+                       "the one measurement of every checklist item (an unreached item fails and stays counted), reports "
+                       "each measured cycle's scoreboard once through its policy, refuses what the Allium refuses, records "
+                       "its facts as Grain events, and answers its queries from its read models.")
+         :handoffs ["specification" "cycle-preparation" "regeneration-cycle"]
+         :identity (str "the product must take a stamped scenario and a pinned cut handed in through "
+                        "`specification/scenario-stamped` and `cycle-preparation/source-cut-pinned`, derive that cut's "
+                        "checklist through `measurement/derive-checklist`, refuse one for a cut never pinned, and report "
+                        "the checklist through `measurement/checklist`")}})
 
 (defn render [slice]
   (let [{:keys [app-dir app-stack plan-dir app-probe]} (config slice)
         _ (when-not (= app-probe (str "harness/v2/probe-" slice ".sh"))
             (die "slice " slice " names no context: no " plan-dir "/" slice "-* link"))
-        _ (when-not (identity-words slice) (die "slice " slice " has no identity probe yet"))
+        {:keys [allium product handoffs identity]} (slice-words slice)
+        _ (when-not identity (die "slice " slice " has no identity probe yet"))
+        contracts (str/join ", " (map #(str "`.pi/spec/" % "/event-model/handoffs.edn`") handoffs))
         link (.getName (io/file app-dir))
         ctx (.getName (.getCanonicalFile (io/file root plan-dir link)))
         spec (str ".pi/spec/" ctx)
@@ -71,18 +93,23 @@
          "Build the product described by the spec in this clean room. The spec is authoritative. Every stamped "
          "Gherkin scenario (`@item-" slice "-NNN`) in `" plan-dir "/" link "/spec.feature` (the same file as `"
          spec "/spec.feature`) is a requirement. Beside it, `" spec "/allium/` (the rules, their refusals as "
-         "`requires`, the invariants and the contract `ScenarioReading`), `" spec "/event-model/*.edn` (the Grain "
+         "`requires`, the invariants and " allium "), `" spec "/event-model/*.edn` (the Grain "
          "Event Model: commands, events, read models, queries and their schemas), `" spec "/domain-design.md`, "
          "`.pi/model/GLOSSARY.md` and `AGENTS.md` explain the domain. `" spec "/drafts.feature` holds scenarios "
          "not yet accepted: they are not requirements. Anything the spec does not say is your choice. There is "
          "no previous implementation in the room and you must not look for one elsewhere: the room is your only "
          "input.\n\n"
          "## The product\n\n"
-         "One context, rebuilt from scratch. It does real work: it reads the spec file it is given with the one "
-         "reading of Gherkin the contract `ScenarioReading` describes, refuses what the Allium refuses, records "
-         "its facts as Grain events, answers its query from its read model, and writes each identity it hands "
-         "out into the spec file. A result returned without doing the work (a canned answer, a fixed id, a "
+         "One context, rebuilt from scratch. It does real work: " product " A result returned without doing the work (a canned answer, a fixed id, a "
          "number that is not in the store) is a defect the score will find.\n\n"
+         (when (seq handoffs)
+           (str "## The handoffs it consumes\n\n"
+                "Other contexts are not in the room and are not built here. The events this context consumes from "
+                "them are defined by their contracts, " contracts ", the only files of those contexts in the room. "
+                "Until the contexts are assembled, their facts reach your product through its seam: one method per "
+                "consumed event, named as the event, its params the contract's schema; the product appends exactly "
+                "that event to its Grain store, as the producer would, and its read models fold it. `" spec
+                "/seam.md` says how.\n\n"))
          "## The stack\n\n"
          "Exactly: " app-stack ".\n\n"
          "- ORC: " (coord orc) "\n"
@@ -91,7 +118,8 @@
          "`projects/grain-event-store-sqlite-v3` (the SQLite store) and `projects/grain-code-agent-tools` (the "
          "event-model validator and its boot guard).\n\n"
          "Register the room's event model as given: load `" spec "/event-model/*.edn` from the room itself (the "
-         "candidate runs at `" app-dir "`, so they are at `../../" spec "/event-model/`), merge the fragments, and "
+         "candidate runs at `" app-dir "`, so they are at `../../" spec "/event-model/`), merge the fragments"
+         (when (seq handoffs) " with the consumed events of the handoff contracts above") ", and "
          "register the area with Grain's `register-event-model!`. Never copy or edit them. Implement each "
          "command, query, read model and event of the model as the Grain building block of the same name, the "
          "event's schema being the model's schema, and make start refuse, through Grain's boot guard "
@@ -107,10 +135,10 @@
          "run the whole suite, exit non-zero on any failure, and discover at least one real test. Then it runs `"
          app-dir "/start.sh` with `LOYLY_GRAIN_STORE` set to a fresh file, which must start the product speaking "
          "the seam (one JSON object per line, one response per request carrying its id, nothing else on stdout; "
-         "diagnostics go to stderr). Within thirty seconds of start.sh launching, " (identity-words slice)
+         "diagnostics go to stderr). Within thirty seconds of start.sh launching, " identity
          ": identity is proved by domain behaviour, not by a name. Then the gate "
          "reads the Grain store directly, not through your seam: it must hold your events, every event an event "
-         "of the model with exactly that event's fields, or ORC's own, and each event a command produced written "
+         "of the model" (when (seq handoffs) " or a handoff it consumes") " with exactly that event's fields, or ORC's own, and each event a command produced written "
          "inside a run of its ORC workflow, in that same store, that completed with success: a store without "
          "ORC's workflow runs fails the gate. Slow builds belong in test.sh, which is untimed, not in "
          "start.sh. Both scripts must be executable and work from any working directory.\n\n"
