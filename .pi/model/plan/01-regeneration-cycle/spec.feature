@@ -16,7 +16,6 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       And its fenced tree identity is recorded
       And prior implementation and measurement paths are absent from the reachable cut history
 
-    @skip
     @item-01-002 @minimum
     Scenario: The builder cannot modify or escape the cut
       Given a prepared cut and a declared candidate scope
@@ -25,7 +24,6 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       And writes outside the declared candidate scope are denied
       And network access, judge material, host credentials, and host session resources are unavailable
 
-    @skip
     @item-01-003 @minimum
     Scenario: The clean room holds the spec, not an answer or a judge
       Given the repository holds implementations, measurements, reports, and the instrument
@@ -35,7 +33,6 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       And the instrument, its calibration fixtures, and the harness that grades are absent from the room
       And a fenced path that matches nothing stops the fence instead of passing silently
 
-    @skip
     @item-01-004 @deferred
     Scenario: Slice mappings reconstruct the complete cut-bound system view
       Given a prepared cut contains Gherkin behavior items grouped into slices, components, and containers
@@ -73,7 +70,6 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       When the operator submits a slice cycle for that selection
       Then submission is refused before a builder starts
 
-    @skip
     @item-01-008 @balance
     Scenario: Repeating the same request identity returns the original receipt
       Given a regeneration request has already been submitted
@@ -83,7 +79,6 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
 
   Rule: The builder produces a new candidate from the pinned contract
 
-    @skip
     @item-01-009 @minimum
     Scenario: The builder starts fresh and must produce workspace output
       Given an approved selection and a prepared cut
@@ -102,7 +97,6 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
 
   Rule: Independent checks determine whether the cycle passes
 
-    @skip
     @item-01-011 @minimum
     Scenario: Verification rejects an incomplete runnable application contract
       Given the builder has produced a candidate
@@ -111,7 +105,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       And the app must define a healthcheck without publishing host ports
       And every required compose operation and candidate test command must succeed
 
-    @skip @playback
+    @playback
     @item-01-012 @minimum
     Scenario: A final result requires every independent gate to pass
       Given the gate, the score, and the measurement have completed
@@ -122,7 +116,6 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
 
   Rule: Evidence and measurement survive workflow process restarts
 
-    @skip
     @item-01-013 @balance
     Scenario: Recording the same evidence twice is idempotent
       Given an observation or cycle measurement has already been recorded
@@ -130,7 +123,6 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       Then the existing durable record is returned
       But the same identity with different evidence is refused
 
-    @skip
     @item-01-014 @balance
     Scenario: A completed measurement is readable after the harness restarts
       Given a cycle measurement was recorded through its validated command
@@ -139,7 +131,6 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
 
   Rule: Backend limitations remain explicit
 
-    @skip
     @item-01-015 @balance
     Scenario: Host execution cannot be reported as independently graded
       Given a regeneration cycle uses the host backend

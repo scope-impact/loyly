@@ -4,7 +4,6 @@ Feature: Session-independent generation and regeneration control
 
   Rule: The Pi harness is a strictly validated Grain service area inside ORC
 
-    @skip
     @item-04-001 @deferred
     Scenario: Startup refuses a harness topology that differs from its Grain Event Model
       Given ORC and the Pi harness have loaded their registered Grain service areas
@@ -13,7 +12,6 @@ Feature: Session-independent generation and regeneration control
       And missing, extra, or mismatched runtime blocks prevent startup
       And CI also resolves every required Grain-to-Allium trace link
 
-    @skip
     @item-04-002 @deferred
     Scenario: Public harness operations use Grain commands and queries
       Given the Pi harness is running inside ORC's tenant-scoped Grain runtime
@@ -22,7 +20,6 @@ Feature: Session-independent generation and regeneration control
       And every public read passes through a registered Grain query over a read model
       And no public operation appends a bare event or reads the event store directly
 
-    @skip
     @item-04-003 @deferred
     Scenario: Harness progress is projected from authoritative ORC events
       Given an approved cycle is executing through ORC
@@ -33,7 +30,6 @@ Feature: Session-independent generation and regeneration control
 
   Rule: Every public operation refuses malformed or conflicting identities
 
-    @skip
     @item-04-004 @balance
     Scenario: An LLM proposes a reviewable slice but cannot approve it
       Given an operator describes the behavior to regenerate against a prepared cut
@@ -45,7 +41,6 @@ Feature: Session-independent generation and regeneration control
       But that transcript is not part of the approved execution contract
       And no generation or regeneration starts until the operator approves its exact digest
 
-    @skip
     @item-04-005 @balance
     Scenario: Cut preparation refuses an invalid or colliding identity
       Given a cut request does not name a full source commit or supported backend
@@ -61,7 +56,6 @@ Feature: Session-independent generation and regeneration control
       Then no selection contract is recorded
       And the refusal identifies the unresolved denominator
 
-    @skip
     @item-04-007 @balance
     Scenario: Submission refuses an unsafe candidate scope
       Given an approved selection
@@ -85,7 +79,6 @@ Feature: Session-independent generation and regeneration control
       When the operator waits for that identity
       Then the request is refused without starting new work
 
-    @skip
     @item-04-010 @deferred
     Scenario: A durable task remains observable after worker restart
       Given an ORC task receipt was returned before the worker stopped
@@ -95,7 +88,6 @@ Feature: Session-independent generation and regeneration control
 
   Rule: The reviewed preparation binds every cycle-defining choice
 
-    @skip
     @item-04-011 @deferred
     Scenario: Approval binds the complete cycle preparation and diagram
       Given an approved slice selection
@@ -104,7 +96,6 @@ Feature: Session-independent generation and regeneration control
       And approval accepts only that exact preparation digest
       And changing any bound field requires a new preparation
 
-    @skip
     @item-04-012 @balance
     Scenario: A sealed grader is used only after manual approval of its exact digest
       Given a calibrated grader was sealed for a selection's scenario digests
@@ -115,7 +106,6 @@ Feature: Session-independent generation and regeneration control
 
   Rule: Any operator session can drive the outer lifecycle
 
-    @skip
     @item-04-013 @deferred
     Scenario: The control plane does not depend on one interactive session implementation
       Given a Codex, Pi, or other authorized operator session
@@ -124,7 +114,6 @@ Feature: Session-independent generation and regeneration control
       And ORC owns its bounded prompt, tool surface, retries, termination, and result
       And disconnecting that session does not stop the internal ORC cycle
 
-    @skip
     @item-04-014 @deferred
     Scenario: Live progress reconciles with durable ORC execution state
       Given a cycle is running and ORC emits stage notifications
@@ -144,7 +133,6 @@ Feature: Session-independent generation and regeneration control
       But observation cannot change the builder transcript or candidate
       And the builder cannot read the operator transcript or independent grader evidence
 
-    @skip
     @item-04-016 @deferred
     Scenario: Intervention is explicit and provenance-recorded
       Given a builder session is active or completed
@@ -153,7 +141,6 @@ Feature: Session-independent generation and regeneration control
       And the resulting candidate is marked as assisted
       And a completed builder session is never silently mutated
 
-    @skip
     @item-04-017 @deferred
     Scenario: A builder transcript is restored with its matching workspace generation
       Given a builder session committed model turns and VM tool results

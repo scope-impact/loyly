@@ -6,7 +6,6 @@ Feature: The regeneration cycle
 
   Rule: ORC owns the complete ordered cycle
 
-    @skip
     @item-02-001 @balance
     Scenario: A regeneration cycle follows the declared stage order
       Given an approved selection starts a cycle
@@ -15,7 +14,6 @@ Feature: The regeneration cycle
       And adapter completion cannot reorder or skip an ORC stage
       And missing, skipped, timed-out, or inconclusive evidence remains its own outcome
 
-    @skip
     @item-02-002 @balance
     Scenario: ORC exposes the declared stage order
       Given the Pi harness ORC worker is running
@@ -29,7 +27,6 @@ Feature: The regeneration cycle
 
   Rule: The fence and the gate feed the build loop; the score never does
 
-    @skip
     @item-02-003 @minimum
     Scenario: The fence refuses to build a room for an instrument nobody checked
       Given the harness and the sealed instrument for the approved selection
@@ -38,7 +35,6 @@ Feature: The regeneration cycle
       And a passing self-check is reused only for an identical harness digest
       And a failing self-check stops the cycle before regeneration with the failing check named
 
-    @skip
     @item-02-004 @minimum
     Scenario: The gate ratifies done; the builder cannot
       Given the builder reports that the candidate is complete
@@ -48,7 +44,6 @@ Feature: The regeneration cycle
       And a failed gate starts a fresh builder session with only the preceding candidate and the gate's evidence
       And the cycle fails at the gate after three regenerate attempts
 
-    @skip
     @item-02-005 @minimum
     Scenario: The score reports to a person and never into the loop
       Given a candidate passed the gate
@@ -57,7 +52,6 @@ Feature: The regeneration cycle
       And no score verdict, evidence, or failure reaches any builder session
       And a failed score never starts another regeneration within the cycle
 
-    @skip
     @item-02-006 @balance
     Scenario: A slice without a human affordance contract does not invent a UI
       Given the approved slice is not selected by the project's affordance contract
@@ -67,7 +61,6 @@ Feature: The regeneration cycle
 
   Rule: Independent rooms and evidence preserve provenance
 
-    @skip
     @item-02-007 @balance
     Scenario: Evidence identity cannot be reused for different content
       Given an observation exists for one cycle, item, kind, and producer
@@ -75,7 +68,6 @@ Feature: The regeneration cycle
       Then recording is refused as a conflict
       And the original observation remains authoritative
 
-    @skip
     @item-02-008 @balance
     Scenario: Evidence reports are derived projections
       Given a validated observation was recorded
@@ -85,7 +77,6 @@ Feature: The regeneration cycle
 
   Rule: Non-success outcomes remain explicit and measurable
 
-    @skip
     @item-02-009 @balance
     Scenario Outline: A non-successful stage cannot disappear from the result
       Given the <stage> stage is refused, skipped, times out, or returns inconclusive evidence
@@ -102,7 +93,6 @@ Feature: The regeneration cycle
 
   Rule: The running harness proves its identity by domain behavior, not by name
 
-    @skip
     @item-02-010 @minimum
     Scenario: The running harness proves its identity by answering its cycle contract
       Given the harness is started with start.sh speaking JSON-RPC over stdio
@@ -110,7 +100,6 @@ Feature: The regeneration cycle
       Then the response names the harness "pi-harness"
       And it lists the cycle stages fence, regenerate, gate, score, and scoreboard in that order
 
-    @skip
     @item-02-011 @minimum
     Scenario: The gate boots the harness within a thirty-second budget and reports the margin
       Given the candidate passed its whole suite
@@ -121,7 +110,6 @@ Feature: The regeneration cycle
 
   Rule: The first regenerate attempt builds one slice at a time
 
-    @skip
     @item-02-012 @balance
     Scenario: The first attempt starts one fresh builder per selected slice in plan order
       Given an approved selection of several plan slices
@@ -130,7 +118,6 @@ Feature: The regeneration cycle
       And each builder is told which slice it carries and reads the whole spec in the clean room
       And the gate runs once, on the candidate the last slice builder left
 
-    @skip
     @item-02-013 @balance
     Scenario: A slice builder receives only the clean room and this cycle's candidate so far
       Given an earlier slice builder of the same cycle wrote the candidate
@@ -138,7 +125,6 @@ Feature: The regeneration cycle
       Then it reads the clean room and the candidate as the earlier builder left it
       And it receives no earlier builder's transcript, no candidate from an earlier cycle, and no gate or score evidence
 
-    @skip
     @item-02-014 @balance
     Scenario: A slice builder continues while it lists its own slice's items uncarried
       Given a slice builder's turn ends while its UNCARRIED.md still names items of its slice

@@ -19,7 +19,7 @@ The architecture this contract specifies is summarized in
 
 The target contract must not be read as a claim that every behavior is already
 implemented. A regenerated harness is measured by the sealed graders an operator approved
-(`harness/graders.approved.json`); the `@e2e` and `@skip` tags left on scenarios by an earlier
+(`harness/graders.approved.json`); the `@e2e` tags left on scenarios by an earlier
 executable suite carry no verdict.
 
 Each item also carries one build tier, on the same line as its `@item` tag. A tier carries no

@@ -4,7 +4,7 @@ Feature: Authoritative and complete runtime evidence
 
   Rule: Runtime evidence preserves authority and collection quality
 
-    @skip @gondolin
+    @gondolin
     @item-05-001 @deferred
     Scenario: A score preserves its Playwright trace
       Given the sealed grader drives the candidate only through its public seam
@@ -13,7 +13,6 @@ Feature: Authoritative and complete runtime evidence
       And the measurement binds the trace archive digest
       And a missing Playwright trace makes the score incomplete
 
-    @skip
     @item-05-002 @deferred
     Scenario: Candidate telemetry cannot author an independent verdict
       Given the candidate emits a runtime signal claiming an invariant passed
@@ -22,7 +21,6 @@ Feature: Authoritative and complete runtime evidence
       Then the candidate signal is retained as evidence
       But it cannot produce a passing item observation
 
-    @skip
     @item-05-003 @deferred
     Scenario: Missing or dropped required signals are inconclusive
       Given the sealed grader carries the generic evaluator for the runtime signals declared by the approved project model
@@ -33,7 +31,6 @@ Feature: Authoritative and complete runtime evidence
       And collection status identifies the affected signal kind and reason
       And diagnostic profiles remain available but cannot author a verdict
 
-    @skip
     @item-05-004 @deferred
     Scenario: A passing invariant uses one correlated candidate subject
       Given an accepted domain event and every required projection snapshot
@@ -49,7 +46,6 @@ Feature: Authoritative and complete runtime evidence
       When Pi requests the executable regeneration workflow contract
       Then the observation includes the field "artifacts"
 
-    @skip
     @item-05-006 @deferred
     Scenario: Runtime evidence is scored independently of behavior
       Given the independent execution emitted runtime evidence
@@ -59,7 +55,6 @@ Feature: Authoritative and complete runtime evidence
       And the behavioral failure cannot skip or author the runtime-evidence verdict
       And an item passes only when both evaluators pass
 
-    @skip
     @item-05-007 @deferred
     Scenario: Runtime evidence is selected entirely from the pinned project model
       Given each selected item has a runtime evidence contract in the pinned project model
@@ -77,7 +72,6 @@ Feature: Authoritative and complete runtime evidence
       And both name the same candidate subject and grader digests
       And neither projection can change the recorded verdict
 
-    @skip
     @item-05-009 @deferred
     Scenario: An operator Pi session profiles a Gondolin VM directly
       Given an isolated Pi observer session has YOLO tool access inside Gondolin
@@ -85,7 +79,7 @@ Feature: Authoritative and complete runtime evidence
       Then its profile artifacts are recorded as operator-invoked evidence
       And the profile cannot become an authoritative grade without deterministic validation
 
-    @skip @gondolin
+    @gondolin
     @item-05-010 @deferred
     Scenario: Each comparison cycle isolates evidence from its pinned OTel capture policy
       Given the sealed harness snapshot supplies a declarative OTel capture policy

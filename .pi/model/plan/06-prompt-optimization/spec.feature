@@ -11,7 +11,6 @@ Feature: Independently measured builder-instruction optimization
       When the operator requests builder-prompt optimization
       Then optimization is refused before an instruction candidate is evaluated
 
-    @skip
     @item-06-002 @deferred
     Scenario: Every instruction candidate is scored by independent regeneration gates
       Given valid training and validation examples
@@ -21,7 +20,6 @@ Feature: Independently measured builder-instruction optimization
       And the metric does not require an approved sealed grader
       And the builder cannot supply or alter that metric
 
-    @skip
     @item-06-003 @deferred
     Scenario: Only the winning instruction for each purpose becomes durably active
       Given prompt optimization evaluated one or more instruction candidates for one purpose
@@ -30,7 +28,6 @@ Feature: Independently measured builder-instruction optimization
       And ORC durably deactivates the prior instruction for that purpose
       And subsequent cycles recover the selected instruction after process restart
 
-    @skip
     @item-06-004 @deferred
     Scenario: GEPA optimizes the complete strategy sent through one prompt seam
       Given ORC owns a complete model-directed strategy and deterministic runtime task context
@@ -39,7 +36,6 @@ Feature: Independently measured builder-instruction optimization
       And the evaluated prompt digest equals the prompt digest received by the builder
       And adapter code neither appends instructions nor constructs production prompt text
 
-    @skip
     @item-06-005 @deferred
     Scenario: Generation and verification repair are independent optimization targets
       Given regeneration and gate repair use different builder purposes
@@ -48,7 +44,6 @@ Feature: Independently measured builder-instruction optimization
       And the repair candidate is measured from fixed failed-gate inputs
       And behavior supplied by one purpose cannot improve the other purpose's score
 
-    @skip
     @item-06-006 @deferred
     Scenario: Bedrock reflection is pinned and provenance recorded
       Given the operator selects an enabled Bedrock reflection model
@@ -57,7 +52,6 @@ Feature: Independently measured builder-instruction optimization
       And the proposal records sanitized model-call and usage evidence
       And AWS credentials do not enter prompts, events, transcripts, or repository state
 
-    @skip
     @item-06-007 @balance
     Scenario: ORC owns every builder and grader-author production prompt
       Given a regeneration builder, gate-repair builder, or grader author starts
@@ -66,7 +60,6 @@ Feature: Independently measured builder-instruction optimization
       And ORC binds their digests to the deterministic runtime context and rendered prompt
       And TypeScript transports the prompt without constructing or appending production text
 
-    @skip
     @item-06-008 @balance
     Scenario: Harness enforcement does not depend on model compliance
       Given a production prompt describes the candidate and execution boundaries
@@ -75,7 +68,6 @@ Feature: Independently measured builder-instruction optimization
       And verification still enforces stack, Compose, health, tests, affordances, and evidence
       And prompt text cannot weaken an independent gate
 
-    @skip
     @item-06-009 @deferred
     Scenario: Bedrock reflection and candidate execution remain separate roles
       Given GEPA uses the pinned Bedrock reflection model
