@@ -11,15 +11,51 @@ built on ORC and Grain.
   ───────────────────────     ─────────────────────────      ──────────────────────────
   harness/  (legacy tools)    .pi/model/                     .pi/harness/harness-impl/
     fence.sh  ─────────────►    plan/NN-slug/spec.feature  ─►  a harness on ORC + Grain
-    Pi builder                  affordances.yaml (seam)          ORC: the cycle, retries,
-    verify.sh (gate)            *.allium, GLOSSARY.md                 resume
-    sealed graders              Grain event model                Grain: facts that span runs
-    score.clj, scoreboard.clj                                     (approvals, receipts,
+    Pi builder                  *.allium (behaviour)             ORC: the cycle, retries,
+    verify.sh (gate)            event-model/ (Grain topology)         resume
+    sealed graders              affordances.yaml (the seam)      Grain: facts that span runs
+    score.clj, scoreboard.clj   COVERAGE.md, GLOSSARY.md          (approvals, receipts,
                                                                    measurements)
 ```
 
 `bb harness/regen.clj <run-id>` runs the loop end to end. ORC belongs only in the product. The driver keeps its records as committed files:
 `harness/cycles/NN/` for each cycle and `harness/graders.approved.json` for the approved graders.
+
+## The contract
+
+`.pi/model/` follows ORC's and Grain's conventions. Each kind of spec states one thing, once,
+and links to the others by name:
+
+| Kind | Where | States | Checked by |
+|---|---|---|---|
+| Gherkin | `plan/NN-slug/spec.feature` | one stamped scenario per checklist item (83) | the checklist, sealed graders, score |
+| Allium | `*.allium`, flat as in ORC's `specs/`, each with a Scope / Includes / Excludes header | behaviour: entities, rules, invariants, surfaces | `allium check` and `allium analyse` on the folder: 0 errors, 0 warnings |
+| Grain Event Model | `event-model/<ns path>/event_model.clj`, one area per file, namespace matching path | topology: commands, events, read models, queries, the dispatch processor, the screen, flows | Grain's `validate-spec-composition`: every command links an Allium rule, the screen an Allium surface |
+| Affordances | `affordances.yaml`, in the format of `model/loyly/affordances.yaml` | the public seam: 16 actions over JSON-RPC on stdio, each naming its Allium rule and its Grain command or query | `.pi/affordances.schema.json` (its `seam` variant) |
+
+`COVERAGE.md` is the ledger, as in ORC: slice → spec, command → rule, action → method → Grain
+block → rule, ownership, the verification commands, and the diagnostic baseline.
+
+```text
+          seam (affordances.yaml)        topology (event-model/)            behaviour (*.allium)
+operator ──► SubmitApprovedSlice ──► submit-cycle-task ──► task-submitted ──► SubmitCycleTask
+                                                │
+                                   dispatch-submitted-task ──► :sheet/tick-tree (ORC)
+                                                                     │
+          ExecutionStatus ◄── cycle-progress ◄── :sheet/* events ◄───┘
+```
+
+Ownership in Allium: `regeneration-cycle.allium` owns cuts, composition, selections,
+preparations, and cycles, and declares the one `actor Operator`. `operator-control-plane.allium`
+owns tasks, idempotent submission, dispatch, progress, builder sessions, and measurement reads,
+and imports the domain. Approval starts nothing: ORC is dispatched once per submitted task.
+`submit-cycle` submits the whole plan under a fixed preparation that submission approves;
+a slice runs through preview, approve, `prepare-cycle`, `approve-preparation`, and
+`submit-approved-slice`.
+
+ORC registers no `:sheet` Event Model, so `event-model/orc/sheet/event_model.clj` declares the
+one command and five events the harness uses, copied from ORC's pinned `orc-service`
+(`af086675`); it must stay in step with that pin (ADR 0002, amended).
 
 ## The loop
 
@@ -74,7 +110,17 @@ by the operator on 2026-11-05. Its own suite is green (25 tests). It passes 14 o
 items and lists 60 items uncarried in its `UNCARRIED.md`, among them sealed scoring, gate
 repair, Gondolin and resume.
 
+It was built from the contract before 2026-11-06: the seam was `rpc.yaml`, with no
+`prepare-cycle` or `approve-preparation`. It records six `:loyly.pi-harness/*` events with
+open `[:map]` schemas by appending them directly, with no commands, read models, queries, or
+registered Event Model, so strict Event Model validation would refuse it. The 14 earlier seam
+methods are unchanged, so the sealed graders still apply to it and to the next cycle.
+
 ## Open
 
-- Grader coverage: 17 of 83 items.
+- Grader coverage: 17 of 83 items. The two new seam actions are not graded.
+- No cycle has run from the current contract; the next (`harness-regen-16`) is cycle 09 and is
+  compared with cycle 08 on shared items.
+- Nothing in the repository runs the Allium and Grain checks automatically; `COVERAGE.md`
+  gives the commands.
 - `harness/config.sh` points at the Pi harness contract; regenerating Löyly needs its own config.
