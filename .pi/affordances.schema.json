@@ -1,0 +1,262 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://loyly.example/schema/affordances.schema.json",
+  "title": "Affordance contract",
+  "description": "Extensible minimum vocabulary for a framework-neutral UX, agent-tool, and test-step contract. A contract with screens and ui is reached through HTTP calls; a contract that declares a seam has no UI and is reached through that seam.",
+  "type": "object",
+  "required": ["version", "audience", "actions", "types", "conformance", "steps"],
+  "additionalProperties": true,
+  "properties": {
+    "slice": { "type": "string", "minLength": 1 },
+    "slices": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "version": { "type": "integer", "minimum": 1 },
+    "audience": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "actions": { "type": "object", "minProperties": 1 },
+    "types": { "type": "object", "additionalProperties": { "$ref": "#/$defs/typeDefinition" } },
+    "screens": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/screen" }
+    },
+    "ui": { "$ref": "#/$defs/ui" },
+    "conformance": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "steps": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } },
+    "seam": { "$ref": "#/$defs/seam" }
+  },
+  "$defs": {
+    "action": {
+      "type": "object",
+      "required": ["intent", "submit", "audience", "input", "call", "tool"],
+      "additionalProperties": true,
+      "properties": {
+        "intent": { "type": "string", "minLength": 1 },
+        "submit": { "type": "string", "minLength": 1 },
+        "audience": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "readOnly": { "type": "boolean" },
+        "input": { "type": "object", "additionalProperties": { "$ref": "#/$defs/input" } },
+        "outcomes": { "type": "object", "additionalProperties": { "$ref": "#/$defs/message" } },
+        "rejections": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/rejection" }
+        },
+        "call": { "$ref": "#/$defs/call" },
+        "tool": { "$ref": "#/$defs/tool" }
+      }
+    },
+    "input": {
+      "type": "object",
+      "required": ["component", "type", "label"],
+      "additionalProperties": true,
+      "properties": {
+        "component": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "minLength": 1 },
+        "required": { "type": "boolean" },
+        "label": { "type": "string", "minLength": 1 },
+        "example": {},
+        "of": { "type": "string" },
+        "separator": { "type": "string" }
+      }
+    },
+    "message": {
+      "type": "object",
+      "required": ["must"],
+      "additionalProperties": true,
+      "properties": { "must": { "type": "string", "minLength": 1 } }
+    },
+    "rejection": {
+      "type": "object",
+      "required": ["must"],
+      "additionalProperties": true,
+      "properties": {
+        "must": { "type": "string", "minLength": 1 },
+        "offers": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "links": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "with": {}
+      },
+      "oneOf": [
+        { "required": ["offers"] },
+        { "required": ["links"] },
+        {
+          "not": { "anyOf": [{ "required": ["offers"] }, { "required": ["links"] }] }
+        }
+      ]
+    },
+    "call": {
+      "type": "object",
+      "required": ["method", "path"],
+      "additionalProperties": true,
+      "properties": {
+        "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+        "path": { "type": "string", "pattern": "^/" },
+        "body": { "type": "object" },
+        "query": { "type": "object" }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": true,
+      "properties": { "name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" } }
+    },
+    "screen": {
+      "type": "object",
+      "required": ["path", "offers"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "pattern": "^/" },
+        "offers": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "links": { "type": "object", "additionalProperties": { "type": "string" } },
+        "reachedFrom": { "type": "string" },
+        "must": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "heading": { "type": "string" },
+            "buttons": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+          }
+        },
+        "seen": { "type": "string" }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "required": ["action", "submit", "outcome", "refusal"],
+      "additionalProperties": true,
+      "properties": {
+        "action": { "type": "string" },
+        "submit": { "type": "string" },
+        "outcome": { "type": "string" },
+        "refusal": { "type": "string" },
+        "tokens": { "type": "string" },
+        "tokensOnly": { "type": "boolean" }
+      }
+    },
+    "typeDefinition": { "type": "object", "minProperties": 1, "additionalProperties": true },
+    "alliumReference": {
+      "type": "object",
+      "required": ["spec"],
+      "additionalProperties": false,
+      "properties": {
+        "spec": { "type": "string", "pattern": "\\.allium$" },
+        "rule": { "type": "string", "minLength": 1 },
+        "surface": { "type": "string", "minLength": 1 }
+      },
+      "oneOf": [{ "required": ["rule"] }, { "required": ["surface"] }]
+    },
+    "seam": {
+      "type": "object",
+      "required": ["transport", "framing", "start"],
+      "additionalProperties": true,
+      "properties": {
+        "transport": { "enum": ["json-rpc-over-stdio"] },
+        "framing": {
+          "type": "object",
+          "required": ["request", "response", "rule"],
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        },
+        "start": { "type": "string", "minLength": 1 },
+        "environment": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        },
+        "errors": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "seamAction": {
+      "type": "object",
+      "required": ["intent", "audience", "input", "call", "outcomes", "tool"],
+      "additionalProperties": true,
+      "properties": {
+        "intent": { "type": "string", "minLength": 1 },
+        "audience": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "readOnly": { "type": "boolean" },
+        "input": { "type": "object", "additionalProperties": { "$ref": "#/$defs/seamInput" } },
+        "call": { "$ref": "#/$defs/seamCall" },
+        "outcomes": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/$defs/seamOutcome" }
+        },
+        "rejections": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/seamRejection" }
+        },
+        "tool": { "$ref": "#/$defs/tool" }
+      }
+    },
+    "seamInput": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": true,
+      "properties": {
+        "type": { "type": "string", "minLength": 1 },
+        "required": { "type": "boolean" },
+        "of": { "type": "string" },
+        "description": { "type": "string" },
+        "example": {}
+      }
+    },
+    "seamCall": {
+      "type": "object",
+      "required": ["rpc"],
+      "additionalProperties": false,
+      "properties": { "rpc": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" } }
+    },
+    "seamOutcome": {
+      "type": "object",
+      "required": ["result", "allium"],
+      "additionalProperties": true,
+      "properties": {
+        "result": {},
+        "when": { "type": "string" },
+        "allium": { "$ref": "#/$defs/alliumReference" }
+      }
+    },
+    "seamRejection": {
+      "type": "object",
+      "required": ["when", "allium"],
+      "additionalProperties": true,
+      "properties": {
+        "when": { "type": "string", "minLength": 1 },
+        "allium": { "$ref": "#/$defs/alliumReference" }
+      }
+    }
+  },
+  "if": { "required": ["seam"] },
+  "then": {
+    "properties": {
+      "actions": { "additionalProperties": { "$ref": "#/$defs/seamAction" } }
+    }
+  },
+  "else": {
+    "required": ["screens", "ui"],
+    "properties": { "actions": { "additionalProperties": { "$ref": "#/$defs/action" } } }
+  }
+}

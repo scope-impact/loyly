@@ -1,0 +1,308 @@
+-- allium: 3
+-- regeneration-cycle.allium
+--
+-- Scope: observable behaviour of the session-hosted ORC regeneration workflow.
+-- Product behaviour belongs to model/<project>; ORC runtime behaviour belongs to ORC.
+-- Includes: cuts and their composed system view, slice selection and its approval by
+-- digest, cycle preparation and its approval, submission, and start.
+-- Excludes: the cycle's stages (execution-pipeline.allium), the instrument
+-- (instrument.allium), and ORC's runtime behaviour.
+
+-- A person, or a Pi or Codex session acting for one, who approves and submits work. The
+-- session is the handle the operator acts through; no other spec governs it.
+entity OperatorSession {
+    identity: String
+}
+
+actor Operator {
+    identified_by: OperatorSession where identity != ""
+}
+
+enum ExecutionBackend { host | gondolin }
+enum SelectionStatus { awaiting_approval | approved }
+enum PreparationStatus { awaiting_approval | approved }
+enum ExecutionProfile { host_development | gondolin_isolated | automatic }
+enum CycleStatus { submitted | running | passed | failed }
+
+value Digest { value: String }
+value SourceCommit { value: String }
+value CandidateScope { paths: List<String> }
+
+entity RegenerationCut {
+    identity: String
+    source_commit: SourceCommit
+    tree_digest: Digest
+    backend: ExecutionBackend
+    fenced: Boolean
+}
+entity SelectionItem {
+    identity: String
+    scenario_digest: Digest
+    name: String
+    rule_name: String
+    source: String
+}
+entity SliceSelection {
+    identity: String
+    digest: Digest
+    status: SelectionStatus
+    cut: RegenerationCut
+    project_identity: String
+    container_identity: String
+    component_identity: String
+    slice_identity: String
+    items: List<SelectionItem>
+
+    transitions status {
+        awaiting_approval -> approved
+        terminal: approved
+    }
+}
+entity SystemComposition {
+    cut: RegenerationCut
+    digest: Digest
+    slice_mappings: List<String>
+}
+entity CyclePreparation {
+    identity: String
+    digest: Digest
+    status: PreparationStatus
+    selection: SliceSelection
+    scope: CandidateScope
+    target_stack: String
+    execution_profile: ExecutionProfile
+    cut_digest: Digest
+    grader_digest: Digest
+    diagram_digest: Digest
+    max_outer_cycles: Integer
+
+    transitions status {
+        awaiting_approval -> approved
+        terminal: approved
+    }
+}
+entity RegenerationCycle {
+    identity: String
+    preparation: CyclePreparation
+    parent_cycle_identity: String?
+    status: CycleStatus
+    candidate_digest: Digest?
+
+    transitions status {
+        submitted -> running
+        running -> passed
+        running -> failed
+        terminal: passed, failed
+    }
+}
+
+rule PrepareCut {
+    when: PrepareRegenerationCut(operator, source_commit, backend)
+    ensures: RegenerationCut.created(
+        identity: prepared_cut_identity(source_commit, backend),
+        source_commit: source_commit,
+        tree_digest: fenced_tree_digest(source_commit),
+        backend: backend,
+        fenced: true
+    )
+}
+
+rule ComposeCutSystemView {
+    when: ComposeSystemView(operator, cut)
+    requires: cut.fenced
+    let slice_mappings = map_behavior_items_to_slices_components_and_containers(cut)
+    requires: every_gherkin_behavior_item_appears_exactly_once(cut, slice_mappings)
+    requires: reduce_to_system_view(slice_mappings) = complete_system_view(cut)
+    requires: decompose_system_view(complete_system_view(cut)) = slice_mappings
+    ensures: SystemComposition.created(
+        cut: cut,
+        digest: deterministic_composition_digest(cut, slice_mappings),
+        slice_mappings: slice_mappings
+    )
+}
+
+rule PreviewSelection {
+    when: PreviewSliceSelection(operator, cut, project_identity, slice_identity, requested_items)
+    requires: cut.fenced
+    requires: slice_identity in valid_system_composition(cut)
+    let resolved_items = resolve_items(cut, project_identity, slice_identity, requested_items)
+    requires: resolved_items.count > 0
+    ensures: SliceSelection.created(
+        identity: deterministic_selection_identity(cut, project_identity, slice_identity, resolved_items),
+        digest: deterministic_selection_digest(cut, project_identity, slice_identity, resolved_items),
+        status: awaiting_approval,
+        cut: cut,
+        project_identity: project_identity,
+        container_identity: container_for(cut, slice_identity),
+        component_identity: component_for(cut, slice_identity),
+        slice_identity: slice_identity,
+        items: resolved_items
+    )
+}
+
+rule ProposeSelectionFromIntent {
+    when: ProposeSliceSelection(operator, cut, project_identity, operator_intent)
+    requires: cut.fenced
+    let proposed_scope = llm_propose_existing_slice_and_items(
+        cut, project_identity, operator_intent)
+    requires: proposed_scope.belongs_to(valid_system_composition(cut))
+    let resolved_items = resolve_items(
+        cut, project_identity, proposed_scope.slice_identity, proposed_scope.item_identities)
+    requires: resolved_items.count > 0
+    ensures: SliceSelection.created(
+        identity: deterministic_selection_identity(
+            cut, project_identity, proposed_scope.slice_identity, resolved_items),
+        digest: deterministic_selection_digest(
+            cut, project_identity, proposed_scope.slice_identity, resolved_items),
+        status: awaiting_approval,
+        cut: cut,
+        project_identity: project_identity,
+        container_identity: container_for(cut, proposed_scope.slice_identity),
+        component_identity: component_for(cut, proposed_scope.slice_identity),
+        slice_identity: proposed_scope.slice_identity,
+        items: resolved_items
+    )
+}
+
+rule ApproveSelection {
+    when: ApproveSliceSelection(operator, selection, digest)
+    requires: selection.status = awaiting_approval
+    requires: digest = selection.digest
+    ensures: selection.status = approved
+}
+
+rule PrepareCycle {
+    when: PrepareRegenerationCycle(operator, preparation_identity, selection, scope,
+                                   target_stack, execution_profile, cut_digest,
+                                   grader_digest, diagram_digest, max_outer_cycles)
+    requires: selection.status = approved
+    requires: scope_is_safe(scope)
+    requires: max_outer_cycles > 0
+    ensures: CyclePreparation.created(
+        identity: preparation_identity,
+        digest: deterministic_preparation_digest(
+            selection, scope, target_stack, execution_profile, cut_digest,
+            grader_digest, diagram_digest, max_outer_cycles),
+        status: awaiting_approval,
+        selection: selection,
+        scope: scope,
+        target_stack: target_stack,
+        execution_profile: execution_profile,
+        cut_digest: cut_digest,
+        grader_digest: grader_digest,
+        diagram_digest: diagram_digest,
+        max_outer_cycles: max_outer_cycles
+    )
+}
+
+rule ApprovePreparation {
+    when: ApproveCyclePreparation(operator, preparation, digest)
+    requires: preparation.status = awaiting_approval
+    requires: digest = preparation.digest
+    ensures: preparation.status = approved
+}
+
+-- The whole plan of the pinned cut is a fixed preparation: the whole-plan selection, the
+-- configured scope, target stack, and execution profile, the approved graders, and one outer
+-- cycle. Submitting it is its approval, as in the legacy shape.
+rule ApproveWholePlanBySubmission {
+    when: SubmitWholePlanRegeneration(operator, request_identity, request_digest)
+    let preparation = whole_plan_preparation(pinned_cut())
+    requires: preparation.selection.items.count > 0
+    requires: not exists RegenerationCycle{identity: request_identity}
+    ensures: CyclePreparation.created(
+        identity: whole_plan_preparation_identity(pinned_cut()),
+        digest: preparation.digest,
+        status: approved,
+        selection: preparation.selection,
+        scope: preparation.scope,
+        target_stack: preparation.target_stack,
+        execution_profile: preparation.execution_profile,
+        cut_digest: preparation.cut_digest,
+        grader_digest: preparation.grader_digest,
+        diagram_digest: preparation.diagram_digest,
+        max_outer_cycles: 1
+    )
+    ensures: RegenerationCycle.created(
+        identity: request_identity,
+        preparation: last_created_preparation(whole_plan_preparation_identity(pinned_cut())),
+        parent_cycle_identity: null,
+        status: submitted,
+        candidate_digest: null
+    )
+}
+
+rule SubmitCycle {
+    when: SubmitRegenerationCycle(operator, request_identity, request_digest, preparation, parent_cycle_identity)
+    requires: preparation.status = approved
+    requires: preparation.selection.items.count > 0
+    requires: not exists RegenerationCycle{identity: request_identity}
+    ensures: RegenerationCycle.created(
+        identity: request_identity,
+        preparation: preparation,
+        parent_cycle_identity: parent_cycle_identity,
+        status: submitted,
+        candidate_digest: null
+    )
+}
+
+-- The cycle's stages (fence, regenerate, gate, score, scoreboard) are owned by
+-- execution-pipeline.allium; scoring is owned by instrument.allium.
+rule StartCycle {
+    when: StartRegenerationCycle(cycle)
+    requires: cycle.status = submitted
+    ensures: cycle.status = running
+    ensures: FenceRequested(cycle: cycle)
+}
+
+invariant ApprovedSelectionDigestIsStable {
+    for selection in SliceSelections:
+        selection.status = approved implies
+            selection.digest = deterministic_selection_digest(
+                selection.cut,
+                selection.project_identity,
+                selection.slice_identity,
+                selection.items)
+}
+
+invariant ApprovedPreparationDigestIsStable {
+    for preparation in CyclePreparations:
+        preparation.status = approved implies
+            preparation.digest = deterministic_preparation_digest(
+                preparation.selection,
+                preparation.scope,
+                preparation.target_stack,
+                preparation.execution_profile,
+                preparation.cut_digest,
+                preparation.grader_digest,
+                preparation.diagram_digest,
+                preparation.max_outer_cycles)
+}
+
+surface RegenerationHarness {
+    facing operator: Operator
+
+    provides:
+        PrepareRegenerationCut(operator, source_commit, backend)
+        ComposeSystemView(operator, cut)
+        ProposeSliceSelection(operator, cut, project_identity, operator_intent)
+        PreviewSliceSelection(operator, cut, project_identity, slice_identity, requested_items)
+        ApproveSliceSelection(operator, selection, digest)
+        PrepareRegenerationCycle(operator, preparation_identity, selection, scope,
+                                 target_stack, execution_profile, cut_digest,
+                                 grader_digest, diagram_digest, max_outer_cycles)
+        ApproveCyclePreparation(operator, preparation, digest)
+        SubmitRegenerationCycle(operator, request_identity, request_digest, preparation, parent_cycle_identity)
+        SubmitWholePlanRegeneration(operator, request_identity, request_digest)
+
+    @guarantee BuilderIsolation
+        -- The builder reads a fenced cut, writes only the declared scope, and does not inherit the operator transcript.
+
+    @guarantee ApprovedChoicesOnly
+        -- A cycle runs only from an approved preparation, which binds the cut, the selection,
+        -- the scope, the target stack, and the approved sealed grader digest.
+
+    @guarantee IndependentMeasurement
+        -- The builder cannot author the gate, the grader, the score, or the measurement used to judge its cycle.
+}
+-- End of observable regeneration-cycle contract.

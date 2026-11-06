@@ -1,0 +1,329 @@
+-- allium: 3
+-- operator-control-plane.allium
+--
+-- Scope: observable, session-agnostic control-plane behaviour: how an operator submits,
+-- waits for, and observes regeneration work. ORC owns task execution events.
+-- Includes: tasks and receipts, idempotent submission, dispatch to ORC, task lifecycle,
+-- cycle progress projected from ORC facts, builder session observation and intervention,
+-- child cycles, and durable measurement receipts.
+-- Excludes: cuts, selections, preparations, and cycles (regeneration-cycle.allium, imported
+-- as cycle), ORC's own execution semantics (ORC specs/orc-service.allium), the cycle's
+-- stages (execution-pipeline.allium), and the seam (affordances.yaml).
+
+use "./regeneration-cycle.allium" as cycle
+
+enum HarnessTaskKind { cut_preparation | regeneration_cycle }
+enum HarnessTaskStatus { submitted | running | completed | failed }
+enum BuilderSessionStatus { opening | active | paused | completed | failed }
+enum InterventionKind { pause | steer | fork }
+
+value RequestDigest { value: String }
+
+entity HarnessTask {
+    identity: String
+    kind: HarnessTaskKind
+    request_identity: String
+    request_digest: RequestDigest
+    status: HarnessTaskStatus
+    trace_identity: String?
+    outcome: String?
+    preparation_identity: String?
+    parent_cycle_identity: String?
+
+    transitions status {
+        submitted -> running
+        running -> completed
+        running -> failed
+        terminal: completed, failed
+    }
+}
+
+entity CycleProgressView {
+    cycle_identity: String
+    trace_identity: String
+    stage: String
+    status: HarnessTaskStatus
+    builder_session_identity: String?
+    durable_cursor: String?
+}
+
+entity BuilderSessionReference {
+    identity: String
+    cycle_identity: String
+    operation_identity: String
+    stage: String
+    attempt: Integer
+    status: BuilderSessionStatus
+    workspace_generation: String?
+    assisted: Boolean
+    last_intervention: InterventionKind?
+}
+
+entity DurableMeasurementReceipt {
+    cycle_identity: String
+    selection_identity: String
+    total: Integer
+    passed: Integer
+    failed: Integer
+    complete: Boolean
+}
+
+rule ValidateHarnessGrainServiceArea {
+    when: StartPiHarnessGrainServiceArea(runtime)
+    requires: runtime = orc_grain_runtime()
+    requires: registered_service_area_loaded(":loyly.pi-harness")
+    requires: strict_event_model_matches_live_registries(runtime, ":loyly.pi-harness")
+    requires: every_required_allium_trace_link_resolves(":loyly.pi-harness")
+    ensures: PiHarnessControlPlaneAvailable(runtime: runtime)
+}
+
+-- Approval alone starts nothing: ORC is dispatched once for each submitted task.
+rule DispatchSubmittedTaskToOrc {
+    when: task: HarnessTask.created
+    requires: not orc_tick_dispatched_for(task.identity)
+    ensures: OrcGrainCommandDispatched(
+        task_identity: task.identity,
+        command_identity: deterministic_orc_command_identity(task),
+        preparation_identity: task.preparation_identity
+    )
+}
+
+rule PrepareCutTask {
+    when: PrepareRegenerationCut(operator_session, request_identity, request_digest, source_commit, backend)
+    requires: full_source_commit(source_commit)
+    requires: supported_backend(backend)
+    requires: not exists HarnessTask{request_identity: request_identity}
+    ensures: HarnessTask.created(
+        identity: next_task_identity(),
+        kind: cut_preparation,
+        request_identity: request_identity,
+        request_digest: request_digest,
+        status: submitted,
+        trace_identity: null,
+        outcome: null
+    )
+}
+
+rule SubmitCycleTask {
+    when: SubmitRegenerationCycle(operator_session, request_identity, request_digest,
+                                  preparation, parent_cycle_identity)
+    requires: preparation.status = approved
+    requires: fixed_bounded_execution_contract(preparation)
+    requires: preparation.selection.items.count > 0
+    requires: not exists HarnessTask{request_identity: request_identity}
+    ensures: HarnessTask.created(
+        identity: next_task_identity(),
+        kind: regeneration_cycle,
+        request_identity: request_identity,
+        request_digest: request_digest,
+        status: submitted,
+        trace_identity: null,
+        outcome: null,
+        preparation_identity: preparation.identity,
+        parent_cycle_identity: parent_cycle_identity
+    )
+}
+
+-- Submitting the whole plan submits its fixed preparation (regeneration-cycle.allium
+-- ApproveWholePlanBySubmission).
+rule SubmitWholePlanCycle {
+    when: SubmitWholePlanRegeneration(operator_session, request_identity, request_digest)
+    requires: not exists HarnessTask{request_identity: request_identity}
+    ensures: HarnessTask.created(
+        identity: next_task_identity(),
+        kind: regeneration_cycle,
+        request_identity: request_identity,
+        request_digest: request_digest,
+        status: submitted,
+        trace_identity: null,
+        outcome: null,
+        preparation_identity: whole_plan_preparation_identity(pinned_cut()),
+        parent_cycle_identity: null
+    )
+}
+
+rule RepeatIdenticalSubmission {
+    when: RepeatRegenerationSubmission(operator_session, task, supplied_digest)
+    requires: task.kind = regeneration_cycle
+    requires: supplied_digest = task.request_digest
+    ensures: ExistingTaskReceiptReturned(task: task)
+}
+
+rule RefuseConflictingSubmission {
+    when: RepeatRegenerationSubmission(operator_session, task, different_digest)
+    requires: different_digest != task.request_digest
+    ensures: SubmissionRefused(reason: "request identity conflict")
+}
+
+rule StartHarnessTask {
+    when: OrcTaskStarted(task, trace_identity)
+    requires: task.status = submitted
+    ensures: task.status = running
+    ensures: task.trace_identity = trace_identity
+}
+
+rule CompleteHarnessTask {
+    when: OrcTaskCompleted(task, outcome)
+    requires: task.status = running
+    ensures: task.status = completed
+    ensures: task.outcome = outcome
+}
+
+rule FailHarnessTask {
+    when: OrcTaskFailed(task, stage, reason)
+    requires: task.status = running
+    ensures: task.status = failed
+    ensures: task.outcome = terminal_failure(stage, reason)
+}
+
+rule WaitForHarnessTask {
+    when: WaitRegenerationTask(operator_session, task)
+    requires: task.status = completed or task.status = failed
+    ensures: TerminalTaskOutcomeReturned(task: task)
+}
+
+rule ReadDurableMeasurement {
+    when: ReadCycleMeasurement(operator_session, cycle_identity)
+    requires: exists DurableMeasurementReceipt{cycle_identity: cycle_identity}
+    ensures: DurableMeasurementReturned(cycle_identity: cycle_identity)
+}
+
+rule ProjectCycleProgress {
+    when: OrcExecutionEventProjected(task, stage, status, builder_session_identity, durable_cursor)
+    requires: task.kind = regeneration_cycle
+    requires: task.trace_identity != null
+    ensures: CycleProgressProjected(
+        cycle_identity: task.request_identity,
+        trace_identity: task.trace_identity,
+        stage: stage,
+        status: status,
+        builder_session_identity: builder_session_identity,
+        durable_cursor: durable_cursor
+    )
+}
+
+invariant HarnessDoesNotDuplicateOrcExecutionFacts {
+    for progress in CycleProgressViews:
+        projection_source(progress) = authoritative_orc_sheet_events(progress.trace_identity) and
+        not exists HarnessProgressEvent{cycle_identity: progress.cycle_identity}
+}
+
+rule ReadCycleProgress {
+    when: QueryCycleProgress(operator_session, cycle_identity)
+    requires: exists CycleProgressView{cycle_identity: cycle_identity}
+    ensures: ReconciledCycleProgressReturned(cycle_identity: cycle_identity)
+}
+
+rule RegisterBuilderSessionReference {
+    when: OrcBuilderSessionOpened(task, identity, operation_identity, stage, attempt)
+    requires: task.kind = regeneration_cycle
+    requires: task.status = running
+    requires: not exists BuilderSessionReference{operation_identity: operation_identity}
+    ensures: BuilderSessionReference.created(
+        identity: identity,
+        cycle_identity: task.request_identity,
+        operation_identity: operation_identity,
+        stage: stage,
+        attempt: attempt,
+        status: opening,
+        workspace_generation: null,
+        assisted: false
+    )
+}
+
+rule UpdateBuilderSessionReference {
+    when: OrcBuilderSessionStateObserved(builder_session, status, workspace_generation)
+    ensures: builder_session.status = status
+    ensures: builder_session.workspace_generation = workspace_generation
+}
+
+rule ObserveBuilderSession {
+    when: OpenBuilderSession(operator_session, builder_session)
+    ensures: ReadOnlyBuilderSessionViewReturned(
+        builder_session_identity: builder_session.identity,
+        operation_identity: builder_session.operation_identity,
+        workspace_generation: builder_session.workspace_generation
+    )
+    ensures: builder_session.assisted = builder_session.assisted
+}
+
+rule InterveneInBuilderSession {
+    when: InterveneBuilderSession(operator_session, builder_session, intervention_kind)
+    requires: safe_intervention_boundary(builder_session, intervention_kind)
+    ensures: BuilderInterventionRecorded(
+        builder_session_identity: builder_session.identity,
+        kind: intervention_kind
+    )
+    ensures: builder_session.last_intervention = intervention_kind
+    ensures: ResultingBuilderWorkMarkedAssisted(builder_session: builder_session)
+}
+
+rule ContinueWithChildCycle {
+    when: PrepareChildCycle(operator_session, parent_task, child_preparation, reason)
+    requires: parent_task.status = completed or parent_task.status = failed
+    requires: child_preparation.status = approved
+    requires: within_outer_cycle_budget(parent_task, child_preparation)
+    ensures: ChildCycleLineageRecorded(
+        parent_cycle_identity: parent_task.request_identity,
+        preparation_identity: child_preparation.identity,
+        reason: reason
+    )
+}
+
+invariant OneRequestNamesOneTask {
+    for task in HarnessTasks:
+        count(HarnessTasks where request_identity = task.request_identity) = 1
+}
+
+invariant TerminalOutcomeIsStable {
+    for task in HarnessTasks:
+        task.status = completed or task.status = failed implies task.outcome != null
+}
+
+invariant ProgressViewIsNotWorkflowAuthority {
+    for progress in CycleProgressViews:
+        progress.status = projected_orc_task_status(progress.trace_identity)
+}
+
+invariant BuilderObservationDoesNotAssist {
+    for builder_session in BuilderSessionReferences:
+        read_only_observation(builder_session.identity) implies
+            builder_session.assisted = prior_assisted_state(builder_session.identity)
+}
+
+surface RegenerationControlPlane {
+    facing operator_session: cycle/Operator
+
+    provides:
+        PrepareRegenerationCut(operator_session, request_identity, request_digest, source_commit, backend)
+        SubmitRegenerationCycle(operator_session, request_identity, request_digest,
+                                preparation, parent_cycle_identity)
+        SubmitWholePlanRegeneration(operator_session, request_identity, request_digest)
+        WaitRegenerationTask(operator_session, task)
+        QueryCycleProgress(operator_session, cycle_identity)
+        ReadCycleMeasurement(operator_session, cycle_identity)
+        OpenBuilderSession(operator_session, builder_session)
+        InterveneBuilderSession(operator_session, builder_session, intervention_kind)
+        PrepareChildCycle(operator_session, parent_task, child_preparation, reason)
+
+    @guarantee DurableTaskObservation
+        -- A replacement worker reconstructs a known task outcome from ORC state and never reruns it to answer a wait.
+
+    @guarantee RefusalBeforeExecution
+        -- Invalid identities, selections, scopes, and backends are refused before builder work begins.
+
+    @guarantee SessionAgnosticControl
+        -- ORC cycle state outlives the Codex, Pi, or other operator session that requested it.
+
+    @guarantee ExploratorySessionOwnership
+        -- Skills, dynamic tools, branching, and human steering remain in the operator session.
+
+    @guarantee ImmutableHandoff
+        -- Only the approved preparation crosses into ORC; the exploratory transcript never becomes builder input.
+
+    @guarantee FixedContractOwnership
+        -- ORC owns bounded prompt execution, constrained tools, retries, termination, grading, and measurement.
+
+    @guarantee ObservableNotAuthoritative
+        -- Live notifications and builder-session views aid operators but never advance ORC state.
+}

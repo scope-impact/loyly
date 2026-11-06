@@ -1,0 +1,334 @@
+-- allium: 3
+-- instrument.allium
+--
+-- Scope: the instrument: a checklist derived from the spec, a grader written once,
+-- calibrated, sealed, and approved by digest, a score with an honest denominator, and a
+-- scoreboard that compares cycles on shared items in both directions. It reports to a
+-- person and never feeds the build loop.
+-- Includes: stamping, checklist derivation, grader calibration, sealing, approval, reuse
+-- and replacement, score filing, and scoreboard comparison.
+-- Excludes: the grader's own test logic, building candidates, the gate, and ORC's
+-- evaluation judges (ORC specs/evaluation.allium): their scores are diagnostic runtime
+-- evidence (runtime-evidence.allium), never a verdict. ORC runs the sealed grader as a
+-- bounded step of the score stage; the rules below, not ORC, file its verdicts.
+
+use "./regeneration-cycle.allium" as cycle
+
+enum GraderStatus { calibrating | sealed | approved | discarded }
+enum GraderReplacementReason { instrument_behavior_changed | wording_replaced | spec_grew }
+-- A filed verdict has two values. Inconclusive evidence, like no evidence, files as fail with
+-- the reason, so the item stays in the denominator.
+enum ItemVerdict { pass | fail }
+
+entity Grader {
+    digest: String
+    scenario_digests: List<String>
+    author_session_identity: String
+    attempt: Integer
+    status: GraderStatus
+    replaces: Grader?
+    replacement_reason: GraderReplacementReason?
+
+    transitions status {
+        calibrating -> sealed
+        calibrating -> discarded
+        sealed -> approved
+        terminal: approved, discarded
+    }
+}
+
+entity ScoreVerdict {
+    cycle_identity: String
+    item_identity: String
+    grader_digest: String
+    verdict: ItemVerdict
+    reached: Boolean
+    evidence: String
+}
+
+-- A checklist item names where it came from: its Rule (or none), the file and line of its
+-- Scenario line, and its title with surrounding whitespace stripped.
+value ChecklistItem {
+    item_identity: String
+    scenario_digest: String
+    rule_name: String?
+    source: String
+    name: String
+}
+
+entity Checklist {
+    selection_identity: String
+    items: List<ChecklistItem>
+}
+
+-- An item identity, once stamped on a scenario, never moves: it is not renumbered, not
+-- re-derived from wording, and a deleted scenario's number is never handed out again.
+entity StampedIdentity {
+    slice_file: String
+    identity: String
+    sequence: Integer
+}
+
+-- A golden is written from one scenario's stated inputs and exact output, never recorded
+-- from an implementation. It is instrument material and never enters a clean room.
+entity InstrumentGolden {
+    identity: String
+    scenario_identity: String
+    digest: String
+    replaces: InstrumentGolden?
+    replacement_reason: GraderReplacementReason?
+}
+
+entity Scoreboard {
+    cycle_identity: String
+    previous_cycle_identity: String?
+    pass_rate: Decimal
+    denominator: Integer
+    shared_items: List<String>
+    newly_passing: List<String>
+    newly_failing: List<String>
+    new_items: List<String>
+    dropped_items: List<String>
+}
+
+-- The next free sequence is one past the highest item tag ever present in the file, so a
+-- deleted scenario's number is never reused. A tag that is not an item tag does not stamp.
+rule StampScenario {
+    when: ScenarioFoundUnstamped(slice_file, scenario)
+    requires: not scenario_has_item_tag(scenario)
+    let sequence = highest_item_sequence_in_file(slice_file) + 1
+    ensures: StampedIdentity.created(
+        slice_file: slice_file,
+        identity: item_identity(slice_file, sequence),
+        sequence: sequence
+    )
+    ensures: ItemTagWritten(scenario: scenario, indentation: scenario_indentation(scenario))
+}
+
+rule WriteInstrumentGolden {
+    when: InstrumentGoldenWritten(identity, scenario_identity, digest, replaces, replacement_reason)
+    requires: scenario_fixes_exact_instrument_behaviour(scenario_identity)
+    requires: written_from_scenario_not_captured(identity)
+    requires: replaces = null or replacement_reason != null
+    requires: replacement_reason = spec_grew implies only_adds_cases(replaces, identity)
+    ensures: InstrumentGolden.created(
+        identity: identity,
+        scenario_identity: scenario_identity,
+        digest: digest,
+        replaces: replaces,
+        replacement_reason: replacement_reason
+    )
+}
+
+rule LeaveStampedSliceUnwritten {
+    when: SliceStampRequested(slice_file)
+    requires: every_scenario_has_stamped_identity(scenarios_in(slice_file))
+    ensures: SliceLeftUnwritten(slice_file: slice_file)
+}
+
+-- The checklist is never written; a scenario nobody stamped stops the run.
+rule DeriveChecklist {
+    when: ChecklistRequested(selection_identity, scenarios)
+    requires: scenarios.count > 0
+    requires: every_scenario_has_stamped_identity(scenarios)
+    ensures: Checklist.created(
+        selection_identity: selection_identity,
+        items: ordered_by_file_then_position(one_item_per_titled_scenario(scenarios))
+    )
+}
+
+-- A grader is authored from the selected Gherkin and the public calibration protocol only.
+rule SealCalibratedGrader {
+    when: GraderCalibrated(grader, carried_passed, uncarried_failed)
+    requires: grader.status = calibrating
+    requires: grader_author_read_only_spec_and_protocol(grader)
+    requires: carried_passed
+    requires: uncarried_failed
+    ensures: grader.status = sealed
+}
+
+rule ReauthorUncalibratedGrader {
+    when: GraderCalibrationFailed(grader, failed_cases)
+    requires: grader.status = calibrating
+    requires: grader.attempt < 3
+    requires: failed_cases_come_only_from_public_protocol(failed_cases)
+    ensures: grader.status = discarded
+    ensures: GraderAuthoringRequested(
+        scenario_digests: grader.scenario_digests,
+        attempt: grader.attempt + 1,
+        failed_cases: failed_cases
+    )
+}
+
+rule StopAfterThreeUncalibratedGraders {
+    when: GraderCalibrationFailed(grader, failed_cases)
+    requires: grader.status = calibrating
+    requires: grader.attempt = 3
+    ensures: grader.status = discarded
+    ensures: InstrumentUnavailable(scenario_digests: grader.scenario_digests)
+}
+
+-- Only an operator approves a grader, and only its exact digest.
+rule ApproveExactGrader {
+    when: ApproveGrader(operator, grader, supplied_digest)
+    requires: grader.status = sealed
+    requires: supplied_digest = grader.digest
+    requires: grader.replaces = null or grader.replacement_reason != null
+    requires: grader.replacement_reason = spec_grew implies
+              only_adds_items(grader.replaces, grader)
+    ensures: grader.status = approved
+}
+
+-- An approved grader is reused, re-calibrated before every score, and replaced only for
+-- the items whose scenario digest changed.
+rule ReuseApprovedGrader {
+    when: GraderRequested(selection_identity, checklist)
+    requires: exists approved_grader_covering(checklist)
+    ensures: GraderRecalibrationRequested(grader: approved_grader_covering(checklist))
+}
+
+rule FileScore {
+    when: ScoreReturned(cycle_identity, grader, checklist, verdicts)
+    requires: grader.status = approved
+    requires: verdicts.count > 0
+    requires: every_verdict_names_a_checklist_item(verdicts, checklist)
+    requires: every_verdict_is_pass_or_fail(verdicts)
+    ensures:
+        for item in checklist:
+            ScoreVerdict.created(
+                cycle_identity: cycle_identity,
+                item_identity: item.item_identity,
+                grader_digest: grader.digest,
+                verdict: last_verdict_or_fail(verdicts, item),
+                reached: item_reached(verdicts, item),
+                evidence: last_evidence_or_empty_or_unreached(verdicts, item)
+            )
+    ensures: ScoreFiled(cycle: cycle_identity, observations: verdicts)
+}
+
+-- Unknown items are checked first, so a return with both faults names only the unknown items.
+rule RefuseUnknownVerdicts {
+    when: ScoreReturned(cycle_identity, grader, checklist, verdicts)
+    requires: not every_verdict_names_a_checklist_item(verdicts, checklist)
+    ensures: ScoreRefused(
+        cycle: cycle_identity,
+        named_items: unknown_items_in_return_order(verdicts, checklist)
+    )
+}
+
+rule RefuseInvalidVerdicts {
+    when: ScoreReturned(cycle_identity, grader, checklist, verdicts)
+    requires: every_verdict_names_a_checklist_item(verdicts, checklist)
+    requires: not every_verdict_is_pass_or_fail(verdicts)
+    ensures: ScoreRefused(
+        cycle: cycle_identity,
+        named_items: items_without_pass_or_fail(verdicts)
+    )
+}
+
+rule ReportFirstScoreboard {
+    when: ScoreboardRequested(cycle_identity, selection_identity)
+    requires: not exists previous_measurement(selection_identity, cycle_identity)
+    ensures: Scoreboard.created(
+        cycle_identity: cycle_identity,
+        previous_cycle_identity: null,
+        pass_rate: pass_rate(cycle_identity),
+        denominator: denominator(cycle_identity),
+        shared_items: [],
+        newly_passing: [],
+        newly_failing: [],
+        new_items: [],
+        dropped_items: []
+    )
+}
+
+rule ReportComparedScoreboard {
+    when: ScoreboardRequested(cycle_identity, selection_identity)
+    requires: exists previous_measurement(selection_identity, cycle_identity)
+    ensures: Scoreboard.created(
+        cycle_identity: cycle_identity,
+        previous_cycle_identity: previous_measurement(selection_identity, cycle_identity),
+        pass_rate: pass_rate(cycle_identity),
+        denominator: denominator(cycle_identity),
+        shared_items: shared_items(selection_identity, cycle_identity),
+        newly_passing: newly_passing(selection_identity, cycle_identity),
+        newly_failing: newly_failing(selection_identity, cycle_identity),
+        new_items: new_items(selection_identity, cycle_identity),
+        dropped_items: dropped_items(selection_identity, cycle_identity)
+    )
+}
+
+invariant ScoreUsesOnlyApprovedGraders {
+    for verdict in ScoreVerdicts:
+        grader_status(verdict.grader_digest) = approved
+}
+
+invariant UnreachedItemsFail {
+    for verdict in ScoreVerdicts:
+        not verdict.reached implies verdict.verdict = fail
+}
+
+invariant ScoreboardNeverNets {
+    for board in Scoreboards:
+        board.newly_passing and board.newly_failing are reported separately
+}
+
+invariant GraderAuthorIsCandidateBlind {
+    for grader in Graders:
+        grader_author_read_only_spec_and_protocol(grader)
+}
+
+surface Instrument {
+    facing operator: cycle/Operator
+
+    provides:
+        ChecklistRequested(selection_identity, scenarios)
+        GraderCalibrated(grader, carried_passed, uncarried_failed)
+        GraderCalibrationFailed(grader, failed_cases)
+        ApproveGrader(operator, grader, supplied_digest)
+        GraderRequested(selection_identity, checklist)
+        ScoreReturned(cycle_identity, grader, checklist, verdicts)
+        ScoreboardRequested(cycle_identity, selection_identity)
+        SliceStampRequested(slice_file)
+        InstrumentGoldenWritten(identity, scenario_identity, digest, replaces, replacement_reason)
+        ScenarioFoundUnstamped(slice_file, scenario)
+
+    @guarantee DerivedChecklist
+        -- The denominator is one item per stamped scenario of the approved selection and never
+        -- drifts for any reason other than the spec moving.
+
+    @guarantee StableCalibratedGrader
+        -- A grader is calibrated against carried and uncarried behavior, sealed by digest, and
+        -- used only after an operator approves that exact digest. It changes only for a recorded
+        -- reason, never to turn a failing score green.
+
+    @guarantee StableItemIdentity
+        -- An item identity is stamped once, on a tag line with the scenario's indentation, and
+        -- never renumbered, re-derived, or reused. Stamping a stamped slice rewrites nothing.
+
+    @guarantee HonestScore
+        -- Zero verdicts mean no score was filed; an unreached item fails and stays counted. A
+        -- verdict for an item not on the checklist, or one that is neither pass nor fail,
+        -- stops the score and records nothing. A repeated verdict keeps the last; evidence
+        -- is optional and empty when absent.
+
+    @guarantee HonestScoreboard
+        -- Cycles are compared on shared items, newly passing and newly failing separately,
+        -- with new items counted as the untuned holdout. A net is never computed. A moved item
+        -- set (added or dropped items) is stated only when it moved; a previous cycle sharing
+        -- no item is still compared, over zero shared items.
+
+    @guarantee SealedGraderIsTheOnlyJudge
+        -- A checklist verdict comes only from an approved sealed grader. An ORC evaluation
+        -- judge score, an LLM opinion, or a composite of scores is never a verdict, never part
+        -- of a measurement, and never shown to a builder.
+
+    @guarantee GoldensFromTheSpec
+        -- The instrument's exact behaviour is held by goldens written from its scenarios, never
+        -- recorded from an implementation, replaced only for a recorded reason, and fenced from
+        -- every clean room.
+
+    @guarantee FixedArithmetic
+        -- A rate exactly on a half rounds to the even digit (1 of 16 is 6.2); a zero
+        -- denominator reports no percentage.
+}

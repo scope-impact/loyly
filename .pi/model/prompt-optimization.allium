@@ -1,0 +1,302 @@
+-- allium: 3
+-- prompt-optimization.allium
+--
+-- Scope: ORC-owned optimization of complete builder strategies through independent,
+-- purpose-specific regeneration measurements.
+-- Includes: production prompt rendering, builder instructions, reflection model binding,
+-- instruction candidates, their measurement, and selection.
+-- Excludes: GEPA's search algorithm (ORC specs/gepa.allium) and provider transport.
+
+use "./regeneration-cycle.allium" as cycle
+
+enum PromptOptimizationStatus { evaluating | optimized | failed }
+enum InstructionCandidateStatus { proposed | measured | rejected | selected }
+enum BuilderInstructionPurpose { regeneration | gate_repair }
+enum ProductionPromptRole { regeneration_builder | gate_repair_builder | grader_author }
+
+entity BuilderInstruction {
+    identity: String
+    purpose: BuilderInstructionPurpose
+    text_digest: String
+    active: Boolean
+}
+
+entity ReflectionModelBinding {
+    provider: String
+    model: String
+}
+
+entity ProductionPrompt {
+    identity: String
+    role: ProductionPromptRole
+    system_instruction_digest: String
+    task_instruction_digest: String
+    runtime_context_digest: String
+    rendered_prompt_digest: String
+}
+
+entity PromptOptimization {
+    identity: String
+    purpose: BuilderInstructionPurpose
+    status: PromptOptimizationStatus
+    reflection: ReflectionModelBinding
+    training_examples: List<String>
+    validation_examples: List<String>
+    winning_instruction: BuilderInstruction?
+
+    transitions status {
+        evaluating -> optimized
+        evaluating -> failed
+        terminal: optimized, failed
+    }
+}
+
+entity InstructionCandidate {
+    identity: String
+    optimization: PromptOptimization
+    instruction: BuilderInstruction
+    status: InstructionCandidateStatus
+    proposal_call_digest: String
+    executed_prompt_digest: String?
+    independent_score: Decimal?
+    metric_evidence: String?
+
+    transitions status {
+        proposed -> measured
+        proposed -> rejected
+        measured -> selected
+        measured -> rejected
+        terminal: rejected, selected
+    }
+}
+
+rule RenderProductionPrompt {
+    when: OrcRendersProductionPrompt(
+        role,
+        system_instruction_digest,
+        task_instruction_digest,
+        runtime_context_digest
+    )
+    requires: system_instruction_digest != ""
+    requires: task_instruction_digest != ""
+    requires: runtime_context_digest != ""
+    ensures: ProductionPrompt.created(
+        identity: deterministic_prompt_identity(
+            role,
+            system_instruction_digest,
+            task_instruction_digest,
+            runtime_context_digest
+        ),
+        role: role,
+        system_instruction_digest: system_instruction_digest,
+        task_instruction_digest: task_instruction_digest,
+        runtime_context_digest: runtime_context_digest,
+        rendered_prompt_digest: deterministic_rendered_prompt_digest(
+            system_instruction_digest,
+            task_instruction_digest,
+            runtime_context_digest
+        )
+    )
+}
+
+rule StartPromptOptimization {
+    when: OptimizeBuilderInstruction(
+        operator,
+        optimization_identity,
+        purpose,
+        reflection_provider,
+        reflection_model,
+        training_examples,
+        validation_examples
+    )
+    requires: reflection_provider = "bedrock"
+    requires: reflection_model != ""
+    requires: training_examples.count > 0
+    requires: validation_examples.count > 0
+    ensures: PromptOptimization.created(
+        identity: optimization_identity,
+        purpose: purpose,
+        status: evaluating,
+        reflection: ReflectionModelBinding{
+            provider: reflection_provider,
+            model: reflection_model
+        },
+        training_examples: training_examples,
+        validation_examples: validation_examples,
+        winning_instruction: null
+    )
+}
+
+rule ProposeInstructionCandidate {
+    when: OrcProposedInstruction(
+        optimization,
+        candidate_identity,
+        instruction,
+        reflection_provider,
+        reflection_model,
+        proposal_call_digest
+    )
+    requires: optimization.status = evaluating
+    requires: instruction.purpose = optimization.purpose
+    requires: reflection_provider = optimization.reflection.provider
+    requires: reflection_model = optimization.reflection.model
+    requires: proposal_call_digest != ""
+    ensures: InstructionCandidate.created(
+        identity: candidate_identity,
+        optimization: optimization,
+        instruction: instruction,
+        status: proposed,
+        proposal_call_digest: proposal_call_digest,
+        executed_prompt_digest: null,
+        independent_score: null,
+        metric_evidence: null
+    )
+}
+
+rule MeasureInstructionCandidate {
+    when: IndependentBuilderInstructionMetricReturned(
+        candidate,
+        production_prompt,
+        score,
+        evidence
+    )
+    requires: candidate.status = proposed
+    requires: production_prompt.role = builder_prompt_role(candidate.instruction.purpose)
+    requires: production_prompt.task_instruction_digest = candidate.instruction.text_digest
+    requires: adapter_transported_prompt_without_mutation(production_prompt.rendered_prompt_digest)
+    requires: purpose_specific_independent_measurement(
+        candidate.instruction.purpose,
+        evidence
+    )
+    requires: evidence_includes_fresh_builder_verification_and_complete_black_box_grade(evidence)
+    ensures: candidate.status = measured
+    ensures: candidate.executed_prompt_digest = production_prompt.rendered_prompt_digest
+    ensures: candidate.independent_score = score
+    ensures: candidate.metric_evidence = evidence
+}
+
+rule SelectWinningInstruction {
+    when: OrcSelectedInstructionWinner(optimization, winner)
+    requires: optimization.status = evaluating
+    requires: winner.optimization = optimization
+    requires: winner.status = measured
+    requires: winner.instruction.purpose = optimization.purpose
+    requires: winner.independent_score = highest_measured_score(optimization)
+    ensures: prior_active_instruction_deactivated(optimization.purpose)
+    ensures: winner.status = selected
+    ensures: winner.instruction.active = true
+    ensures: optimization.winning_instruction = winner.instruction
+    ensures: optimization.status = optimized
+    ensures: durable_instruction_activation_recorded(
+        optimization.purpose,
+        winner.instruction.identity,
+        winner.instruction.text_digest
+    )
+}
+
+rule FailPromptOptimization {
+    when: NoMeasuredInstructionWinner(optimization, reason)
+    requires: optimization.status = evaluating
+    ensures: optimization.status = failed
+    ensures: PromptOptimizationFailureRecorded(optimization: optimization, reason: reason)
+}
+
+invariant ActiveInstructionWasIndependentlySelected {
+    for instruction in BuilderInstructions:
+        instruction.active implies
+            exists InstructionCandidate{instruction: instruction, status: selected}
+}
+
+invariant OneActiveInstructionPerPurpose {
+    for purpose in BuilderInstructionPurposes:
+        active_instructions(purpose).count <= 1
+}
+
+invariant CompleteStrategyIsTheOptimizationUnit {
+    for candidate in InstructionCandidates:
+        candidate.instruction = complete_model_directed_strategy(candidate.instruction.purpose)
+        and no_adapter_appends_model_directed_instructions(candidate)
+}
+
+invariant OrcOwnsEveryProductionPrompt {
+    for prompt in ProductionPrompts:
+        prompt.system_instruction_digest = orc_owned_system_instruction_digest(prompt.role)
+        and prompt.task_instruction_digest = orc_owned_task_instruction_digest(prompt.role)
+        and no_adapter_constructs_or_appends_production_prompt_text(prompt)
+}
+
+invariant EnforcementDoesNotDependOnPromptCompliance {
+    for prompt in ProductionPrompts:
+        workspace_scope_network_credentials_stack_compose_health_tests_and_evidence_are_enforced_outside_prompt(prompt)
+}
+
+invariant PurposeSpecificMeasurement {
+    for candidate in InstructionCandidates:
+        candidate.status = measured implies
+            measurement_isolated_to_instruction_purpose(
+                candidate.instruction.purpose,
+                candidate.metric_evidence
+            )
+}
+
+invariant BuilderCannotAuthorPromptMetric {
+    for candidate in InstructionCandidates:
+        candidate.status = measured implies independent_metric(candidate.metric_evidence)
+}
+
+invariant ReflectionProvenanceIsDurable {
+    for candidate in InstructionCandidates:
+        candidate.proposal_call_digest != ""
+        and candidate.optimization.reflection.provider = "bedrock"
+        and candidate.optimization.reflection.model != ""
+}
+
+surface BuilderPromptOptimization {
+    facing operator: cycle/Operator
+
+    provides:
+        OptimizeBuilderInstruction(
+            operator,
+            optimization_identity,
+            purpose,
+            reflection_provider,
+            reflection_model,
+            training_examples,
+            validation_examples
+        )
+
+    @guarantee OrcOwnsCompleteProductionInstruction
+        -- GEPA mutates the complete model-directed strategy for one named purpose.
+        -- Runtime facts are rendered separately and no adapter adds hidden strategy text.
+
+    @guarantee IndependentPurposeSpecificMetric
+        -- Fresh-generation candidates are measured from a fresh approved cut. Repair
+        -- candidates are measured against fixed failed-verification inputs. Neither
+        -- purpose is credited for behavior supplied by the other instruction.
+
+    @guarantee ExactPromptTransport
+        -- ORC owns system and task instructions for builders and the grader
+        -- grader author, renders them with deterministic runtime facts, and records
+        -- the exact digest. The adapter transports it without adding prompt text.
+
+    @guarantee DeterministicEnforcement
+        -- Filesystem scope, network isolation, credentials, stack, Compose topology,
+        -- health, test discovery, affordances, and evidence contracts remain enforced
+        -- by rooms and verifiers even if a model ignores its instructions.
+
+    @guarantee DurableInstructionActivation
+        -- A selected instruction remains recoverable by purpose after process restart;
+        -- process-local memory is never the authority for the active instruction.
+
+    @guarantee BedrockReflection
+        -- Every proposal binds the exact Bedrock provider, model, prompt/response call
+        -- evidence, and usage. AWS credentials never enter prompts or durable evidence.
+
+    @guarantee ReflectionAndExecutionRolesAreSeparate
+        -- Bedrock proposes GEPA instruction candidates. A fresh fenced Pi/Codex builder
+        -- executes them, and the independent grader remains outside both roles.
+
+    @guarantee IndependentOptimizationMetric
+        -- A builder cannot provide or alter verification, grading, evidence collection,
+        -- or the complete-denominator measurement used to score its instruction.
+}
