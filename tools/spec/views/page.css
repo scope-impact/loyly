@@ -310,7 +310,7 @@ a.sk:hover, a.sk:focus-visible { outline: 2px solid #1c231f; outline-offset: 1px
 .tier.minimum { background: #d6efe0; color: #1d5a39; } .tier.balance { background: #f7e7c2; color: #6b4a07; } .tier.deferred { background: #e4e7e5; color: #4b5450; } .tier.untiered, .tier.draft { border: 1px solid var(--warn); color: var(--warn); }
 :root[data-theme="dark"] .tier.minimum { background: #1d3d26; color: #bfe8c9; }
 
-.ents{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin:10px 0;align-items:start}.lc.wide{grid-column:1/-1}
+.ents{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px, 100%), 1fr));gap:10px;margin:10px 0;align-items:start}.lc.wide{grid-column:1/-1}
 .ent{scroll-margin-top:80px;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:10px 12px;display:grid;gap:6px;font-size:13px}
 .ent.root{border-color:#e0b43c;box-shadow:inset 4px 0 0 #f2c14e}
 .ent-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.ent-h b{font-size:15px}
@@ -318,10 +318,20 @@ a.sk:hover, a.sk:focus-visible { outline: 2px solid #1c231f; outline-offset: 1px
 .ent-r{display:grid;grid-template-columns:82px 1fr;gap:6px;align-items:baseline}.ent-r>span{font:500 11px/1.4 "JetBrains Mono",monospace;color:var(--muted)}
 .ev-chip{display:inline-block;margin:0 3px 3px 0;padding:1px 7px;border-radius:10px;background:#fdf1d6;border:1px solid #ecd9a8;font:500 12px/1.5 "JetBrains Mono",monospace;color:#1c231f}.ev-chip.ext{background:#eef0ee;border-color:#d6dcd7}
 .ent-more summary{cursor:pointer;color:var(--muted);font-size:12px}.ent-more div{padding:1px 0 1px 8px}
-.lifecycles{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:10px;margin:10px 0}
+.lifecycles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px, 100%), 1fr));gap:10px;margin:10px 0}
 .lc{border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px 10px;min-width:0;overflow-x:auto}.lc-h{font:600 12px/1.4 "JetBrains Mono",monospace;color:#1c231f;margin-bottom:4px}
 /* app mode only (render.clj --mode app): review controls the MCP app wires */
 .review { display: inline-flex; gap: 4px; align-items: center; margin-left: 8px; vertical-align: middle; }
 .review .rv { font: 600 11px var(--font-body); padding: 2px 8px; border-radius: 4px; border: 1px solid var(--line); background: var(--surface); color: var(--accent); cursor: pointer; }
 .review .rv:hover, .review .rv:focus-visible { border-color: var(--accent); outline: none; }
 .review .threads:not(:empty) { font: 600 10.5px var(--font-mono); padding: 1px 7px; border-radius: 999px; background: var(--warn); color: var(--bg); }
+
+/* Phone width: nothing inside a view may widen the page. Wide content (tables, code, diagrams)
+   scrolls inside its own frame; long identifiers and paths break anywhere. */
+.wrap, .view { grid-template-columns: minmax(0, 1fr); }
+.view * { min-width: 0; }
+table { display: block; max-width: 100%; overflow-x: auto; }
+pre { max-width: 100%; overflow-x: auto; }
+code, .id, .tag, .cov, .k, .edn-h, .crumbs a, .crumbs span { overflow-wrap: anywhere; word-break: break-word; }
+.stats { flex-wrap: wrap; }
+@media (max-width: 640px) { .bar { position: static; } .legend { display: none; } }
