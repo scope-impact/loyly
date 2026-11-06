@@ -70,7 +70,7 @@ actions:
     outcomes:
       CycleSubmitted:
         result: {cycleId: requestId, tickId: string, taskId: integer}
-        allium: {spec: operator-control-plane.allium, rule: SubmitWholePlanCycle}
+        allium: {spec: regeneration-cycle.allium, rule: ApproveWholePlanBySubmission}
       OriginalReceipt:
         when: the requestId was already submitted with the same request
         result: the original receipt
@@ -258,7 +258,7 @@ actions:
     outcomes:
       SliceCycleSubmitted:
         result: {operationId: string, selectionId: string, tickId: string, correlationId: string, taskId: integer, targetStack: string, executionBackend: string}
-        allium: {spec: operator-control-plane.allium, rule: SubmitCycleTask}
+        allium: {spec: regeneration-cycle.allium, rule: SubmitCycle}
       OriginalReceipt:
         when: the requestId was already submitted with the same request
         result: the original receipt
@@ -266,13 +266,13 @@ actions:
     rejections:
       Unapproved:
         when: the selection is not approved; refused before a builder starts
-        allium: {spec: operator-control-plane.allium, rule: SubmitCycleTask}
+        allium: {spec: regeneration-cycle.allium, rule: SubmitCycle}
       UnsafeScope:
         when: the scope is empty, absolute, escaping, or overlapping; refused before a builder starts
-        allium: {spec: operator-control-plane.allium, rule: SubmitCycleTask}
+        allium: {spec: regeneration-cycle.allium, rule: SubmitCycle}
       Unprepared:
         when: no approved preparation binds this selection, scope, and target stack with an execution profile that admits this backend; refused before a builder starts
-        allium: {spec: operator-control-plane.allium, rule: SubmitCycleTask}
+        allium: {spec: regeneration-cycle.allium, rule: SubmitCycle}
     preparation: >-
       The submission names the choices its approved preparation binds; the harness submits that
       preparation. host-development admits host, gondolin-isolated admits gondolin, and automatic

@@ -127,9 +127,9 @@ flowchart TB
 
   subgraph p ["Harness process [Container]"]
     seam["<b>Seam</b><br/>[Component: JSON-RPC over stdio]<br/>Maps each of 16 actions to a command or query; refuses with a named reason"]
-    control["<b>Control plane commands</b><br/>[Component: Grain defcommand]<br/>Selections, preparations, task submission and receipts, grader approval, observations, measurements"]
+    control["<b>Control plane commands</b><br/>[Component: Grain defcommand]<br/>Operator intents: selections, preparations, submissions, grader approval. System facts: receipts, observations, the filed score, builder sessions"]
     views["<b>Projections and queries</b><br/>[Component: Grain defreadmodel, defquery]<br/>Selections, preparations, receipts, outcomes, prepared cuts, progress, builder sessions, measurements"]
-    dispatch["<b>Task dispatcher</b><br/>[Component: Grain defprocessor]<br/>One ORC tick per task-submitted"]
+    dispatch["<b>Fact processors</b><br/>[Component: Grain defprocessor]<br/>One ORC tick per task-submitted; bind receipts, record observations, file the score, bind workspaces"]
     launcher["<b>Builder launcher</b><br/>[Component: Grain defprocessor launch-builder-for-tick]<br/>Launches, or relaunches, the durable session of each builder tick in the room ORC chose"]
     workflow["<b>Cycle workflow</b><br/>[Component: ORC sheet]<br/>fence, regenerate, gate, score, scoreboard; continuation, gate repair, durable resume"]
     prompts["<b>Prompt strategy</b><br/>[Component: ORC, GEPA]<br/>Renders every production prompt; optimizes instructions per purpose"]
@@ -145,7 +145,8 @@ flowchart TB
   seam -- "Issues commands" --> control
   seam -- "Runs queries" --> views
   control -- "Appends harness events" --> events
-  events -- "task-submitted" --> dispatch
+  events -- "task-submitted, :sheet facts, committed tool results" --> dispatch
+  dispatch -- "record-task-receipt, record-observation, file-score, bind-workspace-generation" --> control
   dispatch -- ":sheet/tick-tree" --> workflow
   workflow -- "Appends :sheet events" --> events
   views -- "Fold harness and :sheet events from" --> events
@@ -155,7 +156,7 @@ flowchart TB
   host -- "Forwards tool calls into" --> rooms
   workflow -- "Starts rooms; runs gates and validators in" --> rooms
   workflow -- "Scores a gated candidate with" --> instrument
-  instrument -- "Records observations, measurement" --> control
+  instrument -- "Returns verdicts to the score node of" --> workflow
   guard -. "Checks registered blocks at startup" .-> control
 
   class operator person
@@ -255,18 +256,26 @@ failed score is measured, not retried within the cycle.
 |---|---|---|---|
 | Selection | `record-selection`, `approve-selection` | `selection-recorded`, `selection-approved` | `selections` → `selection` |
 | Preparation | `record-cycle-preparation`, `approve-cycle-preparation` | `cycle-preparation-recorded`, `cycle-preparation-approved` | `cycle-preparations` → `cycle-preparation` |
-| Tasks | `submit-cut-task`, `submit-cycle-task`, `submit-whole-plan-cycle`, `record-task-receipt` | `task-submitted`, `task-receipt-issued` | `task-receipts` → `task-receipt`, `highest-task-id`; `task-outcomes` → `task-outcome` |
+| Tasks | `submit-cut-task`, `submit-cycle-task`, `submit-whole-plan-cycle`; `record-task-receipt` (processor) | `task-submitted`, `task-receipt-issued` | `task-receipts` → `task-receipt`, `highest-task-id`; `task-outcomes` → `task-outcome` |
 | Cuts | | | `prepared-cuts` → `slice-composition` |
 | Progress | | | `cycle-progress` → `cycle-progress`; `builder-sessions` → `builder-session` |
-| Builder sessions | `launch-builder-session`, `relaunch-builder-session`, `bind-workspace-generation` | `builder-session-launched`, `builder-session-resumed`, `workspace-generation-bound` | `builder-sessions` → `builder-session` |
-| Instrument | `approve-grader`, `record-observation`, `record-cycle-measurement` | `grader-approved`, `observation-recorded`, `cycle-measurement-recorded` | `approved-graders`, `cycle-observations`, `cycle-measurements` → same-named queries |
+| Builder sessions | `launch-builder-session`, `relaunch-builder-session`, `bind-workspace-generation` (processors); `commit-builder-tool-result` (builder host) | `builder-session-launched`, `builder-session-resumed`, `builder-tool-result-committed`, `workspace-generation-bound` | `builder-sessions` → `builder-session` |
+| Instrument | `approve-grader`; `record-observation`, `file-score` (processors) | `grader-approved`, `observation-recorded`, `cycle-measurement-recorded`, `score-refused` | `approved-graders`, `cycle-observations`, `cycle-measurements` → same-named queries |
 | Prompt optimization | `start-prompt-optimization` | `prompt-optimization-started` | `prompt-optimizations` → `prompt-optimization` |
 
-Two todo processors: `launch-builder-for-tick` launches, or relaunches, the durable Pi session of
-each ORC builder tick (`launch-builder-session`, `relaunch-builder-session`,
-`bind-workspace-generation`). `dispatch-submitted-task` turns each `task-submitted` into ORC's
-`:sheet/tick-tree`. One screen, `pi-regeneration`, is the operator's control surface. Every
-command links an Allium rule and the screen links the `RegenerationControlPlane` surface.
+The screen `pi-regeneration` issues operator intents only: selection, preparation, approvals,
+submissions, grader approval, and optimization. System facts are issued by six todo processors,
+never by the screen. `dispatch-submitted-task` turns each `task-submitted` into ORC's
+`:sheet/tick-tree`; `issue-task-receipt` binds the task to the tick when ORC reports
+`:sheet/tree-tick-started`. `launch-builder-for-tick` launches, or relaunches, the durable Pi
+session of each ORC builder tick (`launch-builder-session`, `relaunch-builder-session`).
+`bind-committed-workspace` binds each tool result the builder host commits
+(`commit-builder-tool-result`) to its workspace (`bind-workspace-generation`).
+`record-validation-evidence` records an independent room's observations, and `file-cycle-score`
+files the sealed grader's verdicts with `file-score`, typed per item as pass or fail and checked
+against the approved selection and graders it reads. Every command links the Allium rule or
+rules it realises, and the screen links the `RegenerationControlPlane` surface. Every `tick-id`
+is a `:uuid`, as in ORC.
 
 `:sheet` (`event-model/orc/sheet/event_model.clj`) declares the ORC blocks the area uses: the
 command `tick-tree` and the events `tree-tick-started`, `node-execution-started`,
@@ -333,7 +342,7 @@ rooms use Gondolin directly, without Pi.
 | The cycle's stages | `02-execution-pipeline` | `execution-pipeline.allium` | | `CycleContract`, `WorkflowContract` |
 | Instrument | `03-instrument` | `instrument.allium` | instrument | `ApproveGrader`, `Measurement` |
 | Control plane | `04-operator-control-plane` | `operator-control-plane.allium` | tasks, progress, dispatch | cycle, builder sessions |
-| Runtime evidence | `05-runtime-evidence` | `runtime-evidence.allium` | `record-observation` | |
+| Runtime evidence | `05-runtime-evidence` | `runtime-evidence.allium` | `record-observation`, `record-validation-evidence` | |
 | Prompt optimization | `06-prompt-optimization` | `prompt-optimization.allium` | prompt optimization | `OptimizePrompt` |
 | The seam | `09-rpc-seam` | | | `affordances.yaml` `seam` |
 

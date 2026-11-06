@@ -38,8 +38,11 @@ _Avoid_: Harness progress event, workflow authority
 The one ORC-owned workflow, in the legacy shape: fence → regenerate → gate → score → scoreboard.
 The fence and the gate are the harness and feed the build loop; the score and the scoreboard are
 the instrument and report to a person, never into the loop. Adapter completion cannot reorder or
-skip a stage. Anything not written into the spec dies with the implementation.
-_Avoid_: Pipeline, generation versus regeneration, routes.
+skip a stage. Anything not written into the spec dies with the implementation. It is one
+aggregate, `RegenerationCycle` in `regeneration-cycle.allium`, with a status (submitted, running,
+passed, failed) and a stage (fence, regenerate, gate, score, scoreboard, result); a terminal
+cycle names its candidate digest. `execution-pipeline.allium` moves it through its stages.
+_Avoid_: Pipeline, pipeline cycle, generation versus regeneration, routes, workflow task.
 
 **Harness**:
 The parts of the cycle that feed the build loop: the fence and the gate.
@@ -146,6 +149,13 @@ _Avoid_: Submission payload, run configuration, prompt
 A cycle preparation whose exact digest has been explicitly accepted by an operator session.
 _Avoid_: Approved selection, confirmed backend
 
+**OrcRuntime**:
+The actor that is ORC's runtime: the worker that runs every tick and the only one that reports
+execution facts (a tick started, a builder completed, a gate returned, a grader returned its
+verdicts, a task completed). Declared once in `regeneration-cycle.allium`; every surface that
+receives ORC's facts faces it. An operator can never report these facts.
+_Avoid_: Operator, builder host, adapter
+
 **Operator session**:
 The Codex, Pi, or other interactive session through which an operator prepares, approves,
 observes, and evaluates regeneration cycles.
@@ -159,8 +169,11 @@ _Avoid_: Root agent, implementer session
 One separately identified builder conversation for a fresh build or verification-repair
 attempt, isolated from the operator session and forbidden independent grader evidence. It is a
 durable Pi session that ORC launches for one tick, in one of three roles: slice builder,
-repair builder, or grader author. A relaunch of the tick resumes it.
-_Avoid_: Operator session, regeneration cycle, builder worker
+repair builder, or grader author. A relaunch of the tick resumes it. It is one aggregate,
+`BuilderSession` in `execution-pipeline.allium`; the view an operator observes is a projection
+of it (the Grain read model `builder-sessions`), never an authority.
+_Avoid_: Operator session, regeneration cycle, builder worker, durable builder launch, builder
+session reference
 
 **Builder room**:
 The Gondolin VM ORC chooses for one builder session: the image for the stack, the cut
@@ -193,9 +206,24 @@ _Avoid_: Implementation, answer, workspace
 Evidence from one named producer about one approved item in one cycle.
 _Avoid_: Score, log line
 
-**Cycle measurement**:
-The immutable reduction of the checklist denominator and the score's verdicts, including explicit failures for unreached items.
-_Avoid_: Test report, average score
+**Measurement**:
+The one filed score of one cycle: a pass or fail verdict per checklist item from the approved
+sealed grader, the denominator of the approved selection, and explicit failures for unreached
+items. It is one aggregate, `CycleMeasurement` in `instrument.allium`, filed only by `FileScore`;
+a refused score files nothing and fails the score stage. The durable measurement receipt an
+operator reads is a projection of it (the Grain read model `cycle-measurements`).
+_Avoid_: Test report, average score, pipeline measurement, score verdict, observation
+
+**Item verdict**:
+A filed checklist verdict: pass or fail, nothing else (`ItemVerdict`, `instrument.allium`).
+Inconclusive evidence, like no evidence, files as fail. Distinct from an evidence verdict, which
+may be inconclusive.
+_Avoid_: Evidence verdict, pipeline verdict
+
+**Evidence verdict**:
+The result of one independent invariant evaluation: pass, fail, or inconclusive
+(`EvidenceVerdict`, `runtime-evidence.allium`). It is evidence, never a filed checklist verdict.
+_Avoid_: Item verdict, score
 
 **Cycle progress view**:
 A reconstructable, non-authoritative view of the current ORC stage and associated builder
@@ -214,8 +242,10 @@ _Avoid_: Shell command, VM configuration
 
 **Workflow task**:
 An asynchronously executed source-cut preparation or regeneration cycle identified by a receipt
-and observed until one terminal outcome.
-_Avoid_: Process, thread, future
+and observed until one terminal outcome (`HarnessTask`, `operator-control-plane.allium`). A task
+is not a cycle: a task may prepare a cut, and a cycle's task is opened when the cycle is
+submitted.
+_Avoid_: Process, thread, future, regeneration cycle
 
 **Builder instruction**:
 The complete ORC-owned model-directed strategy given to a builder for exactly one purpose:
@@ -298,5 +328,6 @@ The capability boundary in which a builder or independent observer operates with
 _Avoid_: Host shell, workflow stage
 
 **Evidence projection**:
-A report-format representation derived from a recorded observation without becoming the source of its verdict.
+A report-format representation derived from a recorded invariant evaluation without becoming the
+source of its verdict (`EvidenceProjectionCreated`, owned by `runtime-evidence.allium`).
 _Avoid_: Observation, event stream

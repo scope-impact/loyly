@@ -72,6 +72,7 @@ entity InstructionCandidate {
 
 rule RenderProductionPrompt {
     when: OrcRendersProductionPrompt(
+        orc,
         role,
         system_instruction_digest,
         task_instruction_digest,
@@ -129,6 +130,7 @@ rule StartPromptOptimization {
 
 rule ProposeInstructionCandidate {
     when: OrcProposedInstruction(
+        orc,
         optimization,
         candidate_identity,
         instruction,
@@ -155,6 +157,7 @@ rule ProposeInstructionCandidate {
 
 rule MeasureInstructionCandidate {
     when: IndependentBuilderInstructionMetricReturned(
+        orc,
         candidate,
         production_prompt,
         score,
@@ -176,7 +179,7 @@ rule MeasureInstructionCandidate {
 }
 
 rule SelectWinningInstruction {
-    when: OrcSelectedInstructionWinner(optimization, winner)
+    when: OrcSelectedInstructionWinner(orc, optimization, winner)
     requires: optimization.status = evaluating
     requires: winner.optimization = optimization
     requires: winner.status = measured
@@ -195,7 +198,7 @@ rule SelectWinningInstruction {
 }
 
 rule FailPromptOptimization {
-    when: NoMeasuredInstructionWinner(optimization, reason)
+    when: NoMeasuredInstructionWinner(orc, optimization, reason)
     requires: optimization.status = evaluating
     ensures: optimization.status = failed
     ensures: PromptOptimizationFailureRecorded(optimization: optimization, reason: reason)
@@ -299,4 +302,21 @@ surface BuilderPromptOptimization {
     @guarantee IndependentOptimizationMetric
         -- A builder cannot provide or alter verification, grading, evidence collection,
         -- or the complete-denominator measurement used to score its instruction.
+}
+
+-- The optimization facts ORC reports: rendered prompts, proposed instructions, their
+-- independent metrics, and the winner or its absence. Only ORC's runtime reports them.
+surface OrcInstructionOptimization {
+    facing orc: cycle/OrcRuntime
+
+    provides:
+        OrcRendersProductionPrompt(orc, role, system_instruction_digest, task_instruction_digest, runtime_context_digest)
+        OrcProposedInstruction(orc, optimization, candidate_identity, instruction, reflection_provider, reflection_model, proposal_call_digest)
+        IndependentBuilderInstructionMetricReturned(orc, candidate, production_prompt, score, evidence)
+        OrcSelectedInstructionWinner(orc, optimization, winner)
+        NoMeasuredInstructionWinner(orc, optimization, reason)
+
+    @guarantee OptimizationFactsAreOrcs
+        -- An operator starts an optimization; it cannot propose, measure, or select an
+        -- instruction on ORC's behalf.
 }

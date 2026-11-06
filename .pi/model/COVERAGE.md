@@ -27,38 +27,45 @@ matching its path:
 
 | Area | File | Blocks |
 |---|---|---|
-| `:loyly.pi-harness` | `event-model/loyly/pi_harness/event_model.clj` | 15 commands, 13 events, 11 read models, 12 queries, 2 todo processors, 1 screen, 17 flows |
+| `:loyly.pi-harness` | `event-model/loyly/pi_harness/event_model.clj` | 16 commands, 15 events, 11 read models, 12 queries, 6 todo processors, 1 screen, 18 flows |
 | `:sheet` | `event-model/orc/sheet/event_model.clj` | 1 command, 5 events: the ORC blocks the harness dispatches or projects |
 
 ORC registers no Event Model of its own. The `:sheet` schemas are copied from
 `obneyai/orc` `projects/orc-service` at `af086675` and must stay in step with that pin.
 
-Every command links an Allium rule and the screen links an Allium surface:
+Every command links the Allium rule or rules it realises, every todo processor links the rule
+it drives, and the screen links an Allium surface:
 
-| Command | Allium rule |
-|---|---|
-| `submit-cut-task` | `operator-control-plane.allium` `PrepareCutTask` |
-| `record-selection` | `regeneration-cycle.allium` `PreviewSelection` |
-| `approve-selection` | `regeneration-cycle.allium` `ApproveSelection` |
-| `record-cycle-preparation` | `regeneration-cycle.allium` `PrepareCycle` |
-| `approve-cycle-preparation` | `regeneration-cycle.allium` `ApprovePreparation` |
-| `submit-cycle-task` | `operator-control-plane.allium` `SubmitCycleTask` |
-| `submit-whole-plan-cycle` | `operator-control-plane.allium` `SubmitWholePlanCycle` |
-| `record-task-receipt` | `operator-control-plane.allium` `StartHarnessTask` |
-| `approve-grader` | `instrument.allium` `ApproveExactGrader` |
-| `record-observation` | `runtime-evidence.allium` `RecordRuntimeSignal` |
-| `record-cycle-measurement` | `instrument.allium` `FileScore` |
-| `start-prompt-optimization` | `prompt-optimization.allium` `StartPromptOptimization` |
-| `launch-builder-session` | `execution-pipeline.allium` `LaunchDurableBuilderSession` |
-| `relaunch-builder-session` | `execution-pipeline.allium` `ResumeDurableBuilderSession` |
-| `bind-workspace-generation` | `execution-pipeline.allium` `BindWorkspaceGeneration` |
-| `:sheet/tick-tree` | `operator-control-plane.allium` `DispatchSubmittedTaskToOrc` |
-| screen `pi-regeneration` | `operator-control-plane.allium` surface `RegenerationControlPlane` |
+| Command | Issued by | Allium rule |
+|---|---|---|
+| `submit-cut-task` | screen | `operator-control-plane.allium` `PrepareCutTask` |
+| `record-selection` | screen | `regeneration-cycle.allium` `PreviewSelection`, `ProposeSelectionFromIntent` |
+| `approve-selection` | screen | `regeneration-cycle.allium` `ApproveSelection` |
+| `record-cycle-preparation` | screen | `regeneration-cycle.allium` `PrepareCycle` |
+| `approve-cycle-preparation` | screen | `regeneration-cycle.allium` `ApprovePreparation` |
+| `submit-cycle-task` | screen | `regeneration-cycle.allium` `SubmitCycle`; `operator-control-plane.allium` `OpenCycleTask` |
+| `submit-whole-plan-cycle` | screen | `regeneration-cycle.allium` `ApproveWholePlanBySubmission`; `operator-control-plane.allium` `OpenCycleTask` |
+| `approve-grader` | screen | `instrument.allium` `ApproveExactGrader` |
+| `start-prompt-optimization` | screen | `prompt-optimization.allium` `StartPromptOptimization` |
+| `record-task-receipt` | processor `issue-task-receipt` | `operator-control-plane.allium` `StartHarnessTask` |
+| `record-observation` | processor `record-validation-evidence` | `runtime-evidence.allium` `RecordRuntimeSignal`, `EvaluateCompleteInvariant`, `MarkIncompleteInvariantInconclusive` |
+| `file-score` | processor `file-cycle-score` | `instrument.allium` `FileScore`, `RefuseEmptyScore`, `RefuseUnknownVerdicts`, `RefuseInvalidVerdicts` |
+| `launch-builder-session` | processor `launch-builder-for-tick` | `execution-pipeline.allium` `LaunchDurableBuilderSession` |
+| `relaunch-builder-session` | processor `launch-builder-for-tick` | `execution-pipeline.allium` `ResumeDurableBuilderSession` |
+| `commit-builder-tool-result` | the provided builder host (flow entry) | `execution-pipeline.allium` `BindWorkspaceGeneration` |
+| `bind-workspace-generation` | processor `bind-committed-workspace` | `execution-pipeline.allium` `BindWorkspaceGeneration` |
+| `:sheet/tick-tree` | processor `dispatch-submitted-task` | `operator-control-plane.allium` `DispatchSubmittedTaskToOrc` |
+| screen `pi-regeneration` | — | `operator-control-plane.allium` surface `RegenerationControlPlane` |
 
-Approval starts nothing. A submission records `task-submitted`; the todo processor
-`dispatch-submitted-task` dispatches `:sheet/tick-tree` once per submitted task. When ORC starts
-a builder node, the todo processor `launch-builder-for-tick` launches its durable Pi session, or
-relaunches the same session when ORC resumes the tick.
+The screen issues operator intents only: selection, preparation, approvals, submissions,
+grader approval, and optimization. It issues no system fact. Approval starts nothing. A
+submission records `task-submitted`; the todo processor `dispatch-submitted-task` dispatches
+`:sheet/tick-tree` once per submitted task, and `issue-task-receipt` binds the task to the tick
+when ORC reports `:sheet/tree-tick-started`. When ORC starts a builder node,
+`launch-builder-for-tick` launches its durable Pi session, or relaunches the same session when
+ORC resumes the tick. When ORC's score node completes, `file-cycle-score` issues `file-score`,
+whose typed verdicts are checked against the approved selection and grader it reads; it records
+`cycle-measurement-recorded` or `score-refused`. Every `tick-id` is a `:uuid`, as in ORC.
 
 ## Affordances
 
@@ -73,7 +80,7 @@ Gherkin wording that drives each action.
 |---|---|---|---|
 | `CycleContract` | `cycle-contract` | — | `execution-pipeline.allium` surface `RegenerationCycleExecution` |
 | `WorkflowContract` | `workflow-contract` | — | `execution-pipeline.allium` surface `RegenerationCycleExecution` |
-| `SubmitCycle` | `submit-cycle` | command `submit-whole-plan-cycle` | `operator-control-plane.allium` `SubmitWholePlanCycle`, `RepeatIdenticalSubmission`, `RefuseConflictingSubmission` |
+| `SubmitCycle` | `submit-cycle` | command `submit-whole-plan-cycle` | `regeneration-cycle.allium` `ApproveWholePlanBySubmission`; `operator-control-plane.allium` `RepeatIdenticalSubmission`, `RefuseConflictingSubmission` |
 | `Wait` | `wait` | query `task-outcome` | `operator-control-plane.allium` `WaitForHarnessTask` |
 | `ExecutionStatus` | `execution-status` | query `cycle-progress` | `operator-control-plane.allium` `ReadCycleProgress` |
 | `PrepareCut` | `prepare-cut` | command `submit-cut-task` | `operator-control-plane.allium` `PrepareCutTask` |
@@ -82,7 +89,7 @@ Gherkin wording that drives each action.
 | `ApproveSelection` | `approve-selection` | command `approve-selection` | `regeneration-cycle.allium` `ApproveSelection` |
 | `PrepareCycle` | `prepare-cycle` | command `record-cycle-preparation` | `regeneration-cycle.allium` `PrepareCycle` |
 | `ApprovePreparation` | `approve-preparation` | command `approve-cycle-preparation` | `regeneration-cycle.allium` `ApprovePreparation` |
-| `SubmitApprovedSlice` | `submit-approved-slice` | command `submit-cycle-task` | `operator-control-plane.allium` `SubmitCycleTask`, `RepeatIdenticalSubmission` |
+| `SubmitApprovedSlice` | `submit-approved-slice` | command `submit-cycle-task` | `regeneration-cycle.allium` `SubmitCycle`; `operator-control-plane.allium` `RepeatIdenticalSubmission` |
 | `ApproveGrader` | `approve-grader` | command `approve-grader` | `instrument.allium` `ApproveExactGrader` |
 | `Measurement` | `measurement` | query `cycle-measurement` | `operator-control-plane.allium` `ReadDurableMeasurement` |
 | `BuilderSession` | `builder-session` | query `builder-session` | `operator-control-plane.allium` `ObserveBuilderSession` |
@@ -144,21 +151,54 @@ Judge scores are diagnostic runtime evidence only (03-018, `SealedGraderIsTheOnl
 
 | Behaviour | Spec |
 |---|---|
-| A builder session is a durable Pi session keyed by its ORC tick; a relaunch resumes it | 02-018, `LaunchDurableBuilderSession`, `ResumeDurableBuilderSession`, `DurableSessionIsKeyedByTick`; Grain `launch-builder-for-tick` → `launch-builder-session` / `relaunch-builder-session` → `builder-session-launched` / `builder-session-resumed` → `builder-sessions` |
+| A builder session is one aggregate, `BuilderSession`: a durable Pi session keyed by its ORC tick; a relaunch resumes it | 02-018, `LaunchDurableBuilderSession`, `ResumeDurableBuilderSession`, `DurableSessionIsKeyedByTick`; Grain `launch-builder-for-tick` → `launch-builder-session` / `relaunch-builder-session` → `builder-session-launched` / `builder-session-resumed` → `builder-sessions` |
 | ORC alone chooses the room; the host only forwards tool calls | 02-019, `BuilderRoomPolicy`, `OrcAloneChoosesTheRoom` |
 | A grader author's room holds only the selected Gherkin and the calibration protocol | 02-019, 03-002, `GraderAuthorRoomHoldsOnlySpecAndProtocol` |
-| A restored transcript is paired only with its own workspace | 04-017, `BindWorkspaceGeneration`, `BuilderWorkspaceMatchesCommittedSession`; Grain `bind-workspace-generation` → `workspace-generation-bound` |
+| A restored transcript is paired only with its own workspace | 04-017, `BindWorkspaceGeneration`, `BuilderWorkspaceMatchesCommittedSession`; Grain `commit-builder-tool-result` (builder host) → `builder-tool-result-committed` → `bind-committed-workspace` → `bind-workspace-generation` → `workspace-generation-bound` |
+| An operator observes a builder session read-only; an intervention marks its work assisted | 04, `ObserveBuilderSession`, `InterveneInBuilderSession`, `BuilderObservationDoesNotAssist`; Grain query `builder-session` over the projection `builder-sessions` |
 | Every production prompt is ORC's, for all three roles | 06-007, `ProductionPromptRole` |
 
 ## Ownership
 
-Each concept is declared once. `regeneration-cycle.allium` owns the domain: cuts, their
-composition, selections, preparations, and cycles. `operator-control-plane.allium` owns the
-control plane: tasks and receipts, idempotent submission, dispatch to ORC, progress, builder
-sessions, and measurement reads. It imports the domain with
-`use "./regeneration-cycle.allium" as cycle`. One operator act may fire a rule in each, for
-example `SubmitWholePlanRegeneration` creates the approved whole-plan preparation and cycle
-(`ApproveWholePlanBySubmission`) and its task (`SubmitWholePlanCycle`).
+Each concept is declared once (ADR 0003):
+
+| Concept | Owner | Declared as |
+|---|---|---|
+| Cycle | `regeneration-cycle.allium` | entity `RegenerationCycle` (status `CycleStatus`, stage `CycleStage`), moved through its stages by `execution-pipeline.allium` |
+| Measurement | `instrument.allium` | entity `CycleMeasurement` of `ItemScore` values, filed only by `FileScore`; refused by `RefuseEmptyScore`, `RefuseUnknownVerdicts`, `RefuseInvalidVerdicts` |
+| Builder session | `execution-pipeline.allium` | entity `BuilderSession` |
+| Workflow task | `operator-control-plane.allium` | entity `HarnessTask` (a task is not a cycle; it may prepare a cut) |
+| Filed verdict | `instrument.allium` | enum `ItemVerdict { pass \| fail }` |
+| Evidence verdict | `runtime-evidence.allium` | enum `EvidenceVerdict { pass \| fail \| inconclusive }` |
+| Producer authority, evidence purpose, evidence projection | `runtime-evidence.allium` | `ProducerAuthority`, `EvidencePurpose`, `EvidenceProjectionCreated`, invariant `EvidenceProjectionIsNotAuthority` |
+| Actors | `regeneration-cycle.allium` | `actor Operator`, `actor OrcRuntime` |
+
+Other specs import these with `use … as cycle`, `as pipeline`, `as instrument`. Durable
+measurement receipts and builder-session views are read-side projections (Grain read models
+`cycle-measurements` and `builder-sessions`), not Allium entities.
+
+Each trigger name is provided once. The operator's domain acts (`PrepareRegenerationCut`,
+`SubmitRegenerationCycle`, `SubmitWholePlanRegeneration`) are provided by
+`RegenerationHarness`; the control plane's cut task has its own trigger,
+`SubmitCutPreparationTask`. Submission idempotence lives in `SubmitCycle` and
+`ApproveWholePlanBySubmission` alone; the control plane opens the cycle's task from the
+created cycle (`OpenCycleTask`, a state trigger).
+
+Every surface faces an actor. Operator acts reach `RegenerationHarness`,
+`RegenerationControlPlane`, `Instrument`, and `BuilderPromptOptimization`, facing
+`Operator`. Facts ORC reports reach `OrcCycleStart`, `RegenerationCycleExecution`,
+`GraderRuns`, `OrcTaskReporting`, `RuntimeEvidenceMeasurement`, and
+`OrcInstructionOptimization`, facing `OrcRuntime`. Internal chaining between rules uses state
+triggers (`GateAttempt.created`, `RegenerationCycle.stage becomes result`,
+`CycleMeasurement.created`) or events another rule emits (`ScoreRefused`,
+`PipelineStageDidNotSucceed`), never an actor-less surface.
+
+The cycle is wired end to end: `SubmitCycle` creates it at the fence; ORC starts it
+(`StartCycle`); `FenceCleanRoom`, `BuildSlice`, `RegenerateCandidate`, `RecordGateAttempt`,
+`PassGate` / `RepairAfterFailedGate` / `FailAfterThreeGateAttempts`, `FileScore` →
+`AdvanceToScoreboard`, the scoreboard rules → `RecordScoreboard`, and `PassCycle` /
+`FailCycle` move it to a terminal status with its candidate digest. A refused score fails the
+score stage (`FailRefusedScore` → `FailPipelineStage`).
 
 ## Verification
 
@@ -180,8 +220,9 @@ expected. Any other finding is drift. Strict runtime validation needs the implem
 ## Allium diagnostic baseline
 
 `allium check .pi/model` and `allium analyse .pi/model` report no errors and no warnings. Any
-warning is drift. The operator is one `actor Operator`, identified by its `OperatorSession`,
-declared in `regeneration-cycle.allium` and imported by every spec whose surface faces it.
+warning is drift. The operator is one `actor Operator`, identified by its `OperatorSession`, and
+ORC's runtime is one `actor OrcRuntime`, identified by its `OrcWorker`; both are declared in
+`regeneration-cycle.allium` and imported by every spec whose surface faces them.
 
 Check the folder, not single files: the imports resolve only within the check set.
 Info-level diagnostics (unused fields and similar) are not tracked.

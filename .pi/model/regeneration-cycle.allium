@@ -4,9 +4,11 @@
 -- Scope: observable behaviour of the session-hosted ORC regeneration workflow.
 -- Product behaviour belongs to model/<project>; ORC runtime behaviour belongs to ORC.
 -- Includes: cuts and their composed system view, slice selection and its approval by
--- digest, cycle preparation and its approval, submission, and start.
--- Excludes: the cycle's stages (execution-pipeline.allium), the instrument
--- (instrument.allium), and ORC's runtime behaviour.
+-- digest, cycle preparation and its approval, submission, and start; the one cycle
+-- aggregate, RegenerationCycle, with its status and stage; and the two actors, the operator
+-- and ORC's runtime.
+-- Excludes: the rules that move the cycle through its stages (execution-pipeline.allium),
+-- the instrument (instrument.allium), and ORC's runtime behaviour.
 
 -- A person, or a Pi or Codex session acting for one, who approves and submits work. The
 -- session is the handle the operator acts through; no other spec governs it.
@@ -18,11 +20,26 @@ actor Operator {
     identified_by: OperatorSession where identity != ""
 }
 
+-- ORC's runtime: the worker that runs every tick and reports what happened. It is the only
+-- actor that reports execution facts (a tick started, a builder completed, a gate returned,
+-- a grader returned its verdicts); an operator can never report them.
+entity OrcWorker {
+    identity: String
+}
+
+actor OrcRuntime {
+    identified_by: OrcWorker where identity != ""
+}
+
 enum ExecutionBackend { host | gondolin }
 enum SelectionStatus { awaiting_approval | approved }
 enum PreparationStatus { awaiting_approval | approved }
 enum ExecutionProfile { host_development | gondolin_isolated | automatic }
 enum CycleStatus { submitted | running | passed | failed }
+-- The stages of one cycle, in the legacy shape. The fence and the gate are the harness; the
+-- score and the scoreboard are the instrument.
+enum CycleStage { fence | regenerate | gate | score | scoreboard | result }
+enum StageFailureKind { refused | skipped | timed_out | errored | missing | inconclusive }
 
 value Digest { value: String }
 value SourceCommit { value: String }
@@ -81,18 +98,36 @@ entity CyclePreparation {
         terminal: approved
     }
 }
+-- The one cycle aggregate. Its approved items and grader come from its preparation; its
+-- stages are moved by execution-pipeline.allium and its score is filed by instrument.allium.
+-- A submitted cycle waits at the fence until ORC starts it.
 entity RegenerationCycle {
     identity: String
+    request_digest: String
     preparation: CyclePreparation
     parent_cycle_identity: String?
     status: CycleStatus
+    stage: CycleStage
     candidate_digest: Digest?
+    failure_stage: CycleStage?
+    failure_kind: StageFailureKind?
+    failure_reason: String?
 
     transitions status {
         submitted -> running
         running -> passed
         running -> failed
         terminal: passed, failed
+    }
+
+    transitions stage {
+        fence -> regenerate
+        regenerate -> gate
+        gate -> regenerate
+        gate -> score
+        score -> scoreboard
+        scoreboard -> result
+        terminal: result
     }
 }
 
@@ -226,33 +261,48 @@ rule ApproveWholePlanBySubmission {
     ensures: RegenerationCycle.created(
         identity: request_identity,
         preparation: last_created_preparation(whole_plan_preparation_identity(pinned_cut())),
+        request_digest: request_digest,
         parent_cycle_identity: null,
         status: submitted,
-        candidate_digest: null
+        stage: fence,
+        candidate_digest: null,
+        failure_stage: null,
+        failure_kind: null,
+        failure_reason: null
     )
 }
 
+-- Submission is idempotent here and only here: a request identity names one cycle. The
+-- control plane opens the cycle's task when the cycle is created
+-- (operator-control-plane.allium OpenCycleTask); a repeat is answered by
+-- RepeatIdenticalSubmission or RefuseConflictingSubmission.
 rule SubmitCycle {
     when: SubmitRegenerationCycle(operator, request_identity, request_digest, preparation, parent_cycle_identity)
     requires: preparation.status = approved
+    requires: fixed_bounded_execution_contract(preparation)
     requires: preparation.selection.items.count > 0
     requires: not exists RegenerationCycle{identity: request_identity}
     ensures: RegenerationCycle.created(
         identity: request_identity,
+        request_digest: request_digest,
         preparation: preparation,
         parent_cycle_identity: parent_cycle_identity,
         status: submitted,
-        candidate_digest: null
+        stage: fence,
+        candidate_digest: null,
+        failure_stage: null,
+        failure_kind: null,
+        failure_reason: null
     )
 }
 
--- The cycle's stages (fence, regenerate, gate, score, scoreboard) are owned by
--- execution-pipeline.allium; scoring is owned by instrument.allium.
+-- ORC starts the cycle when it starts the tick dispatched for it. The cycle then runs from the
+-- fence; execution-pipeline.allium moves it through its stages to a terminal status.
 rule StartCycle {
-    when: StartRegenerationCycle(cycle)
+    when: StartRegenerationCycle(orc, cycle)
     requires: cycle.status = submitted
+    requires: cycle.stage = fence
     ensures: cycle.status = running
-    ensures: FenceRequested(cycle: cycle)
 }
 
 invariant ApprovedSelectionDigestIsStable {
@@ -304,5 +354,17 @@ surface RegenerationHarness {
 
     @guarantee IndependentMeasurement
         -- The builder cannot author the gate, the grader, the score, or the measurement used to judge its cycle.
+}
+
+-- The facts ORC reports about a cycle it runs. Only ORC's runtime reports them.
+surface OrcCycleStart {
+    facing orc: OrcRuntime
+
+    provides:
+        StartRegenerationCycle(orc, cycle)
+
+    @guarantee OrcStartsOnlyDispatchedCycles
+        -- ORC starts a cycle only from the tick dispatched for its task; approval and
+        -- submission alone start nothing.
 }
 -- End of observable regeneration-cycle contract.

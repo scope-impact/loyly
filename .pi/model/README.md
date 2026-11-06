@@ -35,15 +35,19 @@ verdict and never changes the checklist or its denominator:
   keyed by its tick, in a Gondolin room ORC chooses (`02-018`, `02-019`,
   `execution-pipeline.allium`). The durable Pi host and the Gondolin images are provided, like
   ORC and Grain; [`.pi/architecture.md`](../../.pi/architecture.md) states the split.
-- `plan/02-execution-pipeline/spec.feature` and `execution-pipeline.allium` define the one regeneration
-  cycle in the legacy shape: fence, regenerate, gate, score, scoreboard. The fence and the gate
+- `plan/02-execution-pipeline/spec.feature` and `execution-pipeline.allium` define the stages of
+  the one regeneration cycle (`RegenerationCycle`, declared in `regeneration-cycle.allium`) in the
+  legacy shape: fence, regenerate, gate, score, scoreboard, and the one builder session
+  aggregate (`BuilderSession`). The fence and the gate
   are the harness and feed the build loop; the score and the scoreboard are the instrument and
   never do.
 - `plan/03-instrument/spec.feature` and `instrument.allium` define the instrument: a checklist derived from
   the spec, a grader written once, calibrated carried/uncarried, sealed, and approved by exact
-  digest, an honest score, and a scoreboard that compares shared items in both directions.
+  digest, an honest score filed once into the one measurement (`CycleMeasurement`), and a
+  scoreboard that compares shared items in both directions.
 - `plan/01-regeneration-cycle/spec.feature` and `regeneration-cycle.allium` define cut preparation,
-  composition, selection, preparation approval, and idempotent submission.
+  composition, selection, preparation approval, idempotent submission, the one cycle aggregate,
+  and the two actors (`Operator`, `OrcRuntime`).
 - `plan/04-operator-control-plane/spec.feature`, `plan/06-prompt-optimization/spec.feature`,
   `plan/02-execution-pipeline/spec.feature`, and `plan/05-runtime-evidence/spec.feature` own acceptance behavior for
   their corresponding model components.
@@ -92,6 +96,9 @@ verdict and never changes the checklist or its denominator:
   operator sessions own approval and outer continuation.
 - `docs/adr/0002-pi-harness-is-an-orc-grain-service-area.md` records why the harness shares
   ORC's Grain runtime and projects ORC execution facts instead of duplicating them.
+- `docs/adr/0003-one-aggregate-per-concept.md` records why each concept (cycle, measurement,
+  builder session, verdicts) is declared once, how the cycle is wired end to end, and why only
+  ORC reports execution facts and the screen issues operator intents only.
 
 ORC's own `:sheet/*` execution events remain governed by ORC but may feed Pi-harness read models
 and processors. Löyly product events remain governed by the Löyly product model. The three service areas

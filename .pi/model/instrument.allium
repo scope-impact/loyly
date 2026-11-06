@@ -6,7 +6,8 @@
 -- scoreboard that compares cycles on shared items in both directions. It reports to a
 -- person and never feeds the build loop.
 -- Includes: stamping, checklist derivation, grader calibration, sealing, approval, reuse
--- and replacement, score filing, and scoreboard comparison.
+-- and replacement, score filing into the one measurement aggregate (CycleMeasurement), its
+-- refusals, and scoreboard comparison.
 -- Excludes: the grader's own test logic, building candidates, the gate, and ORC's
 -- evaluation judges (ORC specs/evaluation.allium): their scores are diagnostic runtime
 -- evidence (runtime-evidence.allium), never a verdict. ORC runs the sealed grader as a
@@ -37,13 +38,26 @@ entity Grader {
     }
 }
 
-entity ScoreVerdict {
-    cycle_identity: String
+-- One checklist item's filed verdict. An unreached item is filed as fail.
+value ItemScore {
     item_identity: String
-    grader_digest: String
     verdict: ItemVerdict
     reached: Boolean
     evidence: String
+}
+
+-- The one measurement aggregate: the score of one cycle, filed once by FileScore from the
+-- approved sealed grader's verdicts, one per checklist item. Its denominator is the cycle's
+-- approved selection. Durable measurement receipts and evidence reports are projections of
+-- it, never authorities.
+entity CycleMeasurement {
+    cycle: cycle/RegenerationCycle
+    grader_digest: String
+    total: Integer
+    passed: Integer
+    failed: Integer
+    complete: Boolean
+    items: List<ItemScore>
 }
 
 -- A checklist item names where it came from: its Rule (or none), the file and line of its
@@ -80,7 +94,7 @@ entity InstrumentGolden {
 }
 
 entity Scoreboard {
-    cycle_identity: String
+    cycle: cycle/RegenerationCycle
     previous_cycle_identity: String?
     pass_rate: Decimal
     denominator: Integer
@@ -139,7 +153,7 @@ rule DeriveChecklist {
 
 -- A grader is authored from the selected Gherkin and the public calibration protocol only.
 rule SealCalibratedGrader {
-    when: GraderCalibrated(grader, carried_passed, uncarried_failed)
+    when: GraderCalibrated(orc, grader, carried_passed, uncarried_failed)
     requires: grader.status = calibrating
     requires: grader_author_read_only_spec_and_protocol(grader)
     requires: carried_passed
@@ -148,7 +162,7 @@ rule SealCalibratedGrader {
 }
 
 rule ReauthorUncalibratedGrader {
-    when: GraderCalibrationFailed(grader, failed_cases)
+    when: GraderCalibrationFailed(orc, grader, failed_cases)
     requires: grader.status = calibrating
     requires: grader.attempt < 3
     requires: failed_cases_come_only_from_public_protocol(failed_cases)
@@ -161,7 +175,7 @@ rule ReauthorUncalibratedGrader {
 }
 
 rule StopAfterThreeUncalibratedGraders {
-    when: GraderCalibrationFailed(grader, failed_cases)
+    when: GraderCalibrationFailed(orc, grader, failed_cases)
     requires: grader.status = calibrating
     requires: grader.attempt = 3
     ensures: grader.status = discarded
@@ -187,53 +201,67 @@ rule ReuseApprovedGrader {
     ensures: GraderRecalibrationRequested(grader: approved_grader_covering(checklist))
 }
 
+-- Score: the one rule that files a measurement. ORC runs the approved sealed grader as a
+-- bounded step of the score stage and returns its verdicts; this rule, not ORC, files them.
 rule FileScore {
-    when: ScoreReturned(cycle_identity, grader, checklist, verdicts)
+    when: ScoreReturned(orc, cycle, grader, checklist, verdicts)
+    requires: cycle.status = running
+    requires: cycle.stage = score
     requires: grader.status = approved
+    requires: grader.digest = cycle.preparation.grader_digest.value
     requires: verdicts.count > 0
     requires: every_verdict_names_a_checklist_item(verdicts, checklist)
     requires: every_verdict_is_pass_or_fail(verdicts)
-    ensures:
-        for item in checklist:
-            ScoreVerdict.created(
-                cycle_identity: cycle_identity,
-                item_identity: item.item_identity,
-                grader_digest: grader.digest,
-                verdict: last_verdict_or_fail(verdicts, item),
-                reached: item_reached(verdicts, item),
-                evidence: last_evidence_or_empty_or_unreached(verdicts, item)
-            )
-    ensures: ScoreFiled(cycle: cycle_identity, observations: verdicts)
+    let items = one_score_per_checklist_item(checklist, verdicts)
+    ensures: CycleMeasurement.created(
+        cycle: cycle,
+        grader_digest: grader.digest,
+        total: checklist.items.count,
+        passed: items.count(item => item.verdict = pass),
+        failed: items.count(item => item.verdict = fail),
+        complete: items.all(item => item.reached),
+        items: items
+    )
+}
+
+-- Zero verdicts mean no score was filed.
+rule RefuseEmptyScore {
+    when: ScoreReturned(orc, cycle, grader, checklist, verdicts)
+    requires: verdicts.count = 0
+    ensures: ScoreRefused(cycle: cycle, named_items: [])
 }
 
 -- Unknown items are checked first, so a return with both faults names only the unknown items.
 rule RefuseUnknownVerdicts {
-    when: ScoreReturned(cycle_identity, grader, checklist, verdicts)
+    when: ScoreReturned(orc, cycle, grader, checklist, verdicts)
+    requires: verdicts.count > 0
     requires: not every_verdict_names_a_checklist_item(verdicts, checklist)
     ensures: ScoreRefused(
-        cycle: cycle_identity,
+        cycle: cycle,
         named_items: unknown_items_in_return_order(verdicts, checklist)
     )
 }
 
 rule RefuseInvalidVerdicts {
-    when: ScoreReturned(cycle_identity, grader, checklist, verdicts)
+    when: ScoreReturned(orc, cycle, grader, checklist, verdicts)
+    requires: verdicts.count > 0
     requires: every_verdict_names_a_checklist_item(verdicts, checklist)
     requires: not every_verdict_is_pass_or_fail(verdicts)
     ensures: ScoreRefused(
-        cycle: cycle_identity,
+        cycle: cycle,
         named_items: items_without_pass_or_fail(verdicts)
     )
 }
 
+-- Scoreboard: reported once a cycle reaches it, to a person; never back into the loop.
 rule ReportFirstScoreboard {
-    when: ScoreboardRequested(cycle_identity, selection_identity)
-    requires: not exists previous_measurement(selection_identity, cycle_identity)
+    when: scored: cycle/RegenerationCycle.stage becomes scoreboard
+    requires: not exists previous_measurement(scored)
     ensures: Scoreboard.created(
-        cycle_identity: cycle_identity,
+        cycle: scored,
         previous_cycle_identity: null,
-        pass_rate: pass_rate(cycle_identity),
-        denominator: denominator(cycle_identity),
+        pass_rate: pass_rate(scored),
+        denominator: denominator(scored),
         shared_items: [],
         newly_passing: [],
         newly_failing: [],
@@ -243,29 +271,40 @@ rule ReportFirstScoreboard {
 }
 
 rule ReportComparedScoreboard {
-    when: ScoreboardRequested(cycle_identity, selection_identity)
-    requires: exists previous_measurement(selection_identity, cycle_identity)
+    when: scored: cycle/RegenerationCycle.stage becomes scoreboard
+    requires: exists previous_measurement(scored)
     ensures: Scoreboard.created(
-        cycle_identity: cycle_identity,
-        previous_cycle_identity: previous_measurement(selection_identity, cycle_identity),
-        pass_rate: pass_rate(cycle_identity),
-        denominator: denominator(cycle_identity),
-        shared_items: shared_items(selection_identity, cycle_identity),
-        newly_passing: newly_passing(selection_identity, cycle_identity),
-        newly_failing: newly_failing(selection_identity, cycle_identity),
-        new_items: new_items(selection_identity, cycle_identity),
-        dropped_items: dropped_items(selection_identity, cycle_identity)
+        cycle: scored,
+        previous_cycle_identity: previous_measurement(scored),
+        pass_rate: pass_rate(scored),
+        denominator: denominator(scored),
+        shared_items: shared_items(scored),
+        newly_passing: newly_passing(scored),
+        newly_failing: newly_failing(scored),
+        new_items: new_items(scored),
+        dropped_items: dropped_items(scored)
     )
 }
 
 invariant ScoreUsesOnlyApprovedGraders {
-    for verdict in ScoreVerdicts:
-        grader_status(verdict.grader_digest) = approved
+    for measurement in CycleMeasurements:
+        grader_status(measurement.grader_digest) = approved
 }
 
 invariant UnreachedItemsFail {
-    for verdict in ScoreVerdicts:
-        not verdict.reached implies verdict.verdict = fail
+    for measurement in CycleMeasurements:
+        measurement.items.all(item => item.reached or item.verdict = fail)
+}
+
+invariant OneMeasurementPerCycle {
+    for measurement in CycleMeasurements:
+        count(CycleMeasurements where cycle = measurement.cycle) = 1
+}
+
+invariant MeasurementDenominatorNeverShrinks {
+    for measurement in CycleMeasurements:
+        measurement.total = measurement.cycle.preparation.selection.items.count and
+        measurement.passed + measurement.failed = measurement.total
 }
 
 invariant ScoreboardNeverNets {
@@ -283,12 +322,8 @@ surface Instrument {
 
     provides:
         ChecklistRequested(selection_identity, scenarios)
-        GraderCalibrated(grader, carried_passed, uncarried_failed)
-        GraderCalibrationFailed(grader, failed_cases)
         ApproveGrader(operator, grader, supplied_digest)
         GraderRequested(selection_identity, checklist)
-        ScoreReturned(cycle_identity, grader, checklist, verdicts)
-        ScoreboardRequested(cycle_identity, selection_identity)
         SliceStampRequested(slice_file)
         InstrumentGoldenWritten(identity, scenario_identity, digest, replaces, replacement_reason)
         ScenarioFoundUnstamped(slice_file, scenario)
@@ -331,4 +366,20 @@ surface Instrument {
     @guarantee FixedArithmetic
         -- A rate exactly on a half rounds to the even digit (1 of 16 is 6.2); a zero
         -- denominator reports no percentage.
+}
+
+-- The facts ORC reports from the grader runs it bounds: calibration outcomes and a score's
+-- returned verdicts. Only ORC's runtime reports them; an operator approves a grader but can
+-- never return a score.
+surface GraderRuns {
+    facing orc: cycle/OrcRuntime
+
+    provides:
+        GraderCalibrated(orc, grader, carried_passed, uncarried_failed)
+        GraderCalibrationFailed(orc, grader, failed_cases)
+        ScoreReturned(orc, cycle, grader, checklist, verdicts)
+
+    @guarantee VerdictsComeOnlyFromTheSealedGrader
+        -- A returned score is the approved sealed grader's output for the cycle's gated
+        -- candidate; the builder and the operator cannot supply or amend it.
 }

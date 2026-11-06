@@ -4,48 +4,18 @@
 -- Scope: the regeneration cycle in the legacy shape: fence, regenerate, gate, score,
 -- scoreboard. The fence and the gate are the harness and feed the build loop. The score and
 -- the scoreboard are the instrument (instrument.allium) and never feed the loop.
--- Includes: pipeline stages and their order, the harness self-check, the clean room, one
--- builder per slice, durable builder sessions launched by ORC in rooms it chooses, gate
--- attempts and repair, the candidate subject, observations, measurement, and the evidence
--- report projection.
--- Excludes: grader authoring and approval (instrument.allium), operator approval of the
--- selection (regeneration-cycle.allium), and Grain command/event plumbing.
+-- Includes: the rules that move the one cycle aggregate (regeneration-cycle.allium
+-- RegenerationCycle) through its stages to a terminal status, the harness self-check, the
+-- clean room, one builder per slice, the one builder session aggregate (BuilderSession),
+-- launched by ORC in rooms it chooses, gate attempts and repair, and the candidate subject.
+-- Excludes: the cycle aggregate itself and operator approval (regeneration-cycle.allium),
+-- grader authoring, score filing, and the scoreboard (instrument.allium, which owns the
+-- measurement), runtime evidence (runtime-evidence.allium), and Grain command/event plumbing.
 
-enum PipelineStage { fence | regenerate | gate | score | scoreboard | result }
-enum PipelineStatus { submitted | running | passed | failed }
-enum PipelineVerdict { pass | fail | inconclusive }
-enum StageFailureKind { refused | skipped | timed_out | errored | missing | inconclusive }
-enum PipelineProducerAuthority { candidate | harness_observer | independent_validator }
-enum PipelineEvidencePurpose { assertion | diagnostic | calibration }
+use "./regeneration-cycle.allium" as cycle
+use "./instrument.allium" as instrument
 
-entity PipelineCycle {
-    identity: String
-    selection_identity: String
-    approved_items: List<String>
-    grader_digest: String
-    stage: PipelineStage
-    status: PipelineStatus
-    failure_stage: PipelineStage?
-    failure_kind: StageFailureKind?
-    failure_reason: String?
 
-    transitions stage {
-        fence -> regenerate
-        regenerate -> gate
-        gate -> regenerate
-        gate -> score
-        score -> scoreboard
-        scoreboard -> result
-        terminal: result
-    }
-
-    transitions status {
-        submitted -> running
-        running -> passed
-        running -> failed
-        terminal: passed, failed
-    }
-}
 
 entity HarnessSelfCheck {
     harness_digest: String
@@ -57,7 +27,7 @@ entity HarnessSelfCheck {
 -- The self-check runs the harness's own calibration fixtures and reproduces every instrument
 -- golden (instrument.allium) exactly; any golden not reproduced is a named failing check.
 rule RunHarnessSelfCheck {
-    when: HarnessSelfCheckRan(harness_digest, golden_digests, failing_checks)
+    when: HarnessSelfCheckRan(orc, harness_digest, golden_digests, failing_checks)
     requires: golden_digests.count > 0
     ensures: HarnessSelfCheck.created(
         harness_digest: harness_digest,
@@ -68,7 +38,7 @@ rule RunHarnessSelfCheck {
 }
 
 entity CleanRoom {
-    cycle: PipelineCycle
+    cycle: cycle/RegenerationCycle
     cut_digest: String
     fenced_paths: List<String>
     single_root_commit: Boolean
@@ -77,32 +47,26 @@ entity CleanRoom {
 
 -- The first regenerate attempt runs one fresh builder per selected slice, in plan order.
 entity SliceBuild {
-    cycle: PipelineCycle
+    cycle: cycle/RegenerationCycle
     slice: String
     position: Integer
-    builder_session_identity: String
+    builder_session: BuilderSession
     generated_paths: List<String>
 }
 
 entity CandidateSubject {
-    cycle: PipelineCycle
+    cycle: cycle/RegenerationCycle
     attempt: Integer
     digest: String
     generated_paths: List<String>
     tool_calls: Integer
 }
 
-entity PipelineBuilderSession {
-    cycle: PipelineCycle
-    identity: String
-    operation_identity: String
-    attempt: Integer
-    workspace_generation: String
-    assisted: Boolean
-}
-
--- The three roles a durable builder session plays. Each gets its own room and prompt.
+-- The three roles a builder session plays. Each gets its own room and prompt.
 enum BuilderSessionRole { slice_builder | repair_builder | grader_author }
+
+-- How an operator may intervene in a builder session (operator-control-plane.allium).
+enum InterventionKind { pause | steer | fork }
 
 -- The room ORC chooses for one builder session. The builder host only forwards tool calls
 -- into it and can never widen it.
@@ -115,27 +79,33 @@ value BuilderRoomPolicy {
     inherits_host_environment: Boolean
 }
 
--- One durable Pi builder session, launched by ORC for one tick and identified by it. A
--- relaunch after a crash resumes this session from its committed turns.
-entity DurableBuilderLaunch {
+-- The one builder session aggregate: one durable Pi session, launched by ORC for one tick and
+-- identified by it, in the room ORC chose. A slice or repair builder belongs to one cycle and
+-- regenerate attempt; a grader author belongs to no cycle. A relaunch after a crash resumes
+-- this session from its committed turns. An operator's intervention marks its work assisted.
+entity BuilderSession {
     tick_identity: String
     role: BuilderSessionRole
     session_identity: String
+    cycle: cycle/RegenerationCycle?
+    attempt: Integer?
     room: BuilderRoomPolicy
     prompt_digest: String
     launches: Integer
+    assisted: Boolean
+    last_intervention: InterventionKind?
 }
 
 -- The workspace as it stood when one tool result was committed. A restored transcript is
 -- only ever paired with the generation bound to its last committed result.
 entity WorkspaceGeneration {
-    launch: DurableBuilderLaunch
+    session: BuilderSession
     committed_result: String
     generation: String
 }
 
 entity GateAttempt {
-    cycle: PipelineCycle
+    cycle: cycle/RegenerationCycle
     attempt: Integer
     subject_digest: String
     target_stack: String
@@ -147,45 +117,15 @@ entity GateAttempt {
     failure_reason: String?
 }
 
-entity PipelineObservation {
-    cycle: PipelineCycle
-    item_identity: String
-    producer: String
-    authority: PipelineProducerAuthority
-    evidence_purpose: PipelineEvidencePurpose
-    verdict: PipelineVerdict
-    reached: Boolean
-    evidence: String
-    cut_digest: String
-    subject_digest: String
-    grader_digest: String
-}
-
-entity PipelineMeasurement {
-    cycle: PipelineCycle
-    total: Integer
-    passed: Integer
-    failed: Integer
-    complete: Boolean
-    item_results: List<PipelineObservation>
-}
-
-rule StartPipeline {
-    when: ApprovedCycleStarted(cycle)
-    requires: cycle.status = submitted
-    requires: cycle.approved_items.count > 0
-    ensures: cycle.status = running
-    ensures: cycle.stage = fence
-}
-
 -- Fence: no clean room is built for an instrument nobody checked, and the room is proved,
 -- not asserted. A passing harness self-check is reused only for an identical harness digest.
+-- The cycle reaches the fence when ORC starts it (regeneration-cycle.allium StartCycle).
 rule FenceCleanRoom {
-    when: CleanRoomProved(cycle, cut_digest, fenced_paths, harness_digest)
+    when: CleanRoomProved(orc, cycle, cut_digest, fenced_paths, harness_digest)
     requires: cycle.status = running
     requires: cycle.stage = fence
     requires: exists HarnessSelfCheck{harness_digest: harness_digest, passed: true}
-    requires: approved_sealed_grader_covers(cycle.grader_digest, cycle.approved_items)
+    requires: approved_sealed_grader_covers(cycle.preparation.grader_digest, cycle.preparation.selection.items)
     requires: fenced_paths.count > 0
     requires: every_fenced_path_matched_something(cut_digest, fenced_paths)
     ensures: CleanRoom.created(
@@ -200,25 +140,19 @@ rule FenceCleanRoom {
 
 -- Regenerate: a fresh builder session rebuilds the selection from the clean room only.
 rule RegenerateCandidate {
-    when: BuilderCompleted(cycle, attempt, builder_session_identity, operation_identity,
-                           workspace_generation, assisted, subject_digest,
+    when: BuilderCompleted(orc, cycle, attempt, builder_session, subject_digest,
                            generated_paths, tool_calls)
     requires: cycle.status = running
     requires: cycle.stage = regenerate
     requires: attempt >= 1
     requires: attempt <= 3
+    requires: builder_session.cycle = cycle
+    requires: builder_session.attempt = attempt
+    requires: builder_session.role != grader_author
     requires: generated_paths.count > 0
     requires: tool_calls > 0
     requires: attempt > 1 implies builder_inputs_are_previous_candidate_and_gate_evidence(cycle, attempt)
     requires: attempt = 1 implies completed_slice_builds(cycle) = selected_slice_count(cycle)
-    ensures: PipelineBuilderSession.created(
-        cycle: cycle,
-        identity: builder_session_identity,
-        operation_identity: operation_identity,
-        attempt: attempt,
-        workspace_generation: workspace_generation,
-        assisted: assisted
-    )
     ensures: CandidateSubject.created(
         cycle: cycle,
         attempt: attempt,
@@ -233,9 +167,11 @@ rule RegenerateCandidate {
 -- builder reads the clean room and this cycle's candidate as the earlier slice builder left
 -- it; no earlier transcript, earlier cycle's candidate, or gate or score evidence crosses in.
 rule BuildSlice {
-    when: SliceBuilderCompleted(cycle, slice, position, builder_session_identity, generated_paths)
+    when: SliceBuilderCompleted(orc, cycle, slice, position, builder_session, generated_paths)
     requires: cycle.status = running
     requires: cycle.stage = regenerate
+    requires: builder_session.cycle = cycle
+    requires: builder_session.role = slice_builder
     requires: position = selected_slice_position(cycle, slice)
     requires: completed_slice_builds(cycle) = position - 1
     requires: slice_builder_inputs_are_clean_room_and_cycle_candidate(cycle, slice)
@@ -244,14 +180,14 @@ rule BuildSlice {
         cycle: cycle,
         slice: slice,
         position: position,
-        builder_session_identity: builder_session_identity,
+        builder_session: builder_session,
         generated_paths: generated_paths
     )
 }
 
 -- Gate: done is ratified by a room the builder does not control, never by its claim.
 rule RecordGateAttempt {
-    when: GateReturned(cycle, attempt, subject_digest, target_stack, passed, evidence_root,
+    when: GateReturned(orc, cycle, attempt, subject_digest, target_stack, passed, evidence_root,
                        suites_run, fresh_state_root, answered_by_launched_process, failure_reason)
     requires: cycle.status = running
     requires: cycle.stage = gate
@@ -272,111 +208,119 @@ rule RecordGateAttempt {
 }
 
 rule PassGate {
-    when: GateAttemptRecorded(cycle, attempt)
-    requires: cycle.stage = gate
-    requires: latest_gate_attempt(cycle).passed
-    ensures: cycle.stage = score
+    when: gate_attempt: GateAttempt.created
+    requires: gate_attempt.cycle.stage = gate
+    requires: gate_attempt.passed
+    ensures: gate_attempt.cycle.stage = score
 }
 
 rule RepairAfterFailedGate {
-    when: GateAttemptRecorded(cycle, attempt)
-    requires: cycle.stage = gate
-    requires: not latest_gate_attempt(cycle).passed
-    requires: attempt < 3
-    ensures: cycle.stage = regenerate
+    when: gate_attempt: GateAttempt.created
+    requires: gate_attempt.cycle.stage = gate
+    requires: not gate_attempt.passed
+    requires: gate_attempt.attempt < 3
+    ensures: gate_attempt.cycle.stage = regenerate
 }
 
 rule FailAfterThreeGateAttempts {
-    when: GateAttemptRecorded(cycle, attempt)
-    requires: cycle.stage = gate
-    requires: not latest_gate_attempt(cycle).passed
-    requires: attempt = 3
-    ensures: PipelineStageDidNotSucceed(cycle: cycle, stage: gate, failure_kind: refused,
+    when: gate_attempt: GateAttempt.created
+    requires: gate_attempt.cycle.stage = gate
+    requires: not gate_attempt.passed
+    requires: gate_attempt.attempt = 3
+    ensures: PipelineStageDidNotSucceed(cycle: gate_attempt.cycle, stage: gate, failure_kind: refused,
                                         reason: "gate failed after three regenerate attempts")
 }
 
 -- ORC launches every builder (slice, repair, grader author) as a durable Pi session keyed by
 -- its tick, in a room ORC chose. The model credentials stay with the host, never in the room.
 rule LaunchDurableBuilderSession {
-    when: OrcBuilderTickStarted(tick_identity, role, room, prompt_digest)
-    requires: not exists DurableBuilderLaunch{tick_identity: tick_identity}
+    when: OrcBuilderTickStarted(orc, tick_identity, cycle, attempt, role, room, prompt_digest)
+    requires: not exists BuilderSession{tick_identity: tick_identity}
     requires: room.cut_read_only
     requires: not room.egress_allowed
     requires: not room.inherits_host_environment
     requires: room.writable_scope.count > 0 or role = grader_author
     requires: role = repair_builder implies room.evidence_root != null
     requires: role != repair_builder implies room.evidence_root = null
-    ensures: DurableBuilderLaunch.created(
+    requires: role = grader_author implies cycle = null
+    requires: role != grader_author implies cycle != null and attempt != null
+    ensures: BuilderSession.created(
         tick_identity: tick_identity,
         role: role,
         session_identity: durable_session_for(tick_identity),
+        cycle: cycle,
+        attempt: attempt,
         room: room,
         prompt_digest: prompt_digest,
-        launches: 1
+        launches: 1,
+        assisted: false,
+        last_intervention: null
     )
 }
 
 -- A relaunch of the same tick resumes the same session with the same room and prompt. It
 -- never starts a second session.
 rule ResumeDurableBuilderSession {
-    when: OrcBuilderTickRelaunched(launch, room, prompt_digest)
-    requires: room = launch.room
-    requires: prompt_digest = launch.prompt_digest
-    ensures: launch.launches = launch.launches + 1
+    when: OrcBuilderTickRelaunched(orc, builder_session, room, prompt_digest)
+    requires: room = builder_session.room
+    requires: prompt_digest = builder_session.prompt_digest
+    ensures: builder_session.launches = builder_session.launches + 1
 }
 
--- ORC binds the workspace to each committed tool result, so a restart restores a transcript
--- only with the workspace it produced.
+-- The builder host commits each tool result; the workspace is bound to it, so a restart
+-- restores a transcript only with the workspace it produced.
 rule BindWorkspaceGeneration {
-    when: BuilderToolResultCommitted(launch, committed_result, generation)
-    requires: not exists WorkspaceGeneration{launch: launch, committed_result: committed_result}
+    when: BuilderToolResultCommitted(orc, builder_session, committed_result, generation)
+    requires: not exists WorkspaceGeneration{session: builder_session, committed_result: committed_result}
     ensures: WorkspaceGeneration.created(
-        launch: launch,
+        session: builder_session,
         committed_result: committed_result,
         generation: generation
     )
 }
 
--- Score: the approved sealed grader files one verdict per checklist item (instrument.allium).
-rule RecordScore {
-    when: ScoreFiled(cycle, observations)
+-- Score: the approved sealed grader files one verdict per checklist item
+-- (instrument.allium FileScore). Filing the measurement moves the cycle to the scoreboard.
+rule AdvanceToScoreboard {
+    when: measurement: instrument/CycleMeasurement.created
+    requires: measurement.cycle.status = running
+    requires: measurement.cycle.stage = score
+    ensures: measurement.cycle.stage = scoreboard
+}
+
+-- A refused score (an unknown item, a verdict that is neither pass nor fail, or no verdicts
+-- at all) files nothing and fails the score stage explicitly; the cycle is never stranded.
+rule FailRefusedScore {
+    when: ScoreRefused(cycle, named_items)
     requires: cycle.status = running
     requires: cycle.stage = score
-    requires: observations.count > 0
-    ensures: PipelineMeasurement.created(
-        cycle: cycle,
-        total: cycle.approved_items.count,
-        passed: passing_items(cycle, observations).count,
-        failed: cycle.approved_items.count - passing_items(cycle, observations).count,
-        complete: every_item_reached(cycle, observations),
-        item_results: observations
-    )
-    ensures: cycle.stage = scoreboard
+    ensures: PipelineStageDidNotSucceed(cycle: cycle, stage: score, failure_kind: refused,
+                                        reason: refused_score_reason(named_items))
 }
 
--- Scoreboard: report to a person; never back into the loop.
+-- Scoreboard: report to a person; never back into the loop (instrument.allium).
 rule RecordScoreboard {
-    when: ScoreboardReported(cycle)
-    requires: cycle.status = running
-    requires: cycle.stage = scoreboard
-    ensures: cycle.stage = result
+    when: board: instrument/Scoreboard.created
+    requires: board.cycle.status = running
+    requires: board.cycle.stage = scoreboard
+    ensures: board.cycle.stage = result
 }
 
-rule PassPipelineCycle {
-    when: DerivePipelineResult(cycle)
-    requires: cycle.status = running
-    requires: cycle.stage = result
-    requires: cycle_measurement(cycle).complete
-    requires: cycle_measurement(cycle).failed = 0
-    ensures: cycle.status = passed
+-- Result: the cycle is terminal, and names the candidate its gate passed.
+rule PassCycle {
+    when: finished: cycle/RegenerationCycle.stage becomes result
+    requires: finished.status = running
+    requires: exists instrument/CycleMeasurement{cycle: finished, complete: true, failed: 0}
+    ensures: finished.status = passed
+    ensures: finished.candidate_digest = gated_subject_digest(finished)
 }
 
-rule FailPipelineCycle {
-    when: DerivePipelineResult(cycle)
-    requires: cycle.status = running
-    requires: cycle.stage = result
-    requires: not cycle_measurement(cycle).complete or cycle_measurement(cycle).failed > 0
-    ensures: cycle.status = failed
+rule FailCycle {
+    when: finished: cycle/RegenerationCycle.stage becomes result
+    requires: finished.status = running
+    requires: not exists instrument/CycleMeasurement{cycle: finished, complete: true, failed: 0}
+    ensures: finished.status = failed
+    ensures: finished.candidate_digest = gated_subject_digest(finished)
 }
 
 rule FailPipelineStage {
@@ -387,17 +331,7 @@ rule FailPipelineStage {
     ensures: cycle.failure_stage = stage
     ensures: cycle.failure_kind = failure_kind
     ensures: cycle.failure_reason = reason
-    ensures: FailedDenominatorPreserved(cycle: cycle, item_identities: cycle.approved_items)
-}
-
-rule ProjectEvidenceReport {
-    when: EvidenceReportRequested(observation)
-    ensures: EvidenceProjectionCreated(
-        observation_identity: observation_identity(observation),
-        verdict: observation.verdict,
-        reached: observation.reached,
-        provenance: observation.producer
-    )
+    ensures: FailedDenominatorPreserved(cycle: cycle, item_identities: cycle.preparation.selection.items)
 }
 
 -- A gate passes only on a suite it saw run, against the process it started from fresh
@@ -417,8 +351,8 @@ invariant FailedGateNamesItsReason {
 }
 
 invariant PipelineOrderCannotSkip {
-    for cycle in PipelineCycles:
-        cycle.status = running implies stage_was_reached_in_declared_order(cycle)
+    for running_cycle in cycle/RegenerationCycles:
+        running_cycle.status = running implies stage_was_reached_in_declared_order(running_cycle)
 }
 
 invariant CleanRoomBeforeBuilder {
@@ -427,85 +361,64 @@ invariant CleanRoomBeforeBuilder {
 }
 
 invariant ScoreOnlyAfterPassingGate {
-    for measurement in PipelineMeasurements:
+    for measurement in instrument/CycleMeasurements:
         latest_gate_attempt(measurement.cycle).passed
 }
 
 invariant ScoreNeverFeedsTheLoop {
-    for builder_session in PipelineBuilderSessions:
+    for builder_session in BuilderSessions:
         not builder_session_can_read_score_evidence(builder_session)
 }
 
-invariant IndependentRoomsPreserveSubject {
-    for observation in PipelineObservations:
-        observation.subject_digest = gated_subject_digest(observation.cycle)
-}
-
-invariant PassingObservationHasIndependentAuthority {
-    for observation in PipelineObservations:
-        observation.verdict = pass implies
-            observation.authority = independent_validator and
-            observation.evidence_purpose = assertion
-}
-
-invariant PipelineDenominatorNeverShrinks {
-    for measurement in PipelineMeasurements:
-        measurement.total = measurement.cycle.approved_items.count
-}
-
-invariant EvidenceProjectionIsNotAuthority {
-    for observation in PipelineObservations:
-        observation.verdict = recorded_observation_verdict(observation)
-}
-
 invariant BuilderSessionIsSeparateFromOperatorSession {
-    for builder_session in PipelineBuilderSessions:
-        builder_session.identity != operator_session_identity(builder_session.cycle)
+    for builder_session in BuilderSessions:
+        builder_session.session_identity != operator_session_identity(builder_session.cycle)
 }
 
 invariant BuilderWorkspaceMatchesCommittedSession {
-    for builder_session in PipelineBuilderSessions:
-        builder_session.workspace_generation =
-            committed_workspace_generation(builder_session.identity)
+    for generation in WorkspaceGenerations:
+        generation.generation = committed_workspace_generation(
+            generation.session.session_identity, generation.committed_result)
 }
 
 invariant DurableSessionIsKeyedByTick {
-    for launch in DurableBuilderLaunches:
-        launch.session_identity = durable_session_for(launch.tick_identity)
+    for builder_session in BuilderSessions:
+        builder_session.session_identity = durable_session_for(builder_session.tick_identity)
 }
 
 invariant OrcAloneChoosesTheRoom {
-    for launch in DurableBuilderLaunches:
-        launch.room = orc_room_policy(launch.tick_identity)
+    for builder_session in BuilderSessions:
+        builder_session.room = orc_room_policy(builder_session.tick_identity)
 }
 
 invariant GraderAuthorRoomHoldsOnlySpecAndProtocol {
-    for launch in DurableBuilderLaunches:
-        launch.role = grader_author implies
-            room_mounts_only_selected_gherkin_and_calibration_protocol(launch.room)
+    for builder_session in BuilderSessions:
+        builder_session.role = grader_author implies
+            room_mounts_only_selected_gherkin_and_calibration_protocol(builder_session.room)
 }
 
+-- The facts ORC reports while it runs a cycle. Only ORC's runtime reports them; the rules
+-- above, chained by state, advance the stages. Nothing here lets an operator or a builder
+-- report a gate, a score, or a result.
 surface RegenerationCycleExecution {
+    facing orc: cycle/OrcRuntime
+
     provides:
-        ApprovedCycleStarted(cycle)
-        HarnessSelfCheckRan(harness_digest, golden_digests, failing_checks)
-        CleanRoomProved(cycle, cut_digest, fenced_paths, harness_digest)
-        BuilderCompleted(cycle, attempt, builder_session_identity, operation_identity,
-                         workspace_generation, assisted, subject_digest,
+        HarnessSelfCheckRan(orc, harness_digest, golden_digests, failing_checks)
+        CleanRoomProved(orc, cycle, cut_digest, fenced_paths, harness_digest)
+        OrcBuilderTickStarted(orc, tick_identity, cycle, attempt, role, room, prompt_digest)
+        OrcBuilderTickRelaunched(orc, builder_session, room, prompt_digest)
+        BuilderToolResultCommitted(orc, builder_session, committed_result, generation)
+        SliceBuilderCompleted(orc, cycle, slice, position, builder_session, generated_paths)
+        BuilderCompleted(orc, cycle, attempt, builder_session, subject_digest,
                          generated_paths, tool_calls)
-        SliceBuilderCompleted(cycle, slice, position, builder_session_identity, generated_paths)
-        GateReturned(cycle, attempt, subject_digest, target_stack, passed, evidence_root,
+        GateReturned(orc, cycle, attempt, subject_digest, target_stack, passed, evidence_root,
                      suites_run, fresh_state_root, answered_by_launched_process, failure_reason)
-        GateAttemptRecorded(cycle, attempt)
-        ScoreFiled(cycle, observations)
-        ScoreboardReported(cycle)
-        DerivePipelineResult(cycle)
         PipelineStageDidNotSucceed(cycle, stage, failure_kind, reason)
-        EvidenceReportRequested(observation)
 
     @guarantee ExactStageOrder
-        -- ORC alone advances fence, regenerate, gate, score, scoreboard, and result. Adapter
-        -- completion cannot reorder or skip a stage.
+        -- The stages advance only in the declared order, on facts ORC reports and on the
+        -- states those facts produce. Adapter completion cannot reorder or skip a stage.
 
     @guarantee HarnessAndInstrumentStaySeparate
         -- The fence and the gate feed the build loop. The score and the scoreboard report to a

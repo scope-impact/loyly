@@ -7,6 +7,13 @@
 -- Includes: runtime signals and their producers, independent invariant evaluations,
 -- capture policy, per-cycle evidence volumes, browser traces, and evidence projection.
 -- Excludes: what any one project must prove, and telemetry transport details.
+--
+-- This spec is the one owner of EvidenceVerdict (an invariant evaluation may legitimately
+-- be inconclusive; a filed checklist verdict, instrument.allium ItemVerdict, may not),
+-- ProducerAuthority, EvidencePurpose, the EvidenceProjectionCreated fact, and the invariant
+-- EvidenceProjectionIsNotAuthority. Other specs import them with use.
+
+use "./regeneration-cycle.allium" as cycle
 
 enum EvidenceVerdict { pass | fail | inconclusive }
 
@@ -99,7 +106,7 @@ entity BrowserTraceArtifact {
 }
 
 rule RecordRuntimeSignal {
-    when: RuntimeSignalCaptured(signal)
+    when: RuntimeSignalCaptured(orc, signal)
     requires: signal.identity != ""
     requires: signal.cycle_identity != ""
     requires: signal.producer != ""
@@ -125,7 +132,7 @@ rule RecordRuntimeSignal {
 }
 
 rule EvaluateCompleteInvariant {
-    when: IndependentInvariantChecked(cycle_identity, item_identity, invariant_identity,
+    when: IndependentInvariantChecked(orc, cycle_identity, item_identity, invariant_identity,
                                       producer, subject_digest, signals, verdict, evidence_digest)
     requires: signals.count > 0
     requires: signals.all(signal => signal.cycle_identity = cycle_identity)
@@ -149,7 +156,7 @@ rule EvaluateCompleteInvariant {
 }
 
 rule MarkIncompleteInvariantInconclusive {
-    when: IndependentInvariantInputsIncomplete(cycle_identity, item_identity, invariant_identity,
+    when: IndependentInvariantInputsIncomplete(orc, cycle_identity, item_identity, invariant_identity,
                                                producer, subject_digest, signals, evidence_digest)
     requires: signals.count = 0 or
         exists signals where not complete or sampled or dropped_count > 0
@@ -169,7 +176,7 @@ rule MarkIncompleteInvariantInconclusive {
 }
 
 rule ProjectRuntimeEvidence {
-    when: RuntimeEvidenceReportRequested(evaluation)
+    when: RuntimeEvidenceReportRequested(orc, evaluation)
     ensures: EvidenceProjectionCreated(
         evaluation_identity: evaluation.identity,
         verdict: evaluation.verdict,
@@ -178,7 +185,7 @@ rule ProjectRuntimeEvidence {
 }
 
 rule OpenIndependentValidationRoom {
-    when: IndependentValidationRequested(cycle_identity, capture_policy, evidence_volume)
+    when: IndependentValidationRequested(orc, cycle_identity, capture_policy, evidence_volume)
     requires: capture_policy.read_only
     requires: capture_policy.mount_path = "/observability"
     requires: evidence_volume.cycle_identity = cycle_identity
@@ -192,7 +199,7 @@ rule OpenIndependentValidationRoom {
 }
 
 rule BindSuccessfulBaselineTrace {
-    when: ScoreCompleted(cycle_identity, evaluation, trace)
+    when: BaselineGradeCompleted(orc, cycle_identity, evaluation, trace)
     requires: evaluation.verdict = pass
     requires: trace.cycle_identity = cycle_identity
     requires: trace.path = "playwright/baseline/trace.zip"
@@ -230,6 +237,12 @@ invariant EvidenceProjectionIsNotAuthority {
         projected_verdict(evaluation.identity) = evaluation.verdict
 }
 
+-- Independent rooms see the subject the gate passed, never a later or earlier candidate.
+invariant IndependentRoomsPreserveSubject {
+    for evaluation in IndependentInvariantEvaluations:
+        evaluation.subject_digest = gated_subject_digest(evaluation.cycle_identity)
+}
+
 invariant ValidationEvidenceIsCycleIsolated {
     for volume in CycleEvidenceVolumes:
         volume.identity = cycle_evidence_volume_identity(volume.cycle_identity)
@@ -250,16 +263,20 @@ invariant PassingBaselineRequiresPlaywrightTrace {
                 authority = independent_validator
 }
 
+-- The runtime facts ORC reports from the rooms it runs: captured signals, independent
+-- invariant checks, validation rooms, and baseline grades. Only ORC's runtime reports them.
 surface RuntimeEvidenceMeasurement {
+    facing orc: cycle/OrcRuntime
+
     provides:
-        RuntimeSignalCaptured(signal)
-        IndependentInvariantChecked(cycle_identity, item_identity, invariant_identity,
+        RuntimeSignalCaptured(orc, signal)
+        IndependentInvariantChecked(orc, cycle_identity, item_identity, invariant_identity,
                                     producer, subject_digest, signals, verdict, evidence_digest)
-        IndependentInvariantInputsIncomplete(cycle_identity, item_identity, invariant_identity,
+        IndependentInvariantInputsIncomplete(orc, cycle_identity, item_identity, invariant_identity,
                                              producer, subject_digest, signals, evidence_digest)
-        RuntimeEvidenceReportRequested(evaluation)
-        IndependentValidationRequested(cycle_identity, capture_policy, evidence_volume)
-        BaselineGradeCompleted(cycle_identity, evaluation, trace)
+        RuntimeEvidenceReportRequested(orc, evaluation)
+        IndependentValidationRequested(orc, cycle_identity, capture_policy, evidence_volume)
+        BaselineGradeCompleted(orc, cycle_identity, evaluation, trace)
 
     @guarantee IndependentVerdictAuthority
         -- Candidate telemetry may supply correlated facts but cannot author the
