@@ -5,10 +5,11 @@
 {:grader-lifecycle
  {:events
   {:grader-lifecycle/instrument-golden-written
-   {:description "An instrument golden was written from its scenario, never recorded from a run."
+   {:description "An instrument golden was written from its scenario, never recorded from a run; it carries the digest of that scenario (decisions.md h)."
     :schema [:map
              [:golden-id :string]
              [:scenario :string]
+             [:scenario-digest :string]
              [:path :string]
              [:digest :string]
              [:written-at inst?]]}
@@ -21,4 +22,5 @@
              [:reason [:enum "instrument-behavior-changed" "wording-replaced" "spec-grew"]]
              [:additions-only :boolean]
              [:note :string]
+             [:scenario-digest :string]
              [:moved-at inst?]]}}}}

@@ -1,94 +1,115 @@
 # Measurement (instrument: score and scoreboard): domain design
 
-status: proposed, 2026-11-06 (spec v2, R1). From the storm (`../event-storm.md`: Prepare
-(checklist), Score, Scoreboard) and the legacy `gen_checklist.clj`, `score.clj` and
-`scoreboard.clj`, in the glossary's words.
+status: proposed, 2026-11-06 (spec v2, R1 event model; R2 Allium and the product owner's
+decisions, `../decisions.md`). From the storm (`../event-storm.md`: Prepare (checklist),
+Score, Scoreboard) and the legacy `gen_checklist.clj`, `score.clj` and `scoreboard.clj`, in
+the glossary's words.
 
 ## Files
 
-| Module | Event Model | Aggregate | Lives |
-|---|---|---|---|
-| Context | `event-model/area.edn` (screen `instrument-desk`, flow `scoreboard-restates-moved-item-set`) | none | |
-| Checklist | `event-model/checklist.edn` | **Checklist** | event store; one per pinned cut (later: per approved selection) |
-| Cycle measurement | `event-model/cycle-measurement.edn` | **CycleMeasurement** (item verdicts, the one filing, or the failed stage) | event store; one per cycle |
-| Scoreboard | `event-model/scoreboard.edn` | **Scoreboard** | event store; one per measured cycle |
-| Handoffs produced | `event-model/handoffs.edn` (`measurement-filed`, `score-stage-failed`, `scoreboard-reported`) | | consumed by the Regeneration cycle, only to conclude |
+| Module | Event Model | Allium | Aggregate | Lives |
+|---|---|---|---|---|
+| Context | `event-model/area.edn` (screen `instrument-desk`, flow `scoreboard-restates-moved-item-set`) | `allium/context.allium` (values, enums, contracts `Scoring`, `RateFormat`, `Comparison`, open questions) | none | |
+| Checklist | `event-model/checklist.edn` | `allium/checklist.allium` (rule `DeriveChecklist`; the stamp and cut handoffs; surface `InstrumentDesk`) | **Checklist** | event store; one per pinned cut (later: per approved selection) |
+| Cycle measurement | `event-model/cycle-measurement.edn` | `allium/cycle-measurement.allium` (rules `FileItemVerdicts`, `FileScore`, `FailScoreStage`; the gate handoff; surfaces `VerdictFilingSeam`, `ScoreStage`, `MeasurementReceipt`) | **CycleMeasurement** (filings, the one measurement, or the failed stage) | event store; one per gated cycle |
+| Scoreboard | `event-model/scoreboard.edn` | `allium/scoreboard.allium` (rule `ReportScoreboard`; policy `ReportScoreboardOnce`; surface `ScoreboardReport`) | **Scoreboard** | event store; one per measured cycle |
+| Handoffs produced | `event-model/handoffs.edn` (`measurement-filed`, `score-stage-failed`, `scoreboard-reported`) | emitted by `FileScore`, `FailScoreStage`, `ReportScoreboard` | | consumed by the Regeneration cycle, only to conclude |
 
-Actors: the **operator** derives a checklist; the **grader** (its run reported by ORC
-runtime) files item verdicts; **ORC runtime** (the score node) files the score or records the
-failed score stage; the **report-scoreboard-once** policy reports. Nothing here issues a
-command of the build loop.
+Actors: the **operator** derives a checklist and reads the receipt and the scoreboard; the
+**grader** (its run reported by ORC runtime) files item verdicts; **ORC runtime** (the
+score node) files the score or records the failed stage; the **report-scoreboard-once**
+policy reports. Nothing here issues a command of the build loop.
 
 ## Design decisions
 
-1. **The operator derives the checklist in R1** (legacy: `gen_checklist` is run by a
-   person). The storm's policy "whenever a selection is approved, derive its checklist"
-   arrives with the selection and issues the same command. Its refusals then answer the
-   person who derives, which a policy-issued command could not do.
-2. **The checklist is keyed by cut** in R1 (the whole plan, the legacy shape and H10's
-   proposed answer); the approved selection adds a key later. It records the slices
-   skipped by `planned`/`backlog` status, so a shrunk denominator is in the record, not
-   only on stderr (H23).
-3. **The checklist counts only identities the stamper handed out** (`item-identities`,
-   from Specification's handoff): the spec is the only author of the item list.
-4. **Two steps to a measurement.** The grader files the verdicts it returned
-   (`item-verdicts-filed`, as returned, duplicates included); the instrument files the one
-   measurement (`file-score`, the glossary's FileScore). Several graders may file for one
-   cycle (H21: graders cover part of the items).
-5. **Unreached and superseded are fields of the filed measurement**, not events. An item
-   with no verdict is `fail` with `reason: unreached` and stays counted (H7's proposed
-   answer, the reason beside a pass-or-fail verdict). The last verdict for an item stands,
-   as in legacy, but every superseded one is listed in `superseded`, so last-wins is no
-   longer silent (H26 stays open).
-6. **A refused score files nothing; the failed stage is a fact.** The score refusals are
-   R2 `requires`. ORC's score node then records `score-stage-failed`, which is a handoff:
-   the conclude policy fails the cycle, and `file-score` requires the stage not failed, so
-   it is never retried within the cycle.
-7. **The score binds the gated candidate**: `gated-cycles` holds the digest from
-   `gate-attempt-passed`, and `file-item-verdicts` names the candidate it graded (H13).
-8. **The scoreboard compares with the previous measured cycle.** `scoreboard-reported`
-   carries newly passing and newly failing apart, new items (the untuned holdout) and
-   dropped items, and has no net field. When the item set moved, the same command also
-   records `moved-item-set-restated`.
+1. **The operator derives the checklist in the core** (legacy: a person runs
+   `gen_checklist`). The policy "whenever a selection is approved, derive its checklist"
+   arrives with the selection and issues the same command.
+2. **The checklist is keyed by cut**, and carries its **selection** (the whole plan in the
+   core, H10), which the scoreboard compares by. It records the slices skipped by status
+   (H23).
+3. **The checklist counts only identities the stamper handed out** (`ItemIdentity`, from
+   Specification's handoff), read with Specification's one reading of Gherkin.
+4. **Two steps to a measurement**: the grader files the verdicts it returned
+   (`FileItemVerdicts`, duplicates included); the instrument files the one measurement
+   (`FileScore`). Several graders may file for one cycle (H21).
+5. **Unreached and superseded are fields of the filed measurement**, not events (contract
+   `Scoring`).
+6. **A refused score files nothing; the failed stage is a fact** (`FailScoreStage`), a
+   handoff that fails the cycle; the score is never retaken within the cycle.
+7. **The score binds the gated candidate and the approved grader digests** (H13).
+8. **The scoreboard compares with the last measured cycle of the same selection** (g).
+
+## Decisions applied in R2 (`../decisions.md`)
+
+| Decision | Applied as |
+|---|---|
+| H7 reason beside the verdict | `reason` (unreached, inconclusive, outage) beside a pass-or-fail verdict on the filed items and on `item-verdicts-filed` (inconclusive, outage); `FileItemVerdicts` refusal 10; contract `Scoring` `ReasonBesideTheVerdict` |
+| H13 score binds candidate and grader digest | `FileItemVerdicts` refusals 2 and 9; `FileScore` refusals 5 (grader digest re-checked when filed) and 6; the approved grader digests are an input fact (`approved-grader-digests`) until the grader lifecycle's approval arrives; invariant `FilingsBindTheGatedCandidate` |
+| H26 last wins, superseded listed | contract `Scoring` `LastVerdictWinsAndTheRestAreListed`; `superseded` on `measurement-filed` |
+| g last measured cycle of the same selection | `selection-id` on the checklist, the measurement and the scoreboard; contract `Comparison` `LastMeasuredCycleOfTheSameSelection`; guarantee `ComparedWithTheLastMeasuredCycle` |
+| Bad verdict value before unknown item (accepted change) | `FileItemVerdicts` refusal 5 before 6; the command schema no longer types the verdict, so the refusal is the instrument's |
+| Every unstamped file listed (accepted change) | `DeriveChecklist` refusal 2 lists every unstamped scenario of every file |
+| Skipped slices stored (accepted change) | `skipped-slices` on `checklist-derived`; guarantee `ShrunkDenominatorIsOnRecord` |
+| A refused score never retaken (accepted change) | `FileItemVerdicts` refusals 7-8, `FileScore` refusals 3-4 |
+| Filed record joins the checklist by digest (accepted change) | `checklist-digest` on `measurement-filed` |
+
+Event-model changes for these: `derive-checklist`, `checklist-derived` and `checklists` gain
+`selection-id`; `file-item-verdicts` gains `approved-grader-digests`, an untyped `verdict`
+and an optional `reason`; `file-score` gains `approved-grader-digests`;
+`item-verdicts-filed` gains `reason`; `measurement-filed` gains `selection-id` and the
+reasons inconclusive and outage; both refusal enums gain `grader-not-approved` and
+`bad-verdict-reason`; `scoreboard-reported` gains `selection-id`, `rate` and the shared
+rates.
+
+## Legacy behaviours added in R2 (decisions.md "to add")
+
+- **1, which lines are scenarios and items**: the checklist uses Specification's contract
+  `ScenarioReading`; `DeriveChecklist` refusal 7 (an empty title is no item); guarantee
+  `OneReadingOfTheSpec`.
+- **6, scoreboard rates**: contract `RateFormat` (one decimal, half to even; "n/a" over
+  zero; `@harness-045`, `046`, `048`); `rate` on `scoreboard-reported`.
 
 ## Storm events here
 
 | Storm event | Became |
 |---|---|
 | Checklist derived | event `measurement/checklist-derived` |
-| ✗ Empty selection refused | refusal (R2) of `derive-checklist`: the checklist must not be empty |
-| (Unstamped scenario found, Specification's) | refusal (R2) of `derive-checklist`: every scenario stamped |
+| ✗ Empty selection refused | `DeriveChecklist` refusal 3 |
+| (Unstamped scenario found, Specification's) | `DeriveChecklist` refusal 2 |
 | Item verdicts filed | event `measurement/item-verdicts-filed` |
 | ✗ Unreached item recorded as fail | field of `measurement-filed`: `verdict fail`, `reason unreached`, counted in `unreached` |
-| ✗ Duplicate verdict superseded | field of `measurement-filed`: `superseded`; the last verdict is the read-model fact of `item-verdicts` |
-| ✗ Score refused | refusals (R2) of `file-item-verdicts` and `file-score` |
+| ✗ Duplicate verdict superseded | field of `measurement-filed`: `superseded` |
+| ✗ Score refused | refusals of `FileItemVerdicts` and `FileScore` |
 | ✗ Score stage failed, not retried | event `measurement/score-stage-failed` (handoff) |
 | ◆ Measurement filed | event `measurement/measurement-filed` (handoff) |
 | Moved item set restated | event `measurement/moved-item-set-restated` |
 | ◆ Scoreboard reported | event `measurement/scoreboard-reported` (handoff) |
 
-## Refusals for R2
+## Refusals (the `requires`, numbered as in the Allium)
 
-- `derive-checklist`: cut not pinned; a scenario unstamped (lists them; legacy refusal
-  names the stamper); checklist empty; an item identity never stamped; an item identity
-  twice; a checklist already derived for the cut with another digest.
-- `file-item-verdicts`: cycle not gated, or another candidate digest; no checklist for the
-  cycle's cut; zero verdicts; an item not on the checklist (checked before the verdict
-  values, legacy `@harness-039`); measurement already filed; score stage failed. A verdict
-  other than pass or fail fails the schema. (Later: the grader digest not approved.)
-- `file-score`: zero verdicts filed; already filed; score stage failed; not gated.
-- `fail-score-stage`: measurement filed; already failed.
-- `report-scoreboard`: no measurement filed; already reported.
+- `DeriveChecklist`: 1 cut not pinned; 2 a scenario unstamped (every one listed; the answer
+  names the stamper); 3 checklist empty; 4 an identity never stamped; 5 an identity twice;
+  6 already derived for the cut; 7 an item with an empty title.
+- `FileItemVerdicts` (refusal code for `fail-score-stage` in brackets): 1 cycle not gated
+  [not-the-gated-candidate]; 2 another candidate [not-the-gated-candidate]; 3 no checklist
+  [no-checklist]; 4 zero verdicts [zero-verdicts]; 5 a verdict neither pass nor fail
+  [bad-verdict-value]; 6 an item not on the checklist [unknown-item]; 7 already filed; 8
+  score stage failed; 9 grader digest not approved [grader-not-approved]; 10 a reason not
+  inconclusive or outage, or beside a pass [bad-verdict-reason].
+- `FileScore`: 1 not gated; 2 zero verdicts filed; 3 already filed; 4 stage failed; 5 a grader
+  digest no longer approved; 6 a filing for another candidate.
+- `FailScoreStage`: 1 not gated; 2 measurement filed; 3 already failed.
+- `ReportScoreboard`: 1 no measurement filed; 2 already reported.
 
 ## Open questions
 
-- **H7** (blocking, proposed answer taken for `unreached` only): `inconclusive` and
-  `outage` join the reason enum with runtime evidence.
-- **H13** (blocking): is the grader digest re-checked at score time? R1 binds the
-  candidate; the grader digest check arrives with grader approval.
-- **H16** (can wait): can an outage leave a false "scored" record? R1 refuses zero verdicts,
-  but a partial outage still files, with the unreached items failed.
+Settled by `../decisions.md`: H7 (the field), H13, H26, g. Still open (also as
+`open question` in `allium/context.allium`):
+
+- **H7** (part): which runtime evidence makes a verdict inconclusive or an outage.
+- **H16** (can wait): a partial outage still files, with the unreached items failed; an
+  `outage` reason is recordable but nothing requires it.
 - **H21** (can wait): should the scoreboard also report graded coverage?
-- **H26** (can wait, disagreement): supersede (legacy, now listed) or refuse duplicates?
-- **New**: the "previous cycle" is the previous measured cycle. Of the same selection, the
-  same cut series, or any? Legacy is the cycle number minus one.
+- **g / H10**: until selections arrive every checklist is the whole plan; is a cut-to-cut
+  comparison of the whole plan "the same selection"?

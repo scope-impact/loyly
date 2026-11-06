@@ -9,6 +9,7 @@
     :schema [:map
              [:cycle-id :string]
              [:cut-id :string]
+             [:selection-id :string]
              [:candidate-digest :string]
              [:checklist-digest :string]
              [:grader-digests [:vector {:min 1} :string]]
@@ -18,7 +19,7 @@
              [:items [:vector {:min 1} [:map
                                         [:item-id [:re "^[0-9]+-[0-9]{3,}$"]]
                                         [:verdict [:enum "pass" "fail"]]
-                                        [:reason {:optional true} [:enum "unreached"]]
+                                        [:reason {:optional true} [:enum "unreached" "inconclusive" "outage"]]
                                         [:evidence :string]]]]
              [:superseded [:vector [:map [:item-id :string] [:grader-digest :string] [:verdict [:enum "pass" "fail"]]]]]
              [:filed-at inst?]]}
@@ -26,20 +27,25 @@
    {:description "The cycle's score was refused, so no measurement was filed and the score stage failed; it is not retried within the cycle. Not scored is not all failed."
     :schema [:map
              [:cycle-id :string]
-             [:refusal [:enum "not-the-gated-candidate" "no-checklist" "zero-verdicts" "unknown-item" "bad-verdict-value"]]
+             [:refusal [:enum "not-the-gated-candidate" "no-checklist" "zero-verdicts" "bad-verdict-value" "unknown-item"
+                        "grader-not-approved" "bad-verdict-reason"]]
              [:detail :string]
              [:failed-at inst?]]}
    :measurement/scoreboard-reported
-   {:description "The cycle's scoreboard was reported to a person: its rate, and against the previous measured cycle the shared items' rates, newly passing and newly failing items apart, new items as the untuned holdout and dropped items. No net is computed. A baseline cycle has no previous cycle."
+   {:description "The cycle's scoreboard was reported to a person: its rate, and against the last measured cycle of the same selection (decisions.md g) the shared items' rates, newly passing and newly failing items apart, new items as the untuned holdout and dropped items. No net is computed. A baseline cycle has no previous cycle. A rate has one decimal, rounded half to even, and is \"n/a\" over zero."
     :schema [:map
              [:cycle-id :string]
+             [:selection-id :string]
              [:passes :int]
              [:total pos-int?]
+             [:rate :string]
              [:previous-cycle-id [:maybe :string]]
              [:shared {:optional true} [:map
                                         [:items :int]
                                         [:previous-passes :int]
                                         [:passes :int]
+                                        [:previous-rate :string]
+                                        [:rate :string]
                                         [:newly-passing [:vector :string]]
                                         [:newly-failing [:vector :string]]]]
              [:new-items [:vector :string]]

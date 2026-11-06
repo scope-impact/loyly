@@ -1,0 +1,118 @@
+-- allium: 3
+-- .pi/spec/regeneration-cycle/allium/clean-room.allium
+--
+-- Aggregate CleanRoom, in the harness's event store: one per cycle
+-- (event-model/clean-room.edn). The fence is physical and proved, never asserted: one
+-- commit, every fenced path absent from the working tree AND the object graph, and a
+-- fenced path that matches nothing stops the fence. Legacy: fence.sh.
+--
+-- A fence proof that does not hold is a refused ProveCleanRoom: no clean room exists, so
+-- nothing is recorded for it, and ORC's fence node then fails the cycle at the fence
+-- (FailCycle, reason fence_refused; decisions.md: a fence failure fails the cycle). The
+-- refusal codes keep the storm's names: "Fence refused: a fenced path matched nothing"
+-- (refusal 2) and "Fence refused: prior implementation reachable in the object graph"
+-- (refusal 6).
+
+use "context.allium" as ctx
+use "regeneration-cycle.allium" as cyc
+
+------------------------------------------------------------
+-- External Entities
+------------------------------------------------------------
+
+-- ORC's workflow worker: its fence node builds the room and runs the probe.
+external entity OrcWorker {}
+
+------------------------------------------------------------
+-- Entities
+------------------------------------------------------------
+
+entity CleanRoom {
+    cycle_id: String
+    cut_id: String
+    clean_room_commit: String
+    fenced_paths: Set<String>
+    proved_at: Timestamp
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+-- Record the proof of the clean room ORC's fence built from the cycle's cut: the probe's
+-- counts and the paths it found. Accepted only when the proof holds. Refusals 1-8 from R1
+-- (fence.sh's checks, in its order); 9-10 added in R2 (decisions.md H25; a concluded cycle).
+rule ProveCleanRoom {
+    when: ProveCleanRoom(orc, cycle_id, cut_id, clean_room_commit, fenced_paths, root_commits, commits, unmatched_paths, paths_left_in_tree, paths_reachable_in_object_graph)
+    let cycle = cyc.RegenerationCycle{cycle_id: cycle_id}
+    -- 1. the harness self-check before the fence did not pass (no cycle, or it failed)
+    requires: exists cycle and not cycle.self_check_failed
+    -- 2. a fenced path matched nothing (legacy: "FENCE FAILED: <p> matches nothing")
+    requires: unmatched_paths.count = 0
+    -- 3. the room has more than one root commit
+    requires: root_commits = 1
+    -- 4. the room's history is not a single commit
+    requires: commits = 1
+    -- 5. a fenced path left in the working tree
+    requires: paths_left_in_tree.count = 0
+    -- 6. a fenced path reachable in the object graph (the prior implementation)
+    requires: paths_reachable_in_object_graph.count = 0
+    -- 7. already proved
+    requires: not exists CleanRoom{cycle_id: cycle_id}
+    -- 8. the cut is not the self-checked cut
+    requires: cut_id = cycle.cut_id
+    -- 9. a scoring tool is not fenced: no grading harness in the room (H25)
+    requires: ctx/config.scoring_tool_paths.all(t => t in fenced_paths)
+    -- 10. the cycle is concluded
+    requires: cycle.status = running
+    ensures:
+        CleanRoom.created(cycle_id: cycle_id, cut_id: cut_id, clean_room_commit: clean_room_commit, fenced_paths: fenced_paths, proved_at: now)
+        CleanRoomProved(cycle_id: cycle_id, cut_id: cut_id, clean_room_commit: clean_room_commit, fenced_paths: fenced_paths)
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+invariant OneCleanRoomPerCycle {
+    for a in CleanRooms:
+        for b in CleanRooms:
+            a != b implies a.cycle_id != b.cycle_id
+}
+
+invariant AFenceHidesSomething {
+    for r in CleanRooms:
+        r.fenced_paths.count > 0
+}
+
+------------------------------------------------------------
+-- Actor Declarations
+------------------------------------------------------------
+
+actor OrcRuntime {
+    identified_by: OrcWorker where true
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+surface Fence {
+    facing orc: OrcRuntime
+
+    provides:
+        ProveCleanRoom(orc, cycle_id, cut_id, clean_room_commit, fenced_paths, root_commits, commits, unmatched_paths, paths_left_in_tree, paths_reachable_in_object_graph)
+
+    contracts:
+        fulfils FenceProbe
+
+    @guarantee ProvedNotAsserted
+        -- A clean room exists only as a proof that held: one root commit, one commit,
+        -- every fenced path absent from the working tree and unreachable in the object
+        -- graph, and every fenced path matched something in the cut (legacy fence.sh).
+
+    @guarantee RebuildNotCopy
+        -- The room keeps the spec, the domain sources and the public application
+        -- contract, and loses every prior implementation, recorded measurement, report,
+        -- grader, calibration fixture and grading harness (AGENTS.md, The clean room).
+}

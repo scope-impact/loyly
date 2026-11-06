@@ -2,9 +2,10 @@
 ;; defined twice, then run Grain's structural validator (strict) and its Allium composition
 ;; gate. Run from this folder: clojure -M -i grain-validate.clj
 ;;
-;; Exit status: 1 when the structural verdict has any error or warning (the gate is
-;; 0 errors, 0 warnings). The composition gate is REPORTED but does not fail the run until
-;; round R2 writes the Allium and adds the :grain/allium links.
+;; Exit status: 1 when the structural verdict or the composition verdict has any error or
+;; warning (the gate is 0 errors, 0 warnings for both). Since R2 every command links an
+;; Allium rule and every screen an Allium surface, so the composition gate is binding.
+;; Info findings are listed, not counted.
 (require '[load :as l] '[ai.obney.grain.event-model-validator.interface :as v]
          '[ai.obney.grain.code-agent-tools.interface :as cat] '[clojure.java.io :as io]
          '[clojure.java.shell :as sh] '[clojure.string :as str])
@@ -32,13 +33,12 @@
     (println " " area (into (sorted-map) (for [k [:commands :events :read-models :queries :todo-processors :screens :flows]]
                                            [k (count (k am))]))))
   (println "structural  " (fmt r1) "valid?" (:valid? r1))
-  (doseq [f (:findings r1) :when (not= :info (:severity f))]
+  (doseq [f (:findings r1)]
     (prn (select-keys f [:type :severity :area :block :flow :step :ref :from :to :message])))
-  (println "composition " (fmt r2) "valid?" (:valid? r2) "(reported only: the Allium arrives in R2)")
-  (let [cfs (remove #(= :info (:severity %)) (:findings r2))]
-    (doseq [[t n] (sort-by key (frequencies (map :type cfs)))]
-      (println "   " t n)))
+  (println "composition " (fmt r2) "valid?" (:valid? r2))
+  (doseq [f (:findings r2) :when (not (some #{f} (:findings r1)))]
+    (prn (select-keys f [:type :severity :area :kind :block :spec :declaration/kind :declaration/name :message])))
   (shutdown-agents)
-  (System/exit (if (and (zero? (get-in r1 [:summary :errors] 0))
-                        (zero? (get-in r1 [:summary :warnings] 0)))
-                 0 1)))
+  (let [clean? (fn [r] (and (:valid? r) (zero? (get-in r [:summary :errors] 0))
+                            (zero? (get-in r [:summary :warnings] 0))))]
+    (System/exit (if (and (clean? r1) (clean? r2)) 0 1))))

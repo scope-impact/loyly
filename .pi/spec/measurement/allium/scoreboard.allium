@@ -1,0 +1,143 @@
+-- allium: 3
+-- .pi/spec/measurement/allium/scoreboard.allium
+--
+-- Aggregate Scoreboard, in the harness's event store: one per measured cycle
+-- (event-model/scoreboard.edn). It reports to a person: the rate, and against the last
+-- measured cycle of the same selection only the shared items, newly passing and newly
+-- failing apart, new items as the untuned holdout, never a net. Legacy: scoreboard.clj.
+
+use "context.allium" as ctx
+use "cycle-measurement.allium" as cm
+
+------------------------------------------------------------
+-- External Entities
+------------------------------------------------------------
+
+-- The person the scoreboard reports to.
+external entity OperatorAccount {}
+
+------------------------------------------------------------
+-- Entities
+------------------------------------------------------------
+
+entity Scoreboard {
+    cycle_id: String
+    selection_id: String
+    passes: Integer
+    total: Integer
+    -- One decimal, half to even; "n/a" over zero (contract RateFormat).
+    rate: String
+    -- The last measured cycle of the same selection; null for a baseline cycle.
+    previous_cycle_id: String?
+    reported_at: Timestamp
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+-- The report-scoreboard-once policy: whenever a measurement is filed, report its
+-- scoreboard, once.
+rule ReportScoreboardOnce {
+    when: cm/MeasurementFiled(cycle_id)
+    requires: not exists Scoreboard{cycle_id: cycle_id}
+    ensures: ReportScoreboard(cycle_id: cycle_id)
+}
+
+-- Report the cycle's scoreboard against the last measured cycle of the same selection;
+-- restate it on the shared items when the item set moved. Issued by the
+-- report-scoreboard-once policy. Refusals from R1.
+rule ReportScoreboard {
+    when: ReportScoreboard(cycle_id)
+    let measurement = cm/CycleMeasurement{cycle_id: cycle_id}
+    -- 1. no measurement filed for the cycle (legacy @harness-043: nothing recorded)
+    requires: exists measurement and measurement.status = filed
+    -- 2. already reported
+    requires: not exists Scoreboard{cycle_id: cycle_id}
+    let previous = last_measured_before(measurement)
+    ensures:
+        Scoreboard.created(
+            cycle_id: cycle_id,
+            selection_id: measurement.selection_id,
+            passes: measurement.passes,
+            total: measurement.total,
+            rate: rate(measurement.passes, measurement.total),
+            previous_cycle_id: previous?.cycle_id,
+            reported_at: now
+        )
+        ScoreboardReported(cycle_id: cycle_id, selection_id: measurement.selection_id, passes: measurement.passes, total: measurement.total, rate: rate(measurement.passes, measurement.total), previous_cycle_id: previous?.cycle_id, shared: shared_items(measurement, previous), new_items: new_items(measurement, previous), dropped_items: dropped_items(measurement, previous))
+        if previous != null and item_set_moved(measurement, previous):
+            MovedItemSetRestated(cycle_id: cycle_id, previous_cycle_id: previous.cycle_id, previous_total: previous.total, total: measurement.total, added: new_items(measurement, previous).count, dropped: dropped_items(measurement, previous).count)
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+invariant OneScoreboardPerCycle {
+    for a in Scoreboards:
+        for b in Scoreboards:
+            a != b implies a.cycle_id != b.cycle_id
+}
+
+-- A cycle is never its own baseline.
+invariant NeverComparedWithItself {
+    for s in Scoreboards:
+        s.previous_cycle_id != s.cycle_id
+}
+
+invariant PassesWithinTotal {
+    for s in Scoreboards:
+        s.passes <= s.total
+}
+
+------------------------------------------------------------
+-- Actor Declarations
+------------------------------------------------------------
+
+actor Operator {
+    identified_by: OperatorAccount where true
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+-- The scoreboard, to a person, once a cycle (screen instrument-desk, query scoreboard).
+surface ScoreboardReport {
+    facing operator: Operator
+    context board: Scoreboard
+
+    exposes:
+        board.cycle_id
+        board.selection_id
+        board.passes
+        board.total
+        board.rate
+        board.previous_cycle_id
+
+    contracts:
+        fulfils RateFormat
+        fulfils Comparison
+
+    @guarantee ToAPersonNeverIntoTheLoop
+        -- The scoreboard is reported once a cycle, to a person; no command of the build
+        -- loop reads it (AGENTS.md, The instrument).
+
+    @guarantee BothDirectionsNeverANet
+        -- Against the previous measured cycle the shared items are compared, newly
+        -- passing and newly failing apart; no net is computed (legacy @harness-045).
+
+    @guarantee NewItemsAreTheHoldout
+        -- Items only this cycle carries are counted separately, as the holdout nobody
+        -- tuned; dropped items are counted too.
+
+    @guarantee AMovedItemSetIsRestatedOutLoud
+        -- When the item set moved, the two headline rates count different things, and the
+        -- comparison is restated on the shared items only; when it did not move, nothing
+        -- is restated (legacy @harness-047).
+
+    @guarantee ComparedWithTheLastMeasuredCycle
+        -- The previous cycle is the last measured cycle of the same selection, so a cycle
+        -- after an unscored one is not read as a baseline (decisions.md g).
+}

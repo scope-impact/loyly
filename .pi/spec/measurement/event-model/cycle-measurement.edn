@@ -4,37 +4,46 @@
 ;; fails and stays counted. A false record cannot be untaken, so a doubtful one is refused.
 ;; Legacy: score.clj.
 ;;
-;; R2 refusals (requires, not events; storm: "Score refused"): of file-item-verdicts, the
-;; cycle's gate did not ratify this candidate (H13), no checklist for the cycle's cut, zero
-;; verdicts, a verdict for an item not on the checklist, a measurement already filed, the
-;; score stage already failed; of file-score, zero verdicts filed, already filed, stage
-;; failed. A verdict other than pass or fail is refused by the command schema.
-;; TODO R2: :grain/allium links (rules FileItemVerdicts, FileScore, FailScoreStage;
-;; entity CycleMeasurement).
+;; The refusals are requires, not events (storm: "Score refused"; ../allium/cycle-measurement.allium).
+;; Of file-item-verdicts: not the gated candidate (H13), no checklist, zero verdicts, a bad
+;; verdict value (before an unknown item, decisions.md), an unknown item, already filed,
+;; stage failed, a grader digest not approved (H13), a bad reason (H7). Of file-score: not
+;; gated, zero verdicts filed, already filed, stage failed, a grader digest no longer
+;; approved, a filing for another candidate (H13). The approved grader digests are an input
+;; fact until the grader lifecycle's approval arrives. A verdict carries a reason beside a
+;; fail (H7).
 {:measurement
  {:commands
   {:measurement/file-item-verdicts
    {:description "File the verdicts one approved sealed grader returned for the gated candidate of a cycle, having driven it only over its public seam in a validation room. Issued by: the grader (its run reported by ORC runtime)."
+    :grain/allium [{:spec ".pi/spec/measurement/allium/cycle-measurement.allium" :kind :rule :name "FileItemVerdicts"}]
     :schema [:map
              [:cycle-id :string]
              [:candidate-digest :string]
              [:grader-digest :string]
+             [:approved-grader-digests [:vector :string]]
              [:verdicts [:vector [:map
-                                  [:item-id [:re "^[0-9]+-[0-9]{3,}$"]]
-                                  [:verdict [:enum "pass" "fail"]]
+                                  [:item-id :string]
+                                  [:verdict :string]
+                                  [:reason {:optional true} :string]
                                   [:evidence {:optional true} :string]]]]]
     :reads #{:measurement/gated-cycles :measurement/checklists :measurement/cycle-measurements}
     :produces #{:measurement/item-verdicts-filed}}
    :measurement/file-score
    {:description "File the cycle's one measurement from the verdicts filed: every checklist item, the last verdict for an item superseding an earlier one, and an item with no verdict recorded as fail with reason unreached. Issued by: ORC runtime (the score node), once its grader runs are done."
-    :schema [:map [:cycle-id :string]]
+    :grain/allium [{:spec ".pi/spec/measurement/allium/cycle-measurement.allium" :kind :rule :name "FileScore"}]
+    :schema [:map
+             [:cycle-id :string]
+             [:approved-grader-digests [:vector :string]]]
     :reads #{:measurement/gated-cycles :measurement/checklists :measurement/item-verdicts :measurement/cycle-measurements}
     :produces #{:measurement/measurement-filed}}
    :measurement/fail-score-stage
    {:description "Record that the cycle's score stage failed because its score was refused; it is never retried within the cycle. Issued by: ORC runtime (the score node)."
+    :grain/allium [{:spec ".pi/spec/measurement/allium/cycle-measurement.allium" :kind :rule :name "FailScoreStage"}]
     :schema [:map
              [:cycle-id :string]
-             [:refusal [:enum "not-the-gated-candidate" "no-checklist" "zero-verdicts" "unknown-item" "bad-verdict-value"]]
+             [:refusal [:enum "not-the-gated-candidate" "no-checklist" "zero-verdicts" "bad-verdict-value" "unknown-item"
+                        "grader-not-approved" "bad-verdict-reason"]]
              [:detail :string]]
     :reads #{:measurement/cycle-measurements}
     :produces #{:measurement/score-stage-failed}}}
@@ -48,17 +57,21 @@
              [:verdicts [:vector {:min 1} [:map
                                            [:item-id [:re "^[0-9]+-[0-9]{3,}$"]]
                                            [:verdict [:enum "pass" "fail"]]
+                                           [:reason {:optional true} [:enum "inconclusive" "outage"]]
                                            [:evidence :string]]]]
              [:filed-at inst?]]}}
   :read-models
   {:measurement/gated-cycles
    {:description "Each cycle the gate ratified: its cut and the candidate digest the score must bind."
+    :grain/allium [{:spec ".pi/spec/measurement/allium/cycle-measurement.allium" :kind :entity :name "CycleMeasurement"}]
     :consumes #{:regeneration-cycle/gate-attempt-passed}}
    :measurement/item-verdicts
    {:description "Each cycle's filed verdicts, in filing order, per grader."
+    :grain/allium [{:spec ".pi/spec/measurement/allium/cycle-measurement.allium" :kind :entity :name "VerdictFiling"}]
     :consumes #{:measurement/item-verdicts-filed}}
    :measurement/cycle-measurements
    {:description "Each cycle's filed measurement, or its failed score stage: the durable measurement receipt an operator reads."
+    :grain/allium [{:spec ".pi/spec/measurement/allium/cycle-measurement.allium" :kind :entity :name "CycleMeasurement"}]
     :consumes #{:measurement/measurement-filed :measurement/score-stage-failed}
     :schema [:map
              [:cycle-id :string]
@@ -69,7 +82,7 @@
              [:passes {:optional true} :int]
              [:unreached {:optional true} :int]
              [:items {:optional true} [:vector [:map [:item-id :string] [:verdict [:enum "pass" "fail"]]
-                                                [:reason {:optional true} [:enum "unreached"]] [:evidence :string]]]]
+                                                [:reason {:optional true} [:enum "unreached" "inconclusive" "outage"]] [:evidence :string]]]]
              [:refusal {:optional true} :string]]}}
   :queries
   {:measurement/cycle-measurement

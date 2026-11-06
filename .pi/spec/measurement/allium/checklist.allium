@@ -1,0 +1,213 @@
+-- allium: 3
+-- .pi/spec/measurement/allium/checklist.allium
+--
+-- Aggregate Checklist, in the harness's event store: one per pinned cut in the core, one per
+-- approved selection once selection arrives (event-model/checklist.edn). Derived, never
+-- written; it sets the denominator. Legacy: gen_checklist.clj.
+--
+-- Two storm events are refusals here, not events: "Unstamped scenario found" (refusal 2,
+-- which lists every unstamped scenario of every file; decisions.md) and "Empty selection
+-- refused" (refusal 3). The checklist reads the spec with Specification's published
+-- reading of Gherkin (specification/allium/context.allium, contract ScenarioReading), the
+-- same one the stamper uses.
+
+use "context.allium" as ctx
+
+------------------------------------------------------------
+-- External Entities
+------------------------------------------------------------
+
+-- The person who derives the checklist (legacy: a person runs gen_checklist).
+external entity OperatorAccount {}
+
+-- The Specification context, producer of ScenarioStamped.
+external entity Specification {}
+
+-- The Cycle preparation context, producer of SourceCutPinned.
+external entity CyclePreparation {}
+
+------------------------------------------------------------
+-- Entities
+------------------------------------------------------------
+
+-- An item identity the stamper handed out (read model item-identities).
+entity ItemIdentity {
+    item_id: String
+    slice: String
+    source: String
+}
+
+-- A cut Cycle preparation pinned (read model pinned-cuts).
+entity PinnedCut {
+    cut_id: String
+    commit: String
+    tree_digest: String
+}
+
+entity Checklist {
+    cut_id: String
+    -- The whole plan in the core (decisions.md H10); an approved selection later.
+    selection_id: String
+    checklist_digest: String
+    -- In file order, then position in the file; never sorted by id (@harness-014).
+    items: List<ctx.StampedItem>
+    item_ids: Set<String>
+    -- The denominator.
+    total: Integer
+    skipped_slices: List<ctx.SkippedSlice>
+    derived_at: Timestamp
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+-- Derive the checklist of a pinned cut: one stamped item per stamped scenario of every
+-- slice not planned or backlog, in file order; the slices skipped by status are recorded.
+-- Issued by the operator. Refusals 1-6 from R1; 7 added in R2 ("to add" 1).
+rule DeriveChecklist {
+    when: DeriveChecklist(operator, cut_id, selection_id, items, unstamped, skipped_slices)
+    -- 1. the cut is not pinned
+    requires: exists PinnedCut{cut_id: cut_id}
+    -- 2. a scenario is unstamped: every one, in every file, is listed, and the answer
+    --    names the stamper (legacy @harness-023; decisions.md: every unstamped file listed)
+    requires: unstamped.count = 0
+    -- 3. the checklist would be empty, whether no spec, every slice skipped, or no
+    --    scenario at all (legacy @harness-025, @harness-026; the hole of @harness-022 closed)
+    requires: items.count > 0
+    -- 4. an item identity the stamper never handed out: the spec is the only author
+    requires: items.all(i => exists ItemIdentity{item_id: i.item_id})
+    -- 5. an item identity twice
+    requires: ids_of(items).count = items.count
+    -- 6. a checklist already derived for the cut
+    requires: not exists Checklist{cut_id: cut_id}
+    -- 7. an item with an empty title: a Scenario line with nothing after the colon is no
+    --    scenario; a title of only whitespace is one (legacy @harness-021, @harness-049)
+    requires: items.all(i => i.title != "")
+    ensures:
+        Checklist.created(
+            cut_id: cut_id,
+            selection_id: selection_id,
+            checklist_digest: digest_of(items),
+            items: items,
+            item_ids: ids_of(items),
+            total: items.count,
+            skipped_slices: skipped_slices,
+            derived_at: now
+        )
+        ChecklistDerived(cut_id: cut_id, selection_id: selection_id, checklist_digest: digest_of(items), items: items, total: items.count, skipped_slices: skipped_slices)
+}
+
+-- Specification's handoff: an identity the stamper handed out.
+rule NoteItemIdentity {
+    when: ScenarioStamped(specification, item_id, slice, source, line, title)
+    requires: not exists ItemIdentity{item_id: item_id}
+    ensures: ItemIdentity.created(item_id: item_id, slice: slice, source: source)
+}
+
+-- Cycle preparation's handoff: a pinned cut.
+rule NotePinnedCut {
+    when: SourceCutPinned(preparation, cut_id, commit, tree_digest)
+    requires: not exists PinnedCut{cut_id: cut_id}
+    ensures: PinnedCut.created(cut_id: cut_id, commit: commit, tree_digest: tree_digest)
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+-- Nothing that could fail is no measurement.
+invariant ChecklistNeverEmpty {
+    for c in Checklists:
+        c.total >= 1
+}
+
+invariant TotalCountsEveryItem {
+    for c in Checklists:
+        c.total = c.items.count and c.item_ids.count = c.total
+}
+
+invariant OneChecklistPerCut {
+    for a in Checklists:
+        for b in Checklists:
+            a != b implies a.cut_id != b.cut_id
+}
+
+invariant OneItemPerIdentity {
+    for a in ItemIdentities:
+        for b in ItemIdentities:
+            a != b implies a.item_id != b.item_id
+}
+
+------------------------------------------------------------
+-- Actor Declarations
+------------------------------------------------------------
+
+actor Operator {
+    identified_by: OperatorAccount where true
+}
+
+actor SpecificationContext {
+    identified_by: Specification where true
+}
+
+actor CyclePreparationContext {
+    identified_by: CyclePreparation where true
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+-- The operator's instrument view (screen instrument-desk): derive a cut's checklist; read a
+-- cycle's measurement receipt (cycle-measurement.allium) and its scoreboard
+-- (scoreboard.allium, surface ScoreboardReport).
+surface InstrumentDesk {
+    facing operator: Operator
+    context checklist: Checklist
+
+    exposes:
+        checklist.cut_id
+        checklist.selection_id
+        checklist.checklist_digest
+        checklist.items
+        checklist.total
+        checklist.skipped_slices
+
+    provides:
+        DeriveChecklist(operator, cut_id, selection_id, items, unstamped, skipped_slices)
+
+    @guarantee DerivedNeverWritten
+        -- The checklist is derived from the spec at a pinned cut, one item per stamped
+        -- scenario, and never hand-kept: a hand-kept list goes stale silently.
+
+    @guarantee ShrunkDenominatorIsOnRecord
+        -- A slice left out by its status is recorded in the checklist, not only warned
+        -- about, so a shrunk denominator is in the record (H23; legacy @harness-027).
+
+    @guarantee OneReadingOfTheSpec
+        -- The checklist recognises scenarios, titles, rules and item tags with
+        -- Specification's published reading of Gherkin, the one the stamper uses, so
+        -- the two tools cannot disagree about what is an item (decisions.md "to add" 1).
+
+    @guarantee MeasurementReceiptOnRequest
+        -- The operator reads a cycle's measurement receipt: every item's verdict and
+        -- reason, the denominator, the unreached count and the superseded verdicts, or
+        -- the refusal that failed the score stage.
+}
+
+-- Specification's handoff, as this context hears it.
+surface SpecificationHandoffs {
+    facing specification: SpecificationContext
+
+    provides:
+        ScenarioStamped(specification, item_id, slice, source, line, title)
+}
+
+-- Cycle preparation's handoff, as this context hears it.
+surface CyclePreparationHandoffs {
+    facing preparation: CyclePreparationContext
+
+    provides:
+        SourceCutPinned(preparation, cut_id, commit, tree_digest)
+}

@@ -1,0 +1,196 @@
+-- allium: 3
+-- .pi/spec/regeneration-cycle/allium/gate-attempt.allium
+--
+-- Aggregate GateAttempt, in the harness's event store: one per cycle and attempt number
+-- (event-model/gate-attempt.edn). The claimant never controls the gate: a gate room ORC
+-- chose boots the candidate fresh through its launch entrypoint and proves its suite green.
+-- One verdict per attempt. Legacy: verify.sh and probe.sh.
+--
+-- Two kinds of "no" (decisions.md b):
+--   - The gate ran and failed the attempt: a fact, GateAttemptFailed, with the first guard
+--     that did not hold as its reason. It spends the attempt; a repair builder may follow.
+--   - The gate refused to grade (infrastructure): the seam already answered before boot,
+--     the identity probe is missing or is not the instrument's, or no self-check passed for
+--     this attempt. A refusal records nothing and spends no attempt (legacy verify.sh
+--     exits before it boots).
+
+use "context.allium" as ctx
+use "regeneration-cycle.allium" as cyc
+use "harness-self-check.allium" as sc
+
+------------------------------------------------------------
+-- External Entities
+------------------------------------------------------------
+
+-- ORC's workflow worker: its gate node installs the candidate and reports the verdict.
+external entity OrcWorker {}
+
+------------------------------------------------------------
+-- Entities
+------------------------------------------------------------
+
+entity GateAttempt {
+    cycle_id: String
+    attempt: Integer
+    candidate_digest: String
+    purpose: ctx.CandidatePurpose
+    gate_room: String
+    verdict: awaiting | gate_passed | gate_failed
+    reason: ctx.GateFailureReason when verdict = gate_failed
+    boot_budget_seconds: Integer when verdict = gate_passed | gate_failed
+    boot_polls: Integer when verdict = gate_passed | gate_failed
+    answered_on_poll: Integer when verdict = gate_passed
+    evidence_root: String when verdict = gate_passed | gate_failed
+
+    -- The boot margin, said out loud on a green run (legacy @harness-056).
+    boot_margin_polls: boot_polls - answered_on_poll
+
+    transitions verdict {
+        awaiting -> gate_passed
+        awaiting -> gate_failed
+        terminal: gate_passed, gate_failed
+    }
+}
+
+------------------------------------------------------------
+-- Config
+------------------------------------------------------------
+
+config {
+    -- Legacy verify.sh: ten seconds, twenty polls at half a second (@harness-056 to 058).
+    boot_budget_seconds: Integer = 10
+    boot_polls: Integer = 20
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+-- Record that the candidate regenerated for this attempt is installed, read-only, in a
+-- fresh gate room the builder does not control. Refusals 1-3 from R1; 4 added in R2.
+rule InstallCandidateInGateRoom {
+    when: InstallCandidateInGateRoom(orc, cycle_id, attempt, candidate_digest, purpose, gate_room)
+    let cycle = cyc.RegenerationCycle{cycle_id: cycle_id}
+    -- 1. no candidate regenerated for the attempt
+    requires: exists cycle and cycle.attempts = attempt
+    -- 2. another candidate digest
+    requires: candidate_digest = cycle.candidate_digest
+    -- 3. already installed
+    requires: not exists GateAttempt{cycle_id: cycle_id, attempt: attempt}
+    -- 4. the cycle is concluded
+    requires: cycle.status = running
+    ensures:
+        GateAttempt.created(cycle_id: cycle_id, attempt: attempt, candidate_digest: candidate_digest, purpose: purpose, gate_room: gate_room, verdict: awaiting)
+        CandidateInstalledInGateRoom(cycle_id: cycle_id, attempt: attempt, candidate_digest: candidate_digest, gate_room: gate_room)
+}
+
+-- Record the gate's verdict on one attempt: passed (seam free before boot, contract
+-- present, suites discovered and green, answered within the boot budget, identity proved)
+-- or failed with the first guard that did not hold. Refusals 1-5 from R1; 6-11 added in R2
+-- (decisions.md b and H24; legacy verify.sh, probe.sh; decisions.md "to add" 3 and 4).
+rule RecordGateAttempt {
+    when: RecordGateAttempt(orc, cycle_id, attempt, candidate_digest, harness_digest, outcome, reason?, boot_budget_seconds, boot_polls, answered_on_poll?, identity_proof?, identity_probe_present, identity_probe_digest, seam_answered_before_boot, evidence_root, detail)
+    let gate = GateAttempt{cycle_id: cycle_id, attempt: attempt}
+    let check = sc.HarnessSelfCheck{cycle_id: cycle_id, occasion: before_gate, attempt: attempt}
+    let cycle = cyc.RegenerationCycle{cycle_id: cycle_id}
+    -- 1. not installed
+    requires: exists gate
+    -- 2. already has a verdict: a replay records nothing and spends no attempt (H1)
+    requires: gate.verdict = awaiting
+    -- 3. failed without a reason, or passed with one
+    requires: (outcome = gate_failed implies reason != null) and (outcome = gate_passed implies reason = null)
+    -- 4. passed without the poll that answered and the identity proof
+    requires: outcome = gate_passed implies (answered_on_poll != null and identity_proof != null)
+    -- 5. answered after the last poll of the budget
+    requires: answered_on_poll != null implies answered_on_poll <= boot_polls
+    -- 6. another candidate than the one installed
+    requires: candidate_digest = gate.candidate_digest
+    -- 7. no self-check passed for this attempt, at this harness and the current goldens (H24)
+    requires: exists check and check.outcome = check_passed and check.harness_digest = harness_digest and check.at_current_goldens
+    -- 8. the identity probe is missing: the gate refuses to grade (legacy verify.sh; "to add" 3)
+    requires: identity_probe_present
+    -- 9. the identity probe is not the instrument's, the one the self-check checked ("to add" 4)
+    requires: identity_probe_digest = check.identity_probe_digest
+    -- 10. the seam answered before boot: the gate refuses to grade (legacy verify.sh [1]; b)
+    requires: not seam_answered_before_boot
+    -- 11. the cycle is concluded
+    requires: exists cycle and cycle.status = running
+    ensures:
+        if outcome = gate_passed:
+            gate.verdict = gate_passed
+            gate.boot_budget_seconds = boot_budget_seconds
+            gate.boot_polls = boot_polls
+            gate.answered_on_poll = answered_on_poll
+            gate.evidence_root = evidence_root
+            GateAttemptPassed(cycle_id: cycle_id, cut_id: cycle.cut_id, attempt: attempt, candidate_digest: candidate_digest, boot_budget_seconds: boot_budget_seconds, boot_polls: boot_polls, answered_on_poll: answered_on_poll, identity_proof: identity_proof, evidence_root: evidence_root)
+        else:
+            gate.verdict = gate_failed
+            gate.reason = reason
+            gate.boot_budget_seconds = boot_budget_seconds
+            gate.boot_polls = boot_polls
+            gate.evidence_root = evidence_root
+            GateAttemptFailed(cycle_id: cycle_id, attempt: attempt, candidate_digest: candidate_digest, reason: reason, boot_budget_seconds: boot_budget_seconds, boot_polls: boot_polls, evidence_root: evidence_root, detail: detail)
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+invariant OneVerdictPerAttempt {
+    for a in GateAttempts:
+        for b in GateAttempts:
+            a != b and a.cycle_id = b.cycle_id implies a.attempt != b.attempt
+}
+
+-- The poll that answered lies inside the budget, so the margin is never negative.
+invariant AnsweredInsideTheBudget {
+    for g in GateAttempts:
+        g.verdict = gate_passed implies (g.answered_on_poll >= 1 and g.answered_on_poll <= g.boot_polls)
+}
+
+-- At most three attempts per cycle (AGENTS.md).
+invariant AtMostThreeAttempts {
+    for g in GateAttempts:
+        g.attempt >= 1 and g.attempt <= 3
+}
+
+------------------------------------------------------------
+-- Actor Declarations
+------------------------------------------------------------
+
+actor OrcRuntime {
+    identified_by: OrcWorker where true
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+surface Gate {
+    facing orc: OrcRuntime
+
+    provides:
+        InstallCandidateInGateRoom(orc, cycle_id, attempt, candidate_digest, purpose, gate_room)
+        RecordGateAttempt(orc, cycle_id, attempt, candidate_digest, harness_digest, outcome, reason?, boot_budget_seconds, boot_polls, answered_on_poll?, identity_proof?, identity_probe_present, identity_probe_digest, seam_answered_before_boot, evidence_root, detail)
+
+    contracts:
+        fulfils GateRoom
+
+    @guarantee TheClaimantNeverControlsTheGate
+        -- The gate room is chosen by ORC and is not the builder's; the gate's verdict,
+        -- never the builder's claim, is done.
+
+    @guarantee ARefusalSpendsNoAttempt
+        -- A seam that answered before boot, a missing identity probe, a probe that is not
+        -- the instrument's, or no passing self-check for the attempt grades nothing and
+        -- records nothing: the attempt is still awaiting and is not spent (decisions.md b).
+
+    @guarantee TheMarginIsSaidOutLoud
+        -- Both verdicts carry the boot budget in seconds and polls; a pass carries the
+        -- poll that answered, so a boot creeping toward the budget is visible on a green
+        -- run (legacy @harness-056, @harness-057).
+
+    @guarantee GateEvidenceOnly
+        -- The evidence root of a verdict is gate evidence, which a repair room may mount;
+        -- it never holds score evidence (decisions.md H6).
+}

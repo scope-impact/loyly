@@ -1,0 +1,35 @@
+-- allium: 3
+-- .pi/spec/cycle-preparation/allium/context.allium
+--
+-- Scope: the shared language of Cycle preparation (operator control): what a cycle is built
+--        from. The core holds only the source cut; slice proposal, selection, the approved
+--        preparation (with its budget, decisions.md H5) and submission (which mints the
+--        cycle identity, H8) arrive in a later round and add files here without renaming
+--        these.
+--
+-- Aggregates (one file each; .pi/spec/cycle-preparation/event-model/):
+--   SourceCut  source-cut.allium  one per cut; immutable once pinned
+--
+-- Handoff produced: SourceCutPinned, to measurement and the regeneration cycle
+-- (source-cut.allium).
+
+------------------------------------------------------------
+-- Contracts
+------------------------------------------------------------
+
+-- What the project repository answers about a commit.
+contract ProjectRepository {
+    tree_of: (commit: String) -> String
+    is_commit: (commit: String) -> Boolean
+
+    @invariant TreeContentIsTheCommits
+        -- A commit names exactly one tree; the tree digest is the digest of that tree's
+        -- content, so two cuts of one commit carry the same tree digest.
+}
+
+------------------------------------------------------------
+-- Open Questions
+------------------------------------------------------------
+
+open question "H35: does an unapproved preparation, or an unused cut, expire?"
+open question "H5: the budget (gate-attempt limit, outer cycles, a timeout per stage, continuations) belongs to the approved preparation. Until it is modelled, ORC gives it to the cycle with its first self-check (regeneration-cycle); confirm that the preparation, when it arrives, carries exactly those fields."

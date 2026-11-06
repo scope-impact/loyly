@@ -1,0 +1,150 @@
+-- allium: 3
+-- .pi/spec/grader-lifecycle/allium/instrument-golden.allium
+--
+-- Aggregate InstrumentGolden, in the harness repository: one per instrument scenario
+-- (event-model/instrument-golden.edn). The exact expected output of one instrument
+-- scenario, refusal reasons included, written from that scenario and never recorded from a
+-- run (decisions.md: goldens are written from the scenario). It carries the digest of the
+-- scenario it was written from (decisions.md h), so a reworded scenario shows. A move
+-- carries exactly one recorded reason.
+
+use "context.allium" as ctx
+
+------------------------------------------------------------
+-- External Entities
+------------------------------------------------------------
+
+-- The instrument maintainer.
+external entity MaintainerAccount {}
+
+------------------------------------------------------------
+-- Entities
+------------------------------------------------------------
+
+entity InstrumentGolden {
+    golden_id: String
+    scenario: String
+    -- The digest of the scenario it was written from (decisions.md h).
+    scenario_digest: String
+    path: String
+    digest: String
+    moves: GoldenMove with golden = this
+    written_at: Timestamp
+}
+
+entity GoldenMove {
+    golden: InstrumentGolden
+    from_digest: String
+    to_digest: String
+    reason: ctx.MoveReason
+    additions_only: Boolean
+    note: String
+    scenario_digest: String
+    moved_at: Timestamp
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+-- Write the exact expected output of one instrument scenario (stamping, checklist
+-- derivation, a score refusal, the scoreboard's arithmetic), from that scenario. Issued by
+-- the instrument maintainer. Refusal 1 from R1; 2 added in R2 (decisions.md h).
+rule WriteInstrumentGolden {
+    when: WriteInstrumentGolden(maintainer, golden_id, scenario, scenario_digest, path, digest)
+    -- 1. the golden already exists
+    requires: not exists InstrumentGolden{golden_id: golden_id}
+    -- 2. the scenario digest is not the digest of the scenario it is written from
+    requires: scenario_digest = digest_of_scenario(scenario)
+    ensures:
+        InstrumentGolden.created(golden_id: golden_id, scenario: scenario, scenario_digest: scenario_digest, path: path, digest: digest, written_at: now)
+        InstrumentGoldenWritten(golden_id: golden_id, scenario: scenario, scenario_digest: scenario_digest, path: path, digest: digest)
+}
+
+-- Move a golden to new content, with its one recorded reason. spec_grew holds only when the
+-- diff is additions only: no existing item's id, name, rule or source moved, and only the
+-- total line removed (legacy README). Issued by the instrument maintainer. Refusals 1-4
+-- from R1; 5 added in R2 (decisions.md h).
+rule MoveInstrumentGolden {
+    when: MoveInstrumentGolden(maintainer, golden_id, digest, reason, additions_only, note, scenario_digest)
+    let golden = InstrumentGolden{golden_id: golden_id}
+    -- 1. no such golden
+    requires: exists golden
+    -- 2. the same digest: nothing moved
+    requires: digest != golden.digest
+    -- 3. spec_grew without an additions-only diff: the first case wearing this one's clothes
+    requires: reason = spec_grew implies additions_only
+    -- 4. an empty note: the move is written down each time
+    requires: note != ""
+    -- 5. the scenario digest is not the current digest of the golden's scenario
+    requires: scenario_digest = digest_of_scenario(golden.scenario)
+    let from_digest = golden.digest
+    ensures:
+        GoldenMove.created(golden: golden, from_digest: from_digest, to_digest: digest, reason: reason, additions_only: additions_only, note: note, scenario_digest: scenario_digest, moved_at: now)
+        golden.digest = digest
+        golden.scenario_digest = scenario_digest
+        InstrumentGoldenMoved(golden_id: golden_id, from_digest: from_digest, to_digest: digest, reason: reason, additions_only: additions_only, note: note, scenario_digest: scenario_digest)
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+invariant OneGoldenPerIdentity {
+    for a in InstrumentGoldens:
+        for b in InstrumentGoldens:
+            a != b implies a.golden_id != b.golden_id
+}
+
+-- A move changes the content.
+invariant AMoveMovesSomething {
+    for m in GoldenMoves:
+        m.from_digest != m.to_digest
+}
+
+-- spec_grew is the additions-only case and no other.
+invariant SpecGrewIsAdditionsOnly {
+    for m in GoldenMoves:
+        m.reason = spec_grew implies m.additions_only
+}
+
+------------------------------------------------------------
+-- Actor Declarations
+------------------------------------------------------------
+
+actor InstrumentMaintainer {
+    identified_by: MaintainerAccount where true
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+-- The instrument maintainer's view (screen instrument-goldens).
+surface InstrumentGoldenDesk {
+    facing maintainer: InstrumentMaintainer
+    context golden: InstrumentGolden
+
+    exposes:
+        golden.golden_id
+        golden.path
+        golden.digest
+        golden.scenario_digest
+        golden.moves
+
+    provides:
+        WriteInstrumentGolden(maintainer, golden_id, scenario, scenario_digest, path, digest)
+        MoveInstrumentGolden(maintainer, golden_id, digest, reason, additions_only, note, scenario_digest)
+
+    contracts:
+        fulfils ScenarioDigests
+
+    @guarantee WrittenFromTheScenarioNeverFromARun
+        -- A golden is written from its scenario and carries that scenario's digest; it is
+        -- never recorded from a run of the tools it judges.
+
+    @guarantee NeverMovedToTurnItGreen
+        -- A golden moves only for one of the three recorded reasons; re-recording to get a
+        -- green destroys the only evidence that anything moved (legacy README, What a red
+        -- oracle costs).
+}

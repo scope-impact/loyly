@@ -1,0 +1,158 @@
+-- allium: 3
+-- .pi/spec/specification/allium/slice.allium
+--
+-- Aggregate Slice, in the project repository: one per slice's spec file
+-- (event-model/slice.edn). The consistency boundary for "an item identity is handed out
+-- once and never renumbered or reused": the next number of a slice is one past the highest
+-- it ever handed out, from a ledger that never goes down (decisions.md; legacy
+-- @harness-004 counted from the file, so deleting the highest scenario lowered it,
+-- @harness-010).
+--
+-- Stamping is idempotent: a scenario already stamped produces nothing, so a rerun records
+-- nothing (legacy @harness-007, @harness-008).
+
+use "context.allium" as ctx
+
+------------------------------------------------------------
+-- External Entities
+------------------------------------------------------------
+
+-- The spec author, running the stamper.
+external entity OperatorAccount {}
+
+------------------------------------------------------------
+-- Entities
+------------------------------------------------------------
+
+entity Slice {
+    -- The slice directory's number, verbatim ("03").
+    number: String
+    -- One past the highest number ever handed out in this slice.
+    next_number: Integer
+    items: StampedItem with slice = this
+}
+
+entity StampedItem {
+    slice: Slice
+    -- @item-<slice>-<number>, the number zero padded to at least three digits.
+    item_id: String
+    number: Integer
+    source: String
+    line: Integer
+    title: String
+    stamped_at: Timestamp
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+-- The first stamping of a slice opens its ledger at 1. A spec file with no scenario yet
+-- opens it with nothing stamped (legacy @harness-022: not an error).
+rule StampFirstScenarios {
+    when: StampSlice(author, slice_number, source, unstamped)
+    -- 1. no spec found: the answer names where it looked, and is not "fully stamped"
+    --    (legacy @harness-011; decisions.md "to add" 2)
+    requires: spec_exists(source)
+    -- 2. the source is not this slice's spec file
+    requires: slice_of(source) = slice_number
+    -- 3. the slice already has a ledger (StampSlice applies)
+    requires: not exists Slice{number: slice_number}
+    -- 4. the scenarios offered are not exactly the file's unstamped ones, in file order
+    requires: unstamped = unstamped_scenarios(source)
+    ensures:
+        let slice = Slice.created(number: slice_number, next_number: 1 + unstamped.count)
+        for s in unstamped:
+            StampedItem.created(slice: slice, item_id: item_identity(slice_number, 1 + index_of(unstamped, s)), number: 1 + index_of(unstamped, s), source: source, line: s.line, title: s.title, stamped_at: now)
+            ScenarioStamped(item_id: item_identity(slice_number, 1 + index_of(unstamped, s)), slice: slice_number, source: source, line: s.line, title: s.title)
+}
+
+-- Stamp every unstamped scenario of one slice's spec file with the slice's next item
+-- identities, in file order. No identity is renumbered or reused, and none is derived
+-- from wording. With nothing unstamped it records nothing: the slice is fully stamped.
+rule StampSlice {
+    when: StampSlice(author, slice_number, source, unstamped)
+    let slice = Slice{number: slice_number}
+    -- 1. no spec found (legacy @harness-011; "to add" 2)
+    requires: spec_exists(source)
+    -- 2. the source is not this slice's spec file
+    requires: slice_of(source) = slice_number
+    -- 3. the slice has no ledger yet (StampFirstScenarios applies)
+    requires: exists slice
+    -- 4. the scenarios offered are not exactly the file's unstamped ones, in file order: a
+    --    scenario already stamped is never stamped again
+    requires: unstamped = unstamped_scenarios(source)
+    let first = slice.next_number
+    ensures:
+        slice.next_number = first + unstamped.count
+        for s in unstamped:
+            StampedItem.created(slice: slice, item_id: item_identity(slice_number, first + index_of(unstamped, s)), number: first + index_of(unstamped, s), source: source, line: s.line, title: s.title, stamped_at: now)
+            ScenarioStamped(item_id: item_identity(slice_number, first + index_of(unstamped, s)), slice: slice_number, source: source, line: s.line, title: s.title)
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+invariant OneLedgerPerSlice {
+    for a in Slices:
+        for b in Slices:
+            a != b implies a.number != b.number
+}
+
+-- An identity is handed out once (legacy @harness-008 to @harness-010).
+invariant IdentityHandedOutOnce {
+    for a in StampedItems:
+        for b in StampedItems:
+            a != b implies a.item_id != b.item_id
+}
+
+-- Every number handed out lies below the ledger's next number, so it is never handed out
+-- again, even after its scenario is deleted.
+invariant NumbersBelowTheLedger {
+    for i in StampedItems:
+        i.number >= 1 and i.number < i.slice.next_number
+}
+
+------------------------------------------------------------
+-- Actor Declarations
+------------------------------------------------------------
+
+actor SpecAuthor {
+    identified_by: OperatorAccount where true
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+-- Where the spec author edits a slice's spec and runs the stamper (screen spec-authoring).
+surface SpecAuthoring {
+    facing author: SpecAuthor
+    context slice: Slice
+
+    exposes:
+        slice.number
+        slice.next_number
+        slice.items
+
+    provides:
+        StampSlice(author, slice_number, source, unstamped)
+
+    contracts:
+        fulfils ScenarioReading
+
+    @guarantee NeverDerivedFromWording
+        -- An item identity is carried in the spec file and never computed from the
+        -- scenario's text; rewording a scenario keeps its identity (legacy @harness-009),
+        -- so cycles stay comparable item by item.
+
+    @guarantee NeverRenumberedNeverReused
+        -- Stamping twice changes nothing, and a deleted scenario's number is never handed
+        -- out again: the ledger only goes up (legacy @harness-008, @harness-010 changed).
+
+    @guarantee NoSpecIsNotFullyStamped
+        -- "No spec found", naming where the stamper looked, is a different answer from
+        -- "fully stamped, nothing to stamp": an absent spec and a finished one are very
+        -- different states (legacy @harness-011; "to add" 2).
+}

@@ -2,11 +2,13 @@
 ;; (one per slice's spec.feature). The consistency boundary for "an item identity is handed
 ;; out once and never renumbered or reused": the next number of a slice is one past the
 ;; highest it ever carried. Legacy: stamp_item_ids.clj.
-;; TODO R2: :grain/allium links (rule StampScenario, entity Slice, surface SpecAuthoring).
+;; Allium: ../allium/slice.allium (rules StampFirstScenarios and StampSlice, entity Slice).
 {:specification
  {:commands
   {:specification/stamp-slice
    {:description "Stamp every unstamped scenario of one slice's spec file with the slice's next item identity, in file order. Idempotent: a scenario already stamped produces nothing; no identity is renumbered or reused, and none is derived from wording. Issued by: operator (spec author), through the stamper."
+    :grain/allium [{:spec ".pi/spec/specification/allium/slice.allium" :kind :rule :name "StampFirstScenarios"}
+                   {:spec ".pi/spec/specification/allium/slice.allium" :kind :rule :name "StampSlice"}]
     :schema [:map
              [:slice [:re "^[0-9]+$"]]
              [:source :string]
@@ -16,6 +18,7 @@
   :read-models
   {:specification/stamped-items
    {:description "Per slice: every item identity ever stamped, its source and title, and the next free number."
+    :grain/allium [{:spec ".pi/spec/specification/allium/slice.allium" :kind :entity :name "Slice"}]
     :consumes #{:specification/scenario-stamped}
     :schema [:map
              [:slice :string]

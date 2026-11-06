@@ -7,11 +7,12 @@
 ;; history not one commit, path left in the tree, harness not self-checked) are R2
 ;; `requires` on prove-clean-room, not events. ORC's fence node then fails the cycle
 ;; (regeneration-cycle/fail-cycle, stage fence).
-;; TODO R2: :grain/allium links (rule ProveCleanRoom, entity CleanRoom).
+;; Allium: ../allium/clean-room.allium (rule ProveCleanRoom, entity CleanRoom).
 {:regeneration-cycle
  {:commands
   {:regeneration-cycle/prove-clean-room
    {:description "Record the proof of the clean room ORC's fence built from the cycle's cut: the probe's counts and the paths it found. Accepted only when the proof holds. Issued by: ORC runtime (the fence node)."
+    :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/clean-room.allium" :kind :rule :name "ProveCleanRoom"}]
     :schema [:map
              [:cycle-id :string]
              [:cut-id :string]

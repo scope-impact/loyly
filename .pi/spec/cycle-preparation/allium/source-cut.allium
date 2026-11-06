@@ -1,0 +1,92 @@
+-- allium: 3
+-- .pi/spec/cycle-preparation/allium/source-cut.allium
+--
+-- Aggregate SourceCut, in the harness's event store: one per cut
+-- (event-model/source-cut.edn). Immutable once pinned: everything later binds to its
+-- commit and tree content, the checklist by its cut and the cycle by its self-check.
+-- Legacy: the spec is "cut (tagged, frozen)" before a cycle (README, The idea in five
+-- lines).
+
+use "context.allium" as ctx
+
+------------------------------------------------------------
+-- External Entities
+------------------------------------------------------------
+
+-- The person who prepares a cycle.
+external entity OperatorAccount {}
+
+------------------------------------------------------------
+-- Entities
+------------------------------------------------------------
+
+entity SourceCut {
+    cut_id: String
+    commit: String
+    tree_digest: String
+    pinned_at: Timestamp
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+-- Pin an immutable source cut: one commit and its tree content. Issued by the operator.
+-- Refusal 1 from R1; 2-3 added in R2 (R1's "later": the tree is the commit's).
+rule PinSourceCut {
+    when: PinSourceCut(operator, cut_id, commit, tree_digest)
+    -- 1. the cut identity is already pinned: a cut is immutable, and pinning it again,
+    --    with the same content or another, records nothing
+    requires: not exists SourceCut{cut_id: cut_id}
+    -- 2. not a commit of the project repository
+    requires: is_commit(commit)
+    -- 3. the tree digest is not the commit's tree
+    requires: tree_of(commit) = tree_digest
+    ensures:
+        SourceCut.created(cut_id: cut_id, commit: commit, tree_digest: tree_digest, pinned_at: now)
+        SourceCutPinned(cut_id: cut_id, commit: commit, tree_digest: tree_digest)
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+invariant OneCutPerIdentity {
+    for a in SourceCuts:
+        for b in SourceCuts:
+            a != b implies a.cut_id != b.cut_id
+}
+
+------------------------------------------------------------
+-- Actor Declarations
+------------------------------------------------------------
+
+actor Operator {
+    identified_by: OperatorAccount where true
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+-- The operator's preparation view (screen preparation): pin a cut, see the pinned cuts.
+surface Preparation {
+    facing operator: Operator
+    context cut: SourceCut
+
+    exposes:
+        cut.cut_id
+        cut.commit
+        cut.tree_digest
+        cut.pinned_at
+
+    provides:
+        PinSourceCut(operator, cut_id, commit, tree_digest)
+
+    contracts:
+        fulfils ProjectRepository
+
+    @guarantee ImmutableOncePinned
+        -- A pinned cut never changes: no command edits or re-pins it, and every later fact
+        -- binds to its commit and tree digest.
+}

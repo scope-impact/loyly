@@ -1,0 +1,85 @@
+-- allium: 3
+-- .pi/spec/specification/allium/context.allium
+--
+-- Scope: the shared language of Specification, the open host. Every other context conforms
+--        to its published language: the item identity, the stamped scenario, and how a
+--        Gherkin file is read into scenarios and items (contract ScenarioReading).
+--
+-- Aggregates (one file each; .pi/spec/specification/event-model/):
+--   Slice  slice.allium  one per slice's spec file: its stamped items and the next free
+--                        number, from a ledger that never goes down
+--
+-- Handoff produced: ScenarioStamped, to measurement (slice.allium).
+--
+-- Legacy: stamp_item_ids.clj and the reading gen_checklist.clj shares with it
+-- (archive/legacy-harness/spec.feature, @harness-001 to @harness-022, @harness-049).
+
+------------------------------------------------------------
+-- Value Types
+------------------------------------------------------------
+
+-- A scenario the stamper found without an item tag: its heading line and title.
+value UnstampedScenario {
+    line: Integer
+    title: String
+}
+
+------------------------------------------------------------
+-- Contracts
+------------------------------------------------------------
+
+-- How a spec file is read into scenarios and items. One reading, used by the stamper and
+-- by the checklist derivation alike, so the two can never disagree about what is an item
+-- (decisions.md "to add" 1). The legacy tools read the same file two ways; each invariant
+-- names the legacy behaviour it keeps or settles.
+contract ScenarioReading {
+    is_scenario_heading: (line: String) -> Boolean
+    title_of: (line: String) -> String
+    item_tag_of: (tag_run: List<String>) -> String?
+    spec_exists: (source: String) -> Boolean
+    unstamped_scenarios: (source: String) -> List<UnstampedScenario>
+    slice_of: (source: String) -> String
+
+    @invariant OutlineYesTemplateNo
+        -- A scenario heading is a line that starts, after optional whitespace, with
+        -- "Scenario:" or "Scenario Outline:". "Scenario Template:" is not recognised, and
+        -- nothing else is a scenario (legacy @harness-003).
+
+    @invariant EmptyTitleIsNoScenario
+        -- A heading with nothing after the colon is not a scenario, for the stamper as for
+        -- the checklist: it is neither stamped nor counted, and no tag rolls forward from
+        -- it (legacy @harness-021, where the stamper stamped it and the checklist then
+        -- ignored it).
+
+    @invariant WhitespaceTitleIsAScenario
+        -- A heading whose title is only whitespace is a scenario: its title is one space,
+        -- or one tab (legacy @harness-049: one more item in the denominator, which the
+        -- natural trim-and-test reading loses).
+
+    @invariant TitleIsTrimmed
+        -- Otherwise the title is the text after the colon with surrounding whitespace
+        -- stripped (legacy @harness-018).
+
+    @invariant ItemTagFromTheContiguousTagRun
+        -- A scenario's item tag is the last "@item-<slice>-<number>" tag in the contiguous
+        -- run of tag lines (lines that start with "@" after stripping) directly above its
+        -- heading. A blank line, a comment or any other text ends the run, and a tag
+        -- separated from its scenario that way does not stamp it (legacy @harness-005,
+        -- @harness-019). The checklist's legacy "pending tag" that survived any line until
+        -- a heading consumed it (@harness-020) is not kept: it was a second reading.
+
+    @invariant OtherTagsDoNotStamp
+        -- Tags other than item tags (@wip, @slow, ...) do not make a scenario stamped
+        -- (legacy @harness-005).
+
+    @invariant SliceFromTheDirectory
+        -- The slice is the slice directory's name up to its first "-", taken verbatim:
+        -- "03-slug" is "03" (legacy @harness-001); a directory not starting with a digit
+        -- holds no spec (legacy @harness-014).
+}
+
+------------------------------------------------------------
+-- Open Questions
+------------------------------------------------------------
+
+open question "Legacy @harness-021: the stamper stamped an empty-title heading and the checklist ignored it. The one reading treats it as no scenario for both; should the stamper refuse the file instead, so the author sees it?"

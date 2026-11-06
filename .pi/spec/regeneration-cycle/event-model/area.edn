@@ -10,16 +10,22 @@
 ;; Handoffs consumed: cycle-preparation/source-cut-pinned, grader-lifecycle/instrument-golden-*,
 ;; measurement/measurement-filed, score-stage-failed, scoreboard-reported.
 ;; Produced: gate-attempt-passed (handoffs.edn).
-;; TODO R2: :grain/allium links on the screen and the flows.
+;; Allium: ../allium/ (surface CycleProgress; the flows link the rules they pass through).
 {:regeneration-cycle
  {:description "Regeneration cycle (harness: fence and gate): one cycle in the legacy shape, fence -> regenerate -> gate -> score -> scoreboard, and its one conclusion. The fence and the gate feed the build loop; the gated candidate goes one way to the measurement."
   :screens
   {:regeneration-cycle/cycle-progress
    {:description "What the operator observes of a cycle: stage, status, candidate, gate attempts with their reasons and boot margins, and the conclusion. Read-only: observing changes nothing."
+    :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :surface :name "CycleProgress"}]
     :queries #{:regeneration-cycle/cycle-progress}}}
   :flows
   {:regeneration-cycle/fence-to-scoreboard
    {:description "The legacy cycle end to end: the harness self-checks, the fence proves the clean room, a candidate is regenerated, the gate ratifies it, the grader files item verdicts, the instrument files the measurement and reports the scoreboard, and the cycle concludes passed."
+    :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/harness-self-check.allium" :kind :rule :name "RecordHarnessSelfCheck"}
+                   {:spec ".pi/spec/regeneration-cycle/allium/clean-room.allium" :kind :rule :name "ProveCleanRoom"}
+                   {:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :rule :name "RecordRegeneratedCandidate"}
+                   {:spec ".pi/spec/regeneration-cycle/allium/gate-attempt.allium" :kind :rule :name "RecordGateAttempt"}
+                   {:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :rule :name "PassCycle"}]
     :steps [{:from nil :to [:command :regeneration-cycle/record-harness-self-check]}
             {:from [:command :regeneration-cycle/record-harness-self-check] :to [:event :regeneration-cycle/harness-self-check-passed]}
             {:from [:event :regeneration-cycle/harness-self-check-passed] :to [:read-model :regeneration-cycle/regeneration-cycles]}
@@ -56,6 +62,7 @@
 
    :regeneration-cycle/self-check-failed-fails-cycle
    {:description "No room is built over an unchecked instrument: a failed self-check names its check and the cycle fails at the fence."
+    :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :rule :name "ConcludeOnFailedSelfCheck"}]
     :steps [{:from nil :to [:command :regeneration-cycle/record-harness-self-check]}
             {:from [:command :regeneration-cycle/record-harness-self-check] :to [:event :regeneration-cycle/harness-self-check-failed]}
             {:from [:event :regeneration-cycle/harness-self-check-failed] :to [:read-model :regeneration-cycle/cycles-to-conclude]}
@@ -69,6 +76,8 @@
 
    :regeneration-cycle/fence-refused-fails-cycle
    {:description "prove-clean-room is refused (a fenced path matched nothing, or the prior implementation is reachable): nothing is recorded for the room, and ORC's fence node fails the cycle at the fence, naming the refusal."
+    :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/clean-room.allium" :kind :rule :name "ProveCleanRoom"}
+                   {:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :rule :name "FailCycle"}]
     :steps [{:from nil :to [:command :regeneration-cycle/fail-cycle]}
             {:from [:command :regeneration-cycle/fail-cycle] :to [:event :regeneration-cycle/cycle-failed]}
             {:from [:event :regeneration-cycle/cycle-failed] :to [:read-model :regeneration-cycle/regeneration-cycles]}
@@ -77,6 +86,7 @@
 
    :regeneration-cycle/gate-attempts-exhausted
    {:description "The third gate attempt fails: the build loop ends and the cycle fails without a score. (The repair builder between attempts arrives with the builder sessions, in a later round.)"
+    :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :rule :name "ConcludeOnExhaustedGateAttempts"}]
     :steps [{:from nil :to [:command :regeneration-cycle/record-gate-attempt]}
             {:from [:command :regeneration-cycle/record-gate-attempt] :to [:event :regeneration-cycle/gate-attempt-failed]}
             {:from [:event :regeneration-cycle/gate-attempt-failed] :to [:read-model :regeneration-cycle/gate-attempts]}
@@ -89,6 +99,7 @@
 
    :regeneration-cycle/refused-score-fails-cycle
    {:description "A refused score files nothing: ORC's score node records the score stage failed, never retried, and the cycle fails at the score."
+    :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :rule :name "ConcludeOnFailedScoreStage"}]
     :steps [{:from nil :to [:command :measurement/fail-score-stage]}
             {:from [:command :measurement/fail-score-stage] :to [:event :measurement/score-stage-failed]}
             {:from [:event :measurement/score-stage-failed] :to [:read-model :regeneration-cycle/cycles-to-conclude]}
@@ -96,4 +107,21 @@
             {:from [:query :regeneration-cycle/cycles-to-conclude] :to [:todo-processor :regeneration-cycle/conclude-cycle]}
             {:from [:todo-processor :regeneration-cycle/conclude-cycle] :to [:command :regeneration-cycle/fail-cycle]}
             {:from [:command :regeneration-cycle/fail-cycle] :to [:event :regeneration-cycle/cycle-failed]}
-            {:from [:event :regeneration-cycle/cycle-failed] :to [:read-model :regeneration-cycle/regeneration-cycles]}]}}}}
+            {:from [:event :regeneration-cycle/cycle-failed] :to [:read-model :regeneration-cycle/regeneration-cycles]}]}
+
+   :regeneration-cycle/gate-attempt-repaired
+   {:description "Before every gate attempt the harness self-checks again (decisions.md H24). A failed attempt that leaves attempts in the budget sends the cycle back to regenerate, where a repair room mounts only this cycle's gate evidence (H6), and the repaired candidate is installed in a fresh gate room. A gate refusal (seam answered before boot, identity probe missing or not the instrument's) records nothing and spends no attempt."
+    :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/harness-self-check.allium" :kind :rule :name "RecordHarnessSelfCheck"}
+                   {:spec ".pi/spec/regeneration-cycle/allium/gate-attempt.allium" :kind :rule :name "RecordGateAttempt"}
+                   {:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :rule :name "RecordRegeneratedCandidate"}]
+    :steps [{:from nil :to [:command :regeneration-cycle/record-harness-self-check]}
+            {:from [:command :regeneration-cycle/record-harness-self-check] :to [:event :regeneration-cycle/harness-self-check-passed]}
+            {:from [:event :regeneration-cycle/harness-self-check-passed] :to [:read-model :regeneration-cycle/harness-self-checks]}
+            {:from [:read-model :regeneration-cycle/harness-self-checks] :to [:command :regeneration-cycle/record-gate-attempt]}
+            {:from [:command :regeneration-cycle/record-gate-attempt] :to [:event :regeneration-cycle/gate-attempt-failed]}
+            {:from [:event :regeneration-cycle/gate-attempt-failed] :to [:read-model :regeneration-cycle/regeneration-cycles]}
+            {:from [:read-model :regeneration-cycle/regeneration-cycles] :to [:command :regeneration-cycle/record-regenerated-candidate]}
+            {:from [:command :regeneration-cycle/record-regenerated-candidate] :to [:event :regeneration-cycle/candidate-regenerated]}
+            {:from [:event :regeneration-cycle/candidate-regenerated] :to [:read-model :regeneration-cycle/gate-attempts]}
+            {:from [:read-model :regeneration-cycle/gate-attempts] :to [:command :regeneration-cycle/install-candidate-in-gate-room]}
+            {:from [:command :regeneration-cycle/install-candidate-in-gate-room] :to [:event :regeneration-cycle/candidate-installed-in-gate-room]}]}}}}

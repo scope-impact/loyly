@@ -6,7 +6,8 @@ A from-scratch specification of the Pi harness, built in rounds.
 |---|---|---|
 | R0 | Big Picture EventStorming board | `event-storm.md`, `event-storm.edn` |
 | R1 | Event Model (Grain, EDN) of the legacy core: the 31 storm events the legacy harness already has | `<context>/event-model/`, `<context>/domain-design.md` |
-| R2 | Allium (behavior, the refusals as `requires`) and the `:grain/allium` links | next |
+| R2 | Allium (behaviour, the refusals as `requires`) of the legacy core, the product owner's decisions applied, and the `:grain/allium` links | `<context>/allium/`, `legacy-trace.md`, `<context>/domain-design.md` (done) |
+| | Decisions of the product owner after R1 | `decisions.md` |
 
 ## Contexts in R1
 
@@ -32,13 +33,45 @@ Each context folder has `README.md`, `domain-design.md` (Files table, decisions,
 event became which block or refusal, the refusals R2 must write, open questions) and
 `event-model/` (one fragment per aggregate, `area.edn`, `handoffs.edn`).
 
-The 31 legacy storm events became:
+The 31 legacy storm events became (after R2 and `decisions.md` b):
 
 | Became | Count | Storm events |
 |---|---|---|
 | an event | 19 | every happy event, plus self-check failed, gate attempt failed, score stage failed, cycle failed |
-| a reason on `gate-attempt-failed` | 5 | the gate guards: tool missing or no-op suite, suite discovery empty, seam answered before boot, boot budget exhausted, identity probe failed |
-| a refusal, written in R2 | 5 | unstamped scenario found, empty selection refused, the two fence refusals, score refused |
+| a reason on `gate-attempt-failed` | 4 | the gate guards the candidate can fix: tool missing or no-op suite, suite discovery empty, boot budget exhausted, identity probe failed |
+| a refusal (`requires`), written in R2 | 6 | unstamped scenario found, empty selection refused, the two fence refusals, score refused, seam answered before boot (no attempt spent) |
 | a field of `measurement-filed` | 2 | unreached item recorded as fail, duplicate verdict superseded |
 
-Validate: `tools/spec/v2/README.md`.
+## R2: the Allium
+
+One Allium file per aggregate plus `context.allium` per context, under
+`<context>/allium/`. Refusals are `requires`, numbered in order; contexts meet only through
+handoff events (the consumer declares the producer as an `external entity` and a surface
+that `provides` the event). Every command links its rule, every policy its rule, every
+screen its surface, every aggregate read model its entity (`:grain/allium`).
+
+```text
+context             files  rules  requires (of commands)  invariants  must-cover (allium plan)
+specification       2      2       8  (8)                3           13
+cycle-preparation   2      1       3  (3)                1            5
+grader-lifecycle    2      2       7  (7)                3           12
+measurement         4      9      32 (28)               11           52
+regeneration-cycle  5     22      65 (49)               12           99
+```
+
+Rules count every rule: commands, policies, and the folds of handoffs and sibling events.
+Requires count every `requires`; in brackets those of the commands' rules, the refusals an
+issuer hears. Must-cover = each rule's success, each `requires`, each invariant.
+
+Event-model changes for `decisions.md` (details in each `domain-design.md`): the self-check
+runs before the fence and before every gate attempt (H24) and carries the budget (H5); a
+seam that answered before boot and a missing identity probe are refusals of
+`record-gate-attempt`, no longer reasons on `gate-attempt-failed` (b); a repair room mounts
+only gate evidence (H6); verdicts carry a `reason` (H7); the score binds the gated
+candidate and re-checks the approved grader digests (H13); the scoreboard compares with
+the last measured cycle of the same selection (g); goldens carry their scenario digest (h).
+
+`legacy-trace.md` traces every legacy behaviour (all 70 `@harness-NNN` items and the
+scripts): 33 preserved, 16 changed as decided, 11 added, 10 dropped with a reason.
+
+Validate: `tools/spec/v2/README.md` (`tools/spec/v2/gates.sh`).

@@ -2,17 +2,20 @@
 ;; Grader lifecycle, R1 part only: the instrument goldens. Graders (requested, authored,
 ;; calibrated, sealed, approved, reused, replaced) arrive in a later round and add blocks
 ;; here without renaming these.
-;; TODO R2: :grain/allium links on the screen and the flow.
+;; Allium: ../allium/ (instrument-golden.allium: surface InstrumentGoldenDesk).
 {:grader-lifecycle
  {:description "Grader lifecycle: the instrument's own material, on its own clock, outside every cycle. R1 holds the instrument goldens; the graders come later."
   :screens
   {:grader-lifecycle/instrument-goldens
    {:description "The instrument maintainer's view: each instrument golden, its digest and the recorded reason for every move."
+    :grain/allium [{:spec ".pi/spec/grader-lifecycle/allium/instrument-golden.allium" :kind :surface :name "InstrumentGoldenDesk"}]
     :queries #{:grader-lifecycle/instrument-goldens}
     :commands #{:grader-lifecycle/write-instrument-golden :grader-lifecycle/move-instrument-golden}}}
   :flows
   {:grader-lifecycle/golden-written-then-moved
    {:description "A golden is written from its scenario; a move carries one of three reasons; the harness self-check reproduces the current goldens exactly."
+    :grain/allium [{:spec ".pi/spec/grader-lifecycle/allium/instrument-golden.allium" :kind :rule :name "WriteInstrumentGolden"}
+                   {:spec ".pi/spec/grader-lifecycle/allium/instrument-golden.allium" :kind :rule :name "MoveInstrumentGolden"}]
     :steps [{:from [:screen :grader-lifecycle/instrument-goldens] :to [:command :grader-lifecycle/write-instrument-golden]}
             {:from [:command :grader-lifecycle/write-instrument-golden] :to [:event :grader-lifecycle/instrument-golden-written]}
             {:from [:event :grader-lifecycle/instrument-golden-written] :to [:read-model :grader-lifecycle/instrument-goldens]}

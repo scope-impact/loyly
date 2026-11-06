@@ -3,18 +3,21 @@
 ;; previous measured cycle only the shared items, newly passing and newly failing apart, new
 ;; items as the untuned holdout, never a net. Legacy: scoreboard.clj.
 ;;
-;; R2 refusals of report-scoreboard: no measurement filed for the cycle; already reported.
-;; TODO R2: :grain/allium links (rule ReportScoreboard, entity Scoreboard, surface Scoreboard).
+;; Refusals of report-scoreboard (requires, ../allium/scoreboard.allium): no measurement
+;; filed for the cycle; already reported. R2: the previous cycle is the last measured cycle
+;; of the same selection (decisions.md g); rates have one decimal, half to even, "n/a" over
+;; zero ("to add" 6).
 {:measurement
  {:commands
   {:measurement/report-scoreboard
-   {:description "Report the cycle's scoreboard against the previous measured cycle; restate it on the shared items when the item set moved. Issued by: the report-scoreboard-once policy."
+   {:description "Report the cycle's scoreboard against the last measured cycle of the same selection; restate it on the shared items when the item set moved. Issued by: the report-scoreboard-once policy."
+    :grain/allium [{:spec ".pi/spec/measurement/allium/scoreboard.allium" :kind :rule :name "ReportScoreboard"}]
     :schema [:map [:cycle-id :string]]
     :reads #{:measurement/cycle-measurements :measurement/scoreboards}
     :produces #{:measurement/scoreboard-reported :measurement/moved-item-set-restated}}}
   :events
   {:measurement/moved-item-set-restated
-   {:description "The item set moved since the previous measured cycle, so the two headline rates count different things; the comparison is restated on the shared items only."
+   {:description "The item set moved since the last measured cycle of the same selection, so the two headline rates count different things; the comparison is restated on the shared items only."
     :schema [:map
              [:cycle-id :string]
              [:previous-cycle-id :string]
@@ -29,6 +32,7 @@
     :consumes #{:measurement/measurement-filed :measurement/scoreboard-reported}}
    :measurement/scoreboards
    {:description "Each measured cycle's scoreboard, with its restatement when the item set moved."
+    :grain/allium [{:spec ".pi/spec/measurement/allium/scoreboard.allium" :kind :entity :name "Scoreboard"}]
     :consumes #{:measurement/scoreboard-reported :measurement/moved-item-set-restated}}}
   :queries
   {:measurement/measurements-to-report
@@ -42,6 +46,7 @@
   :todo-processors
   {:measurement/report-scoreboard-once
    {:description "Whenever a measurement is filed, report its scoreboard, once."
+    :grain/allium [{:spec ".pi/spec/measurement/allium/scoreboard.allium" :kind :rule :name "ReportScoreboardOnce"}]
     :subscribes #{:measurement/measurement-filed}
     :reads #{:measurement/measurements-to-report}
     :produces #{:measurement/report-scoreboard}}}}}

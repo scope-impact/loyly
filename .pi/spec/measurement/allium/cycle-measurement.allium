@@ -1,0 +1,283 @@
+-- allium: 3
+-- .pi/spec/measurement/allium/cycle-measurement.allium
+--
+-- Aggregate CycleMeasurement, in the harness's event store: one per gated cycle
+-- (event-model/cycle-measurement.edn). The approved sealed grader files the verdicts it
+-- returned; the instrument files the one measurement, with every checklist item: an
+-- unreached item fails and stays counted. A false record cannot be untaken, so a doubtful
+-- one is refused. Legacy: score.clj.
+--
+-- The storm's "Score refused" is the refusals of FileItemVerdicts and FileScore. ORC's
+-- score node then records the failed stage (FailScoreStage), a fact and a handoff: the
+-- conclude policy fails the cycle and the score is never retaken within it.
+
+use "context.allium" as ctx
+use "checklist.allium" as cl
+
+------------------------------------------------------------
+-- External Entities
+------------------------------------------------------------
+
+-- An approved sealed grader's run, reported by ORC runtime from a validation room.
+external entity GraderRun {}
+
+-- ORC's workflow worker: its score node.
+external entity OrcWorker {}
+
+-- The Regeneration cycle context, producer of GateAttemptPassed.
+external entity RegenerationCycle {}
+
+-- The person who reads the measurement receipt.
+external entity OperatorAccount {}
+
+------------------------------------------------------------
+-- Entities
+------------------------------------------------------------
+
+entity CycleMeasurement {
+    cycle_id: String
+    cut_id: String
+    -- The candidate the gate ratified: the score binds it (decisions.md H13).
+    candidate_digest: String
+    status: awaiting_score | filed | score_stage_failed
+    filings: VerdictFiling with measurement = this
+    selection_id: String when status = filed
+    checklist_digest: String when status = filed
+    grader_digests: Set<String> when status = filed
+    total: Integer when status = filed
+    passes: Integer when status = filed
+    unreached: Integer when status = filed
+    items: List<Any> when status = filed
+    superseded: List<Any> when status = filed
+    filed_at: Timestamp when status = filed
+    refusal: ctx.ScoreRefusal when status = score_stage_failed
+
+    transitions status {
+        awaiting_score -> filed
+        awaiting_score -> score_stage_failed
+        terminal: filed, score_stage_failed
+    }
+}
+
+-- One grader's verdicts for the cycle's gated candidate, as returned, duplicates included.
+entity VerdictFiling {
+    measurement: CycleMeasurement
+    grader_digest: String
+    candidate_digest: String
+    verdicts: List<ctx.ReturnedVerdict>
+    filed_at: Timestamp
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+-- Regeneration cycle's handoff: the gate ratified the cycle's candidate, so it may be
+-- scored, and only that candidate.
+rule OpenMeasurement {
+    when: GateAttemptPassed(cycle, cycle_id, cut_id, candidate_digest)
+    requires: not exists CycleMeasurement{cycle_id: cycle_id}
+    ensures: CycleMeasurement.created(cycle_id: cycle_id, cut_id: cut_id, candidate_digest: candidate_digest, status: awaiting_score)
+}
+
+-- File the verdicts one approved sealed grader returned for the gated candidate of a
+-- cycle, having driven it only over its public seam. Issued by the grader (its run
+-- reported by ORC runtime). Refusals in the order the score checks them: a bad verdict
+-- value before an unknown item (decisions.md, changed from legacy @harness-039).
+rule FileItemVerdicts {
+    when: FileItemVerdicts(grader, cycle_id, candidate_digest, grader_digest, approved_grader_digests, verdicts)
+    let measurement = CycleMeasurement{cycle_id: cycle_id}
+    -- 1. the cycle's gate ratified no candidate (not_the_gated_candidate)
+    requires: exists measurement
+    -- 2. another candidate than the one the gate ratified (not_the_gated_candidate; H13)
+    requires: candidate_digest = measurement.candidate_digest
+    -- 3. no checklist for the cycle's cut (no_checklist; legacy @harness-040)
+    requires: exists cl/Checklist{cut_id: measurement.cut_id}
+    -- 4. zero verdicts: the grading did not happen, not everything failed (zero_verdicts;
+    --    legacy @harness-032, @harness-033)
+    requires: verdicts.count > 0
+    -- 5. a verdict other than pass or fail (bad_verdict_value; legacy @harness-039)
+    requires: verdicts.all(v => v.verdict = "pass" or v.verdict = "fail")
+    -- 6. a verdict for an item not on the checklist: the spec is the only author of the
+    --    item list (unknown_item; legacy @harness-038)
+    requires: verdicts.all(v => v.item_id in cl/Checklist{cut_id: measurement.cut_id}.item_ids)
+    -- 7. the measurement is already filed
+    requires: measurement.status in {awaiting_score, score_stage_failed}
+    -- 8. the score stage already failed: it is never retaken within the cycle
+    requires: measurement.status = awaiting_score
+    -- 9. the grader digest is not an approved one (grader_not_approved; H13)
+    requires: grader_digest in approved_grader_digests
+    -- 10. a reason other than inconclusive or outage, or beside a pass; unreached is the
+    --     instrument's to give (bad_verdict_reason; H7)
+    requires: verdicts.all(v => v.reason != null implies (v.verdict = "fail" and (v.reason = "inconclusive" or v.reason = "outage")))
+    ensures:
+        VerdictFiling.created(measurement: measurement, grader_digest: grader_digest, candidate_digest: candidate_digest, verdicts: verdicts, filed_at: now)
+        ItemVerdictsFiled(cycle_id: cycle_id, candidate_digest: candidate_digest, grader_digest: grader_digest, verdicts: verdicts)
+}
+
+-- File the cycle's one measurement from the verdicts filed: every checklist item, the last
+-- verdict for an item superseding the earlier ones, and an item with no verdict filed as
+-- fail with reason unreached. Issued by ORC runtime (the score node) once its grader runs
+-- are done. Refusals 1-4 from R1; 5-6 added in R2 (H13).
+rule FileScore {
+    when: FileScore(orc, cycle_id, approved_grader_digests)
+    let measurement = CycleMeasurement{cycle_id: cycle_id}
+    -- 1. the cycle is not gated
+    requires: exists measurement
+    -- 2. zero verdicts filed
+    requires: measurement.filings.count > 0
+    -- 3. already filed: a false record cannot be untaken
+    requires: measurement.status in {awaiting_score, score_stage_failed}
+    -- 4. the score stage failed
+    requires: measurement.status = awaiting_score
+    -- 5. a grader digest no longer approved, re-checked when the score is filed (H13)
+    requires: measurement.filings.all(f => f.grader_digest in approved_grader_digests)
+    -- 6. a filing for another candidate than the gated one (H13)
+    requires: measurement.filings.all(f => f.candidate_digest = measurement.candidate_digest)
+    let checklist = cl/Checklist{cut_id: measurement.cut_id}
+    let items = scored_items(checklist, measurement.filings)
+    ensures:
+        measurement.status = filed
+        measurement.selection_id = checklist.selection_id
+        measurement.checklist_digest = checklist.checklist_digest
+        measurement.grader_digests = grader_digests_of(measurement.filings)
+        measurement.total = checklist.total
+        measurement.passes = passes_of(items)
+        measurement.unreached = unreached_of(items)
+        measurement.items = items
+        measurement.superseded = superseded(measurement.filings)
+        measurement.filed_at = now
+        MeasurementFiled(cycle_id: cycle_id, cut_id: measurement.cut_id, selection_id: checklist.selection_id, candidate_digest: measurement.candidate_digest, checklist_digest: checklist.checklist_digest, grader_digests: grader_digests_of(measurement.filings), total: checklist.total, passes: passes_of(items), unreached: unreached_of(items), items: items, superseded: superseded(measurement.filings))
+}
+
+-- Record that the cycle's score stage failed because its score was refused; it is never
+-- retried within the cycle. Issued by ORC runtime (the score node). Refusals from R1.
+rule FailScoreStage {
+    when: FailScoreStage(orc, cycle_id, refusal, detail)
+    let measurement = CycleMeasurement{cycle_id: cycle_id}
+    -- 1. the cycle is not gated
+    requires: exists measurement
+    -- 2. the measurement is filed
+    requires: measurement.status in {awaiting_score, score_stage_failed}
+    -- 3. already failed
+    requires: measurement.status = awaiting_score
+    ensures:
+        measurement.status = score_stage_failed
+        measurement.refusal = refusal
+        ScoreStageFailed(cycle_id: cycle_id, refusal: refusal, detail: detail)
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+invariant OneMeasurementPerCycle {
+    for a in CycleMeasurements:
+        for b in CycleMeasurements:
+            a != b implies a.cycle_id != b.cycle_id
+}
+
+-- The denominator is the checklist's; passes and unreached are counted within it.
+invariant CountedWithinTheDenominator {
+    for m in CycleMeasurements:
+        m.status = filed implies (m.total >= 1 and m.passes + m.unreached <= m.total)
+}
+
+-- A filing binds the gated candidate (H13).
+invariant FilingsBindTheGatedCandidate {
+    for f in VerdictFilings:
+        f.candidate_digest = f.measurement.candidate_digest
+}
+
+-- Zero verdicts are no measurement: a filed measurement has at least one filing.
+invariant FiledFromAtLeastOneFiling {
+    for m in CycleMeasurements:
+        m.status = filed implies m.filings.count > 0
+}
+
+------------------------------------------------------------
+-- Actor Declarations
+------------------------------------------------------------
+
+actor Grader {
+    identified_by: GraderRun where true
+}
+
+actor OrcRuntime {
+    identified_by: OrcWorker where true
+}
+
+actor RegenerationCycleContext {
+    identified_by: RegenerationCycle where true
+}
+
+actor Operator {
+    identified_by: OperatorAccount where true
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+-- The approved sealed grader's filing of its verdicts.
+surface VerdictFilingSeam {
+    facing grader: Grader
+
+    provides:
+        FileItemVerdicts(grader, cycle_id, candidate_digest, grader_digest, approved_grader_digests, verdicts)
+
+    @guarantee PublicSeamOnly
+        -- The grader drove the candidate only over its public seam, from fresh state, in
+        -- a validation room; nothing it files reaches a builder (AGENTS.md, Ratification).
+
+    @guarantee ApprovedDigestOnly
+        -- Only an approved grader digest files verdicts, and only for the candidate the
+        -- gate ratified (decisions.md H13).
+}
+
+-- ORC's score node.
+surface ScoreStage {
+    facing orc: OrcRuntime
+
+    provides:
+        FileScore(orc, cycle_id, approved_grader_digests)
+        FailScoreStage(orc, cycle_id, refusal, detail)
+
+    contracts:
+        fulfils Scoring
+
+    @guarantee ZeroVerdictsIsNotAllFailed
+        -- A run that graded nothing files nothing: no score is not every item failed.
+
+    @guarantee AFalseRecordCannotBeUntaken
+        -- One measurement per cycle, filed once; a refused score files nothing, the stage
+        -- failure is recorded, and the score is never retaken within the cycle.
+
+    @guarantee NeverIntoTheLoop
+        -- Score evidence and verdicts never become builder input (AGENTS.md).
+}
+
+-- What the operator reads of a cycle's measurement (the measurement receipt).
+surface MeasurementReceipt {
+    facing operator: Operator
+    context measurement: CycleMeasurement
+
+    exposes:
+        measurement.cycle_id
+        measurement.status
+        measurement.candidate_digest
+        measurement.total when measurement.status = filed
+        measurement.passes when measurement.status = filed
+        measurement.unreached when measurement.status = filed
+        measurement.items when measurement.status = filed
+        measurement.superseded when measurement.status = filed
+        measurement.refusal when measurement.status = score_stage_failed
+}
+
+-- Regeneration cycle's handoff, as this context hears it: one way, from the gate.
+surface RegenerationCycleHandoffs {
+    facing cycle: RegenerationCycleContext
+
+    provides:
+        GateAttemptPassed(cycle, cycle_id, cut_id, candidate_digest)
+}

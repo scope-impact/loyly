@@ -1,43 +1,64 @@
 # Specification: domain design
 
-status: proposed, 2026-11-06 (spec v2, round R1: the event model of the legacy core; the
-Allium arrives in R2). Derived from the storm (`../event-storm.md`, Specify) and the legacy
-stamper (`archive/legacy-harness/stamp_item_ids.clj`), in the glossary's words
+status: proposed, 2026-11-06 (spec v2, R1 event model; R2 Allium and the product owner's
+decisions, `../decisions.md`). Derived from the storm (`../event-storm.md`, Specify) and
+the legacy stamper (`archive/legacy-harness/stamp_item_ids.clj`), in the glossary's words
 (`.pi/model/GLOSSARY.md`).
 
 The open host: every other context conforms to its published language, the **item
-identity** and the **stamped scenario**.
+identity**, the **stamped scenario** and, since R2, the **one reading of Gherkin**
+(contract `ScenarioReading`).
 
 ## Files
 
-| Module | Event Model | Aggregate | Lives |
-|---|---|---|---|
-| Context | `event-model/area.edn` (screen `spec-authoring`, flow `stamping-to-checklist`) | none | |
-| Slice | `event-model/slice.edn` | **Slice** (its stamped items, the next free number) | the project repository; one per slice's `spec.feature` |
-| Handoffs produced | `event-model/handoffs.edn` (`scenario-stamped`) | | consumed by Measurement |
+| Module | Event Model | Allium | Aggregate | Lives |
+|---|---|---|---|---|
+| Context | `event-model/area.edn` (screen `spec-authoring`, flow `stamping-to-checklist`) | `allium/context.allium` (value `UnstampedScenario`, contract `ScenarioReading`, open question) | none | |
+| Slice | `event-model/slice.edn` | `allium/slice.allium` (rules `StampFirstScenarios`, `StampSlice`; surface `SpecAuthoring`) | **Slice** (its stamped items, the ledger's next number) | the project repository; one per slice's `spec.feature` |
+| Handoffs produced | `event-model/handoffs.edn` (`scenario-stamped`) | emitted by both stamping rules | | consumed by Measurement |
 
 ## Design decisions
 
 1. **Slice is the aggregate**, because "an identity is handed out once, never renumbered or
-   reused" is decided per slice: the next number is one past the highest the slice ever
-   carried, even from a stray tag (legacy `@harness-004`).
-2. **One event per newly stamped scenario.** Stamping is idempotent: a scenario already
-   stamped produces nothing, so a rerun records nothing.
-3. **The stamp carries no scenario digest.** The identity survives rewording; the digest
-   changes with the behavior, so it is taken at the cut, by the checklist.
+   reused" is decided per slice. The next number comes from a **ledger that never goes
+   down** (accepted change): one past the highest number the slice ever handed out, so a
+   deleted scenario's number is never reused (legacy `@harness-010` lowered it).
+2. **One event per newly stamped scenario.** Stamping is idempotent: the scenarios offered
+   must be exactly the file's unstamped ones (refusal 4), so a rerun records nothing.
+3. **The stamp carries no scenario digest.** The identity survives rewording; the digest is
+   taken at the cut, by the checklist.
+4. **Two rules for one command**: `StampFirstScenarios` opens the ledger at 1,
+   `StampSlice` continues it. A spec file with no scenario opens it with nothing stamped.
+5. **One reading of Gherkin** for the stamper and the checklist (contract
+   `ScenarioReading`), so the two tools cannot disagree about what is an item.
+
+## Legacy behaviours added in R2 (decisions.md "to add")
+
+- **1, which lines are scenarios and items**: contract `ScenarioReading` invariants
+  `OutlineYesTemplateNo` (`@harness-003`), `EmptyTitleIsNoScenario` (`@harness-021`),
+  `WhitespaceTitleIsAScenario` (`@harness-049`), `TitleIsTrimmed` (`@harness-018`),
+  `ItemTagFromTheContiguousTagRun` and `OtherTagsDoNotStamp` (`@harness-005`, `019`),
+  `SliceFromTheDirectory` (`@harness-001`, `014`). Dropped with reason: the checklist's
+  "pending tag" wart (`@harness-020`), a second reading of the same file.
+- **2, "no spec found" distinct from "fully stamped"**: refusal 1 of both rules (the answer
+  names where it looked), against success with nothing stamped; guarantee
+  `NoSpecIsNotFullyStamped` (`@harness-011`).
 
 ## Storm events here
 
 | Storm event | Became |
 |---|---|
 | Scenario stamped | event `specification/scenario-stamped` (handoff) |
-| ✗ Unstamped scenario found | refusal (R2) of `measurement/derive-checklist`: every scenario of the checklist must be stamped. It answers the operator who derives; nothing is recorded (see `../measurement/domain-design.md`) |
+| ✗ Unstamped scenario found | `measurement` `DeriveChecklist` refusal 2 |
 
-## Refusals for R2
+## Refusals (the `requires`, numbered as in the Allium)
 
-`stamp-slice`: none beyond its schema (a slice is a number; a scenario already stamped is
-skipped, not refused).
+- `StampFirstScenarios`: 1 no spec found; 2 the source is not this slice's spec file; 3 the
+  slice already has a ledger; 4 the scenarios offered are not exactly the file's unstamped
+  ones, in file order.
+- `StampSlice`: 1 no spec found; 2 not this slice's file; 3 no ledger yet; 4 as above.
 
 ## Open questions
 
-- None of its own. The stamping→checklist flow ends in Measurement.
+- Legacy `@harness-021`: an empty-title heading is no scenario for both tools; should the
+  stamper refuse the file instead, so the author sees it?

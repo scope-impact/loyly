@@ -6,17 +6,19 @@
 ;;
 ;; Commands produce only what happened. A refusal is the command's answer, written as a
 ;; `requires` in R2's Allium, and is not an event (domain-design.md).
-;; TODO R2: :grain/allium links on the screen and the flow.
+;; Allium: ../allium/ (slice.allium: surface SpecAuthoring).
 {:specification
  {:description "Specification: the Gherkin scenarios and the item identity stamped on each. Upstream of every cycle; owns the published language (item identity, stamped scenario)."
   :screens
   {:specification/spec-authoring
    {:description "Where the operator (spec author) edits a slice's spec and runs the stamper; shows each slice's stamped items and the next free item number."
+    :grain/allium [{:spec ".pi/spec/specification/allium/slice.allium" :kind :surface :name "SpecAuthoring"}]
     :queries #{:specification/stamped-items}
     :commands #{:specification/stamp-slice}}}
   :flows
   {:specification/stamping-to-checklist
    {:description "A scenario is stamped once; its item identity is what a checklist may count. The operator derives the checklist of a pinned cut (legacy: gen_checklist), refused if any scenario is unstamped or the checklist would be empty."
+    :grain/allium [{:spec ".pi/spec/specification/allium/slice.allium" :kind :rule :name "StampSlice"}]
     :steps [{:from [:screen :specification/spec-authoring] :to [:command :specification/stamp-slice]}
             {:from [:command :specification/stamp-slice] :to [:event :specification/scenario-stamped]}
             {:from [:event :specification/scenario-stamped] :to [:read-model :specification/stamped-items]}

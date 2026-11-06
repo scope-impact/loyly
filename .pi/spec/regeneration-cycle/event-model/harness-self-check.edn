@@ -1,36 +1,66 @@
 ;; .pi/spec/regeneration-cycle/event-model/harness-self-check.edn: aggregate
-;; HarnessSelfCheck, in the harness's event store (one per cycle, naming its harness
-;; digest). No clean room is built over an unchecked instrument. Legacy: fence.sh and
-;; verify.sh call check.sh --local first, which runs the oracle over the instrument goldens.
-;; TODO R2: :grain/allium links (rule RecordHarnessSelfCheck, entity HarnessSelfCheck).
+;; HarnessSelfCheck, in the harness's event store (one per cycle, occasion and attempt,
+;; naming its harness digest). No clean room is built, and no candidate graded, over an
+;; unchecked instrument. Legacy: fence.sh and verify.sh call check.sh --local first, which
+;; runs the oracle over the instrument goldens. R2 (decisions.md H24, H5, "to add" 7): the
+;; self-check runs before the fence AND before every gate attempt; the fence's self-check
+;; carries the preparation's budget; a missing tool is a listed skip; a missing golden fails.
+;; Allium: ../allium/harness-self-check.allium.
 {:regeneration-cycle
  {:commands
   {:regeneration-cycle/record-harness-self-check
-   {:description "Record the result of the harness self-check run for a cycle: the harness's calibration fixtures, every instrument golden reproduced exactly, the committed revision and runtime assets. A failed check is named. Issued by: ORC runtime (the fence node), first in the cycle."
+   {:description "Record the result of the harness self-check run for a cycle: the harness's calibration fixtures, every instrument golden reproduced exactly, the committed revision and runtime assets, the identity probe. A failed check is named; a tool not found is a listed skip; a missing golden fails it. Issued by: ORC runtime, the fence node first in the cycle (occasion before-fence, attempt 0, with the preparation's budget) and the gate node before every gate attempt (occasion before-gate)."
+    :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/harness-self-check.allium" :kind :rule :name "RecordHarnessSelfCheck"}]
     :schema [:map
              [:cycle-id :string]
              [:cut-id :string]
+             [:occasion [:enum "before-fence" "before-gate"]]
+             [:attempt [:int {:min 0 :max 3}]]
              [:harness-digest :string]
              [:goldens-digest :string]
+             [:identity-probe-digest :string]
              [:outcome [:enum "passed" "failed"]]
              [:failing-check {:optional true} :string]
-             [:detail {:optional true} :string]]
-    :reads #{:regeneration-cycle/regeneration-cycles :regeneration-cycle/pinned-cuts :regeneration-cycle/instrument-goldens}
+             [:detail {:optional true} :string]
+             [:skipped-checks [:vector :string]]
+             [:missing-goldens [:vector :string]]
+             [:budget [:map
+                       [:gate-attempt-limit [:int {:min 1 :max 3}]]
+                       [:max-outer-cycles pos-int?]
+                       [:max-continuations [:int {:min 0 :max 3}]]
+                       [:stage-timeouts-seconds [:map [:fence pos-int?] [:regenerate pos-int?] [:gate pos-int?] [:score pos-int?]]]]]]
+    :reads #{:regeneration-cycle/regeneration-cycles :regeneration-cycle/pinned-cuts :regeneration-cycle/instrument-goldens :regeneration-cycle/harness-self-checks}
     :produces #{:regeneration-cycle/harness-self-check-passed :regeneration-cycle/harness-self-check-failed}}}
   :events
   {:regeneration-cycle/harness-self-check-passed
-   {:description "The harness passed its self-check for this cycle, at this harness digest and these goldens. A cycle starts here: it is the first fact that names the cycle and its cut."
+   {:description "The harness passed its self-check for this cycle, occasion and attempt, at this harness digest, these goldens and this identity probe, with any missing tool listed as a skip. Before the fence a cycle starts here: it is the first fact that names the cycle, its cut and its budget."
     :schema [:map
              [:cycle-id :string]
              [:cut-id :string]
+             [:occasion [:enum "before-fence" "before-gate"]]
+             [:attempt [:int {:min 0 :max 3}]]
              [:harness-digest :string]
              [:goldens-digest :string]
+             [:identity-probe-digest :string]
+             [:skipped-checks [:vector :string]]
+             [:budget [:map
+                       [:gate-attempt-limit [:int {:min 1 :max 3}]]
+                       [:max-outer-cycles pos-int?]
+                       [:max-continuations [:int {:min 0 :max 3}]]
+                       [:stage-timeouts-seconds [:map [:fence pos-int?] [:regenerate pos-int?] [:gate pos-int?] [:score pos-int?]]]]]
              [:checked-at inst?]]}
    :regeneration-cycle/harness-self-check-failed
-   {:description "The harness failed its self-check for this cycle; the failing check is named. No clean room is built and the cycle fails."
+   {:description "The harness failed its self-check for this cycle; the failing check is named. Before the fence no clean room is built; before a gate attempt nothing is booted or graded and no attempt is spent; the cycle fails."
     :schema [:map
              [:cycle-id :string]
              [:cut-id :string]
+             [:occasion [:enum "before-fence" "before-gate"]]
+             [:attempt [:int {:min 0 :max 3}]]
+             [:budget [:map
+                       [:gate-attempt-limit [:int {:min 1 :max 3}]]
+                       [:max-outer-cycles pos-int?]
+                       [:max-continuations [:int {:min 0 :max 3}]]
+                       [:stage-timeouts-seconds [:map [:fence pos-int?] [:regenerate pos-int?] [:gate pos-int?] [:score pos-int?]]]]]
              [:harness-digest :string]
              [:failing-check :string]
              [:detail :string]
@@ -38,7 +68,13 @@
   :read-models
   {:regeneration-cycle/pinned-cuts
    {:description "The cuts Cycle preparation pinned; a cycle may only fence a pinned cut."
+    :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/harness-self-check.allium" :kind :entity :name "PinnedCut"}]
     :consumes #{:cycle-preparation/source-cut-pinned}}
    :regeneration-cycle/instrument-goldens
-   {:description "The current digest of every instrument golden, and their combined goldens digest, which the self-check must reproduce."
-    :consumes #{:grader-lifecycle/instrument-golden-written :grader-lifecycle/instrument-golden-moved}}}}}
+   {:description "The current digest of every instrument golden, with the digest of the scenario it was written from, and their combined goldens digest, which the self-check must reproduce."
+    :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/harness-self-check.allium" :kind :entity :name "CurrentGolden"}]
+    :consumes #{:grader-lifecycle/instrument-golden-written :grader-lifecycle/instrument-golden-moved}}
+   :regeneration-cycle/harness-self-checks
+   {:description "Each cycle's self-checks by occasion and attempt: outcome, harness, goldens and identity-probe digests, skipped checks. A gate attempt is recorded only over the passing one for its attempt, at the current goldens (H24)."
+    :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/harness-self-check.allium" :kind :entity :name "HarnessSelfCheck"}]
+    :consumes #{:regeneration-cycle/harness-self-check-passed :regeneration-cycle/harness-self-check-failed}}}}}

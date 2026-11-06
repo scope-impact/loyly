@@ -1,0 +1,459 @@
+-- allium: 3
+-- .pi/spec/regeneration-cycle/allium/regeneration-cycle.allium
+--
+-- Aggregate RegenerationCycle, in the harness's event store: one per cycle identity
+-- (event-model/regeneration-cycle.edn). It owns the stage order, the budget, the attempt
+-- count and the one conclusion. Its facts arrive from the sibling aggregates (self-check,
+-- clean room, gate attempt) and from measurement's handoffs; it folds them the way the
+-- regeneration-cycles read model does, and the conclude-cycle policy reads the result.
+--
+-- The cycle identity is given in the core and minted at submission later (decisions.md H8):
+-- a cycle exists from its first self-check, passed or failed, and a cycle that fails before
+-- the score exists and has no score.
+--
+-- Legacy: the shape of archive/legacy-harness (fence.sh, verify.sh, score.clj,
+-- scoreboard.clj), one cycle per week, with the gate attempts and the repair builder of
+-- AGENTS.md.
+
+use "context.allium" as ctx
+use "harness-self-check.allium" as sc
+use "clean-room.allium" as room
+use "gate-attempt.allium" as gate
+
+------------------------------------------------------------
+-- External Entities
+------------------------------------------------------------
+
+-- ORC's workflow worker: runs the stage nodes and reports what each did.
+external entity OrcWorker {}
+
+-- The person who prepared and submitted the cycle; here only an observer.
+external entity OperatorAccount {}
+
+-- The builder host (pi-durable) running a builder session in a room ORC chose.
+external entity BuilderHost {}
+
+-- The Measurement context, producer of MeasurementFiled, ScoreStageFailed and
+-- ScoreboardReported.
+external entity Measurement {}
+
+------------------------------------------------------------
+-- Entities
+------------------------------------------------------------
+
+entity RegenerationCycle {
+    cycle_id: String
+    cut_id: String
+    budget: ctx.Budget
+    -- The harness digest of the self-check before the fence.
+    harness_digest: String
+    status: running | cycle_passed | cycle_failed
+    -- The stage reached: fence, regenerate, gate, score, scoreboard; result once passed.
+    stage: ctx.Stage
+    clean_room_proved: Boolean
+    -- Candidates regenerated so far; the latest is the current attempt.
+    attempts: Integer
+    failed_attempts: Integer
+    candidate_digest: String?
+    -- Gate evidence of this cycle's failed attempts: the only evidence a repair room may
+    -- mount (decisions.md H6).
+    gate_evidence_roots: Set<String>
+    self_check_failed: Boolean
+    self_check_failure: String?
+    measurement_filed: Boolean
+    score_stage_failed: Boolean
+    scoreboard_reported: Boolean
+    failed_stage: ctx.Stage when status = cycle_failed
+    failure_reason: ctx.FailureReason when status = cycle_failed
+    failure_detail: String when status = cycle_failed
+
+    -- Gate attempts exhausted is a read-model fact, not an event (domain-design.md, 7).
+    attempts_exhausted: failed_attempts >= budget.gate_attempt_limit
+
+    -- The conclude-cycle policy's to-do list (cycles-to-conclude).
+    awaits_failing_self_check: status = running and self_check_failed
+    awaits_failing_gate: status = running and attempts_exhausted
+    awaits_failing_score: status = running and score_stage_failed
+    awaits_passing: status = running and scoreboard_reported
+
+    transitions status {
+        running -> cycle_passed
+        running -> cycle_failed
+        terminal: cycle_passed, cycle_failed
+    }
+}
+
+------------------------------------------------------------
+-- Rules: the cycle opens at its first self-check
+------------------------------------------------------------
+
+-- The self-check before the fence is the first fact naming the cycle, its cut and its
+-- budget (harness-self-check.allium).
+rule OpenCycle {
+    when: sc/HarnessSelfCheckPassed(cycle_id, cut_id, occasion, attempt, harness_digest, goldens_digest, identity_probe_digest, skipped_checks, budget)
+    requires: occasion = before_fence
+    requires: not exists RegenerationCycle{cycle_id: cycle_id}
+    ensures: RegenerationCycle.created(
+        cycle_id: cycle_id,
+        cut_id: cut_id,
+        budget: budget,
+        harness_digest: harness_digest,
+        status: running,
+        stage: fence,
+        clean_room_proved: false,
+        attempts: 0,
+        failed_attempts: 0,
+        candidate_digest: null,
+        gate_evidence_roots: {},
+        self_check_failed: false,
+        self_check_failure: null,
+        measurement_filed: false,
+        score_stage_failed: false,
+        scoreboard_reported: false
+    )
+}
+
+-- A failed self-check is the cycle's fact either way. Before the fence it opens the cycle,
+-- so that the cycle exists, fails at the fence and shows as "no score" (decisions.md H8);
+-- no room is built over it. Before a gate attempt it marks the running cycle: nothing is
+-- booted or graded and no attempt is spent, and the cycle fails at the gate (legacy
+-- verify.sh [0], @harness-065; decisions.md H24).
+rule NoteFailedSelfCheck {
+    when: sc/HarnessSelfCheckFailed(cycle_id, cut_id, occasion, attempt, harness_digest, failing_check, detail, budget)
+    let cycle = RegenerationCycle{cycle_id: cycle_id}
+    requires: (occasion = before_fence implies not exists cycle) and (occasion = before_gate implies exists cycle)
+    ensures:
+        if occasion = before_fence:
+            RegenerationCycle.created(
+                cycle_id: cycle_id,
+                cut_id: cut_id,
+                budget: budget,
+                harness_digest: harness_digest,
+                status: running,
+                stage: fence,
+                clean_room_proved: false,
+                attempts: 0,
+                failed_attempts: 0,
+                candidate_digest: null,
+                gate_evidence_roots: {},
+                self_check_failed: true,
+                self_check_failure: failing_check,
+                measurement_filed: false,
+                score_stage_failed: false,
+                scoreboard_reported: false
+            )
+        else:
+            cycle.self_check_failed = true
+            cycle.self_check_failure = failing_check
+}
+
+------------------------------------------------------------
+-- Rules: stage facts folded into the cycle
+------------------------------------------------------------
+
+-- The fence proved the clean room (clean-room.allium).
+rule NoteCleanRoomProved {
+    when: room/CleanRoomProved(cycle_id, cut_id, clean_room_commit, fenced_paths)
+    let cycle = RegenerationCycle{cycle_id: cycle_id}
+    requires: exists cycle
+    ensures:
+        cycle.clean_room_proved = true
+        cycle.stage = regenerate
+}
+
+-- The gate ratified the attempt's candidate.
+rule NoteGateAttemptPassed {
+    when: gate/GateAttemptPassed(cycle_id, cut_id, attempt, candidate_digest, boot_budget_seconds, boot_polls, answered_on_poll, identity_proof, evidence_root)
+    let cycle = RegenerationCycle{cycle_id: cycle_id}
+    requires: exists cycle
+    ensures: cycle.stage = score
+}
+
+-- A failed attempt adds its gate evidence; while attempts
+-- remain the cycle goes back to regenerate for a repair builder, otherwise the gate
+-- attempts are exhausted and the policy fails the cycle.
+rule NoteGateAttemptFailed {
+    when: gate/GateAttemptFailed(cycle_id, attempt, candidate_digest, reason, boot_budget_seconds, boot_polls, evidence_root, detail)
+    let cycle = RegenerationCycle{cycle_id: cycle_id}
+    requires: exists cycle
+    ensures:
+        cycle.failed_attempts = cycle.failed_attempts + 1
+        cycle.gate_evidence_roots = cycle.gate_evidence_roots + {evidence_root}
+        if cycle.failed_attempts < cycle.budget.gate_attempt_limit:
+            cycle.stage = regenerate
+}
+
+-- Measurement's handoffs, only to conclude: nothing here feeds the build loop.
+rule NoteMeasurementFiled {
+    when: MeasurementFiled(measurement, cycle_id)
+    let cycle = RegenerationCycle{cycle_id: cycle_id}
+    requires: exists cycle
+    ensures:
+        cycle.measurement_filed = true
+        cycle.stage = scoreboard
+}
+
+rule NoteScoreStageFailed {
+    when: ScoreStageFailed(measurement, cycle_id, refusal)
+    let cycle = RegenerationCycle{cycle_id: cycle_id}
+    requires: exists cycle
+    ensures: cycle.score_stage_failed = true
+}
+
+rule NoteScoreboardReported {
+    when: ScoreboardReported(measurement, cycle_id)
+    let cycle = RegenerationCycle{cycle_id: cycle_id}
+    requires: exists cycle
+    ensures: cycle.scoreboard_reported = true
+}
+
+------------------------------------------------------------
+-- Rules: regenerate
+------------------------------------------------------------
+
+-- Record the candidate a regenerate step produced for the next gate attempt: attempt 1 by
+-- fresh generation, later attempts by verification repair after a failed attempt. A
+-- claim, not done. Refusals 1-6 from R1; 7-9 added in R2 (H5, H6, the repair builder).
+rule RecordRegeneratedCandidate {
+    when: RecordRegeneratedCandidate(orc, cycle_id, attempt, purpose, candidate_digest, parent_candidate_digest?, mounted_evidence)
+    let cycle = RegenerationCycle{cycle_id: cycle_id}
+    -- 1. the cycle exists
+    requires: exists cycle
+    -- 2. no clean room proved
+    requires: cycle.clean_room_proved
+    -- 3. the attempt is the next one
+    requires: attempt = cycle.attempts + 1
+    -- 4. within the budget's gate-attempt limit, at most three (H5, AGENTS.md)
+    requires: attempt <= cycle.budget.gate_attempt_limit
+    -- 5. fresh generation for attempt 1, verification repair after
+    requires: (attempt = 1 implies purpose = fresh_generation) and (attempt > 1 implies purpose = verification_repair)
+    -- 6. the cycle is concluded
+    requires: cycle.status = running
+    -- 7. a repair follows a failed gate attempt, never a passed one
+    requires: cycle.stage = regenerate and cycle.failed_attempts = attempt - 1
+    -- 8. a repair continues the previous candidate
+    requires: purpose = verification_repair implies parent_candidate_digest = cycle.candidate_digest
+    -- 9. only a repair room mounts evidence, and only this cycle's gate evidence (H6)
+    requires: (purpose = fresh_generation implies mounted_evidence.count = 0) and mounted_evidence.all(e => e in cycle.gate_evidence_roots)
+    ensures:
+        cycle.attempts = attempt
+        cycle.candidate_digest = candidate_digest
+        cycle.stage = gate
+        CandidateRegenerated(cycle_id: cycle_id, attempt: attempt, purpose: purpose, candidate_digest: candidate_digest, parent_candidate_digest: parent_candidate_digest)
+}
+
+------------------------------------------------------------
+-- Rules: the conclude-cycle policy and the one conclusion
+------------------------------------------------------------
+
+-- Whenever a self-check failed (before the fence or before a gate attempt), fail the cycle
+-- at the stage it reached.
+rule ConcludeOnFailedSelfCheck {
+    when: cycle: RegenerationCycle.awaits_failing_self_check
+    requires: cycle.status = running
+    ensures: FailCycle(cycle_id: cycle.cycle_id, stage: cycle.stage, reason: harness_self_check_failed, detail: cycle.self_check_failure)
+}
+
+-- Whenever the last gate attempt the budget allows failed, fail the cycle without a score.
+rule ConcludeOnExhaustedGateAttempts {
+    when: cycle: RegenerationCycle.awaits_failing_gate
+    requires: cycle.status = running
+    ensures: FailCycle(cycle_id: cycle.cycle_id, stage: gate, reason: gate_attempts_exhausted, detail: "gate attempts exhausted")
+}
+
+-- Whenever the score stage failed, fail the cycle at the score; it is never retried.
+rule ConcludeOnFailedScoreStage {
+    when: cycle: RegenerationCycle.awaits_failing_score
+    requires: cycle.status = running
+    ensures: FailCycle(cycle_id: cycle.cycle_id, stage: score, reason: score_stage_failed, detail: "score refused")
+}
+
+-- Whenever the scoreboard is reported, conclude the cycle passed.
+rule ConcludeOnReportedScoreboard {
+    when: cycle: RegenerationCycle.awaits_passing
+    requires: cycle.status = running
+    ensures: PassCycle(cycle_id: cycle.cycle_id)
+}
+
+-- Conclude the cycle passed, once, after its scoreboard is reported.
+rule PassCycle {
+    when: PassCycle(cycle_id)
+    let cycle = RegenerationCycle{cycle_id: cycle_id}
+    -- 1. the cycle exists
+    requires: exists cycle
+    -- 2. the scoreboard is not reported
+    requires: cycle.scoreboard_reported
+    -- 3. already concluded
+    requires: cycle.status = running
+    ensures:
+        cycle.status = cycle_passed
+        cycle.stage = result
+        CyclePassed(cycle_id: cycle_id, candidate_digest: cycle.candidate_digest)
+}
+
+-- Conclude the cycle failed, once, at a named stage for a named reason. Issued by the
+-- conclude-cycle policy, or by ORC when a stage node's command was refused (the fence) or
+-- the node produced nothing (regenerate). Refusals 1-2 from R1; 3-4 added in R2.
+rule FailCycle {
+    when: FailCycle(cycle_id, stage, reason, detail)
+    let cycle = RegenerationCycle{cycle_id: cycle_id}
+    -- 1. the cycle exists
+    requires: exists cycle
+    -- 2. already concluded
+    requires: cycle.status = running
+    -- 3. the stage is not the one the cycle reached
+    requires: stage = cycle.stage
+    -- 4. the reason does not belong to the stage
+    requires:
+        (reason = fence_refused implies stage = fence)
+        and (reason = candidate_not_regenerated implies stage = regenerate)
+        and (reason = gate_attempts_exhausted implies stage = gate)
+        and (reason = score_stage_failed implies stage = score)
+    ensures:
+        cycle.status = cycle_failed
+        cycle.failed_stage = stage
+        cycle.failure_reason = reason
+        cycle.failure_detail = detail
+        CycleFailed(cycle_id: cycle_id, stage: stage, reason: reason, detail: detail, candidate_digest: cycle.candidate_digest)
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+invariant OneCyclePerIdentity {
+    for a in RegenerationCycles:
+        for b in RegenerationCycles:
+            a != b implies a.cycle_id != b.cycle_id
+}
+
+-- At most three gate attempts (AGENTS.md), and never more than the budget allows (H5).
+invariant AttemptsWithinBudget {
+    for c in RegenerationCycles:
+        c.attempts <= c.budget.gate_attempt_limit and c.budget.gate_attempt_limit <= 3 and c.budget.max_continuations <= 3
+}
+
+invariant FailedAttemptsNeverExceedAttempts {
+    for c in RegenerationCycles:
+        c.failed_attempts <= c.attempts
+}
+
+-- A cycle passes only once its measurement is filed and its scoreboard reported.
+invariant PassedOnlyMeasuredAndReported {
+    for c in RegenerationCycles:
+        c.status = cycle_passed implies (c.measurement_filed and c.scoreboard_reported)
+}
+
+-- A cycle concluded failed before the score has no measurement ("no score", never "all
+-- failed").
+invariant FailedBeforeScoreHasNoMeasurement {
+    for c in RegenerationCycles:
+        c.status = cycle_failed and c.failed_stage in {fence, regenerate, gate} implies not c.measurement_filed
+}
+
+------------------------------------------------------------
+-- Actor Declarations
+------------------------------------------------------------
+
+actor OrcRuntime {
+    identified_by: OrcWorker where true
+}
+
+actor Operator {
+    identified_by: OperatorAccount where true
+}
+
+actor BuilderSession {
+    identified_by: BuilderHost where true
+}
+
+actor MeasurementContext {
+    identified_by: Measurement where true
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+-- ORC runtime's regenerate node and its stage failures.
+surface CycleStages {
+    facing orc: OrcRuntime
+
+    provides:
+        RecordRegeneratedCandidate(orc, cycle_id, attempt, purpose, candidate_digest, parent_candidate_digest?, mounted_evidence)
+        FailCycle(cycle_id, stage, reason, detail)
+
+    @guarantee OrcRunsTheHarnessRecords
+        -- ORC owns the execution order; each command records a stage fact from what a
+        -- node did in a room, and the harness refuses one that does not hold. No harness
+        -- policy starts a stage: the only policy here concludes the cycle.
+
+    @guarantee OneConclusion
+        -- A cycle concludes once, passed after its scoreboard or failed at a named stage
+        -- for a named reason; a fence refusal and a regenerate step that produced nothing
+        -- fail it at that stage (decisions.md: a fence failure fails the cycle).
+}
+
+-- What the operator observes of a cycle (screen cycle-progress). Read-only.
+surface CycleProgress {
+    facing operator: Operator
+    context cycle: RegenerationCycle
+
+    exposes:
+        cycle.cycle_id
+        cycle.cut_id
+        cycle.status
+        cycle.stage
+        cycle.attempts
+        cycle.failed_attempts
+        cycle.candidate_digest
+        cycle.budget
+        cycle.failed_stage when cycle.status = cycle_failed
+        cycle.failure_reason when cycle.status = cycle_failed
+        cycle.failure_detail when cycle.status = cycle_failed
+
+    @guarantee ObservingChangesNothing
+        -- The view is a query over recorded facts, never an authority; reading it records
+        -- nothing.
+
+    @guarantee NoScoreIsNotAllFailed
+        -- A cycle failed before the score shows as "no score", never as every item failed
+        -- (decisions.md H8).
+}
+
+-- What a builder session can rely on, and what it can never reach.
+surface BuilderRoomBoundary {
+    facing builder: BuilderSession
+    context cycle: RegenerationCycle
+
+    exposes:
+        cycle.cut_id
+
+    @guarantee DoneIsTheGatesVerdict
+        -- A regenerated candidate is a claim. Done is the gate's verdict in a room the
+        -- builder does not control, never the builder's.
+
+    @guarantee NoScoreEvidenceInABuilderRoom
+        -- Gate evidence and score evidence live in separate stores. Only a repair room
+        -- mounts evidence, and only this cycle's gate evidence; score evidence never
+        -- reaches a builder room. RecordRegeneratedCandidate refuses any other mount
+        -- (decisions.md H6).
+
+    @guarantee ProbeOutOfReach
+        -- The identity probe and the scoring tools are not in the candidate scope; the
+        -- builder cannot write what judges it (decisions.md H25; legacy probe.sh).
+}
+
+-- Measurement's handoffs, as this context hears them: only to conclude the cycle.
+surface MeasurementHandoffs {
+    facing measurement: MeasurementContext
+
+    provides:
+        MeasurementFiled(measurement, cycle_id)
+        ScoreStageFailed(measurement, cycle_id, refusal)
+        ScoreboardReported(measurement, cycle_id)
+
+    @guarantee ConcludeOnly
+        -- The instrument reports to a person, once a cycle, and never into the loop: these
+        -- facts only conclude the cycle.
+}

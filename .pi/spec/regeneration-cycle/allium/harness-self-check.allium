@@ -1,0 +1,201 @@
+-- allium: 3
+-- .pi/spec/regeneration-cycle/allium/harness-self-check.allium
+--
+-- Aggregate HarnessSelfCheck, in the harness's event store: one per cycle, occasion and
+-- attempt (event-model/harness-self-check.edn). No clean room is built, and no candidate
+-- is graded, over an unchecked instrument. The self-check runs before the fence and again
+-- before every gate attempt, as the legacy harness does (decisions.md H24; legacy fence.sh
+-- and verify.sh both call check.sh --local first, @harness-065).
+--
+-- The two handoffs it reads arrive here: the pinned cuts (a cycle fences only a pinned
+-- cut) and the instrument goldens (the self-check must reproduce the current ones).
+
+use "context.allium" as ctx
+use "regeneration-cycle.allium" as cyc
+
+------------------------------------------------------------
+-- External Entities
+------------------------------------------------------------
+
+-- ORC's workflow worker: its fence and gate nodes run the self-check.
+external entity OrcWorker {}
+
+-- The Cycle preparation context, producer of SourceCutPinned.
+external entity CyclePreparation {}
+
+-- The Grader lifecycle context, producer of InstrumentGoldenWritten and
+-- InstrumentGoldenMoved.
+external entity GraderLifecycle {}
+
+------------------------------------------------------------
+-- Entities
+------------------------------------------------------------
+
+entity HarnessSelfCheck {
+    cycle_id: String
+    cut_id: String
+    occasion: ctx.SelfCheckOccasion
+    -- 0 before the fence; the gate attempt it precedes otherwise.
+    attempt: Integer
+    harness_digest: String
+    goldens_digest: String
+    -- The identity probe the self-check checked: the instrument's, not the candidate's.
+    identity_probe_digest: String
+    outcome: check_passed | check_failed
+    failing_check: String?
+    -- Tools the run could not find: loud skips, listed, not failures.
+    skipped_checks: Set<String>
+    checked_at: Timestamp
+
+    -- Never reused across a change of the goldens (decisions.md H24).
+    at_current_goldens: goldens_digest = goldens_digest_of(CurrentGoldens)
+}
+
+-- A cut Cycle preparation pinned (read model pinned-cuts).
+entity PinnedCut {
+    cut_id: String
+    commit: String
+    tree_digest: String
+}
+
+-- The current content of one instrument golden (read model instrument-goldens).
+entity CurrentGolden {
+    golden_id: String
+    digest: String
+    scenario_digest: String
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+-- Record the result of the harness self-check run for a cycle. Issued by ORC runtime: its
+-- fence node first in the cycle, and its gate node before every gate attempt. Refusals 1-4
+-- from R1; 5-8 added in R2 (H24, H5, the legacy golden check).
+rule RecordHarnessSelfCheck {
+    when: RecordHarnessSelfCheck(orc, cycle_id, cut_id, occasion, attempt, harness_digest, goldens_digest, identity_probe_digest, outcome, failing_check?, detail?, skipped_checks, missing_goldens, budget)
+    let cycle = cyc.RegenerationCycle{cycle_id: cycle_id}
+    -- 1. the cut is not pinned
+    requires: exists PinnedCut{cut_id: cut_id}
+    -- 2. the goldens digest is not the current goldens
+    requires: goldens_digest = goldens_digest_of(CurrentGoldens)
+    -- 3. already recorded for this cycle, occasion and attempt (a replay records nothing)
+    requires: not exists HarnessSelfCheck{cycle_id: cycle_id, occasion: occasion, attempt: attempt}
+    -- 4. failed without naming the failing check
+    requires: outcome = check_failed implies failing_check != null
+    -- 5. before the fence: the cycle's first fact, attempt 0
+    requires: occasion = before_fence implies (not exists cycle and attempt = 0)
+    -- 6. before a gate attempt: the running cycle of this cut, with the attempt's candidate
+    requires: occasion = before_gate implies (exists cycle and cycle.status = running and cycle.cut_id = cut_id and cycle.attempts = attempt)
+    -- 7. the preparation's budget, within AGENTS.md's limits (H5)
+    requires: budget.gate_attempt_limit >= 1 and budget.gate_attempt_limit <= 3 and budget.max_continuations <= 3
+    -- 8. a self-check with a missing golden cannot pass (legacy @harness-060, @harness-061)
+    requires: outcome = check_passed implies missing_goldens.count = 0
+    ensures:
+        HarnessSelfCheck.created(
+            cycle_id: cycle_id,
+            cut_id: cut_id,
+            occasion: occasion,
+            attempt: attempt,
+            harness_digest: harness_digest,
+            goldens_digest: goldens_digest,
+            identity_probe_digest: identity_probe_digest,
+            outcome: outcome,
+            failing_check: failing_check,
+            skipped_checks: skipped_checks,
+            checked_at: now
+        )
+        if outcome = check_passed:
+            HarnessSelfCheckPassed(cycle_id: cycle_id, cut_id: cut_id, occasion: occasion, attempt: attempt, harness_digest: harness_digest, goldens_digest: goldens_digest, identity_probe_digest: identity_probe_digest, skipped_checks: skipped_checks, budget: budget)
+        else:
+            HarnessSelfCheckFailed(cycle_id: cycle_id, cut_id: cut_id, occasion: occasion, attempt: attempt, harness_digest: harness_digest, failing_check: failing_check, detail: detail, budget: budget)
+}
+
+-- A pinned cut, as this context hears it.
+rule NotePinnedCut {
+    when: SourceCutPinned(preparation, cut_id, commit, tree_digest)
+    requires: not exists PinnedCut{cut_id: cut_id}
+    ensures: PinnedCut.created(cut_id: cut_id, commit: commit, tree_digest: tree_digest)
+}
+
+rule NoteGoldenWritten {
+    when: InstrumentGoldenWritten(lifecycle, golden_id, scenario_digest, digest)
+    requires: not exists CurrentGolden{golden_id: golden_id}
+    ensures: CurrentGolden.created(golden_id: golden_id, digest: digest, scenario_digest: scenario_digest)
+}
+
+rule NoteGoldenMoved {
+    when: InstrumentGoldenMoved(lifecycle, golden_id, to_digest, scenario_digest)
+    let golden = CurrentGolden{golden_id: golden_id}
+    requires: exists golden
+    ensures:
+        golden.digest = to_digest
+        golden.scenario_digest = scenario_digest
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+invariant OneSelfCheckPerOccasion {
+    for a in HarnessSelfChecks:
+        for b in HarnessSelfChecks:
+            a != b and a.cycle_id = b.cycle_id and a.occasion = b.occasion implies a.attempt != b.attempt
+}
+
+invariant FailedSelfCheckNamesItsCheck {
+    for s in HarnessSelfChecks:
+        s.outcome = check_failed implies s.failing_check != null
+}
+
+------------------------------------------------------------
+-- Actor Declarations
+------------------------------------------------------------
+
+actor OrcRuntime {
+    identified_by: OrcWorker where true
+}
+
+actor CyclePreparationContext {
+    identified_by: CyclePreparation where true
+}
+
+actor GraderLifecycleContext {
+    identified_by: GraderLifecycle where true
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+surface HarnessSelfCheckRecording {
+    facing orc: OrcRuntime
+
+    provides:
+        RecordHarnessSelfCheck(orc, cycle_id, cut_id, occasion, attempt, harness_digest, goldens_digest, identity_probe_digest, outcome, failing_check?, detail?, skipped_checks, missing_goldens, budget)
+
+    contracts:
+        fulfils HarnessSelfCheckRun
+
+    @guarantee NoRoomOverAnUncheckedInstrument
+        -- No clean room is proved and no gate attempt is recorded unless a self-check
+        -- passed for it: before the fence for the room, and before each gate attempt for
+        -- that attempt, at the current goldens (legacy @harness-065; decisions.md H24).
+}
+
+-- Cycle preparation's handoff, as this context hears it.
+surface CyclePreparationHandoffs {
+    facing preparation: CyclePreparationContext
+
+    provides:
+        SourceCutPinned(preparation, cut_id, commit, tree_digest)
+}
+
+-- Grader lifecycle's handoffs, as this context hears them.
+surface GraderLifecycleHandoffs {
+    facing lifecycle: GraderLifecycleContext
+
+    provides:
+        InstrumentGoldenWritten(lifecycle, golden_id, scenario_digest, digest)
+        InstrumentGoldenMoved(lifecycle, golden_id, to_digest, scenario_digest)
+}

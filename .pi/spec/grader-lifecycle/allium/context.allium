@@ -1,0 +1,42 @@
+-- allium: 3
+-- .pi/spec/grader-lifecycle/allium/context.allium
+--
+-- Scope: the shared language of Grader lifecycle: the instrument's own material, on its
+--        own clock, outside every cycle. The core holds the instrument goldens; the graders
+--        (requested, authored, calibrated, sealed, approved, reused, replaced) arrive in a
+--        later round and add files here without renaming these.
+--
+-- Aggregates (one file each; .pi/spec/grader-lifecycle/event-model/):
+--   InstrumentGolden  instrument-golden.allium  one per instrument scenario
+--
+-- Handoffs produced: InstrumentGoldenWritten and InstrumentGoldenMoved, to the
+-- regeneration cycle, whose harness self-check reproduces the current goldens.
+--
+-- Legacy: harness/oracle/ and README "The goldens, and the three reasons one can change".
+
+------------------------------------------------------------
+-- Contracts
+------------------------------------------------------------
+
+contract ScenarioDigests {
+    digest_of_scenario: (scenario: String) -> String
+
+    @invariant DigestChangesWithTheBehaviour
+        -- A scenario's digest is taken from its text at the cut; rewording changes the
+        -- digest and never the item identity.
+}
+
+------------------------------------------------------------
+-- Enumerations
+------------------------------------------------------------
+
+-- The three reasons a golden may move (legacy README). They look alike in a diff and
+-- must never be confused.
+enum MoveReason { instrument_behavior_changed | wording_replaced | spec_grew }
+
+------------------------------------------------------------
+-- Open Questions
+------------------------------------------------------------
+
+open question "H19: who checks that a recorded reason is true? Only spec_grew has an enforceable test (additions only); instrument_behavior_changed and wording_replaced are a person's word."
+open question "H27: the legacy files still say 'oracle' for three different things (oracle.sh, oracle/, kalibra's oracle.py); when are they renamed to glossary terms?"

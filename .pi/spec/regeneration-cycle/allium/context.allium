@@ -1,0 +1,179 @@
+-- allium: 3
+-- .pi/spec/regeneration-cycle/allium/context.allium
+--
+-- Scope: the shared language of the Regeneration cycle (harness: fence and gate). Every
+--        other file of the context uses this one and declares nothing it declares.
+--
+-- One cycle in the legacy shape (archive/legacy-harness/README.md):
+--     fence -> regenerate -> gate -> score -> scoreboard -> result
+-- ORC runs the stages; the harness records what each stage did and guards it. A refused
+-- command records nothing: only what happened is an event (domain-design.md, decision 1).
+--
+-- Aggregates (one file each; .pi/spec/regeneration-cycle/event-model/):
+--   RegenerationCycle  regeneration-cycle.allium  stage order, budget, attempts, the one
+--                                                 conclusion; the conclude-cycle policy
+--   HarnessSelfCheck   harness-self-check.allium  one per cycle, occasion and attempt
+--   CleanRoom          clean-room.allium          one per cycle; the fence's proof
+--   GateAttempt        gate-attempt.allium        one per cycle and attempt
+--
+-- Handoffs consumed: cycle-preparation SourceCutPinned, grader-lifecycle
+-- InstrumentGoldenWritten and InstrumentGoldenMoved (harness-self-check.allium);
+-- measurement MeasurementFiled, ScoreStageFailed, ScoreboardReported, only to conclude
+-- (regeneration-cycle.allium). Produced: GateAttemptPassed, to measurement, one way
+-- (gate-attempt.allium).
+--
+-- How the files meet: each aggregate emits its own events (HarnessSelfCheckPassed,
+-- CleanRoomProved, GateAttemptPassed, ...); regeneration-cycle.allium hears them by
+-- qualified name (`when: sc/HarnessSelfCheckPassed(...)`) and folds them into the cycle,
+-- as the regeneration-cycles read model does. The sibling files read the cycle through
+-- `use "regeneration-cycle.allium" as cyc`.
+--
+-- Parties: each aggregate file declares the external entities and actors its surfaces
+-- face (ORC runtime, the operator, the builder host, the producing contexts), so that
+-- every external entity sits in a module that imports its context.
+
+------------------------------------------------------------
+-- Value Types
+------------------------------------------------------------
+
+-- The approved preparation's budget (decisions.md H5). The core has no preparation yet,
+-- so ORC gives the budget with the cycle's first fact, the harness self-check before the
+-- fence; the later round's approved preparation carries it instead, unchanged. R2 enforces
+-- the gate-attempt limit; the other limits are carried for the rounds that add builder
+-- sessions, continuations and timeouts.
+value Budget {
+    gate_attempt_limit: Integer
+    max_outer_cycles: Integer
+    max_continuations: Integer
+    fence_timeout: Duration
+    regenerate_timeout: Duration
+    gate_timeout: Duration
+    score_timeout: Duration
+}
+
+------------------------------------------------------------
+-- Contracts
+------------------------------------------------------------
+
+-- What the harness self-check run is, as the regeneration cycle relies on it. Legacy:
+-- check.sh --local, called by fence.sh and by verify.sh before anything else (@harness-065).
+contract HarnessSelfCheckRun {
+    goldens_digest_of: (goldens: Set<Any>) -> String
+
+    @invariant ReproducesEveryGolden
+        -- The self-check runs the harness's calibration fixtures and reproduces every
+        -- current instrument golden exactly, refusal reasons included; one that differs
+        -- is a failing check, named.
+
+    @invariant MissingToolIsALoudSkip
+        -- A tool the self-check cannot find in the tree it runs in (a scoring tool fenced
+        -- out of the clean room, decisions.md H25) is a skip, listed by name in the
+        -- recorded self-check, and does not fail it (legacy @harness-066: oracle exit 2,
+        -- "SKIP" printed, run not failed). A skip nobody sees is a pass, so it is recorded.
+
+    @invariant GoldenRequiredWhereItsCycleExists
+        -- A golden the self-check needs is required: a recorded cycle with scores and no
+        -- golden for its scoreboard, or an instrument scenario with no golden, is a
+        -- missing golden, and a self-check with a missing golden cannot pass (legacy
+        -- @harness-060, @harness-061). A golden with no cycle beside it is allowed: the
+        -- fence deletes the cycles.
+
+    @invariant NeverReusedAcrossAChange
+        -- A passing self-check stands only for the harness digest and goldens digest it
+        -- ran at; a change of either needs a new run (decisions.md H24).
+}
+
+-- The fence's probe (legacy fence.sh). It proves, it does not assert.
+contract FenceProbe {
+    root_commits: (clean_room: String) -> Integer
+    commits: (clean_room: String) -> Integer
+    paths_left_in_tree: (clean_room: String, fenced_paths: Set<String>) -> Set<String>
+    paths_reachable_in_object_graph: (clean_room: String, fenced_paths: Set<String>) -> Set<String>
+    unmatched_paths: (cut_commit: String, fenced_paths: Set<String>) -> Set<String>
+
+    @invariant ObjectGraphNotWorkingTree
+        -- A fenced path is absent only when it is absent from the working tree AND
+        -- unreachable from every object of the clean room's history; a weaker probe once
+        -- passed while the prior implementation was reachable from an older commit.
+
+    @invariant AFencedPathThatMatchesNothingIsAFault
+        -- An entry of the fenced paths that matches nothing in the cut is a typo or a
+        -- moved thing, never a clean pass.
+}
+
+-- The gate room (legacy verify.sh, probe.sh). ORC chooses it; the builder never controls it.
+contract GateRoom {
+    seam_answered_before_boot: (gate_room: String) -> Boolean
+    identity_probe_present: (gate_room: String) -> Boolean
+
+    @invariant SeamCheckedBeforeBoot
+        -- Before the candidate is launched the gate asks whether anything already answers
+        -- on the public seam. If something does, the gate does not boot or grade: an
+        -- orphan from a dead run once answered a health probe and the suite graded the
+        -- wrong process (legacy verify.sh [1]; decisions.md b).
+
+    @invariant BootClockStartsAtLaunch
+        -- The boot clock starts when the launch entrypoint is started and stops at the
+        -- first answer, so a build inside the launch entrypoint is inside the boot budget
+        -- and a build inside the suite is not: the suite step is untimed (legacy
+        -- @harness-058).
+
+    @invariant BudgetInSecondsAndPolls
+        -- The boot budget is declared once as seconds and polls together, so they cannot
+        -- drift; the margin is the poll that answered, which needs no clock (legacy
+        -- @harness-056, verify.sh [3]).
+
+    @invariant IdentityProbeIsTheInstruments
+        -- The identity probe belongs to the measuring apparatus, not the product: it sits
+        -- in the harness, outside the candidate scope, so the builder cannot write the
+        -- thing that judges it, and it is the probe the harness self-check checked
+        -- (legacy probe.sh, README "The three modules"; @harness-053).
+}
+
+------------------------------------------------------------
+-- Enumerations
+------------------------------------------------------------
+
+enum SelfCheckOccasion { before_fence | before_gate }
+
+enum CandidatePurpose { fresh_generation | verification_repair }
+
+-- The stage a cycle failed at.
+enum Stage { fence | regenerate | gate | score }
+
+enum FailureReason {
+    harness_self_check_failed | fence_refused | candidate_not_regenerated
+    | gate_attempts_exhausted | score_stage_failed
+}
+
+-- The first gate guard that did not hold, when the gate ran and failed the attempt. A seam
+-- that answered before boot and a missing identity probe are not here: they are refusals
+-- of the gate (infrastructure), which grade nothing and spend no attempt (decisions.md b).
+enum GateFailureReason {
+    contract_missing | suite_discovery_empty | suite_red
+    | boot_budget_exhausted | identity_probe_failed
+}
+
+------------------------------------------------------------
+-- Config
+------------------------------------------------------------
+
+config {
+    -- AGENTS.md: at most three gate attempts. A preparation's budget may lower it.
+    max_gate_attempts: Integer = 3
+    -- AGENTS.md: at most three continuations of a builder session.
+    max_continuations: Integer = 3
+    -- The scoring tools, which the clean room must not hold (decisions.md H25; AGENTS.md:
+    -- no grading harness in the room). Each repository declares its own paths.
+    scoring_tool_paths: Set<String>
+}
+
+------------------------------------------------------------
+-- Open Questions
+------------------------------------------------------------
+
+open question "H5: R2 enforces only the gate-attempt limit of the budget. What does the cycle do when the outer-cycle count, a stage timeout or the continuation limit runs out (timed out, worker replaced: later rounds)?"
+open question "A gate that keeps refusing (a seam held by another process, a missing probe) spends no attempt and records nothing: what bounds it? The stage timeout of the budget (H5) is the proposed answer, once timeouts are modelled."
+open question "H15: beyond the guards, who catches a gate that passed without exercising the product? The identity probe proves which application answered, not that the suite exercised it."
+open question "H24: does the self-check key also cover grader digests and the capture policy? R2 keys it on the harness digest and the goldens digest only."
+open question "Golden h: a golden carries its scenario digest; should the self-check fail a golden whose scenario was reworded since it was written, or only report it?"

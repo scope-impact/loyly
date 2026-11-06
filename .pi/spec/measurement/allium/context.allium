@@ -1,0 +1,148 @@
+-- allium: 3
+-- .pi/spec/measurement/allium/context.allium
+--
+-- Scope: the shared language of Measurement (the instrument: checklist, score and
+--        scoreboard). Every other file of the context uses this one.
+--
+-- The instrument reports to a person, once a cycle, and never into the loop (AGENTS.md,
+-- The instrument). Nothing here issues a command of the build loop; its three handoffs
+-- only conclude the cycle.
+--
+-- Aggregates (one file each; .pi/spec/measurement/event-model/):
+--   Checklist         checklist.allium          one per pinned cut; the denominator
+--   CycleMeasurement  cycle-measurement.allium  one per gated cycle: the filed verdicts,
+--                                               the one measurement, or the failed stage
+--   Scoreboard        scoreboard.allium         one per measured cycle; the
+--                                               report-scoreboard-once policy
+--
+-- Handoffs consumed: specification ScenarioStamped and cycle-preparation SourceCutPinned
+-- (checklist.allium); regeneration-cycle GateAttemptPassed (cycle-measurement.allium).
+-- Produced: MeasurementFiled, ScoreStageFailed (cycle-measurement.allium) and
+-- ScoreboardReported (scoreboard.allium), to the regeneration cycle, only to conclude.
+--
+-- Legacy: gen_checklist.clj, score.clj, scoreboard.clj (archive/legacy-harness), in the
+-- glossary's words (.pi/model/GLOSSARY.md).
+
+------------------------------------------------------------
+-- Value Types
+------------------------------------------------------------
+
+-- One stamped scenario as the checklist carries it, in file order (legacy @harness-012,
+-- @harness-014 to @harness-018).
+value StampedItem {
+    item_id: String
+    scenario_digest: String
+    -- The Rule it sits under; null when none (@harness-016).
+    rule_name: String?
+    -- The file and the line of the Scenario line itself (@harness-017).
+    source: String
+    title: String
+}
+
+-- A slice left out by its status: recorded, never only warned about (H23).
+value SkippedSlice {
+    slice: String
+    status: SliceStatus
+}
+
+-- One verdict as a grader returned it. The value is checked by a requires, not by its
+-- type, so that a bad value is refused before an unknown item (decisions.md).
+value ReturnedVerdict {
+    item_id: String
+    verdict: String
+    reason: String?
+    evidence: String?
+}
+
+------------------------------------------------------------
+-- Contracts
+------------------------------------------------------------
+
+-- How the one measurement is made from the checklist and the filed verdicts
+-- (glossary FileScore; legacy score.clj).
+contract Scoring {
+    scored_items: (checklist: Any, filings: Any) -> List<Any>
+    superseded: (filings: Any) -> List<Any>
+    passes_of: (items: List<Any>) -> Integer
+    unreached_of: (items: List<Any>) -> Integer
+
+    @invariant EveryChecklistItemInChecklistOrder
+        -- The measurement holds every checklist item once, in the checklist's order; the
+        -- order of the verdicts is discarded (legacy @harness-029).
+
+    @invariant UnreachedIsAFailAndStaysCounted
+        -- An item with no verdict is filed as fail with reason unreached and counted in
+        -- the denominator; a gap can never quietly shrink it (legacy @harness-036,
+        -- @harness-037; decisions.md H7).
+
+    @invariant ReasonBesideTheVerdict
+        -- A verdict is pass or fail, never a third value. A reason (unreached,
+        -- inconclusive, outage) sits beside a fail, so an outage reads differently from
+        -- a regression (decisions.md H7). Legacy put it in the evidence text.
+
+    @invariant LastVerdictWinsAndTheRestAreListed
+        -- When an item has more than one verdict, the last filed stands and every earlier
+        -- one is listed as superseded, with its grader digest (decisions.md H26; legacy
+        -- @harness-031 kept the last silently).
+
+    @invariant EvidenceDefaultsEmpty
+        -- A verdict without evidence is filed with empty evidence (legacy @harness-030).
+}
+
+-- The scoreboard's arithmetic and its words (legacy scoreboard.clj).
+contract RateFormat {
+    rate: (passes: Integer, total: Integer) -> String
+
+    @invariant OneDecimalHalfToEven
+        -- A rate is a percentage with one decimal, rounded half to even: 1 of 16 is
+        -- "6.2%", 5 of 16 is "31.2%" (legacy @harness-046). The formatter most languages
+        -- reach for rounds half away from zero and would disagree with the instrument's
+        -- own history.
+
+    @invariant ZeroDenominatorIsNotApplicable
+        -- A zero denominator renders "n/a" and computes no percentage; it is reachable
+        -- when no item is shared with the previous cycle (legacy @harness-045,
+        -- @harness-048).
+}
+
+contract Comparison {
+    last_measured_before: (measurement: Any) -> Any
+    item_set_moved: (measurement: Any, previous: Any) -> Boolean
+
+    @invariant LastMeasuredCycleOfTheSameSelection
+        -- A cycle is compared with the last cycle measured before it for the same
+        -- selection; a cycle with no measurement (failed before the score, or its score
+        -- refused) is skipped, never taken as a baseline of nothing (decisions.md g;
+        -- legacy @harness-042 took the cycle number minus one).
+
+    @invariant BothDirectionsOnTheSharedItemsNeverANet
+        -- Newly passing and newly failing are counted apart on the items both cycles
+        -- carried; a net is never computed (legacy @harness-045).
+
+    @invariant NewItemsAreTheUntunedHoldout
+        -- Items only in this cycle are counted separately as the holdout nobody tuned;
+        -- items only in the previous one are dropped items.
+}
+
+------------------------------------------------------------
+-- Enumerations
+------------------------------------------------------------
+
+-- Legacy @harness-027: exactly these two statuses are skipped; any other status, or none,
+-- is included.
+enum SliceStatus { planned | backlog }
+
+-- Why the score stage failed: the refusal of FileItemVerdicts or FileScore that stopped it.
+enum ScoreRefusal {
+    not_the_gated_candidate | no_checklist | zero_verdicts | bad_verdict_value
+    | unknown_item | grader_not_approved | bad_verdict_reason
+}
+
+------------------------------------------------------------
+-- Open Questions
+------------------------------------------------------------
+
+open question "H16: can an outage leave a false 'scored' record? Zero verdicts are refused, but a partial outage still files, with the unreached items failed; an 'outage' reason is now recordable (H7) but nothing yet requires it."
+open question "H21: should the scoreboard also report graded coverage, so a low rate is not read as the candidate's quality alone?"
+open question "H7: which runtime evidence makes a verdict 'inconclusive' or 'outage'? R2 records the reason as the grader returns it."
+open question "Selection (g, H10): until approved selections arrive, every checklist is the whole plan at its cut and carries selection 'whole-plan'; is a cut-to-cut comparison of the whole plan the same selection?"
