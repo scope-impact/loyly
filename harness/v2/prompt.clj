@@ -82,7 +82,25 @@
          :identity (str "the product, handed a scenario's digest through `LOYLY_SCENARIO_DIGESTS`, must write an "
                         "instrument golden from that scenario through `grader-lifecycle/write-instrument-golden`, move "
                         "it for a recorded reason through `grader-lifecycle/move-instrument-golden`, refuse a move "
-                        "without a note, and report the golden and its move through `grader-lifecycle/instrument-goldens`")}})
+                        "without a note, and report the golden and its move through `grader-lifecycle/instrument-goldens`")}
+   "04" {:allium "the contracts `HarnessSelfCheckRun`, `FenceProbe` and `GateRoom`, the value `Budget` and the config"
+         :product (str "it records the stage facts of a regeneration cycle as ORC runtime offers them (the harness "
+                       "self-check's result, the fence probe's counts and paths, the regenerated candidate, the gate "
+                       "room's result) and guards them: it refuses what the Allium refuses, compares a self-check's "
+                       "goldens digest with the one it computes from the instrument goldens it was handed, folds every "
+                       "fact into the cycle, concludes each cycle once through its conclude-cycle policy and its stage "
+                       "clock, records its facts as Grain events, and answers its queries from its read models. It acts "
+                       "on nothing outside its store: it builds no room, runs no git, runs no self-check and boots "
+                       "nothing; those results reach it as command params.")
+         :handoffs ["cycle-preparation" "grader-lifecycle" "measurement"]
+         :inputs (str "It is also handed the repository's scoring tools, the JSON array that `LOYLY_SCORING_TOOL_PATHS` "
+                      "holds, read at start.")
+         :identity (str "the product must take a pinned cut and an instrument golden handed in through "
+                        "`cycle-preparation/source-cut-pinned` and `grader-lifecycle/instrument-golden-written`, open a "
+                        "cycle through `regeneration-cycle/record-harness-self-check` at the goldens digest `seam.md` "
+                        "defines, refuse a clean room whose fenced path matched nothing, prove one through "
+                        "`regeneration-cycle/prove-clean-room`, and report the cycle through "
+                        "`regeneration-cycle/cycle-progress`")}})
 
 (defn render [slice]
   (let [{:keys [app-dir app-stack plan-dir app-probe]} (config slice)

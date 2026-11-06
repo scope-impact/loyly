@@ -51,7 +51,8 @@ FENCED_PATHS="archive/legacy-harness/cycles docs/plan impl raw"
 #                  that the producer's event-model/handoffs.edn defines) is fenced file by
 #                  file, all but that handoffs.edn: the contract the stubbed neighbour keeps
 #                  (decisions.md, "Slice 02"). Slices 01 and 03 consume none; slice 02 keeps
-#                  the handoffs.edn of specification, cycle-preparation and regeneration-cycle.
+#                  the handoffs.edn of specification, cycle-preparation and regeneration-cycle;
+#                  slice 04 those of cycle-preparation, grader-lifecycle and measurement.
 #     prior work   the legacy driver in harness/ (it implements the stamper, the checklist,
 #                  the score, the fence and the gate: every context's earlier answer), its
 #                  archive, tools/spec/v2/stamp.clj, the instrument in harness/v2, and every

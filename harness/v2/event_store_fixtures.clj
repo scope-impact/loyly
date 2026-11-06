@@ -6,7 +6,8 @@
 ;; event against the malli schema registered under its type, so every type here is registered
 ;; as an open map: the fixtures may hold anything, and only the check judges them. The
 ;; "02-" stores are judged against slice 02 (measurement), the "03-" stores against slice 03
-;; (grader-lifecycle, which consumes no handoff), the others against slice 01.
+;; (grader-lifecycle, which consumes no handoff), the "04-" stores against slice 04
+;; (regeneration-cycle, which consumes six), the others against slice 01.
 (ns event-store-fixtures
   (:require [ai.obney.grain.event-store-v3.interface :as es]
             [ai.obney.grain.event-store-sqlite-v3.interface]
@@ -98,6 +99,52 @@
                                         (orc-run "grader-lifecycle/golden-written-then-moved" :success
                                                  [[:grader-lifecycle/instrument-golden-written written]]))})
 
+;; Slice 04 (regeneration-cycle): its commands run as the workflows of the flows that hold
+;; them, its six consumed handoffs are handed in outside any ORC run, and any other context's
+;; event is refused, a non-handoff event of a producer among them.
+(def budget
+  {:gate-attempt-limit 3 :max-outer-cycles 1 :max-continuations 0
+   :stage-timeouts-seconds {:fence 3600 :regenerate 3600 :gate 3600 :score 3600}})
+(def self-check-passed
+  {:cycle-id "C-1" :cut-id "K-1" :occasion "before-fence" :attempt 0 :harness-digest "h-1"
+   :goldens-digest "sha256:g" :identity-probe-digest "p-1" :skipped-checks [] :grader-digests ["r-1"]
+   :budget budget :checked-at (java.util.Date.)})
+(def clean-room-proved
+  {:cycle-id "C-1" :cut-id "K-1" :clean-room-commit "c-1" :fenced-paths ["harness-impl"] :proved-at (java.util.Date.)})
+(def cycle-failed
+  {:cycle-id "C-1" :stage "fence" :reason "fence-refused" :detail "harness/scroe.clj matched nothing"
+   :concluded-at (java.util.Date.)})
+(def gate-refused
+  {:cycle-id "C-1" :attempt 1 :refusal "identity-probe-missing" :detail "no probe" :refused-at (java.util.Date.)})
+(def score-failed
+  {:cycle-id "C-1" :refusal "zero-verdicts" :detail "no verdict filed" :failed-at (java.util.Date.)})
+(def handed-in-04
+  [[:cycle-preparation/source-cut-pinned pinned]
+   [:grader-lifecycle/instrument-golden-written written]
+   [:measurement/score-stage-failed score-failed]])
+
+(def cases-04
+  {"04-pass-handoffs-and-runs" (concat handed-in-04
+                                       (orc-run "regeneration-cycle/fence-to-scoreboard" :success
+                                                [[:regeneration-cycle/harness-self-check-passed self-check-passed]
+                                                 [:regeneration-cycle/clean-room-proved clean-room-proved]])
+                                       (orc-run "regeneration-cycle/fence-refused-fails-cycle" :success
+                                                [[:regeneration-cycle/cycle-failed cycle-failed]]))
+   "04-fail-handoff-schema"    (concat [[:measurement/score-stage-failed (assoc score-failed :refusal "make-it-green")]]
+                                       (orc-run "regeneration-cycle/fence-to-scoreboard" :success
+                                                [[:regeneration-cycle/harness-self-check-passed self-check-passed]]))
+   "04-fail-foreign-event"     (concat handed-in-04 [[:measurement/checklist-derived derived]]
+                                       (orc-run "regeneration-cycle/fence-to-scoreboard" :success
+                                                [[:regeneration-cycle/harness-self-check-passed self-check-passed]]))
+   "04-fail-outside-run"       (concat handed-in-04
+                                       (orc-run "regeneration-cycle/fence-to-scoreboard" :success
+                                                [[:regeneration-cycle/harness-self-check-passed self-check-passed]])
+                                       [[:regeneration-cycle/clean-room-proved clean-room-proved]])
+   "04-fail-wrong-workflow"    (concat handed-in-04
+                                       (orc-run "regeneration-cycle/fence-to-scoreboard" :success
+                                                [[:regeneration-cycle/harness-self-check-passed self-check-passed]
+                                                 [:regeneration-cycle/gate-attempt-refused gate-refused]]))})
+
 (def cases-01
   {"pass-two-events"       (orc-run [[:specification/scenario-stamped stamped]
                                      [:specification/empty-title-headings-reported reported]])
@@ -115,7 +162,7 @@
    "fail-unconsumed-handoff" (concat [[:cycle-preparation/source-cut-pinned pinned]]
                                      (orc-run [[:specification/scenario-stamped stamped]]))})
 
-(def cases (merge cases-01 cases-02 cases-03))
+(def cases (merge cases-01 cases-02 cases-03 cases-04))
 
 (schema/register! (into {} (for [[_ events] cases [t _] events] [t :map])))
 

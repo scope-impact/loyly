@@ -45,6 +45,16 @@ candidate is also handed the current scenario digests, a JSON file `LOYLY_SCENAR
 names (`.pi/spec/decisions.md`, "Slice 03"); its probe, `v2/probe-03.sh`, writes one, then a
 golden from that scenario, moves it, has a move without a note refused and reads it back.
 
+Slice 04, `regeneration-cycle`, consumes six handoffs (`cycle-preparation/source-cut-pinned`,
+`grader-lifecycle/instrument-golden-written` and `-moved`, `measurement/measurement-filed`,
+`score-stage-failed` and `scoreboard-reported`): its room keeps those three producers'
+`handoffs.edn`. Its candidate records what ORC runtime's nodes did in a room, handed in as
+command params, and acts on nothing outside its store; it is also handed the scoring tools'
+paths, `LOYLY_SCORING_TOOL_PATHS` (`.pi/spec/decisions.md`, "Slice 04"). Its probe,
+`v2/probe-04.sh`, hands in a pinned cut and a golden, opens a cycle on a self-check at the goldens
+digest `seam.md` defines, has a fence whose path matched nothing refused, proves the clean room
+and reads the cycle back.
+
 After the gate, `harness/v2/score.sh 01 ROOM` scores the cycle: the sealed graders approved for
 spec v2 in `v2/graders.approved.json` (never v1's `graders.approved.json`, whose `01-005`
 is a v1 scenario) run against `ROOM/harness-impl/01-specification/start.sh`, and the legacy

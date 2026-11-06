@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # harness/v2/event-store-check-test.sh: the event-store check judged on hand-made stores
 # (event_store_fixtures.clj) against slice 01's event model, slice 02's (measurement, with
-# the handoffs it consumes) and slice 03's (grader-lifecycle, which consumes none): one store
-# of each passes, and each of the others, and a store
+# the handoffs it consumes), slice 03's (grader-lifecycle, which consumes none) and slice 04's
+# (regeneration-cycle, with the six it consumes): one store of each passes, and each of the
+# others, and a store
 # that is not there, fails for its own reason, among them a model event with no ORC run on
 # the store, one in a run that never completed with success, a consumed handoff off its
 # contract's schema, and a foreign event the slice does not consume.
@@ -42,5 +43,10 @@ expect 0 "$WORK/03-pass-written-then-moved.sqlite" "event-store check OK"
 expect 1 "$WORK/03-fail-reason-outside-three.sqlite" ":reason"
 expect 1 "$WORK/03-fail-outside-run.sqlite"  "was not written inside a run of the ORC workflow grader-lifecycle/golden-written-then-moved"
 expect 1 "$WORK/03-fail-unconsumed-handoff.sqlite" "specification/scenario-stamped is not an event of"
+expect 0 "$WORK/04-pass-handoffs-and-runs.sqlite" "event-store check OK"
+expect 1 "$WORK/04-fail-handoff-schema.sqlite" ":refusal"
+expect 1 "$WORK/04-fail-foreign-event.sqlite" "measurement/checklist-derived is not an event of"
+expect 1 "$WORK/04-fail-outside-run.sqlite"  "was not written inside a run of the ORC workflow regeneration-cycle/fence-to-scoreboard"
+expect 1 "$WORK/04-fail-wrong-workflow.sqlite" "was not written inside a run of the ORC workflow regeneration-cycle/gate-refusals-fail-cycle"
 (( bad )) && { echo "event-store check test FAILED"; exit 1; }
-echo "event-store check test OK: 3 passes, 20 refusals, each for its own reason"
+echo "event-store check test OK: 4 passes, 24 refusals, each for its own reason"
