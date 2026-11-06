@@ -107,3 +107,11 @@ its tags and build tier), and the source files. `#rule-<Rule>` opens a rule's ag
 tools/spec/views/build.sh && tools/spec/views/check.sh
 open tools/spec/views/dist/event-model.html
 ```
+
+### Publishing
+
+`tools/spec/publish.sh [remote] [--dry-run]` rebuilds and checks the page, then commits it as
+`index.html` (with `.nojekyll`) on top of the remote's `gh-pages` branch and pushes it; GitHub
+Pages serves that branch at its root (`scope-impact`: https://scope-impact.github.io/loyly/).
+Every published version stays in the branch's history. `--dry-run` shows the commit without
+pushing.
