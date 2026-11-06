@@ -1,0 +1,10 @@
+;; The instrument's own Clojure, for harness/v2/event-store-check.sh: Grain's SQLite event
+;; store, at the commit the builder is told to fetch (regen.clj's dependency-hints, from the
+;; grain submodule), so the gate reads the store with the code that wrote it.
+{:paths ["."]
+ :deps {org.clojure/clojure {:mvn/version "1.12.0"}
+        org.slf4j/slf4j-nop {:mvn/version "2.0.16"}
+        obneyai/grain-event-store-sqlite-v3
+        {:git/url "https://github.com/ObneyAI/grain.git"
+         :git/sha "dbf5b5229aad09785e40f71e96adf65c90f971d5"
+         :deps/root "projects/grain-event-store-sqlite-v3"}}}

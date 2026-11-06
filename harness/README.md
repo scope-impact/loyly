@@ -3,10 +3,32 @@
 These are the legacy fence, gate, and instrument tools from
 [`archive/legacy-harness/`](../archive/legacy-harness/README.md), adopted here to regenerate
 and measure the Pi/ORC harness itself. The product they measure is the harness; its spec is
-`.pi/model/plan/NN-slug/spec.feature` (`PLAN_DIR` in `config.sh`). ORC runs the cycle and calls
+spec v2, `.pi/plan/NN-context/spec.feature` (`PLAN_DIR` in `config.sh`), each `.pi/plan/NN-context`
+a symlink to `../spec/<context>`. ORC runs the cycle and calls
 these tools from its stages: fence (`fence.sh`), regenerate (a Pi builder session), gate
 (`verify.sh`), score (the sealed grader and `score.clj`), and scoreboard (`scoreboard.clj`).
 The archive stays untouched as the parity reference.
+
+## First light: one context per cycle (`v2/`)
+
+Spec v2 is rebuilt one context at a time (`.pi/spec/decisions.md`, "First light"). `SLICE=NN`
+in the environment switches `config.sh` to that context: `APP_DIR` is `harness-impl/NN-context`,
+`APP_PROBE` is `v2/probe-NN.sh`, and `FENCED_PATHS` also hides spec v1, every other context, the
+legacy driver itself (the earlier answer of every context) and `v2/`. The shared module files
+are unchanged. One cycle, by hand:
+
+```bash
+SLICE=01 harness/fence.sh ROOM                  # the room, proved
+bb harness/v2/prompt.clj 01 OUT                 # OUT/system.md and OUT/prompt.md, outside the room
+(cd ROOM && pi --append-system-prompt OUT/system.md @OUT/prompt.md)   # a person runs the builder
+harness/v2/gate.sh 01 ROOM                      # the gate, from this checkout
+```
+
+The room holds no instrument, so the gate runs here: `CANDIDATE_ROOM=ROOM` points `APP_DIR` at
+the room's candidate, `verify.sh` runs unchanged (with `v2/probe-01.sh`), and then
+`v2/event-store-check.sh` reads the Grain store the gate handed the candidate
+(`LOYLY_GRAIN_STORE`) directly. `v2/event-store-check-test.sh` judges that check on hand-made
+stores. There is no grader for spec v2 yet, so a cycle ends at the gate: no score.
 
 ## Differences from the archive, each with its reason
 
@@ -102,3 +124,11 @@ approved grader's scenarios changed.
 suite was removed. Tags carry no verdict, so item ids, names, rules, and the total are
 unchanged; the golden's diff is only the `source` line numbers of the items below each removed
 tag line. No approved grader's scenarios changed.
+
+**2026-11-06: the measured spec changed: spec v2.** The plan root moved from `.pi/model/plan/`
+(spec v1) to `.pi/plan/`, which holds one relative symlink per accepted spec-v2 context, named
+`NN-context`, pointing at `../spec/<context>` (`.pi/spec/decisions.md`, "First light"). Only
+`specification` is accepted so far, so the derived checklist is its 15 items, `01-001` to
+`01-015`. As on 2026-11-04 this is the measured spec changing, not the instrument: the golden
+was re-recorded with `harness/oracle.sh record` for that reason and no other. The approved
+graders in `graders.approved.json` were written for spec v1 and cover none of these items.

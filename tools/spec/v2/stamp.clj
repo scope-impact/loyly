@@ -2,8 +2,10 @@
 ;; stamp.clj [context ...]: stamp the accepted scenarios of .pi/spec/<context>/spec.feature with
 ;; the legacy stamper's own rules (harness/stamp_item_ids.clj: idempotent, never renumbers, the
 ;; next number is one past the highest in the file). A v2 context folder has no "NN-" prefix, so
-;; its slice number comes from .pi/spec/slices.edn. All contexts with a spec.feature when none is
-;; named.
+;; its slice number comes from its link in .pi/plan: .pi/plan/NN-<context> -> ../spec/<context>,
+;; one relative symlink per accepted context, the slice being the link's name up to its first "-"
+;; (the legacy tools' own rule, so they find the same slice). All contexts with a spec.feature
+;; when none is named; a context with a spec.feature and no link is refused.
 (require '[clojure.java.io :as io] '[clojure.string :as str] '[clojure.edn :as edn])
 
 (def root (str/trim (:out (babashka.process/sh "git" "rev-parse" "--show-toplevel"))))
@@ -22,7 +24,13 @@
                            [_ n] (re-seq item-tag l)]
                        (Long/parseLong n)))))
 
-(def slices (edn/read-string (slurp (io/file root ".pi/spec/slices.edn"))))
+;; {context slice}: every link in .pi/plan whose name starts with a digit, by the folder it names.
+(def slices
+  (into {} (for [l (.listFiles (io/file root ".pi/plan"))
+                 :let [n (.getName l)]
+                 :when (and (re-find #"^[0-9]" n)
+                            (java.nio.file.Files/isSymbolicLink (.toPath l)))]
+             [(.getName (.getCanonicalFile l)) (first (str/split n #"-" 2))])))
 
 (let [ctxs (or (seq *command-line-args*)
                (sort (for [d (.listFiles (io/file root ".pi/spec"))
@@ -30,7 +38,7 @@
       total (reduce
              (fn [total c]
                (let [f (io/file root ".pi/spec" c "spec.feature")
-                     slice (or (get slices c) (throw (ex-info (str "no slice number for " c " in .pi/spec/slices.edn") {})))
+                     slice (or (get slices c) (throw (ex-info (str "no slice number for " c ": no .pi/plan/NN-" c " -> ../spec/" c " link") {})))
                      [text added] (stamp-text (slurp f) slice)]
                  (when (pos? added) (spit f text))
                  (println (format "stamped %3d  .pi/spec/%s/spec.feature (slice %s)" added c slice))

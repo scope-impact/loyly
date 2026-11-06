@@ -1,8 +1,0 @@
-;; The slice number of each context: the NN of its @item-NN-SSS ids. Numbered in the order the
-;; contexts are accepted and built, one context per cycle. Never renumbered once a context is
-;; stamped.
-{"specification"      "01"
- "measurement"        "02"
- "grader-lifecycle"   "03"
- "regeneration-cycle" "04"
- "cycle-preparation"  "05"}
