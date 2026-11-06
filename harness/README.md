@@ -40,6 +40,11 @@ schema and never counted as the candidate's own, and refuses any other foreign t
 `measurement`, consumes `specification/scenario-stamped`, `cycle-preparation/source-cut-pinned`
 and `regeneration-cycle/gate-attempt-passed`; its probe is `v2/probe-02.sh`.
 
+Slice 03, `grader-lifecycle`, consumes no handoff: its room holds no other context's file. Its
+candidate is also handed the current scenario digests, a JSON file `LOYLY_SCENARIO_DIGESTS`
+names (`.pi/spec/decisions.md`, "Slice 03"); its probe, `v2/probe-03.sh`, writes one, then a
+golden from that scenario, moves it, has a move without a note refused and reads it back.
+
 After the gate, `harness/v2/score.sh 01 ROOM` scores the cycle: the sealed graders approved for
 spec v2 in `v2/graders.approved.json` (never v1's `graders.approved.json`, whose `01-005`
 is a v1 scenario) run against `ROOM/harness-impl/01-specification/start.sh`, and the legacy

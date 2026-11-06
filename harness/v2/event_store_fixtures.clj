@@ -5,7 +5,8 @@
 ;; candidate's store (orc-run: only the events the check reads, not every event of a run). Grain's appender validates each
 ;; event against the malli schema registered under its type, so every type here is registered
 ;; as an open map: the fixtures may hold anything, and only the check judges them. The
-;; "02-" stores are judged against slice 02 (measurement), the others against slice 01.
+;; "02-" stores are judged against slice 02 (measurement), the "03-" stores against slice 03
+;; (grader-lifecycle, which consumes no handoff), the others against slice 01.
 (ns event-store-fixtures
   (:require [ai.obney.grain.event-store-v3.interface :as es]
             [ai.obney.grain.event-store-sqlite-v3.interface]
@@ -74,6 +75,29 @@
                                        (orc-run "measurement/stamping-to-checklist" :success
                                                 [[:measurement/item-verdicts-filed verdicts-filed]]))})
 
+;; Slice 03 (grader-lifecycle): both commands run as the one workflow of its one flow, and it
+;; consumes no handoff, so any other context's event is refused.
+(def written
+  {:golden-id "G-1" :scenario "the probe's scenario" :scenario-digest "s-1" :path "harness/oracle/g1.golden"
+   :digest "g-1" :written-at (java.util.Date.)})
+(def moved
+  {:golden-id "G-1" :from-digest "g-1" :to-digest "g-2" :reason "spec-grew" :additions-only true
+   :note "the checklist grew" :scenario-digest "s-1" :moved-at (java.util.Date.)})
+
+(def cases-03
+  {"03-pass-written-then-moved" (orc-run "grader-lifecycle/golden-written-then-moved" :success
+                                         [[:grader-lifecycle/instrument-golden-written written]
+                                          [:grader-lifecycle/instrument-golden-moved moved]])
+   "03-fail-reason-outside-three" (orc-run "grader-lifecycle/golden-written-then-moved" :success
+                                           [[:grader-lifecycle/instrument-golden-written written]
+                                            [:grader-lifecycle/instrument-golden-moved (assoc moved :reason "make-it-green")]])
+   "03-fail-outside-run"        (concat [[:grader-lifecycle/instrument-golden-written written]]
+                                        (orc-run "grader-lifecycle/golden-written-then-moved" :success
+                                                 [[:grader-lifecycle/instrument-golden-moved moved]]))
+   "03-fail-unconsumed-handoff" (concat [[:specification/scenario-stamped stamped]]
+                                        (orc-run "grader-lifecycle/golden-written-then-moved" :success
+                                                 [[:grader-lifecycle/instrument-golden-written written]]))})
+
 (def cases-01
   {"pass-two-events"       (orc-run [[:specification/scenario-stamped stamped]
                                      [:specification/empty-title-headings-reported reported]])
@@ -91,7 +115,7 @@
    "fail-unconsumed-handoff" (concat [[:cycle-preparation/source-cut-pinned pinned]]
                                      (orc-run [[:specification/scenario-stamped stamped]]))})
 
-(def cases (merge cases-01 cases-02))
+(def cases (merge cases-01 cases-02 cases-03))
 
 (schema/register! (into {} (for [[_ events] cases [t _] events] [t :map])))
 

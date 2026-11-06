@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # harness/v2/event-store-check-test.sh: the event-store check judged on hand-made stores
-# (event_store_fixtures.clj) against slice 01's event model and slice 02's (measurement, with
-# the handoffs it consumes): one store of each passes, and each of the others, and a store
+# (event_store_fixtures.clj) against slice 01's event model, slice 02's (measurement, with
+# the handoffs it consumes) and slice 03's (grader-lifecycle, which consumes none): one store
+# of each passes, and each of the others, and a store
 # that is not there, fails for its own reason, among them a model event with no ORC run on
 # the store, one in a run that never completed with success, a consumed handoff off its
 # contract's schema, and a foreign event the slice does not consume.
@@ -11,9 +12,9 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/event-store-check-test.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 (cd "$HERE" && clojure -J--enable-native-access=ALL-UNNAMED -M event_store_fixtures.clj "$WORK" >/dev/null) || { echo "FATAL: fixtures not written"; exit 1; }
 bad=0
-expect() {  # expect RC STORE WORDS: judged against slice 02 when the store's name starts "02-", else 01
+expect() {  # expect RC STORE WORDS: judged against slice NN when the store's name starts "NN-", else 01
   local out rc slice=01
-  [[ "$(basename "$2")" == 02-* ]] && slice=02
+  [[ "$(basename "$2")" =~ ^(0[2-9])- ]] && slice="${BASH_REMATCH[1]}"
   out="$("$HERE/event-store-check.sh" "$slice" "$2" 2>&1)"; rc=$?
   if [[ $rc == "$1" ]] && grep -q -- "$3" <<<"$out"; then echo "  ok    $(basename "$2"): exit $rc, says \"$3\""
   else echo "  FAIL  $(basename "$2"): exit $rc (want $1), wanted \"$3\" in:"; sed 's/^/        /' <<<"$out"; bad=1; fi
@@ -37,5 +38,9 @@ expect 1 "$WORK/02-fail-handoff-schema.sqlite" ":branch"
 expect 1 "$WORK/02-fail-foreign-event.sqlite" "regeneration-cycle/gate-attempt-failed is not an event of"
 expect 1 "$WORK/02-fail-outside-run.sqlite"  "was not written inside a run of the ORC workflow measurement/stamping-to-checklist"
 expect 1 "$WORK/02-fail-wrong-workflow.sqlite" "was not written inside a run of the ORC workflow measurement/scoring"
+expect 0 "$WORK/03-pass-written-then-moved.sqlite" "event-store check OK"
+expect 1 "$WORK/03-fail-reason-outside-three.sqlite" ":reason"
+expect 1 "$WORK/03-fail-outside-run.sqlite"  "was not written inside a run of the ORC workflow grader-lifecycle/golden-written-then-moved"
+expect 1 "$WORK/03-fail-unconsumed-handoff.sqlite" "specification/scenario-stamped is not an event of"
 (( bad )) && { echo "event-store check test FAILED"; exit 1; }
-echo "event-store check test OK: 2 passes, 17 refusals, each for its own reason"
+echo "event-store check test OK: 3 passes, 20 refusals, each for its own reason"

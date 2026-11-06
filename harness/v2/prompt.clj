@@ -51,8 +51,9 @@
   holds beyond its rules, refusals and invariants; :product, the real work it does; :handoffs,
   the producers whose handoff contracts it consumes (each .pi/spec/<producer>/event-model/
   handoffs.edn, the only file of a producer in the room), with how they reach the candidate;
-  :identity, what its identity probe (harness/v2/probe-NN.sh) asks. A slice with no entry has
-  no probe, and no prompt."
+  :inputs, what the candidate is handed besides its store, a sentence of the seam's; :identity,
+  what its identity probe (harness/v2/probe-NN.sh) asks. A slice with no entry has no probe,
+  and no prompt."
   {"01" {:allium "the contract `ScenarioReading`"
          :product (str "it reads the spec file it is given with the one "
                        "reading of Gherkin the contract `ScenarioReading` describes, refuses what the Allium refuses, records "
@@ -70,13 +71,24 @@
          :identity (str "the product must take a stamped scenario and a pinned cut handed in through "
                         "`specification/scenario-stamped` and `cycle-preparation/source-cut-pinned`, derive that cut's "
                         "checklist through `measurement/derive-checklist`, refuse one for a cut never pinned, and report "
-                        "the checklist through `measurement/checklist`")}})
+                        "the checklist through `measurement/checklist`")}
+   "03" {:allium "the contract `ScenarioDigests`, with the enumeration `MoveReason`"
+         :product (str "it writes each instrument golden from its scenario, checking the scenario digest it is "
+                       "offered against the current scenario digests it is handed (the contract `ScenarioDigests`), "
+                       "moves a golden only for one of the three recorded reasons and with a note, refuses what the "
+                       "Allium refuses, records its facts as Grain events, and answers its query from its read model.")
+         :inputs (str "It is also handed the current scenario digests, a JSON file that `LOYLY_SCENARIO_DIGESTS` names, "
+                      "read at every command, never only at boot.")
+         :identity (str "the product, handed a scenario's digest through `LOYLY_SCENARIO_DIGESTS`, must write an "
+                        "instrument golden from that scenario through `grader-lifecycle/write-instrument-golden`, move "
+                        "it for a recorded reason through `grader-lifecycle/move-instrument-golden`, refuse a move "
+                        "without a note, and report the golden and its move through `grader-lifecycle/instrument-goldens`")}})
 
 (defn render [slice]
   (let [{:keys [app-dir app-stack plan-dir app-probe]} (config slice)
         _ (when-not (= app-probe (str "harness/v2/probe-" slice ".sh"))
             (die "slice " slice " names no context: no " plan-dir "/" slice "-* link"))
-        {:keys [allium product handoffs identity]} (slice-words slice)
+        {:keys [allium product handoffs inputs identity]} (slice-words slice)
         _ (when-not identity (die "slice " slice " has no identity probe yet"))
         contracts (str/join ", " (map #(str "`.pi/spec/" % "/event-model/handoffs.edn`") handoffs))
         link (.getName (io/file app-dir))
@@ -130,7 +142,7 @@
          "## The seam and the gate\n\n"
          "The public seam is `" spec "/seam.md`: JSON-RPC 2.0 over stdio, one method per command and query of "
          "the event model, named as in the model, and the Grain store the candidate is handed through "
-         "`LOYLY_GRAIN_STORE`.\n\n"
+         "`LOYLY_GRAIN_STORE`." (when inputs (str " " inputs)) "\n\n"
          "Done is decided by the gate and the score, not by you. The gate runs `" app-dir "/test.sh`, which must "
          "run the whole suite, exit non-zero on any failure, and discover at least one real test. Then it runs `"
          app-dir "/start.sh` with `LOYLY_GRAIN_STORE` set to a fresh file, which must start the product speaking "
