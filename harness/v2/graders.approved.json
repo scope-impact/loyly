@@ -1,0 +1,4 @@
+{
+  "note": "Spec-v2 sealed graders an operator approved by exact digest; harness/v2/score.sh scores only with these. Spec v1's harness/graders.approved.json names v1 items (01-005 there is a v1 scenario) and is never read for spec v2. Each line is the operator's approval, never edited by a cycle or by a grader's author.",
+  "graders": []
+}

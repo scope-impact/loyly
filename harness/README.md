@@ -29,7 +29,17 @@ the room's candidate, `verify.sh` runs unchanged (with `v2/probe-01.sh`), and th
 `v2/event-store-check.sh` reads the Grain store the gate handed the candidate
 (`LOYLY_GRAIN_STORE`) directly, ORC's workflow runs included: ORC runs on that store, and each
 event a command produced must lie inside a completed run of its workflow. `v2/event-store-check-test.sh` judges that check on hand-made
-stores. There is no grader for spec v2 yet, so a cycle ends at the gate: no score.
+stores.
+
+After the gate, `harness/v2/score.sh 01 ROOM` scores the cycle: the sealed graders approved for
+spec v2 in `v2/graders.approved.json` (never v1's `graders.approved.json`, whose `01-005`
+is a v1 scenario) run against `ROOM/harness-impl/01-specification/start.sh`, and the legacy
+`score.clj` and `scoreboard.clj` file and report into `harness/cycles/NN/`. With no approved
+grader covering the slice it refuses: "score refused: no approved sealed grader". The grader
+of slice 01, `v2/graders/grade_specification.exs`, was authored from the spec alone,
+calibrated by `v2/graders/calibration/calibrate.sh` (a reference stub passes all 15 items,
+each mutant fails the item it breaks), and sealed; `v2/graders.pending.json` asks the
+operator to approve its digest. Until the operator does, a cycle ends at the gate.
 
 ## Differences from the archive, each with its reason
 
