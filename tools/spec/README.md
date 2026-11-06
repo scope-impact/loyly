@@ -15,11 +15,27 @@ in planning rounds; they never build or ratify an implementation, and they write
 | `grain-validate.clj` | Loads every `defeventmodel` under `.pi/model/event-model/` and runs Grain's structural validator (`{:structural-only true :strict true}`) and its Allium composition gate (every `:grain/allium` link resolves). `--dump <file>` writes the evaluated model as EDN for the page |
 | `coverage.py` | Every must-cover Allium obligation is tagged on a scenario of a `spec.feature` or `drafts.feature`, and no tag names an unknown obligation. Prints `must-cover N \| covered N \| drafted N \| uncovered N \| unit-level N`, then the uncovered ids. `--report <file>` writes the full classification as JSON |
 | `gwt-lint.py` | Every scenario of every `spec.feature` and `drafts.feature` has a Given, a When and a Then |
+| `glossary-lint.py` | No term an `_Avoid_` list of `.pi/model/GLOSSARY.md` names appears, as an identifier or in prose, in `.pi/model/*.allium`, the harness's Grain Event Model (`event-model/loyly/`), `.pi/architecture.md`, or the ADRs. Lists the Gherkin's hits in `plan/` for the product owner without failing |
 | `views/build.sh [date]` | Builds the event-model page, `views/dist/event-model.html`, from the specs |
 | `views/check.sh` | Renders every view of the page (node smoke test), every Mermaid diagram (`mmdc`, skipped with a note if absent) and every top-level view in headless Chrome (skipped if absent) |
 
 Gate 5 of `gates.sh` is the harness's own `bb harness/gen_checklist.clj`: the checklist derives
-(every scenario stamped, 94 items today).
+(every scenario stamped, 94 items today). Gate 6 is the glossary lint.
+
+## The glossary lint
+
+`GLOSSARY.md` is the authority for the model's words (ADR 0005). `glossary-lint.py` reads every
+entry's `_Avoid_:` list (a parenthetical in an item is a note) and splits each line of the
+linted files into phrases at punctuation and `/`, and each phrase into lowercased words at
+camelCase, `_`, and `-`, dropping a plural `s`: `RegenerationCut`, `regeneration_cut`,
+`regeneration-cut`, and "regeneration cut" are the same words. An avoided term is a finding
+unless one occurrence of a glossary term, or of a name the seam publishes (an action, rpc
+method, tool, or type value of `affordances.yaml`), covers it whole: "workspace" inside
+"workspace generation" passes, "harness" inside "harness task" does not excuse it. A line that
+says "formerly" or "avoid" may name an old term. ORC's declared `:sheet` copy
+(`event-model/orc/`) is ORC's published language and is not linted. It prints one `AVOIDED`
+line per finding and one `PLAN` line per Gherkin hit (`--quiet` omits those), then
+`glossary: N terms, M avoided | K findings | P plan/ hits`; it exits 1 on any finding.
 
 Needs `allium` (3.6), `bb`, the Clojure CLI and a JVM (Grain from the `grain/` submodule),
 `python3`, and `node` for the views; `mmdc` and Chrome are optional.

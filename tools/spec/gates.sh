@@ -8,6 +8,9 @@
 #      unknown tags (coverage.py)
 #   4. gwt: every scenario has a Given, a When and a Then (gwt-lint.py)
 #   5. checklist: harness/gen_checklist.clj derives the checklist (every scenario stamped)
+#   6. glossary: no term a GLOSSARY.md `_Avoid_` list names appears in the Allium, the harness's
+#      Grain Event Model, .pi/architecture.md, or the ADRs (glossary-lint.py); hits in plan/
+#      are counted for the product owner and never fail it
 # Specs only: nothing here builds or ratifies an implementation.
 set -uo pipefail
 T="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(git -C "$T" rev-parse --show-toplevel)"; cd "$ROOT"
@@ -36,5 +39,8 @@ echo "gwt:       $(tail -1 <<<"$gl")"; grep INCOMPLETE <<<"$gl" | sed 's/^/    /
 
 ck="$(bb harness/gen_checklist.clj --out "$(mktemp -d)/checklist.json" 2>&1)" || bad=1
 echo "checklist: $(tail -1 <<<"$ck")"; grep -q "^checklist: {'total': [1-9]" <<<"$ck" || { bad=1; head -5 <<<"$ck" | sed 's/^/    /'; }
+
+gl2="$(python3 "$T/glossary-lint.py" --quiet 2>&1)" || bad=1
+echo "glossary:  $(tail -1 <<<"$gl2" | sed 's/^glossary: //')"; grep '^AVOIDED' <<<"$gl2" | head -10 | sed 's/^/    /'
 
 [[ $bad = 0 ]] && echo "ALL GATES PASS" || { echo "GATES FAIL"; exit 1; }
