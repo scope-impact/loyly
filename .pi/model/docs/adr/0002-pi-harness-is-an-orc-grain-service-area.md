@@ -41,3 +41,17 @@ Two consequences above no longer hold; the decision itself stands.
   The copy must stay in step with the pin.
 - Approval alone starts nothing. A submitted task, not an approved preparation, is handed to
   ORC through its Grain command boundary exactly once (`DispatchSubmittedTaskToOrc`).
+
+## Known risk, 2026-11-06
+
+The declared `:sheet` copy in `event-model/orc/sheet/event_model.clj` is partial: it holds only
+the command and five events the harness dispatches or projects. Inside ORC's process, Grain's
+strict boot guard (`verify-or-throw!`) checks every live block against the registered model.
+With this copy registered, ORC's other `:sheet` blocks would be live but unmodelled
+(uncovered), and because `defeventmodel` registers by area, whichever `:sheet` registration
+loads last replaces the other. The copy is therefore safe only while ORC registers no `:sheet`
+model and strict boot runs without ORC's full catalog.
+
+The fix belongs upstream: ORC registers its own complete `:sheet` Event Model, and the harness
+`:require`s ORC's namespace instead of declaring a copy. The harness cannot make that change
+here and does not assume it; until ORC ships it, the copy stays, pinned to `af086675`.

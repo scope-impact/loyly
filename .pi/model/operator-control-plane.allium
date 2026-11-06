@@ -158,6 +158,10 @@ rule ReadDurableMeasurement {
     ensures: DurableMeasurementReturned(cycle_identity: measured_cycle.identity)
 }
 
+-- ORC reports progress already translated into the harness's terms: a cycle stage
+-- (regeneration-cycle.allium CycleStage) and the builder session, never a raw ORC node id.
+-- The translation is the Grain read model node-stages, the harness's anti-corruption layer
+-- over ORC's :sheet facts (ADR 0004).
 rule ProjectCycleProgress {
     when: OrcExecutionEventProjected(orc, task, stage, status, builder_session_identity, durable_cursor)
     requires: task.kind = regeneration_cycle
@@ -172,6 +176,9 @@ rule ProjectCycleProgress {
     )
 }
 
+-- Progress is never mirrored into a harness event. The cycle's stage facts (a clean room
+-- proved, a gate attempt, a filed score) are domain facts the harness records, not progress
+-- (ADR 0004).
 invariant HarnessDoesNotDuplicateOrcExecutionFacts {
     for progress in CycleProgressViews:
         projection_source(progress) = authoritative_orc_sheet_events(progress.trace_identity) and

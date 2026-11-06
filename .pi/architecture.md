@@ -127,9 +127,9 @@ flowchart TB
 
   subgraph p ["Harness process [Container]"]
     seam["<b>Seam</b><br/>[Component: JSON-RPC over stdio]<br/>Maps each of 16 actions to a command or query; refuses with a named reason"]
-    control["<b>Control plane commands</b><br/>[Component: Grain defcommand]<br/>Operator intents: selections, preparations, submissions, grader approval. System facts: receipts, observations, the filed score, builder sessions"]
-    views["<b>Projections and queries</b><br/>[Component: Grain defreadmodel, defquery]<br/>Selections, preparations, receipts, outcomes, prepared cuts, progress, builder sessions, measurements"]
-    dispatch["<b>Fact processors</b><br/>[Component: Grain defprocessor]<br/>One ORC tick per task-submitted; bind receipts, record observations, file the score, bind workspaces"]
+    control["<b>Harness commands</b><br/>[Component: Grain defcommand]<br/>Operator intents: selections, preparations, submissions, checklists, grader approval. Stage facts from ORC's nodes: self-check, clean room, slices, candidate, gate, graders. System facts from policies"]
+    views["<b>Projections and queries</b><br/>[Component: Grain defreadmodel, defquery]<br/>Cycles, selections, preparations, receipts, outcomes, cuts, gate attempts, graders, measurements, scoreboards, builder sessions; node-stages translates ORC"]
+    dispatch["<b>Policies</b><br/>[Component: Grain defprocessor]<br/>One ORC tick per task-submitted; receipts and outcomes; start the cycle; route the gate verdict and the score; report the scoreboard; conclude the cycle; file the score; record evidence; bind workspaces"]
     launcher["<b>Builder launcher</b><br/>[Component: Grain defprocessor launch-builder-for-tick]<br/>Launches, or relaunches, the durable session of each builder tick in the room ORC chose"]
     workflow["<b>Cycle workflow</b><br/>[Component: ORC sheet]<br/>fence, regenerate, gate, score, scoreboard; continuation, gate repair, durable resume"]
     prompts["<b>Prompt strategy</b><br/>[Component: ORC, GEPA]<br/>Renders every production prompt; optimizes instructions per purpose"]
@@ -145,8 +145,9 @@ flowchart TB
   seam -- "Issues commands" --> control
   seam -- "Runs queries" --> views
   control -- "Appends harness events" --> events
-  events -- "task-submitted, :sheet facts, committed tool results" --> dispatch
-  dispatch -- "record-task-receipt, record-observation, file-score, bind-workspace-generation" --> control
+  events -- "harness facts, :sheet facts (via node-stages), committed tool results" --> dispatch
+  dispatch -- "receipts, outcomes, stage advances and failures, file-score, report-scoreboard, conclude-cycle" --> control
+  workflow -- "Stage facts: record-gate-attempt, prove-clean-room, ..." --> control
   dispatch -- ":sheet/tick-tree" --> workflow
   workflow -- "Appends :sheet events" --> events
   views -- "Fold harness and :sheet events from" --> events
@@ -213,8 +214,8 @@ prepare-cut ─► slice-composition ─► preview-selection ─► approve-sel
                                       ▼                                    ▼
                                task-submitted ─► dispatch-submitted-task ─► :sheet/tick-tree (ORC)
                                                                                  │
-              execution-status ◄─ cycle-progress ◄─ :sheet/* events ◄────────────┤
-              wait             ◄─ task-outcomes  ◄─ :sheet/tree-tick-completed ◄─┘
+              execution-status ◄─ cycle-progress ◄─ node-stages ◄─ :sheet/* ◄───┤
+              wait ◄─ task-outcomes ◄─ complete-task / fail-task ◄─ record-task-outcome ◄─┘
 ```
 
 - Every identity is deterministic: previewing or preparing the same choices again returns the
@@ -228,7 +229,8 @@ prepare-cut ─► slice-composition ─► preview-selection ─► approve-sel
 - Repeating a request identity returns the original receipt; reusing it for a different
   request is refused. A replacement worker answers `wait` from ORC's durable state and never
   reruns a task.
-- Progress and builder-session views are projections of ORC facts; they never advance ORC.
+- Progress is a projection of ORC facts through the translation `node-stages`; it never
+  advances ORC. A task's outcome is recorded once, by a policy, when ORC completes its tick.
 
 ## The cycle
 
@@ -244,44 +246,99 @@ fence → regenerate → gate → score → scoreboard
 | score | Approved sealed graders file one verdict per checklist item through the seam. An unreached item fails and stays in the denominator. |
 | scoreboard | Compares with the previous cycle on shared items, newly passing and newly failing separately; new items are the untuned holdout; never a net. |
 
+Each stage's outcome is a typed harness fact that ORC's stage node records
+(`record-harness-self-check`, `prove-clean-room`, `record-slice-build`, `record-candidate`,
+`record-gate-attempt`), or that a policy derives (`route-gate-verdict`, `route-filed-score`,
+`report-cycle-scoreboard`, `close-reported-cycle`, `conclude-cycle-result`). The cycle ends as
+`cycle-passed` or `cycle-failed` (ADR 0004).
+
 The fence and the gate are the **harness** and feed the build loop. The score and the
 scoreboard are the **instrument** and never do: no score evidence reaches a builder, and a
 failed score is measured, not retried within the cycle.
 
 ## Grain service area
 
-`:loyly.pi-harness` (`event-model/loyly/pi_harness/event_model.clj`):
+`:loyly.pi-harness` (`event-model/loyly/pi_harness/event_model.clj`). The cycle's stage facts
+are harness events, recorded by commands ORC's workflow nodes issue; transitions the Allium
+rules make on a state are policies (ADR 0004).
 
 | Concern | Commands | Events | Read models → queries |
 |---|---|---|---|
 | Selection | `record-selection`, `approve-selection` | `selection-recorded`, `selection-approved` | `selections` → `selection` |
 | Preparation | `record-cycle-preparation`, `approve-cycle-preparation` | `cycle-preparation-recorded`, `cycle-preparation-approved` | `cycle-preparations` → `cycle-preparation` |
-| Tasks | `submit-cut-task`, `submit-cycle-task`, `submit-whole-plan-cycle`; `record-task-receipt` (processor) | `task-submitted`, `task-receipt-issued` | `task-receipts` → `task-receipt`, `highest-task-id`; `task-outcomes` → `task-outcome` |
-| Cuts | | | `prepared-cuts` → `slice-composition` |
-| Progress | | | `cycle-progress` → `cycle-progress`; `builder-sessions` → `builder-session` |
-| Builder sessions | `launch-builder-session`, `relaunch-builder-session`, `bind-workspace-generation` (processors); `commit-builder-tool-result` (builder host) | `builder-session-launched`, `builder-session-resumed`, `builder-tool-result-committed`, `workspace-generation-bound` | `builder-sessions` → `builder-session` |
-| Instrument | `approve-grader`; `record-observation`, `file-score` (processors) | `grader-approved`, `observation-recorded`, `cycle-measurement-recorded`, `score-refused` | `approved-graders`, `cycle-observations`, `cycle-measurements` → same-named queries |
-| Prompt optimization | `start-prompt-optimization` | `prompt-optimization-started` | `prompt-optimizations` → `prompt-optimization` |
+| Cuts | `submit-cut-task`; `record-prepared-cut` (ORC node) | `cut-prepared` | `prepared-cuts` → `slice-composition` |
+| Tasks | `submit-cycle-task`, `submit-whole-plan-cycle`; `record-task-receipt`, `complete-task`, `fail-task` (processors) | `task-submitted`, `task-receipt-issued`, `task-completed`, `task-failed` | `task-receipts` → `task-receipt`, `tick-task`, `highest-task-id`; `task-outcomes` → `task-outcome` |
+| Cycle | `start-cycle`, `advance-cycle-stage`, `fail-cycle-stage`, `conclude-cycle` (processors); `record-harness-self-check`, `prove-clean-room`, `record-slice-build`, `record-candidate`, `record-gate-attempt` (ORC nodes); `record-child-cycle` | `cycle-submitted`, `cycle-started`, `harness-self-check-recorded`, `clean-room-proved`, `slice-built`, `candidate-regenerated`, `gate-attempt-recorded`, `cycle-stage-advanced`, `cycle-passed`, `cycle-failed`, `child-cycle-lineage-recorded` | `regeneration-cycles` → `regeneration-cycle`; `harness-self-checks`; `gate-attempts` → `gate-attempt` |
+| ORC translation | | | `node-stages` → `node-stage`, `cycle-progress` |
+| Builder sessions | `launch-builder-session`, `relaunch-builder-session`, `bind-workspace-generation` (processors); `commit-builder-tool-result` (builder host); `intervene-in-builder-session` | `builder-session-launched`, `builder-session-resumed`, `builder-tool-result-committed`, `workspace-generation-bound`, `builder-intervention-recorded` | `builder-sessions` → `builder-session` |
+| Instrument | `derive-checklist`, `approve-grader`; `seal-grader`, `discard-grader` (ORC node); `file-score`, `report-scoreboard` (processors) | `checklist-derived`, `grader-sealed`, `grader-discarded`, `instrument-unavailable`, `grader-approved`, `cycle-measurement-recorded`, `score-refused`, `scoreboard-reported` | `checklists` → `checklist`; `graders` → `approved-graders`; `cycle-measurements` → `cycle-measurement`; `scoreboards` → `scoreboard` |
+| Runtime evidence | `record-observation` (processor); `record-validation-room`, `bind-baseline-trace` (ORC node) | `observation-recorded`, `validation-room-opened`, `baseline-trace-bound` | `cycle-observations` → `cycle-observations` |
+| Prompt optimization | `start-prompt-optimization`; `record-production-prompt`, `propose-instruction-candidate`, `measure-instruction-candidate`, `select-winning-instruction`, `fail-prompt-optimization` (ORC) | `prompt-optimization-started`, `production-prompt-rendered`, `instruction-candidate-proposed`, `instruction-candidate-measured`, `winning-instruction-selected`, `prompt-optimization-failed` | `prompt-optimizations` → `prompt-optimization` |
 
 The screen `pi-regeneration` issues operator intents only: selection, preparation, approvals,
-submissions, grader approval, and optimization. System facts are issued by six todo processors,
-never by the screen. `dispatch-submitted-task` turns each `task-submitted` into ORC's
-`:sheet/tick-tree`; `issue-task-receipt` binds the task to the tick when ORC reports
-`:sheet/tree-tick-started`. `launch-builder-for-tick` launches, or relaunches, the durable Pi
-session of each ORC builder tick (`launch-builder-session`, `relaunch-builder-session`).
-`bind-committed-workspace` binds each tool result the builder host commits
-(`commit-builder-tool-result`) to its workspace (`bind-workspace-generation`).
-`record-validation-evidence` records an independent room's observations, and `file-cycle-score`
-files the sealed grader's verdicts with `file-score`, typed per item as pass or fail and checked
-against the approved selection and graders it reads. Every command links the Allium rule or
-rules it realises, and the screen links the `RegenerationControlPlane` surface. Every `tick-id`
-is a `:uuid`, as in ORC.
+submissions, checklist derivation, grader approval, builder intervention, child cycles, and
+optimization. It links the surfaces `RegenerationControlPlane`, `RegenerationHarness`,
+`Instrument`, and `BuilderPromptOptimization`. Every command links the Allium rule or rules it
+realises. Every `tick-id` is a `:uuid`, as in ORC, and every cycle is named by `:cycle-id`.
+
+Thirteen todo processors issue system facts, each reading a to-do query:
+
+| Processor | When | Issues |
+|---|---|---|
+| `dispatch-submitted-task` | a task is submitted | `:sheet/tick-tree`, once per task |
+| `issue-task-receipt` | ORC starts the dispatched tick | `record-task-receipt` |
+| `start-dispatched-cycle` | a cycle's task is bound to its tick | `start-cycle` |
+| `record-task-outcome` | ORC completes or cancels the tick | `complete-task` or `fail-task` |
+| `launch-builder-for-tick` | ORC starts a node `node-stage` names a builder role | `launch-builder-session` or `relaunch-builder-session` |
+| `bind-committed-workspace` | the builder host commits a tool result | `bind-workspace-generation` |
+| `route-gate-verdict` | a gate attempt is recorded | `advance-cycle-stage` (score, or regenerate under three attempts) or `fail-cycle-stage` |
+| `file-cycle-score` | ORC completes a node `node-stage` names the score stage | `file-score` |
+| `route-filed-score` | a measurement is filed or a score refused | `advance-cycle-stage` (scoreboard) or `fail-cycle-stage` |
+| `report-cycle-scoreboard` | a cycle reaches the scoreboard | `report-scoreboard` |
+| `close-reported-cycle` | the scoreboard is reported | `advance-cycle-stage` (result) |
+| `conclude-cycle-result` | a cycle reaches its result | `conclude-cycle` (passed or failed) |
+| `record-validation-evidence` | ORC completes a validation node | `record-observation` |
 
 `:sheet` (`event-model/orc/sheet/event_model.clj`) declares the ORC blocks the area uses: the
 command `tick-tree` and the events `tree-tick-started`, `node-execution-started`,
 `node-execution-completed`, `tree-tick-completed`, and `tick-cancelled`, copied from ORC's
-pinned `orc-service` schemas. Startup validates the registered model strictly against the live
-registries and refuses to start on drift.
+pinned `orc-service` schemas. Only `node-stages` and the processors' triggers touch them.
+Startup validates the registered model strictly against the live registries and refuses to
+start on drift.
+
+## Context map
+
+The harness is one bounded context. Every other context meets it at a named boundary.
+
+```text
+                    ┌───────────────────────────────┐
+                    │ ORC (upstream, Grain library) │
+                    │ :sheet workflow facts         │
+                    └───────────────┬───────────────┘
+                    Conformist; ACL │ :sheet/tick-tree ▲  :sheet/* events ▼
+                    = node-stages   │ stage commands from ORC's workflow nodes ▼
+┌──────────────┐    ┌───────────────┴───────────────┐    ┌──────────────────────────┐
+│ Operator /   │───►│ Pi harness  :loyly.pi-harness │───►│ Builder host (provided)  │
+│ driver       │seam│ cycle, instrument, tasks,     │OHS │ launch / resume /        │
+└──────────────┘    │ builder sessions, evidence    │◄───│ commit tool result       │
+                    └──────┬─────────────────┬──────┘    └────────────┬─────────────┘
+       Published Language: │                 │ rooms ORC chose        │ tool calls
+       affordances seam    ▼                 ▼                        ▼
+           ┌────────────────────┐    ┌──────────────────────────────────────────┐
+           │ Regenerated product│    │ Gondolin (provided infrastructure,       │
+           │ (candidate)        │    │ no domain model)                         │
+           └────────────────────┘    └──────────────────────────────────────────┘
+       Bedrock / OpenRouter: model providers for reflection and builders (deferred)
+```
+
+| Context | Relationship to the harness | Where it is modelled |
+|---|---|---|
+| **Pi harness** (`:loyly.pi-harness`) | The context this model specifies: cuts, selections, preparations, the regeneration cycle and its stage facts, the instrument, tasks, builder sessions, runtime evidence, prompt optimization. | `.pi/model/*.allium`, `event-model/loyly/pi_harness/` |
+| **ORC** | Upstream. The harness is **Conformist** to ORC's `:sheet` model: it dispatches `:sheet/tick-tree` and consumes `:sheet/*` events as ORC defines them, and translates them through an **anti-corruption layer**, the read model `node-stages`, into its own `CycleStage` and builder role. ORC's workflow nodes record stage facts by issuing harness commands (ADR 0004). In Allium, ORC is `actor OrcRuntime`, and every fact it reports reaches a surface facing it, already in the harness's terms (stage and role, never a node id). | `event-model/orc/sheet/` (a declared copy; see ADR 0002 "Known risk") |
+| **Builder host** (provided, `@earendil-works/pi-durable`) | **Open Host Service**: launch a durable session for a tick, resume it, and report a committed tool result (`commit-builder-tool-result`). It runs the model loop and forwards tool calls; it decides nothing about rooms, prompts, or stages. | `launch-builder-session`, `relaunch-builder-session`, `commit-builder-tool-result`; `execution-pipeline.allium` `BuilderSession` |
+| **Gondolin** (provided) | Infrastructure with no domain model: micro-VMs for builder, gate, and validation rooms. The harness names a room only through `BuilderRoomPolicy`, which ORC chooses. | `BuilderRoomPolicy`, `OrcAloneChoosesTheRoom` |
+| **Regenerated product** | **Published Language**: the product is reached only through its affordance seam (`affordances.yaml`-style JSON-RPC over stdio), by the gate and by sealed graders. It shares no code or runtime with the harness, and the harness shares no events with it. | `model/<project>/affordances.yaml`; this harness's own seam is `.pi/model/affordances.yaml` |
+| **Bedrock / OpenRouter** | Model providers, deferred: the pinned Bedrock reflection model for prompt optimization (slice 06) and the builder's model provider behind the builder host. No harness block talks to them directly. | `prompt-optimization.allium` `ReflectionModelBinding` |
 
 ## Instrument
 
@@ -339,7 +396,7 @@ rooms use Gondolin directly, without Pi.
 | Concern | Gherkin slice | Allium | Grain | Seam |
 |---|---|---|---|---|
 | Cuts, selection, preparation, cycles | `01-regeneration-cycle` | `regeneration-cycle.allium` | selection, preparation, cuts | cut and selection, preparation |
-| The cycle's stages | `02-execution-pipeline` | `execution-pipeline.allium` | | `CycleContract`, `WorkflowContract` |
+| The cycle's stages | `02-execution-pipeline` | `execution-pipeline.allium` | cycle, ORC translation | `CycleContract`, `WorkflowContract` |
 | Instrument | `03-instrument` | `instrument.allium` | instrument | `ApproveGrader`, `Measurement` |
 | Control plane | `04-operator-control-plane` | `operator-control-plane.allium` | tasks, progress, dispatch | cycle, builder sessions |
 | Runtime evidence | `05-runtime-evidence` | `runtime-evidence.allium` | `record-observation`, `record-validation-evidence` | |

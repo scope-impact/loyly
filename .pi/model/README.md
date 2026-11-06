@@ -12,7 +12,11 @@ area inside ORC's existing tenant-scoped runtime, not a second event system or a
 ORC. Every harness state change passes through a Grain command and registered event; every public
 read passes through a Grain query over a registered read model. Grain processors react to facts
 when asynchronous coordination is required. ORC `:sheet/*` events remain execution authority and
-are consumed directly by harness projections rather than copied into harness progress events.
+are consumed by harness projections rather than copied into harness progress events. The
+cycle's stage facts (self-check, clean room, slice builds, candidate, gate attempts, checklist,
+graders, score, scoreboard, result) are harness events, recorded by commands ORC's workflow
+nodes issue or by harness policies; the harness reads ORC's node facts only through its
+anti-corruption translation, the read model `node-stages` (ADR 0004).
 
 The architecture this contract specifies is summarized in
 [`.pi/architecture.md`](../../.pi/architecture.md); this model remains the source of truth.
@@ -78,7 +82,7 @@ verdict and never changes the checklist or its denominator:
   strict validation on missing, extra, or mismatched blocks.
   `event-model/orc/sheet/event_model.clj` (`orc.sheet.event-model`) declares only the ORC
   `:sheet` command and events the harness dispatches or projects, copied from ORC's pinned
-  `orc-service`, so every edge resolves. One area per file; each namespace matches its path.
+  `orc-service`, so every edge resolves. Its boot-guard risk, and the upstream fix, are recorded in ADR 0002. One area per file; each namespace matches its path.
 - `COVERAGE.md` maps each slice to its spec, each command to its Allium rule, and records the
   verification commands and the accepted Allium diagnostic baseline.
 - `affordances.yaml` is this contract's public seam, in the affordance format: the harness has no
@@ -99,6 +103,11 @@ verdict and never changes the checklist or its denominator:
 - `docs/adr/0003-one-aggregate-per-concept.md` records why each concept (cycle, measurement,
   builder session, verdicts) is declared once, how the cycle is wired end to end, and why only
   ORC reports execution facts and the screen issues operator intents only.
+- `docs/adr/0004-cycle-facts-are-harness-events.md` records why the cycle's stage facts are
+  typed harness events rather than projections of ORC's untyped node outputs, how policies are
+  todo processors, and how `node-stages` translates ORC's node facts.
+- `.pi/architecture.md` ("Context map") states the harness's boundaries: ORC upstream, the
+  provided builder host, Gondolin, the regenerated product, and the deferred model providers.
 
 ORC's own `:sheet/*` execution events remain governed by ORC but may feed Pi-harness read models
 and processors. Löyly product events remain governed by the Löyly product model. The three service areas

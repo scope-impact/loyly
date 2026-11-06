@@ -34,6 +34,27 @@ A Pi-harness read model derived from authoritative ORC `:sheet/*` events for obs
 reconnection. It cannot advance execution and introduces no duplicate progress event.
 _Avoid_: Harness progress event, workflow authority
 
+**Node-stage translation**:
+The harness's anti-corruption layer over ORC: the Grain read model `node-stages`, which turns
+ORC's `:sheet` node facts into the harness's terms, a cycle stage and a builder role per tick
+and node. Processors that react to ORC nodes and the progress view read it, never a raw ORC
+node id.
+_Avoid_: Node mapping, sheet adapter
+
+**Stage fact**:
+A typed domain fact of one cycle stage (a harness self-check, a clean room proved, a slice
+built, a candidate regenerated, a gate attempt, a grader sealed or discarded, a filed score, a
+scoreboard reported, a cycle passed or failed), recorded as a harness event by a command an ORC
+workflow node or a harness policy issues (ADR 0004). Unlike progress, it carries a schema and
+the invariants its rule guards.
+_Avoid_: Progress event, node output, write-key
+
+**Policy**:
+A rule that reacts to a fact or a state the harness already holds and issues a command, such as
+routing a gate verdict or concluding a cycle's result. In Grain it is a todo processor reading a
+to-do query.
+_Avoid_: Event handler, saga
+
 **Regeneration cycle**:
 The one ORC-owned workflow, in the legacy shape: fence → regenerate → gate → score → scoreboard.
 The fence and the gate are the harness and feed the build loop; the score and the scoreboard are
@@ -41,7 +62,8 @@ the instrument and report to a person, never into the loop. Adapter completion c
 skip a stage. Anything not written into the spec dies with the implementation. It is one
 aggregate, `RegenerationCycle` in `regeneration-cycle.allium`, with a status (submitted, running,
 passed, failed) and a stage (fence, regenerate, gate, score, scoreboard, result); a terminal
-cycle names its candidate digest. `execution-pipeline.allium` moves it through its stages.
+cycle names its candidate digest. `execution-pipeline.allium` moves it through its stages; its
+Grain read model is `regeneration-cycles`, folded from its stage facts.
 _Avoid_: Pipeline, pipeline cycle, generation versus regeneration, routes, workflow task.
 
 **Harness**:
