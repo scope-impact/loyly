@@ -7,7 +7,7 @@ Feature: The regeneration cycle
   Rule: ORC owns the complete ordered cycle
 
     @skip
-    @item-02-001
+    @item-02-001 @balance
     Scenario: A regeneration cycle follows the declared stage order
       Given an approved selection starts a cycle
       When ORC advances the cycle
@@ -16,7 +16,7 @@ Feature: The regeneration cycle
       And missing, skipped, timed-out, or inconclusive evidence remains its own outcome
 
     @skip
-    @item-02-002
+    @item-02-002 @balance
     Scenario: ORC exposes the declared stage order
       Given the Pi harness ORC worker is running
       When Pi requests the executable cycle workflow contract
@@ -30,7 +30,7 @@ Feature: The regeneration cycle
   Rule: The fence and the gate feed the build loop; the score never does
 
     @skip
-    @item-02-003
+    @item-02-003 @minimum
     Scenario: The fence refuses to build a room for an instrument nobody checked
       Given the harness and the sealed instrument for the approved selection
       When the fence stage starts
@@ -39,7 +39,7 @@ Feature: The regeneration cycle
       And a failing self-check stops the cycle before regeneration with the failing check named
 
     @skip
-    @item-02-004
+    @item-02-004 @minimum
     Scenario: The gate ratifies done; the builder cannot
       Given the builder reports that the candidate is complete
       When the gate stage runs in an independent room
@@ -49,7 +49,7 @@ Feature: The regeneration cycle
       And the cycle fails at the gate after three regenerate attempts
 
     @skip
-    @item-02-005
+    @item-02-005 @minimum
     Scenario: The score reports to a person and never into the loop
       Given a candidate passed the gate
       When the score stage runs the sealed instrument against the checklist
@@ -58,7 +58,7 @@ Feature: The regeneration cycle
       And a failed score never starts another regeneration within the cycle
 
     @skip
-    @item-02-006
+    @item-02-006 @balance
     Scenario: A slice without a human affordance contract does not invent a UI
       Given the approved slice is not selected by the project's affordance contract
       When the score stage runs the affordance evaluator
@@ -68,7 +68,7 @@ Feature: The regeneration cycle
   Rule: Independent rooms and evidence preserve provenance
 
     @skip
-    @item-02-007
+    @item-02-007 @balance
     Scenario: Evidence identity cannot be reused for different content
       Given an observation exists for one cycle, item, kind, and producer
       When different evidence is recorded with that identity
@@ -76,7 +76,7 @@ Feature: The regeneration cycle
       And the original observation remains authoritative
 
     @skip
-    @item-02-008
+    @item-02-008 @balance
     Scenario: Evidence reports are derived projections
       Given a validated observation was recorded
       When an Allure or other report is emitted
@@ -86,7 +86,7 @@ Feature: The regeneration cycle
   Rule: Non-success outcomes remain explicit and measurable
 
     @skip
-    @item-02-009
+    @item-02-009 @balance
     Scenario Outline: A non-successful stage cannot disappear from the result
       Given the <stage> stage is refused, skipped, times out, or returns inconclusive evidence
       When the cycle reaches a terminal outcome
@@ -103,7 +103,7 @@ Feature: The regeneration cycle
   Rule: The running harness proves its identity by domain behavior, not by name
 
     @skip
-    @item-02-010
+    @item-02-010 @minimum
     Scenario: The running harness proves its identity by answering its cycle contract
       Given the harness is started with start.sh speaking JSON-RPC over stdio
       When a client sends the cycle-contract request
@@ -111,7 +111,7 @@ Feature: The regeneration cycle
       And it lists the cycle stages fence, regenerate, gate, score, and scoreboard in that order
 
     @skip
-    @item-02-011
+    @item-02-011 @minimum
     Scenario: The gate boots the harness within a thirty-second budget and reports the margin
       Given the candidate passed its whole suite
       When the gate launches start.sh
@@ -122,7 +122,7 @@ Feature: The regeneration cycle
   Rule: The first regenerate attempt builds one slice at a time
 
     @skip
-    @item-02-012
+    @item-02-012 @balance
     Scenario: The first attempt starts one fresh builder per selected slice in plan order
       Given an approved selection of several plan slices
       When the regenerate stage runs its first attempt
@@ -131,7 +131,7 @@ Feature: The regeneration cycle
       And the gate runs once, on the candidate the last slice builder left
 
     @skip
-    @item-02-013
+    @item-02-013 @balance
     Scenario: A slice builder receives only the clean room and this cycle's candidate so far
       Given an earlier slice builder of the same cycle wrote the candidate
       When the next slice builder starts
@@ -139,7 +139,7 @@ Feature: The regeneration cycle
       And it receives no earlier builder's transcript, no candidate from an earlier cycle, and no gate or score evidence
 
     @skip
-    @item-02-014
+    @item-02-014 @balance
     Scenario: A slice builder continues while it lists its own slice's items uncarried
       Given a slice builder's turn ends while its UNCARRIED.md still names items of its slice
       When ORC continues that same builder session
@@ -151,21 +151,21 @@ Feature: The regeneration cycle
   # shape was learned from"): each guard exists because its absence once lied.
   Rule: The gate trusts only a suite it saw run against the process it started
 
-    @item-02-015
+    @item-02-015 @minimum
     Scenario: A suite that cannot run, or runs nothing, fails the gate
       Given a candidate whose test.sh names a tool that is not installed, or discovers no suite
       When the gate runs test.sh
       Then the gate fails naming the missing tool or the empty discovery
       And an exit code of zero is not enough to pass
 
-    @item-02-016
+    @item-02-016 @minimum
     Scenario: Only the process the gate started can answer the identity probe
       Given state left by an earlier run of the candidate
       When the gate launches start.sh
       Then it launches with a fresh, empty state root
       And it accepts an identity answer only from the process it launched
 
-    @item-02-017
+    @item-02-017 @minimum
     Scenario: The gate refuses to grade a candidate it cannot reach
       Given the candidate's start.sh exits before answering
       When the gate waits for the identity probe
@@ -174,7 +174,7 @@ Feature: The regeneration cycle
 
   Rule: ORC launches every builder as a durable Pi session in a room ORC chooses
 
-    @item-02-018
+    @item-02-018 @balance
     Scenario: A builder session is keyed by its ORC tick and resumes rather than restarts
       Given ORC starts a tick for a slice builder, a repair builder, or a grader author
       When ORC launches that tick's builder session
@@ -183,7 +183,7 @@ Feature: The regeneration cycle
       And a relaunch never starts a second session for the same tick
       And the model credentials stay on the host and never enter the room
 
-    @item-02-019
+    @item-02-019 @balance
     Scenario: ORC alone chooses the builder's room
       Given a builder session and its role
       When ORC starts its Gondolin room

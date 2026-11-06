@@ -5,7 +5,7 @@ Feature: Session-independent generation and regeneration control
   Rule: The Pi harness is a strictly validated Grain service area inside ORC
 
     @skip
-    @item-04-001
+    @item-04-001 @deferred
     Scenario: Startup refuses a harness topology that differs from its Grain Event Model
       Given ORC and the Pi harness have loaded their registered Grain service areas
       When the shared Grain runtime starts the Pi harness
@@ -14,7 +14,7 @@ Feature: Session-independent generation and regeneration control
       And CI also resolves every required Grain-to-Allium trace link
 
     @skip
-    @item-04-002
+    @item-04-002 @deferred
     Scenario: Public harness operations use Grain commands and queries
       Given the Pi harness is running inside ORC's tenant-scoped Grain runtime
       When an operator changes or reads harness state
@@ -23,7 +23,7 @@ Feature: Session-independent generation and regeneration control
       And no public operation appends a bare event or reads the event store directly
 
     @skip
-    @item-04-003
+    @item-04-003 @deferred
     Scenario: Harness progress is projected from authoritative ORC events
       Given an approved cycle is executing through ORC
       When ORC records tree and node execution events
@@ -34,7 +34,7 @@ Feature: Session-independent generation and regeneration control
   Rule: Every public operation refuses malformed or conflicting identities
 
     @skip
-    @item-04-004
+    @item-04-004 @balance
     Scenario: An LLM proposes a reviewable slice but cannot approve it
       Given an operator describes the behavior to regenerate against a prepared cut
       When an exploratory Pi, Codex, or other operator session inspects the cut composition and asks the LLM to propose a slice
@@ -46,7 +46,7 @@ Feature: Session-independent generation and regeneration control
       And no generation or regeneration starts until the operator approves its exact digest
 
     @skip
-    @item-04-005
+    @item-04-005 @balance
     Scenario: Cut preparation refuses an invalid or colliding identity
       Given a cut request does not name a full source commit or supported backend
       When the operator prepares the source cut
@@ -54,7 +54,7 @@ Feature: Session-independent generation and regeneration control
       And an existing cut identity is never replaced by different content
 
     @e2e
-    @item-04-006
+    @item-04-006 @balance
     Scenario: Selection preview refuses an empty or ambiguous denominator
       Given the requested slice has missing, duplicate, unstamped, or unknown items
       When the operator previews the selection
@@ -62,7 +62,7 @@ Feature: Session-independent generation and regeneration control
       And the refusal identifies the unresolved denominator
 
     @skip
-    @item-04-007
+    @item-04-007 @balance
     Scenario: Submission refuses an unsafe candidate scope
       Given an approved selection
       When submission names an empty, absolute, escaping, or overlapping candidate scope
@@ -71,7 +71,7 @@ Feature: Session-independent generation and regeneration control
   Rule: Workflow tasks have observable terminal outcomes
 
     @e2e
-    @item-04-008
+    @item-04-008 @balance
     Scenario: Waiting for a known task returns its one terminal outcome
       Given a source-cut, generation, or regeneration task receipt was returned
       When the operator waits for its task identity
@@ -79,14 +79,14 @@ Feature: Session-independent generation and regeneration control
       And waiting again returns the same terminal outcome
 
     @e2e
-    @item-04-009
+    @item-04-009 @balance
     Scenario: Waiting refuses an unknown task identity
       Given no task receipt has the supplied identity
       When the operator waits for that identity
       Then the request is refused without starting new work
 
     @skip
-    @item-04-010
+    @item-04-010 @deferred
     Scenario: A durable task remains observable after worker restart
       Given an ORC task receipt was returned before the worker stopped
       When a replacement worker waits for the task identity
@@ -96,7 +96,7 @@ Feature: Session-independent generation and regeneration control
   Rule: The reviewed preparation binds every cycle-defining choice
 
     @skip
-    @item-04-011
+    @item-04-011 @deferred
     Scenario: Approval binds the complete cycle preparation and diagram
       Given an approved slice selection
       When an operator session prepares a cycle with scope, target stack, execution profile, pinned inputs, and outer-cycle budget
@@ -105,7 +105,7 @@ Feature: Session-independent generation and regeneration control
       And changing any bound field requires a new preparation
 
     @skip
-    @item-04-012
+    @item-04-012 @balance
     Scenario: A sealed grader is used only after manual approval of its exact digest
       Given a calibrated grader was sealed for a selection's scenario digests
       When an operator manually approves its exact grader digest
@@ -116,7 +116,7 @@ Feature: Session-independent generation and regeneration control
   Rule: Any operator session can drive the outer lifecycle
 
     @skip
-    @item-04-013
+    @item-04-013 @deferred
     Scenario: The control plane does not depend on one interactive session implementation
       Given a Codex, Pi, or other authorized operator session
       When it supplies an immutable approved fixed execution contract through the public control plane
@@ -125,7 +125,7 @@ Feature: Session-independent generation and regeneration control
       And disconnecting that session does not stop the internal ORC cycle
 
     @skip
-    @item-04-014
+    @item-04-014 @deferred
     Scenario: Live progress reconciles with durable ORC execution state
       Given a cycle is running and ORC emits stage notifications
       When the observing extension connects or reconnects
@@ -136,7 +136,7 @@ Feature: Session-independent generation and regeneration control
   Rule: Builder sessions are observable without weakening independence
 
     @e2e
-    @item-04-015
+    @item-04-015 @deferred
     Scenario: An operator observes a builder session read-only
       Given ORC opened a separately identified builder session for one build attempt
       When an operator session opens that builder-session reference
@@ -145,7 +145,7 @@ Feature: Session-independent generation and regeneration control
       And the builder cannot read the operator transcript or independent grader evidence
 
     @skip
-    @item-04-016
+    @item-04-016 @deferred
     Scenario: Intervention is explicit and provenance-recorded
       Given a builder session is active or completed
       When an operator pauses, steers, or forks its work
@@ -154,7 +154,7 @@ Feature: Session-independent generation and regeneration control
       And a completed builder session is never silently mutated
 
     @skip
-    @item-04-017
+    @item-04-017 @deferred
     Scenario: A builder transcript is restored with its matching workspace generation
       Given a builder session committed model turns and VM tool results
       When its host or execution room restarts

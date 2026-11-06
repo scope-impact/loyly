@@ -5,7 +5,7 @@ Feature: Authoritative and complete runtime evidence
   Rule: Runtime evidence preserves authority and collection quality
 
     @skip @gondolin
-    @item-05-001
+    @item-05-001 @deferred
     Scenario: A score preserves its Playwright trace
       Given the sealed grader drives the candidate only through its public seam
       When the score stage completes
@@ -14,7 +14,7 @@ Feature: Authoritative and complete runtime evidence
       And a missing Playwright trace makes the score incomplete
 
     @skip
-    @item-05-002
+    @item-05-002 @deferred
     Scenario: Candidate telemetry cannot author an independent verdict
       Given the candidate emits a runtime signal claiming an invariant passed
       But no independent validator evaluated the invariant
@@ -23,7 +23,7 @@ Feature: Authoritative and complete runtime evidence
       But it cannot produce a passing item observation
 
     @skip
-    @item-05-003
+    @item-05-003 @deferred
     Scenario: Missing or dropped required signals are inconclusive
       Given the sealed grader carries the generic evaluator for the runtime signals declared by the approved project model
       And one required signal is missing, incomplete, sampled, or reported as dropped
@@ -34,7 +34,7 @@ Feature: Authoritative and complete runtime evidence
       And diagnostic profiles remain available but cannot author a verdict
 
     @skip
-    @item-05-004
+    @item-05-004 @deferred
     Scenario: A passing invariant uses one correlated candidate subject
       Given an accepted domain event and every required projection snapshot
       And every signal names the same cycle, operation, event, aggregate, and subject digest
@@ -43,14 +43,14 @@ Feature: Authoritative and complete runtime evidence
       And the observation identifies every input artifact digest
 
     @e2e
-    @item-05-005
+    @item-05-005 @deferred
     Scenario: ORC exposes artifact provenance in its executable contract
       Given the Pi harness ORC worker is running
       When Pi requests the executable regeneration workflow contract
       Then the observation includes the field "artifacts"
 
     @skip
-    @item-05-006
+    @item-05-006 @deferred
     Scenario: Runtime evidence is scored independently of behavior
       Given the independent execution emitted runtime evidence
       And the behavior evaluator returned a failure
@@ -60,7 +60,7 @@ Feature: Authoritative and complete runtime evidence
       And an item passes only when both evaluators pass
 
     @skip
-    @item-05-007
+    @item-05-007 @deferred
     Scenario: Runtime evidence is selected entirely from the pinned project model
       Given each selected item has a runtime evidence contract in the pinned project model
       When the runtime-evidence evaluator scores the selected items
@@ -69,7 +69,7 @@ Feature: Authoritative and complete runtime evidence
       And a selected item with no contract receives a failing observation
 
     @e2e
-    @item-05-008
+    @item-05-008 @deferred
     Scenario: OTel and Allure project the persisted invariant evaluation
       Given an independent invariant evaluation and its evidence digest were persisted
       When an OTel result span and Allure report are emitted
@@ -78,7 +78,7 @@ Feature: Authoritative and complete runtime evidence
       And neither projection can change the recorded verdict
 
     @skip
-    @item-05-009
+    @item-05-009 @deferred
     Scenario: An operator Pi session profiles a Gondolin VM directly
       Given an isolated Pi observer session has YOLO tool access inside Gondolin
       When the observer profiles the VM while exercising the selected scenario
@@ -86,7 +86,7 @@ Feature: Authoritative and complete runtime evidence
       And the profile cannot become an authoritative grade without deterministic validation
 
     @skip @gondolin
-    @item-05-010
+    @item-05-010 @deferred
     Scenario: Each comparison cycle isolates evidence from its pinned OTel capture policy
       Given the sealed harness snapshot supplies a declarative OTel capture policy
       When an independent Gondolin validator room opens for one regeneration cycle

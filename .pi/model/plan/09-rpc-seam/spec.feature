@@ -5,7 +5,7 @@ Feature: The harness's public seam is JSON-RPC over stdio
   Rule: Every request gets exactly one response carrying its id
 
     @skip
-    @item-09-001
+    @item-09-001 @balance
     Scenario: A request is answered once with its own id
       Given the harness is started with start.sh
       When a client sends a request with id 7
@@ -13,7 +13,7 @@ Feature: The harness's public seam is JSON-RPC over stdio
       And it is either ok with a result or not ok with an error
 
     @skip
-    @item-09-002
+    @item-09-002 @balance
     Scenario: An unknown method is refused without stopping the harness
       Given the harness is started with start.sh
       When a client sends a method the seam does not declare
@@ -23,14 +23,14 @@ Feature: The harness's public seam is JSON-RPC over stdio
   Rule: Cycles are submitted and observed through the seam
 
     @skip
-    @item-09-003
+    @item-09-003 @balance
     Scenario: Repeating a cycle request returns the original receipt
       Given a cycle was submitted with a request id
       When the same request id is submitted again
       Then the same receipt is returned and no second cycle starts
 
     @skip
-    @item-09-004
+    @item-09-004 @balance
     Scenario: Waiting on a submitted cycle returns its one terminal outcome
       Given a cycle was submitted
       When a client waits on its task

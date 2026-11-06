@@ -22,6 +22,15 @@ implemented. A regenerated harness is measured by the sealed graders an operator
 (`harness/graders.approved.json`); the `@e2e` and `@skip` tags left on scenarios by an earlier
 executable suite carry no verdict.
 
+Each item also carries one build tier, on the same line as its `@item` tag. A tier carries no
+verdict and never changes the checklist or its denominator:
+
+| Tag | Items | Meaning |
+|---|---|---|
+| `@minimum` | 29 | Parity with the legacy harness: the cut, fence, gate, probe, stamping, checklist, score, scoreboard, and goldens. Without these there is no cycle. |
+| `@balance` | 36 | New since the legacy harness, cheap on ORC, or closing a known legacy gap: the sealed grader, selection and approval, per-slice and durable builders, the RPC seam, and idempotency. |
+| `@deferred` | 29 | Not needed until a baseline scoreboard exists: runtime evidence (05), prompt optimization (06), and the operator cockpit and Grain surface in 04. |
+
 - Every builder (slice, repair, grader author) is a durable Pi session that ORC launches,
   keyed by its tick, in a Gondolin room ORC chooses (`02-018`, `02-019`,
   `execution-pipeline.allium`). The durable Pi host and the Gondolin images are provided, like

@@ -9,7 +9,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
   Rule: The checklist is derived from the spec and its denominator never drifts
 
     @skip
-    @item-03-001
+    @item-03-001 @minimum
     Scenario: The checklist is one item per stamped scenario of the approved selection
       Given an approved selection of stamped Gherkin scenarios
       When the checklist is derived
@@ -20,7 +20,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
   Rule: The grader is a sealed, calibrated instrument, not a per-cycle guess
 
     @skip
-    @item-03-002
+    @item-03-002 @balance
     Scenario: A grader is written once from the spec and calibrated before it is sealed
       Given no sealed grader covers a checklist item's scenario digest
       When an independent grader author derives a grader from only the selected Gherkin and the public calibration protocol
@@ -30,7 +30,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
       And only a calibrated grader is sealed under its scenario digests and offered for approval
 
     @skip
-    @item-03-003
+    @item-03-003 @balance
     Scenario: An approved grader is reused until its scenarios change
       Given an approved sealed grader covers every checklist item's scenario digest
       When a later cycle reaches the score stage
@@ -39,7 +39,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
       And a changed scenario digest requires a new grader for that item only
 
     @skip
-    @item-03-004
+    @item-03-004 @balance
     Scenario: A sealed grader changes only for a recorded reason
       Given an approved sealed grader would be replaced
       When the operator reviews the replacement
@@ -51,7 +51,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
   Rule: The score files honest verdicts
 
     @skip
-    @item-03-005
+    @item-03-005 @minimum
     Scenario: Zero verdicts mean the score did not happen
       Given a candidate passed the gate
       When the sealed grader returns no readable verdict for any item
@@ -59,7 +59,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
       And no measurement is recorded
 
     @skip
-    @item-03-006
+    @item-03-006 @minimum
     Scenario: An unreached item is recorded as failed and the denominator holds
       Given a checklist of three items
       And the grader reaches only one item
@@ -69,7 +69,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
       And the measurement is marked incomplete
 
     @skip
-    @item-03-007
+    @item-03-007 @deferred
     Scenario: Behavior, affordance, and runtime evidence are scored by the same sealed grader
       Given the sealed grader carries behavior, applicable affordance, and applicable runtime-evidence evaluators
       When the score stage runs against the candidate's public seam
@@ -79,7 +79,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
   Rule: The scoreboard compares cycles honestly
 
     @skip
-    @item-03-008
+    @item-03-008 @minimum
     Scenario: The scoreboard compares shared items in both directions and never nets them
       Given a recorded measurement and the measurement of the previous cycle for the same selection
       When the scoreboard is reported
@@ -89,7 +89,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
       And items new to the checklist are counted separately as the untuned holdout
 
     @skip
-    @item-03-009
+    @item-03-009 @minimum
     Scenario: The first cycle of a selection has no comparison
       Given no earlier measurement exists for the selection
       When the scoreboard is reported
@@ -99,7 +99,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
   # Ported from the legacy instrument (archive/legacy-harness/spec.feature): the stamper.
   Rule: An item identity is stamped once and never moves
 
-    @item-03-010
+    @item-03-010 @minimum
     Scenario: An unstamped scenario receives the next free identity in its slice
       Given a slice whose highest stamped sequence number is 4 and one scenario with no item tag
       When the slice is stamped
@@ -108,7 +108,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
       And a scenario whose only tags are not item tags counts as unstamped
       And a slice that gains no identity is not rewritten
 
-    @item-03-011
+    @item-03-011 @minimum
     Scenario: Stamping never renumbers, never re-derives, and never reuses an identity
       Given a stamped slice
       When it is stamped again, a scenario is reworded, or a scenario is deleted
@@ -119,7 +119,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
   # Ported from the legacy instrument: what a checklist item carries.
   Rule: A checklist item carries where it came from
 
-    @item-03-012
+    @item-03-012 @minimum
     Scenario: Each item names its identity, rule, source, and title
       Given an approved selection of stamped scenarios
       When the checklist is derived
@@ -130,14 +130,14 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
   # Ported from the legacy instrument. Guard: a measurement filed wrong cannot be untaken.
   Rule: The score refuses verdicts the checklist cannot account for
 
-    @item-03-013
+    @item-03-013 @minimum
     Scenario: A verdict for an item not on the checklist stops the score
       Given an item identity that is not on the checklist
       When the grader returns a verdict for that identity
       Then the score stage fails naming every unknown item, in the order the grader returned them
       And no measurement is recorded
 
-    @item-03-014
+    @item-03-014 @minimum
     Scenario: A verdict that is neither pass nor fail stops the score
       Given an item on the checklist
       When the grader returns the verdict "maybe", no verdict, or null for it
@@ -145,7 +145,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
       And no measurement is recorded
       And unknown items are reported before invalid verdicts, so a return with both faults names only the unknown items
 
-    @item-03-015
+    @item-03-015 @minimum
     Scenario: A repeated verdict keeps the last, and evidence is optional
       Given the grader returns two verdicts for one item, the second without evidence
       When the score is filed
@@ -155,14 +155,14 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
   # Ported from the legacy scoreboard: its arithmetic is contract.
   Rule: The scoreboard's arithmetic is fixed
 
-    @item-03-016
+    @item-03-016 @minimum
     Scenario: A rate exactly on a half rounds to the even digit
       Given a comparison whose shared rate is exactly 1 of 16
       When the scoreboard is reported
       Then the percentage is 6.2, not 6.3
       And a rate with a zero denominator reports no percentage at all
 
-    @item-03-017
+    @item-03-017 @minimum
     Scenario: A moved item set is stated only when it moved
       Given the previous cycle and this cycle
       When the scoreboard is reported
@@ -174,7 +174,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
   # That is the opposite of this instrument, so they may observe but never measure.
   Rule: Only the sealed grader judges
 
-    @item-03-018
+    @item-03-018 @balance
     Scenario: ORC evaluation judge scores are diagnostics, never verdicts
       Given ORC evaluation judges scored nodes of a cycle
       When the score stage files the measurement
@@ -187,7 +187,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
   # above, so they state what the spec says rather than what some implementation once did.
   Rule: The instrument's exact behaviour is held by goldens written from the spec
 
-    @item-03-019
+    @item-03-019 @minimum
     Scenario: An instrument golden is written from a scenario, never recorded from an implementation
       Given a scenario that fixes the instrument's exact behaviour, such as stamping, checklist derivation, a score refusal, or the scoreboard's arithmetic
       When its golden is written
@@ -196,7 +196,7 @@ Feature: The instrument: checklist, sealed grader, score, and scoreboard
       And it is never captured from any implementation's output
       And it is instrument material, fenced from every clean room like a grader
 
-    @item-03-020
+    @item-03-020 @minimum
     Scenario: The harness self-check reproduces every instrument golden before any clean room
       Given the instrument goldens
       When the harness self-check runs

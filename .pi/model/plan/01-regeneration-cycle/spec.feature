@@ -8,7 +8,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
   Rule: The neutral source cut is pinned and physically fenced
 
     @e2e
-    @item-01-001
+    @item-01-001 @minimum
     Scenario: Preparing a cut returns immutable commit and tree identities
       Given the operator names a full source commit and an execution backend
       When the Pi harness prepares the source cut
@@ -17,7 +17,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       And prior implementation and measurement paths are absent from the reachable cut history
 
     @skip
-    @item-01-002
+    @item-01-002 @minimum
     Scenario: The builder cannot modify or escape the cut
       Given a prepared cut and a declared candidate scope
       When a builder session is opened in Gondolin
@@ -26,7 +26,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       And network access, judge material, host credentials, and host session resources are unavailable
 
     @skip
-    @item-01-003
+    @item-01-003 @minimum
     Scenario: The clean room holds the spec, not an answer or a judge
       Given the repository holds implementations, measurements, reports, and the instrument
       When the fence builds the clean room
@@ -36,7 +36,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       And a fenced path that matches nothing stops the fence instead of passing silently
 
     @skip
-    @item-01-004
+    @item-01-004 @deferred
     Scenario: Slice mappings reconstruct the complete cut-bound system view
       Given a prepared cut contains Gherkin behavior items grouped into slices, components, and containers
       When the harness maps each item and reduces those mappings into a system view
@@ -47,7 +47,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
   Rule: Selection is deterministic and approval binds the reviewed identity
 
     @e2e
-    @item-01-005
+    @item-01-005 @balance
     Scenario: Previewing the same slice produces the same selection identity
       Given the same pinned cut, project, slice, and requested item subset
       And the selection has not already been approved
@@ -57,7 +57,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       And its status is awaiting approval
 
     @e2e
-    @item-01-006
+    @item-01-006 @balance
     Scenario: Approval refuses a digest other than the reviewed digest
       Given a selection contract is awaiting approval
       When approval names its selection identity with a different digest
@@ -67,14 +67,14 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
   Rule: Cycle submission is approved, scoped, and idempotent
 
     @e2e
-    @item-01-007
+    @item-01-007 @balance
     Scenario: An unapproved partial selection cannot start a slice cycle
       Given a recorded partial selection has not been approved
       When the operator submits a slice cycle for that selection
       Then submission is refused before a builder starts
 
     @skip
-    @item-01-008
+    @item-01-008 @balance
     Scenario: Repeating the same request identity returns the original receipt
       Given a regeneration request has already been submitted
       When the identical request is submitted with the same request identity
@@ -84,7 +84,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
   Rule: The builder produces a new candidate from the pinned contract
 
     @skip
-    @item-01-009
+    @item-01-009 @minimum
     Scenario: The builder starts fresh and must produce workspace output
       Given an approved selection and a prepared cut
       When the builder stage runs
@@ -94,7 +94,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       And a cycle with no generated workspace output fails
 
     @e2e
-    @item-01-010
+    @item-01-010 @balance
     Scenario: ORC exposes builder session identity in its executable contract
       Given the Pi harness ORC worker is running
       When Pi requests the executable regeneration workflow contract
@@ -103,7 +103,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
   Rule: Independent checks determine whether the cycle passes
 
     @skip
-    @item-01-011
+    @item-01-011 @minimum
     Scenario: Verification rejects an incomplete runnable application contract
       Given the builder has produced a candidate
       When the gate inspects and runs it
@@ -112,7 +112,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       And every required compose operation and candidate test command must succeed
 
     @skip @playback
-    @item-01-012
+    @item-01-012 @minimum
     Scenario: A final result requires every independent gate to pass
       Given the gate, the score, and the measurement have completed
       When the final result is derived
@@ -123,7 +123,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
   Rule: Evidence and measurement survive workflow process restarts
 
     @skip
-    @item-01-013
+    @item-01-013 @balance
     Scenario: Recording the same evidence twice is idempotent
       Given an observation or cycle measurement has already been recorded
       When the exact same identity and content are recorded again
@@ -131,7 +131,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
       But the same identity with different evidence is refused
 
     @skip
-    @item-01-014
+    @item-01-014 @balance
     Scenario: A completed measurement is readable after the harness restarts
       Given a cycle measurement was recorded through its validated command
       When the harness restarts against the same event store
@@ -140,7 +140,7 @@ Feature: Preparing, approving, and running a regeneration cycle through an opera
   Rule: Backend limitations remain explicit
 
     @skip
-    @item-01-015
+    @item-01-015 @balance
     Scenario: Host execution cannot be reported as independently graded
       Given a regeneration cycle uses the host backend
       When it reaches the independent grade stage
