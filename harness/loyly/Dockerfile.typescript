@@ -1,0 +1,8 @@
+FROM alpine:3.23.7
+
+RUN apk add --no-cache \
+    bash \
+    ca-certificates \
+    curl \
+    nodejs \
+    npm

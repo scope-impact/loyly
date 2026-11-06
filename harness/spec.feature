@@ -962,12 +962,12 @@ Feature: The harness: stamp, derive, score, report
       # executable: the gate refuses to run without one.
 
     @harness-054
-    Scenario: PLAN_DIR must agree with the path the tools resolve for themselves
+    Scenario: The tools resolve the plan tree that harness/config.sh declares
       Given "harness/config.sh" declares PLAN_DIR as "docs/specs"
-      And harness/hjson.clj resolves the plan tree as "docs/plan"
       When modules.sh runs
-      Then the PLAN_DIR line reads FAIL and shows both values
-      And the exit code is 1
+      Then harness/hjson.clj resolves the plan tree as "docs/specs"
+      And the PLAN_DIR line reads ok
+      And the exit code is 0
       # PLAN_DIR is declared although no tool reads it at runtime, and this scenario is
       # why: a documented surface that quietly disagrees with the code is worse than an
       # undocumented one, because it is believed. The resolved value is obtained by asking

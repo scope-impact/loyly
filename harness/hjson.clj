@@ -181,17 +181,28 @@
   (str/replace (subs (.getPath (io/file f)) (inc (count (.getPath (io/file root)))))
                java.io.File/separator "/"))
 
-(defn spec-files
-  "Every docs/plan/[0-9]*/spec.feature under `root`, sorted by path as text."
+(defn plan-path
+  "The spec root relative to `root`: the PLAN_DIR that root's harness/config.sh declares,
+  or docs/plan when it declares none. Read from the file, not the environment, so the tools
+  and modules.sh always resolve the same tree and a parent shell cannot leak its own."
   [root]
-  (->> (or (seq (.listFiles (io/file root "docs" "plan"))) [])
+  (let [config (io/file root "harness" "config.sh")
+        declared (when (.isFile config)
+                   (some #(second (re-find #"^\s*PLAN_DIR=[\"']?([^\"'\s#]+)" %))
+                         (str/split-lines (slurp config :encoding "UTF-8"))))]
+    (or (not-empty declared) "docs/plan")))
+
+(defn spec-files
+  "Every <PLAN_DIR>/[0-9]*/spec.feature under `root`, sorted by path as text."
+  [root]
+  (->> (or (seq (.listFiles (io/file root (plan-path root)))) [])
        (filter #(.isDirectory %))
        (filter #(re-find #"^[0-9]" (.getName %)))
        (map #(io/file % "spec.feature"))
        (filter #(.isFile %))
        (sort-by #(rel root %))))
 
-(defn plan-dir [root] (.getPath (io/file root "docs" "plan")))
+(defn plan-dir [root] (.getPath (io/file root (plan-path root))))
 
 (defn emit
   "Write text to a stream as UTF-8, whatever the ambient locale says."

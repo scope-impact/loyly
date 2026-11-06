@@ -1,0 +1,50 @@
+{
+  "arch": "aarch64",
+  "distro": "alpine",
+  "alpine": {
+    "version": "3.23.7",
+    "kernelPackage": "linux-virt",
+    "kernelImage": "vmlinuz-virt",
+    "rootfsPackages": [
+      "linux-virt",
+      "rng-tools",
+      "bash",
+      "ca-certificates",
+      "ca-certificates-bundle",
+      "curl",
+      "coreutils",
+      "e2fsprogs",
+      "e2fsprogs-extra",
+      "gcompat",
+      "python3",
+      "nodejs",
+      "npm",
+      "chromium",
+      "docker",
+      "docker-cli-compose",
+      "openssh",
+      "perf",
+      "bpftool",
+      "strace"
+    ],
+    "initramfsPackages": [],
+    "krunfwVersion": "v5.2.1"
+  },
+  "rootfs": {"label": "loyly-grader", "sizeMb": 2048},
+  "init": {"rootfsInitExtra": "grader-profile-init.sh"},
+  "postBuild": {
+    "copy": [
+      {"src": "lsof", "dest": "/usr/local/bin/lsof"},
+      {"src": "install-otel-ebpf.sh", "dest": "/tmp/install-otel-ebpf.sh"},
+      {"src": "otel-collector.yaml", "dest": "/etc/loyly/otel/collector.yaml"},
+      {"src": "otel-profiler.yaml", "dest": "/etc/loyly/otel/profiler.yaml"}
+    ],
+    "commands": [
+      "chmod +x /usr/local/bin/lsof /tmp/install-otel-ebpf.sh",
+      "/tmp/install-otel-ebpf.sh",
+      "test -x /usr/local/bin/obi",
+      "test -x /usr/local/bin/otelcol-contrib",
+      "test -x /usr/local/bin/otelcol-ebpf-profiler"
+    ]
+  }
+}

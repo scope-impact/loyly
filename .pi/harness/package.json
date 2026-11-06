@@ -1,0 +1,11 @@
+{
+  "name": "@loyly/pi-harness-runtime",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@earendil-works/gondolin": "0.14.0"
+  }
+}

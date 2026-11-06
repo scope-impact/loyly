@@ -1,0 +1,11 @@
+# Platform runtime base for typescript × container-postgres. The pinned package set is installed
+# under /opt/platform and exposed as /node_modules, so CommonJS and ESM imports from any app
+# directory resolve it by walking up (ESM ignores NODE_PATH). Built on the host; reaches
+# deny-egress rooms only as a saved image.
+FROM node:22-alpine
+WORKDIR /opt/platform
+RUN npm init -y >/dev/null \
+ && npm install --omit=dev --no-audit --no-fund pg@8.23.1 \
+ && ln -s /opt/platform/node_modules /node_modules \
+ && rm -rf /root/.npm
+WORKDIR /app

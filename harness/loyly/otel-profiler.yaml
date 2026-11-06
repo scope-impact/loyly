@@ -1,0 +1,17 @@
+receivers:
+  profiling:
+    samples_per_second: 19
+    bpf_fs_root: /sys/fs/bpf
+exporters:
+  file/profiles:
+    path: ${env:OTEL_FILE_EXPORT_DIR}/profiles.jsonl
+    format: json
+    create_directory: true
+service:
+  telemetry:
+    metrics:
+      level: none
+  pipelines:
+    profiles:
+      receivers: [profiling]
+      exporters: [file/profiles]

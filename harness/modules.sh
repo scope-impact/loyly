@@ -86,7 +86,17 @@ PER_REPO=(harness/config.sh harness/probe.sh harness/README.md)
 #                       and it is nothing to do with harness/oracle.sh despite the name.
 #                       The name is the real problem and a rename is the better fix; see
 #                       harness/README.md.
-LOCAL=(harness/oracle.py)
+#   harness/Makefile    loyly's runtime bootstrap: it builds the Gondolin assets and offline
+#                       runtime archives the Pi/ORC harness runs on. It is this repository's
+#                       build, not part of the instrument.
+#   harness/graders.approved.json
+#                       the sealed graders this repository's operator approved by exact
+#                       digest. An approval is one operator's decision about one spec, so
+#                       no other repository shares it.
+#   harness/regen.clj   runs one cycle for this repository's product: the legacy tools in
+#                       order, plus the two steps the legacy README left to a person (the
+#                       builder and the approved graders). Its prompts describe this product.
+LOCAL=(harness/oracle.py harness/Makefile harness/graders.approved.json harness/regen.clj)
 
 # Recorded goldens. Content is never compared either, for a different reason: each is
 # recorded from this repository's own spec and its own scored cycle, so there is no single
