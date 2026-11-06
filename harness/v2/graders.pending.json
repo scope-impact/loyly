@@ -122,6 +122,41 @@
         ]
       },
       "authorNote": "authored from spec only; did not read any candidate"
+    },
+    {
+      "digest": "sha256:496b00ed2a70230bf38f0f77432649740b79d4573d06ed09a0ca494a943120d8",
+      "entry": "grade_grader_lifecycle.exs",
+      "items": [
+        "03-001",
+        "03-002",
+        "03-003",
+        "03-004"
+      ],
+      "sealedAt": ".pi/harness/.state/graders/sealed/496b00ed2a70230bf38f0f77432649740b79d4573d06ed09a0ca494a943120d8/ (of the main checkout, or PI_HARNESS_STATE_ROOT)",
+      "source": "harness/v2/graders/grade_grader_lifecycle.exs",
+      "slice": "03 (.pi/spec/grader-lifecycle/spec.feature)",
+      "calibration": {
+        "protocol": "AGENTS.md, The instrument: carried behaviour passes and uncarried behaviour fails for every item",
+        "record": "harness/v2/graders/calibration-grader-lifecycle/calibration.json (rerun: harness/v2/graders/calibration-grader-lifecycle/calibrate.sh)",
+        "summary": [
+          "reference              4/4 pass",
+          "digest-not-moved       targets 03-001: fails; failing 1/4: 03-001",
+          "from-is-to             targets 03-001: fails; failing 1/4: 03-001",
+          "drop-note              targets 03-001: fails; failing 1/4: 03-001",
+          "no-move-history        targets 03-001: fails; failing 1/4: 03-001",
+          "ignore-digests         targets 03-001: fails; failing 4/4: 03-001,03-002,03-003,03-004",
+          "digests-at-boot        targets 03-001: fails; failing 4/4: 03-001,03-002,03-003,03-004",
+          "spec-grew-any-diff     targets 03-002: fails; failing 1/4: 03-002",
+          "refuse-but-record      targets 03-002: fails; failing 2/4: 03-002,03-003",
+          "accept-empty-note      targets 03-003: fails; failing 1/4: 03-003",
+          "empty-note-schema      targets 03-003: fails; failing 1/4: 03-003",
+          "accept-fourth-reason   targets 03-004: fails; failing 1/4: 03-004",
+          "fourth-reason-refusal  targets 03-004: fails; failing 1/4: 03-004",
+          "never-starts           0 verdicts filed, 4 unreached",
+          "exit-after-one         4 verdicts filed, none unreached; fail where a second answer was needed: 4/4"
+        ]
+      },
+      "authorNote": "authored from spec only; did not read any candidate"
     }
   ]
 }

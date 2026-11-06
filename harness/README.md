@@ -59,7 +59,12 @@ was written the same way: it hands the consumed handoffs in through their seam m
 offers its own reading of its fixture spec files to `measurement/derive-checklist`, and is
 calibrated by `v2/graders/calibration-measurement/calibrate.sh` (a reference stub passes
 all 24 items, each mutant fails the item it breaks); `v2/graders.pending.json` asks for its
-digest too. Until the operator approves a slice's grader, its cycle ends at the gate.
+digest too. The grader of slice 03, `v2/graders/grade_grader_lifecycle.exs`, hands its
+candidate the current scenario digests in the `LOYLY_SCENARIO_DIGESTS` file after the
+candidate first answers, and is calibrated by `v2/graders/calibration-grader-lifecycle/calibrate.sh`
+(a reference stub passes all 4 items, each mutant fails the item it breaks);
+`v2/graders.pending.json` asks for its digest as well. Until the operator approves a slice's
+grader, its cycle ends at the gate.
 
 **Where a spec-v2 cycle is filed (2026-11-07).** Each slice numbers its own cycles under
 `v2/cycles/NN/` (`01`, `02`, ...), never under `harness/cycles/`. `oracle.sh`, a shared module
