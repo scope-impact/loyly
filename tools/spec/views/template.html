@@ -1,0 +1,1068 @@
+<meta charset="utf-8">
+<title>Pi Harness Event Model</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout, ported from the Halla Health event-model page (tools/grain-specs/views/template.html): a drill-down board. Breadcrumb on top; each level is one board of event-modeling stickies (screen grey, command blue, event orange, read model green, policy lilac); wide boards scroll inside their own frame. */
+:root {
+  --bg: #f4f5f2; --surface: #ffffff; --fg: #1c231f; --muted: #5f6b65; --line: #d6dcd7;
+  --accent: #0e6b5c; --accent-soft: #dcefe9;
+  --cmd: #cfe0fb; --cmd-ink: #1d3f7a;
+  --evt: #fde2bd; --evt-ink: #7a4207;
+  --fail: #f8d4cf; --fail-ink: #7d2418;
+  --rm: #cdeed5; --rm-ink: #1c5a2c;
+  --proc: #e6d9f7; --proc-ink: #4b2a7a;
+  --scr: #e6e9e7; --scr-ink: #2d3833;
+  --ext: transparent; --ext-ink: #5f6b65;
+  --kw-given: #0e6b5c; --kw-when: #1d3f7a; --kw-then: #7a4207;
+  --warn: #9a5b00;
+  --font-display: "Familjen Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121715; --surface: #1a211e; --fg: #e3e9e5; --muted: #98a59f; --line: #2e3833;
+    --accent: #5cc9b0; --accent-soft: #1d3a33;
+    --cmd: #1e3355; --cmd-ink: #bcd3fb; --evt: #4a3115; --evt-ink: #fcd8a6;
+    --fail: #4a201b; --fail-ink: #f6c3bb; --rm: #1d3d26; --rm-ink: #bfe8c9;
+    --proc: #33264a; --proc-ink: #dccbf5; --scr: #262e2a; --scr-ink: #d3dbd6; --ext-ink: #98a59f;
+    --kw-given: #5cc9b0; --kw-when: #9dbdf5; --kw-then: #f3c27f; --warn: #f0b860;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121715; --surface: #1a211e; --fg: #e3e9e5; --muted: #98a59f; --line: #2e3833;
+  --accent: #5cc9b0; --accent-soft: #1d3a33;
+  --cmd: #1e3355; --cmd-ink: #bcd3fb; --evt: #4a3115; --evt-ink: #fcd8a6;
+  --fail: #4a201b; --fail-ink: #f6c3bb; --rm: #1d3d26; --rm-ink: #bfe8c9;
+  --proc: #33264a; --proc-ink: #dccbf5; --scr: #262e2a; --scr-ink: #d3dbd6; --ext-ink: #98a59f;
+  --kw-given: #5cc9b0; --kw-when: #9dbdf5; --kw-then: #f3c27f; --warn: #f0b860;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 64px;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 28px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(28px, 4.4vw, 40px); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 21px; font-weight: 600; }
+h3 { font-size: 15.5px; font-weight: 600; }
+p { margin: 0; max-width: 72ch; }
+code, .mono { font-family: var(--font-mono); font-size: 0.85em; }
+a { color: var(--accent); }
+.muted { color: var(--muted); }
+.eyebrow { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 14px 12px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+.crumbs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 14px; min-width: 0; }
+.crumbs a, .crumbs span { padding: 3px 8px; border-radius: 4px; text-decoration: none; }
+.crumbs a { color: var(--fg); background: var(--surface); border: 1px solid var(--line); }
+.crumbs a:hover, .crumbs a:focus-visible { border-color: var(--accent); outline: none; }
+.crumbs .here { font-weight: 600; color: var(--accent); }
+.crumbs .sep { color: var(--muted); padding: 0 2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; vertical-align: -1px; margin-right: 5px; }
+
+.head { display: grid; gap: 10px; padding-top: 10px; }
+.stats { display: flex; flex-wrap: wrap; gap: 6px 22px; font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); }
+.stats b { color: var(--fg); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+/* stickies */
+.st { display: inline-block; font-size: 12px; line-height: 1.3; padding: 5px 7px; border-radius: 3px; font-weight: 500; max-width: 100%; overflow-wrap: anywhere; }
+.st.cmd { background: var(--cmd); color: var(--cmd-ink); }
+.st.evt { background: var(--evt); color: var(--evt-ink); }
+.st.fail { background: var(--fail); color: var(--fail-ink); }
+.st.rm { background: var(--rm); color: var(--rm-ink); }
+.st.proc { background: var(--proc); color: var(--proc-ink); }
+.st.scr { background: var(--scr); color: var(--scr-ink); }
+.st.ext { background: var(--ext); color: var(--ext-ink); border: 1px dashed var(--line); }
+.st small { display: block; font-weight: 400; font-size: 10.5px; opacity: 0.85; font-family: var(--font-mono); }
+.stack { display: flex; flex-direction: column; gap: 5px; align-items: flex-start; }
+.row-wrap { display: flex; flex-wrap: wrap; gap: 5px; }
+
+/* L0 journey board */
+.frame { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+.board { display: grid; min-width: 1640px; }
+.board .lane-h { position: sticky; left: 0; z-index: 2; background: var(--surface); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 12px 10px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.board .stage-h { padding: 12px 10px 8px; border-bottom: 1px solid var(--line); border-left: 1px dashed var(--line); display: grid; gap: 2px; }
+.board .stage-h .n { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); }
+.board .stage-h b { font-family: var(--font-display); font-size: 14.5px; font-weight: 600; }
+.board .cell { padding: 10px; border-left: 1px dashed var(--line); border-bottom: 1px solid var(--line); min-width: 0; }
+.board .wallet { background: var(--accent-soft); }
+
+
+
+
+
+
+a.st { text-decoration: none; }
+a.st:hover, a.st:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.open-wallet { display: inline-flex; gap: 8px; align-items: center; font-weight: 600; padding: 9px 14px; border-radius: 5px; background: var(--accent); color: var(--bg); text-decoration: none; font-size: 14px; }
+.open-wallet:hover, .open-wallet:focus-visible { filter: brightness(1.08); outline: none; }
+
+/* L1 context map */
+.groups { display: grid; gap: 22px; }
+.group { display: grid; gap: 10px; }
+.group-h { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px; display: grid; gap: 9px; text-decoration: none; color: var(--fg); align-content: start; min-width: 0; }
+a.card:hover, a.card:focus-visible { border-color: var(--accent); outline: none; box-shadow: inset 0 0 0 1px var(--accent); }
+.card .nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.card .nums div { font-size: 11px; color: var(--muted); }
+.card .nums b { display: block; font-family: var(--font-display); font-size: 19px; color: var(--fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+.src { font-family: var(--font-mono); font-size: 10.5px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); justify-self: start; }
+.src.gap { border-color: var(--warn); color: var(--warn); }
+.handoffs { display: grid; gap: 6px; }
+.handoff { display: grid; grid-template-columns: minmax(120px, 1fr) auto minmax(150px, 1.3fr) auto minmax(120px, 1fr); gap: 8px; align-items: center; font-size: 13px; }
+.handoff .arr { color: var(--muted); font-family: var(--font-mono); }
+@media (max-width: 640px) { .handoff { grid-template-columns: 1fr; gap: 3px; padding-bottom: 8px; border-bottom: 1px solid var(--line); } .handoff .arr { display: none; } }
+
+/* L2 context board */
+.agg-board { display: grid; gap: 0; min-width: 980px; }
+.agg-row { display: grid; grid-template-columns: 170px 1.1fr 1.1fr 0.9fr 140px; border-bottom: 1px solid var(--line); }
+.agg-row > div { padding: 12px 10px; border-left: 1px dashed var(--line); min-width: 0; }
+.agg-row > div:first-child { border-left: 0; }
+.agg-row.h > div { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding-block: 10px; }
+.agg-name { display: grid; gap: 6px; align-content: start; }
+.agg-name a { font-family: var(--font-display); font-weight: 600; font-size: 15px; text-decoration: none; color: var(--fg); }
+.agg-name a:hover, .agg-name a:focus-visible { color: var(--accent); outline: none; }
+.drill { font-size: 12.5px; font-weight: 600; color: var(--accent); text-decoration: none; }
+.flow-list { display: grid; gap: 8px; }
+.flow { display: grid; grid-template-columns: 1fr auto auto auto 1fr; gap: 8px; align-items: center; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+.flow .arr { color: var(--muted); font-family: var(--font-mono); }
+.flow p { grid-column: 1 / -1; font-size: 12.5px; color: var(--muted); }
+@media (max-width: 720px) { .flow { grid-template-columns: 1fr; } .flow .arr { display: none; } }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+@media (max-width: 860px) { .two { grid-template-columns: 1fr; } }
+section { display: grid; gap: 12px; }
+
+/* L3 aggregate */
+.handlers { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 13px; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+td code { overflow-wrap: anywhere; }
+.inv { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+.inv > summary { list-style: none; cursor: pointer; padding: 12px 14px; display: grid; grid-template-columns: 1fr auto; gap: 6px 14px; align-items: start; }
+.inv > summary::-webkit-details-marker { display: none; }
+.inv > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 6px; }
+.inv > summary .t { font-size: 14px; }
+.inv > summary .meta { display: flex; gap: 6px; align-items: center; font-family: var(--font-mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+.inv > summary .id { grid-column: 1 / -1; font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.inv[open] > summary { border-bottom: 1px solid var(--line); }
+.tag { font-family: var(--font-mono); font-size: 10.5px; padding: 1px 6px; border-radius: 3px; background: var(--scr); color: var(--scr-ink); }
+.tag.nha { background: var(--accent-soft); color: var(--accent); }
+.tag.blocked { background: transparent; border: 1px solid var(--warn); color: var(--warn); }
+.scens { display: grid; gap: 0; }
+.gw { padding: 12px 14px; border-top: 1px dashed var(--line); display: grid; gap: 4px; font-size: 13.5px; }
+.gw:first-child { border-top: 0; }
+.gw .title { font-weight: 600; }
+.gw .tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.gw .step { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.55; padding-left: 4px; overflow-wrap: anywhere; }
+.gw .kw { font-weight: 500; }
+.kw.given { color: var(--kw-given); } .kw.when { color: var(--kw-when); } .kw.then { color: var(--kw-then); } .kw.and { color: var(--muted); }
+.gw .from { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.none { font-size: 13px; color: var(--muted); padding: 12px 14px; }
+.note { font-size: 13px; padding: 10px 14px; border-left: 3px solid var(--warn); background: var(--surface); border-radius: 0 6px 6px 0; }
+.note.ok { border-left-color: var(--accent); }
+footer { font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+@media (prefers-reduced-motion: no-preference) { #view { animation: fade .18s ease-out; } @keyframes fade { from { opacity: .4 } to { opacity: 1 } } }
+/* specs: Allium source, EDN blocks, coverage */
+pre.code { margin: 0; padding: 12px 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 5px; font-family: var(--font-mono); font-size: 12px; line-height: 1.5; overflow-x: auto; white-space: pre; }
+.code .k { color: var(--cmd-ink); font-weight: 500; } .code .c { color: var(--muted); } .code .q { color: var(--kw-given); }
+.lbl { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.cov { font-family: var(--font-mono); font-size: 10.5px; padding: 1px 6px; border-radius: 999px; white-space: nowrap; border: 1px solid var(--line); color: var(--muted); }
+.cov.spec { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.cov.draft { border-color: var(--warn); color: var(--warn); }
+.cov.gate { background: var(--scr); color: var(--scr-ink); border-color: transparent; }
+.obl { display: grid; gap: 6px; padding: 10px 14px; border-top: 1px dashed var(--line); }
+.obl-h { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; font-size: 13px; }
+.obl-h code { color: var(--fg); }
+.obl .gw { border: 1px solid var(--line); border-radius: 5px; background: var(--bg); }
+.gw.draft { border-style: dashed; border-color: var(--warn); }
+.inv-body { display: grid; gap: 10px; padding: 12px 14px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 860px) { .pair { grid-template-columns: 1fr; } }
+.chain { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.chain .arr { color: var(--muted); font-family: var(--font-mono); font-size: 12px; }
+.qlist { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13.5px; }
+.layers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+@media (max-width: 760px) { .layers { grid-template-columns: 1fr; } }
+.layer { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; display: grid; gap: 4px; font-size: 13px; }
+.layer b { font-family: var(--font-display); font-size: 15px; }
+.card .cov-bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--line); }
+.cov-bar i { display: block; height: 100%; }
+/* tabs and review */
+.tabs { display: flex; gap: 4px; }
+.tabs a { font-family: var(--font-display); font-weight: 600; font-size: 14px; padding: 6px 12px; border-radius: 5px; text-decoration: none; color: var(--fg); border: 1px solid var(--line); background: var(--surface); }
+.tabs a[aria-current="page"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.tabs a:hover, .tabs a:focus-visible { border-color: var(--accent); outline: none; }
+.left { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; min-width: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips a { font-size: 12.5px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); text-decoration: none; color: var(--fg); background: var(--surface); }
+.chips a.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.st-chip { font-family: var(--font-mono); font-size: 10.5px; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
+.st-chip.fixed { background: var(--accent-soft); color: var(--accent); }
+.st-chip.resolved { background: var(--cmd); color: var(--cmd-ink); }
+.st-chip.open { border: 1px solid var(--warn); color: var(--warn); }
+.st-chip.agrees { background: var(--scr); color: var(--scr-ink); }
+table.find td:first-child { font-family: var(--font-mono); color: var(--muted); width: 32px; }
+table.find td { font-size: 12.5px; }
+table.find td.cit { color: var(--muted); font-size: 11.5px; max-width: 220px; }
+.decide { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.decide li { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: 0 6px 6px 0; padding: 10px 14px; font-size: 13.5px; display: grid; gap: 4px; }
+.decide li .why { color: var(--muted); font-size: 12.5px; }
+/* C4 */
+.mm { overflow-x: auto; background: #ffffff; border: 1px solid var(--line); border-radius: 6px; padding: 12px; }
+.mm pre.mermaid { margin: 0; background: transparent; font-size: 12px; color: #1c231f; white-space: pre; }
+.mm { position: relative; }
+.mm svg { height: auto; max-height: 560px; }
+.mm .size { position: absolute; top: 8px; right: 8px; z-index: 1; font: 600 12px var(--font-body); padding: 4px 10px; border-radius: 5px; border: 1px solid #c9d2cc; background: #ffffff; color: #1c231f; cursor: pointer; }
+.mm .size:hover, .mm .size:focus-visible { border-color: #0e6b5c; outline: none; }
+.c4-note { font-size: 12.5px; color: var(--muted); }
+.key { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); }
+.key i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -2px; margin-right: 5px; }
+/* the spec card: When / Only if / Then / Examples */
+.toplink { font-size: 13px; font-weight: 600; color: var(--accent); text-decoration: none; padding: 3px 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+.spec { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; display: grid; gap: 12px; scroll-margin-top: 80px; }
+.spec:target, .rq:target { box-shadow: 0 0 0 2px var(--accent); }
+.spec-h { display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: space-between; align-items: flex-start; }
+.spec-h h3 { font-size: 18px; margin-top: 2px; }
+.spec-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.spec-grid { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 12px 16px; align-items: start; }
+.spec-grid > .k { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); padding-top: 4px; }
+@media (max-width: 640px) { .spec-grid { grid-template-columns: 1fr; gap: 4px; } .spec-grid > .k { padding-top: 10px; } }
+code.cl { font-size: 12.5px; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 3px 7px; display: inline-block; overflow-wrap: anywhere; }
+.rqs { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.rq { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; scroll-margin-top: 80px; border-radius: 6px; }
+.rq .n { width: 22px; height: 22px; border-radius: 50%; background: var(--fail); color: var(--fail-ink); font: 600 11.5px var(--font-mono); display: grid; place-items: center; margin-top: 2px; }
+.rq-body { display: grid; gap: 5px; min-width: 0; }
+.rq-meta { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 11.5px; font-family: var(--font-mono); }
+.then { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.then li { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.verb { font: 600 10.5px var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 7px; border-radius: 3px; min-width: 64px; text-align: center; }
+.verb.creates { background: var(--rm); color: var(--rm-ink); } .verb.emits { background: var(--evt); color: var(--evt-ink); }
+.verb.sets { background: var(--cmd); color: var(--cmd-ink); } .verb.if, .verb.otherwise, .verb.foreach, .verb.let, .verb.also { background: var(--scr); color: var(--scr-ink); }
+details.ex { border: 1px solid var(--line); border-radius: 5px; background: var(--bg); }
+details.ex.draft { border-style: dashed; border-color: var(--warn); }
+details.ex > summary { cursor: pointer; padding: 6px 10px; font-size: 12.5px; }
+details.ex .gw { border-top: 1px dashed var(--line); }
+.rq-meta .cov, .spec-tags .cov { line-height: 1.5; padding: 1px 8px; align-self: center; }
+details.src > summary { cursor: pointer; font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
+details.src .pair { margin-top: 8px; }
+.edn { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 10px; }
+.edn-d { font-size: 13.5px; color: var(--fg); max-width: 80ch; }
+.edn-grid { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 10px 16px; align-items: start; }
+.edn-grid > .k { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); padding-top: 6px; }
+@media (max-width: 640px) { .edn-grid { grid-template-columns: 1fr; gap: 4px; } }
+table.schema { min-width: 0; width: auto; border: 1px solid var(--line); border-radius: 6px; border-collapse: separate; border-spacing: 0; background: var(--bg); font-size: 13px; }
+table.schema td { padding: 6px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.schema tr:last-child > td { border-bottom: 0; }
+table.schema td:first-child { white-space: nowrap; }
+table.schema table.schema { margin-top: 4px; }
+.opt { font-family: var(--font-mono); font-size: 10px; color: var(--warn); border: 1px solid var(--warn); border-radius: 3px; padding: 0 4px; }
+.al { font-family: var(--font-mono); font-size: 11.5px; padding: 3px 8px; border-radius: 4px; background: var(--proc); color: var(--proc-ink); }
+/* event-storming board */
+.storm { background: #f1f4f7; border: 1px solid #c6d0da; border-radius: 6px; padding: 18px 20px 22px; display: grid; gap: 26px; overflow-x: auto; }
+.storm-t { font: 600 14px var(--font-body); letter-spacing: 0.04em; text-transform: uppercase; color: #2d3833; }
+.storm-flow { position: relative; display: flex; gap: 150px; align-items: flex-start; min-width: max-content; padding: 8px 4px 12px; }
+.storm-col { display: grid; gap: 34px; align-content: start; position: relative; z-index: 1; padding-top: 70px; }
+.storm-svg { position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; overflow: visible; }
+.storm-lbl { font: 600 11px var(--font-mono); paint-order: stroke; stroke: #f1f4f7; stroke-width: 4px; }
+.storm-lbl.state { fill: #2d3833; } .storm-lbl.event, .storm-lbl.policy { fill: #4b2a9a; }
+.storm-key { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; color: #2d3833; }
+.storm-key .ln { display: inline-block; width: 28px; vertical-align: middle; margin-right: 6px; border-top: 3px solid #2d3833; }
+.storm-key .ln.event, .storm-key .ln.policy { border-top: 3px dashed #6b3fc4; }
+.storm-row { display: flex; align-items: flex-start; gap: 0; min-width: max-content; }
+.storm-wrap { display: flex; flex-wrap: wrap; gap: 26px 28px; align-items: flex-start; }
+.storm-wrap > .storm-row { min-width: 0; }
+.clu { display: grid; grid-template-columns: 148px 158px; grid-template-areas: ". agg" "cmd evt" "act ref"; }
+.agg-spot { grid-area: agg; } .cmd-spot { grid-area: cmd; } .evt-spot { grid-area: evt; display: grid; } .act-spot { grid-area: act; } .ref-spot { grid-area: ref; display: grid; gap: 6px; margin-top: 4px; margin-left: 18px; }
+.sk { display: grid; place-items: center; text-align: center; min-height: 52px; padding: 8px 10px; font: 500 13px var(--font-body); line-height: 1.3; text-decoration: none; border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,.12); overflow-wrap: anywhere; }
+a.sk:hover, a.sk:focus-visible { outline: 2px solid #1c231f; outline-offset: 1px; }
+.sk.cmd { background: #4389d6; color: #fff; min-height: 70px; }
+.sk.evt { background: #d98444; color: #fff; min-height: 70px; } .sk.evt + .sk.evt { min-height: 44px; border-top: 1px solid rgba(255,255,255,.35); }
+.sk.evt.quiet { background: #e9b38c; color: #4a2a10; font-size: 12px; }
+.sk.evt small { display: block; font-size: 10.5px; opacity: .85; margin-top: 2px; }
+.sk.agg { background: #f2c14e; color: #3a2c06; min-height: 44px; }
+.sk.actor { background: #fbf3d5; color: #3a2c06; border: 2px solid #f2c14e; margin-top: 4px; min-height: 44px; }
+.sk.actor.quiet { font-size: 12px; color: #6b5a1e; }
+.sk.fail { background: #f8e5da; color: #4a2a10; border: 2px solid #d98444; font-size: 12.5px; min-height: 0; }
+.sk.fail small { font-family: var(--font-mono); font-size: 10.5px; opacity: .85; margin-top: 3px; display: block; overflow-wrap: break-word; word-break: normal; }
+.sk.other { background: #e6e9e7; color: #2d3833; border: 1px dashed #8a948f; align-self: start; margin-top: 44px; min-height: 70px; width: 128px; }
+.sk.other small { display: block; font-size: 11px; opacity: .8; }
+.arrow { align-self: flex-start; margin-top: 78px; width: 44px; height: 2px; border-top: 3px dashed #6b3fc4; position: relative; margin-left: 8px; margin-right: 10px; flex: none; }
+.arrow::after { content: ""; position: absolute; right: -2px; top: -8px; border: 6px solid transparent; border-left: 9px solid #6b3fc4; }
+.parked-tag { display: inline-block; font: 600 10.5px var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: #7a4a00; background: #fde9b8; border: 1px solid #d9a419; border-radius: 3px; padding: 1px 6px; margin-left: 6px; vertical-align: middle; justify-self: start; }
+.parked-tag.big { font-size: 12px; padding: 3px 9px; }
+.board .stage-h.parked { background: repeating-linear-gradient(135deg, #fdf3d6 0 8px, transparent 8px 16px); }
+.board .cell.parked { background-image: repeating-linear-gradient(135deg, rgba(217,164,25,.12) 0 8px, transparent 8px 16px); }
+.board .cell.parked .st, .parked-st .st { opacity: .6; }
+.parked-st { display: contents; }
+/* swimlanes: tints outside the sticky palette, so only stickies carry meaning by colour */
+:root { --lane-phone-1: #fbf6ec; --lane-phone-2: #f5ecda; --lane-phone-rule: #b8955a; --lane-server-rule: #0e6b5c; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --lane-phone-1: #231f18; --lane-phone-2: #2a241a; --lane-phone-rule: #c9a76a; --lane-server-rule: #5cc9b0; } }
+:root[data-theme="dark"] { --lane-phone-1: #231f18; --lane-phone-2: #2a241a; --lane-phone-rule: #c9a76a; --lane-server-rule: #5cc9b0; }
+.board .cell.content { background: var(--lane-phone-1); }
+.board .cell.phone { background: var(--lane-phone-2); }
+.board .cell.server { background: var(--surface); }
+.board .lane-h.content { background: var(--lane-phone-1); color: var(--fg); box-shadow: inset 4px 0 0 var(--lane-phone-rule); }
+.board .lane-h.phone { background: var(--lane-phone-2); color: var(--fg); box-shadow: inset 4px 0 0 var(--lane-phone-rule); }
+.board .lane-h.server { background: var(--surface); color: var(--fg); box-shadow: inset 4px 0 0 var(--lane-server-rule); }
+.board .lane-h.content, .board .lane-h.phone, .board .lane-h.server { font-weight: 600; }
+.suggest { margin-top: 6px; padding: 8px 10px; border: 1px dashed var(--accent); border-radius: 5px; background: var(--accent-soft); display: grid; gap: 3px; }
+.suggest .lbl { color: var(--accent); }
+/* loyly additions: the build tier of a scenario, an uncovered obligation */
+.cov.none { border-color: var(--fail-ink); color: var(--fail-ink); }
+.tier { font-family: var(--font-mono); font-size: 10.5px; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
+.tier.minimum { background: #d6efe0; color: #1d5a39; } .tier.balance { background: #f7e7c2; color: #6b4a07; } .tier.deferred { background: #e4e7e5; color: #4b5450; } .tier.untiered, .tier.draft { border: 1px solid var(--warn); color: var(--warn); }
+:root[data-theme="dark"] .tier.minimum { background: #1d3d26; color: #bfe8c9; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+
+<div class="wrap">
+  <div class="bar">
+    <div class="left"><nav class="crumbs" id="crumbs" aria-label="Where you are"></nav><a class="toplink" href="#review">Review</a></div>
+    <div class="legend">
+      <span><i style="background:var(--scr)"></i>screen / actor</span>
+      <span><i style="background:var(--cmd)"></i>command</span>
+      <span><i style="background:var(--evt)"></i>event</span>
+      <span><i style="background:var(--fail)"></i>refusal (requires)</span>
+      <span><i style="background:var(--rm)"></i>read model / query</span>
+      <span><i style="background:var(--proc)"></i>policy / timer</span>
+    </div>
+  </div>
+  <main id="view"></main>
+  <footer>Built on /*BUILT*/ by <code>tools/spec/views/build.sh</code> from the specs in <code>.pi/model/</code>: <code>*.allium</code> (behaviour), the Grain Event Model in <code>event-model/**/event_model.clj</code> (topology, as Grain registers it), <code>plan/NN-slug/spec.feature</code> and <code>drafts.feature</code> (examples), the coverage gate's own classification (<code>tools/spec/coverage.py --report</code>), and the C4 views of <code>.pi/architecture.md</code>. Nothing here is written by hand: change the specs and rebuild.</footer>
+</div>
+
+<script>
+const DOMAIN = /*DOMAIN*/null;
+window.addEventListener?.("error", e => document.documentElement?.setAttribute?.("data-js-error", String(e.message || e)));
+
+/* ---------- helpers ---------- */
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const short = k => String(k).split("/").pop();
+const nsOf = k => String(k).includes("/") ? String(k).split("/")[0] : null;
+const AREAS = DOMAIN.areas;
+const MAIN = Object.keys(AREAS).sort((a, b) => Object.keys(AREAS[b].flows || {}).length - Object.keys(AREAS[a].flows || {}).length)[0];
+const label = k => nsOf(k) && nsOf(k) !== MAIN ? `${nsOf(k)} · ${short(k)}` : short(k);
+const uniq = xs => [...new Set(xs)];
+const scenarios = DOMAIN.scenarios;
+const TAG = {};
+scenarios.forEach(s => s.tags.forEach(t => { if (t.startsWith("@allium-")) (TAG[t.slice(8)] ||= []).push(s); }));
+const WORDS = { orc: "ORC", pi: "Pi", rpc: "RPC", json: "JSON", id: "id", gepa: "GEPA", otel: "OTel", vm: "VM", ui: "UI" };
+const human = n => { const w = String(n).split(/[./]/).pop().replace(/([a-z0-9])([A-Z])/g, "$1 $2").split(/[-_ ]+/).filter(Boolean).map(x => WORDS[x.toLowerCase()] || x.toLowerCase());
+  return w.length ? (WORDS[w[0].toLowerCase()] ? w[0] : w[0][0].toUpperCase() + w[0].slice(1)) + (w.length > 1 ? " " + w.slice(1).join(" ") : "") : ""; };
+const kebab = n => String(n).replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+const snakeOf = n => String(n).replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+
+/* ---------- the unified model: one bounded context, the Pi harness ---------- */
+const KINDS = { commands: "Command", events: "Event", readModels: "Read model", queries: "Query", processors: "Policy (to-do processor)", periodic: "Timer (periodic task)", screens: "Screen" };
+const CLS = { commands: "cmd", events: "evt", readModels: "rm", queries: "rm", processors: "proc", periodic: "proc", screens: "scr" };
+const STEP = { command: "commands", event: "events", "read-model": "readModels", query: "queries", "todo-processor": "processors", "periodic-task": "periodic", screen: "screens" };
+const ALL = {}; Object.keys(KINDS).forEach(k => ALL[k] = {});
+for (const am of Object.values(AREAS)) for (const k of Object.keys(KINDS)) Object.assign(ALL[k], am[k] || {});
+const FLOWS = Object.assign({}, ...Object.values(AREAS).map(a => a.flows || {}));
+const MODS = DOMAIN.modules;
+const SLICES = DOMAIN.slices;
+const sliceOf = mid => SLICES.find(s => s.module === mid);
+const RULES = {};
+for (const [mid, m] of Object.entries(MODS)) for (const r of m.rules) RULES[r.name] = { ...r, mid };
+const SURFACES = Object.entries(MODS).flatMap(([mid, m]) => m.surfaces.map(s => ({ ...s, mid })));
+const modOfSpec = spec => { const m = String(spec || "").match(/([\w-]+)\.allium$/); return m && MODS[m[1]] ? m[1] : null; };
+const owner = {};   // a block's aggregate: the Allium file of the rule it links; an event, its command's
+for (const k of Object.keys(KINDS)) for (const [key, b] of Object.entries(ALL[k])) owner[key] ||= (b.allium || []).map(a => modOfSpec(a.spec)).find(Boolean) || null;
+for (const [key, b] of Object.entries(ALL.commands)) for (const e of b.produces || []) owner[e] ||= owner[key];
+const CTX = { id: MAIN, name: human(MAIN.split(".").pop()) + " context", description: AREAS[MAIN].description || "",
+  scen: scenarios.filter(s => s.kind === "spec"), drafts: scenarios.filter(s => s.kind === "drafts") };
+const emFile = key => AREAS[nsOf(key)]?.file || "";
+
+/* ---------- obligations: the coverage gate's own classification ---------- */
+const OB = {}; DOMAIN.coverage.obligations.forEach(o => OB[o.id] = o);
+function cov(id) {
+  const o = OB[id], sc = TAG[id] || [], n = sc.filter(s => s.kind === "spec").length;
+  if (!o) return { k: "none", t: "not an obligation", sc };
+  if (o.status === "covered") return { k: "spec", t: `${n} scenario${n === 1 ? "" : "s"}`, sc, o };
+  if (o.status === "drafted") return { k: "draft", t: "draft", sc, o };
+  if (o.status === "unit") return { k: "unit", t: "unit level", sc, o };
+  if (o.status === "gate") return { k: "gate", t: "gate " + o.gate, sc, o };
+  return { k: "none", t: "uncovered", sc, o };
+}
+const badge = c => `<span class="cov ${c.k}">${esc(c.t)}</span>`;
+const requiresOf = r => { const fs = Object.values(OB).filter(o => o.kind === "rule-failure" && o.rule === r.name).sort((a, b) => a.n - b.n); return fs.length ? fs.map(o => o.clause) : r.requires; };
+const fileOf = mid => mid + ".allium";
+const modObligations = mid => Object.values(OB).filter(o => o.file === fileOf(mid));
+function covCount(obs) { const r = { spec: 0, draft: 0, unit: 0, gate: 0, none: 0 }; obs.forEach(o => r[cov(o.id).k]++); return r; }
+
+/* ---------- who issues a rule's trigger; its Event Model block ---------- */
+const trig = r => ((r.when || "").match(/^(\w+)\(/) || [])[1];
+function actorOf(r) {
+  const t = trig(r), w = r.when || "";
+  if (!t) return /\bnow\b/.test(w) ? "time" : /\bbecomes\b/.test(w) ? "on state change" : "";
+  const s = SURFACES.find(s => s.provides.includes(t));
+  return s ? human(s.facingType || s.facing) : "on event";
+}
+function ruleBlock(r) {
+  for (const k of ["commands", "processors", "periodic", "queries", "readModels", "screens"])
+    for (const [key, b] of Object.entries(ALL[k])) if ((b.allium || []).some(a => a.kind === "rule" && a.name === r.name)) return [key, k];
+  return null;
+}
+
+/* ---------- rendering helpers ---------- */
+const st = (kind, lbl, sub, href) => {
+  const inner = `${esc(lbl)}${sub ? `<small>${esc(sub)}</small>` : ""}`;
+  return href ? `<a class="st ${kind}" href="#${href}">${inner}</a>` : `<span class="st ${kind}">${inner}</span>`;
+};
+const kwClass = w => ({ Given: "given", When: "when", Then: "then" }[w] || "and");
+const tierChip = s => s.tier ? `<span class="tier ${esc(s.tier)}" title="build tier">${esc(s.tier)}</span>` : "";
+function suggestFor(s) {
+  const has = k => s.steps.some(l => l.startsWith(k + " "));
+  if (has("Given") && has("When")) return "";
+  const r = s.tags.filter(t => /^@allium-rule-(success|failure)\./.test(t)).map(t => RULES[t.replace(/^@allium-rule-(success|failure)\./, "").replace(/\.\d+$/, "")]).find(Boolean);
+  if (!r) return "";
+  const g = gwtOf(r), ls = givenLines(g), out = [];
+  if (!has("Given")) out.push(ls.length ? ls.map((l, i) => `<div class="step"><span class="kw given">${i ? "And" : "Given"}</span> ${l}</div>`).join("") : `<div class="step"><span class="kw given">Given</span> <span class="muted">nothing yet (the rule starts the lifecycle)</span></div>`);
+  if (!has("When")) out.push(`<div class="step"><span class="kw when">When</span> ${esc(g.when)}</div>`);
+  return `<div class="suggest"><span class="lbl">suggested from the event model · rule ${esc(r.name)}</span>${out.join("")}</div>`;
+}
+const gherkin = s => `<div class="gw ${s.kind === "drafts" ? "draft" : ""}">
+  <div class="tags">${s.tags.map(t => `<span class="tag ${t.startsWith("@blocked") || t === "@draft" ? "blocked" : ""}">${esc(t)}</span>`).join("")}${tierChip(s)}</div>
+  <div class="title">Scenario: ${esc(s.title)}</div>
+  ${s.steps.map(l => { const [w, ...r] = l.split(" "); return `<div class="step"><span class="kw ${kwClass(w)}">${esc(w)}</span> ${esc(r.join(" "))}</div>`; }).join("")}
+  ${suggestFor(s)}
+  <div class="from">${esc(s.file)}:${s.line}${s.rule ? " · Rule: " + esc(s.rule) : ""}</div>
+</div>`;
+const KW = /\b(entity|external|rule|when|requires|ensures|invariant|surface|facing|context|exposes|provides|contracts|fulfils|transitions|terminal|contract|for|in|implies|and|or|not|exists|if|use|as|config|let|becomes|actor|enum|value)\b/g;
+const allium = src => `<pre class="code">${src.split("\n").map(l => {
+  const i = l.indexOf("--");
+  const [code, cm] = i >= 0 ? [l.slice(0, i), l.slice(i)] : [l, ""];
+  return esc(code).replace(KW, '<span class="k">$1</span>') + (cm ? `<span class="c">${esc(cm)}</span>` : "");
+}).join("\n")}</pre>`;
+
+/* ---------- an Event Model block, drawn: kind, schema as a table, connections, Allium ---------- */
+function malli(src) {
+  const toks = String(src).match(/\[|\]|\{|\}|"(?:[^"\\]|\\.)*"|[^\s,\[\]{}]+/g) || []; let i = 0;
+  const read = () => { const t = toks[i++];
+    if (t === "[") { const v = []; while (toks[i] !== "]" && i < toks.length) v.push(read()); i++; return v; }
+    if (t === "{") { const o = {}; while (toks[i] !== "}" && i < toks.length) { const k = read(); o[k] = read(); } i++; return { opts: o }; }
+    return t; };
+  return read();
+}
+const TYPES = { ":string": "text", "string?": "text", ":int": "whole number", "int?": "whole number", "pos-int?": "positive whole number", ":double": "number", "number?": "number",
+  ":boolean": "yes / no", "boolean?": "yes / no", ":keyword": "keyword", ":uuid": "id", "uuid?": "id", "inst?": "timestamp", ":inst": "timestamp", ":any": "anything", ":nil": "nothing", "nil?": "nothing" };
+function mType(t) {
+  if (!Array.isArray(t)) return typeof t === "string" ? esc(TYPES[t] || t.replace(/^:/, "")) : "";
+  const [head, ...rest0] = t; const opts = rest0[0]?.opts || null; const rest = opts ? rest0.slice(1) : rest0;
+  const lit = x => typeof x === "string" ? esc(x.replace(/^"|"$/g, "")) : mType(x);
+  switch (head) {
+    case ":map": return mTable(t);
+    case ":enum": return `one of ${rest.map(x => `<code>${lit(x)}</code>`).join(" ")}`;
+    case ":vector": case ":sequential": case ":set": return `list of ${mType(rest[0])}${opts?.[":min"] ? ` <span class="muted">(at least ${esc(opts[":min"])})</span>` : ""}`;
+    case ":maybe": return `${mType(rest[0])} <span class="muted">or nothing</span>`;
+    case ":or": return rest.map(mType).join(" <span class=\"muted\">or</span> ");
+    case ":tuple": return `(${rest.map(mType).join(", ")})`;
+    case ":=": return `exactly <code>${lit(rest[0])}</code>`;
+    case ":map-of": return `map of ${mType(rest[0])} to ${mType(rest[1])}`;
+    case ":fn": return `${mType(rest[0])}`;
+    default: return `${esc(String(head).replace(/^:/, ""))} ${rest.map(mType).join(" ")}`;
+  }
+}
+function mTable(t) {
+  const rows = t.slice(1).filter(e => !e?.opts).map(e => { const k = e[0], opts = e[1]?.opts, ty = opts ? e[2] : e[1];
+    return `<tr><td><code>${esc(String(k).replace(/^:/, ""))}</code>${opts?.[":optional"] === "true" ? ` <span class="opt">optional</span>` : ""}</td><td>${mType(ty)}</td></tr>`; }).join("");
+  return `<table class="schema"><tbody>${rows || `<tr><td colspan="2" class="muted">no fields</td></tr>`}</tbody></table>`;
+}
+function ednRaw(key, b) {
+  const lines = [`<span class="k">:${esc(key)}</span>`];
+  const row = (k, v) => lines.push(`  <span class="q">:${k}</span> ${v}`);
+  if (b.description) row("description", esc(JSON.stringify(b.description)));
+  if (b.schema) row("schema", esc(b.schema));
+  for (const k of ["subscribes", "consumes", "reads", "queries", "commands", "produces"]) if (b[k]?.length) row(k, esc("#{" + b[k].map(x => ":" + x).join(" ") + "}"));
+  if (b.schedule) row("schedule", esc(JSON.stringify(b.schedule)));
+  if (b.allium?.length) row("grain/allium", esc("[" + b.allium.map(a => `{:spec "${a.spec}" :kind :${a.kind} :name "${a.name}"}`).join(" ") + "]"));
+  return `<pre class="code">${lines.join("\n")}</pre>`;
+}
+const kindOf = (key, prefer) => prefer && ALL[prefer]?.[key] ? prefer : Object.keys(KINDS).find(k => ALL[k][key]);
+function ednBlock(key, b, showDesc = true, kind0) {
+  const kind = kindOf(key, kind0);
+  const conn = [["subscribes", "listens to", "events"], ["consumes", "built from", "events"], ["reads", "reads", null], ["queries", "shows", "queries"], ["commands", "issues", "commands"], ["produces", kind === "commands" ? "produces" : "issues", kind === "commands" ? "events" : "commands"]]
+    .filter(([f]) => b[f]?.length).map(([f, lbl, k]) => `<div class="k">${esc(lbl)}</div><div class="row-wrap">${b[f].map(x => blockLink(x, k || (kind === "processors" || kind === "screens" ? "queries" : "readModels"))).join("")}</div>`).join("");
+  const sched = b.schedule ? `<div class="k">schedule</div><div>${esc(JSON.stringify(b.schedule))}</div>` : "";
+  const al = b.allium?.length ? `<div class="k">Allium</div><div class="row-wrap">${b.allium.map(a => `<span class="al">${esc(a.kind)} <b>${esc(a.name)}</b></span>`).join("")}</div>` : "";
+  return `<div class="edn">
+    <div class="edn-h"><span class="st ${CLS[kind] || "scr"}">${esc(short(key))}<small>${esc(KINDS[kind] || "block")} · :${esc(nsOf(key))}</small></span></div>
+    ${showDesc && b.description ? `<p class="edn-d">${esc(b.description)}</p>` : ""}
+    <div class="edn-grid">
+      ${b.schema ? `<div class="k">schema</div><div>${mType(malli(b.schema))}</div>` : ""}
+      ${conn}${sched}${al}
+    </div>
+    <details class="src"><summary>Grain · ${esc(emFile(key))}</summary>${ednRaw(key, b)}</details>
+  </div>`;
+}
+const blkHash = (key, kind) => `blk-${CLS[kind] === "rm" ? (kind === "queries" ? "q" : "rm") : CLS[kind]}-${nsOf(key)}--${short(key)}`;
+const BLK = {};
+for (const kind of Object.keys(KINDS)) for (const key of Object.keys(ALL[kind])) BLK[blkHash(key, kind)] = [key, kind];
+function blockLink(key, kind, sub) {
+  const k = kindOf(key, kind) || kind;
+  const h = blkHash(key, k);
+  return BLK[h] ? st(CLS[k] || "scr", label(key), sub, h) : st(CLS[k] || "scr", label(key), sub);
+}
+function crumbs(parts) {
+  document.getElementById("crumbs").innerHTML = parts.map((p, i) =>
+    i === parts.length - 1 ? `<span class="here" aria-current="page">${esc(p[0])}</span>` : `<a href="#${p[1]}">${esc(p[0])}</a><span class="sep">›</span>`).join("");
+}
+const aggHash = mid => `mod-${mid}`;
+const HASH = {};
+for (const mid of Object.keys(MODS)) HASH[aggHash(mid)] = mid;
+for (const s of SLICES) if (!s.module) HASH[aggHash(s.id)] = s.id;
+const modTitle = mid => MODS[mid] ? human(mid) : human(String(mid).replace(/^\d+-/, ""));
+
+/* ---------- L1: the Pi harness ---------- */
+const C4 = n => (DOMAIN.c4 || []).find(d => d.title.startsWith("Level " + n));
+function viewHome() {
+  crumbs([["Pi Harness", "home"]]);
+  const rules = Object.keys(RULES).length, cv = covCount(Object.values(OB)), tot = Object.values(cv).reduce((a, b) => a + b, 0);
+  const pct = k => (100 * cv[k] / (tot || 1)).toFixed(1) + "%";
+  const l1 = C4(1), l2 = C4(2);
+  document.getElementById("view").innerHTML = `
+  <div class="head">
+    <div class="eyebrow">Level 1 · the big picture</div>
+    <h1>The Pi harness, as one event model</h1>
+    <p class="muted">${esc(CTX.description)} One bounded context, specified in three layers; ORC's <code>:sheet</code> blocks are the facts it dispatches and projects. Open the context for its aggregates, one per Allium file.</p>
+    <div class="stats"><span><b>${Object.keys(MODS).length}</b> Allium files</span><span><b>${rules}</b> rules</span><span><b>${Object.keys(ALL.commands).length}</b> commands</span><span><b>${Object.keys(ALL.events).length}</b> events</span><span><b>${SLICES.length}</b> slices</span><span><b>${CTX.scen.length}</b> scenarios</span><span><b>${CTX.drafts.length}</b> drafts</span></div>
+  </div>
+  <section><div class="cards">
+    <a class="card" href="#ctx">
+      <h3>${esc(CTX.name)}</h3><span class="muted" style="font-size:12.5px">Grain service area <code>:${esc(MAIN)}</code></span>
+      <div class="nums"><div><b>${Object.keys(MODS).length}</b>aggregates</div><div><b>${Object.keys(ALL.commands).length}</b>commands</div><div><b>${Object.keys(ALL.events).length}</b>events</div>
+        <div><b>${rules}</b>rules</div><div><b>${CTX.scen.length}</b>scenarios</div><div><b>${CTX.drafts.length}</b>drafts</div></div>
+      <div class="cov-bar" title="obligations: ${cv.spec} in scenarios, ${cv.draft} in drafts, ${cv.unit} unit level, ${cv.gate} by a gate, ${cv.none} uncovered"><i style="width:${pct("spec")};background:var(--accent)"></i><i style="width:${pct("draft")};background:var(--warn)"></i><i style="width:${pct("gate")};background:var(--muted)"></i></div>
+      <span class="muted" style="font-size:11.5px">${tot} obligations: ${cv.spec} in scenarios, ${cv.draft} drafted, ${cv.unit} unit level, ${cv.none} uncovered</span>
+      <span class="src">Allium · Event Model · Gherkin</span>
+    </a>
+  </div></section>
+  <section>
+    <h2>Each part is specified in three layers</h2>
+    <div class="layers">
+      <div class="layer"><span class="lbl">behaviour</span><b>Allium</b><span class="muted"><code>.pi/model/*.allium</code>: one file per aggregate. Its state and lifecycle, the rules that change it (<code>when</code> · <code>requires</code> · <code>ensures</code>), invariants, and the surfaces that say who may act.</span></div>
+      <div class="layer"><span class="lbl">topology</span><b>Event Model</b><span class="muted"><code>.pi/model/event-model/**/event_model.clj</code>: Grain's <code>defeventmodel</code> blocks (commands, events with schemas, read models, queries, policies) and the flows that join them. Each block links back to its Allium rule.</span></div>
+      <div class="layer"><span class="lbl">examples</span><b>Gherkin</b><span class="muted"><code>plan/NN-slug/spec.feature</code> and <code>drafts.feature</code>: Given/When/Then, each scenario stamped <code>@item-NN-SSS</code> with its build tier, and tagged <code>@allium-…</code> with the obligations it checks. A rule's success and each of its refusals is one obligation.</span></div>
+    </div>
+  </section>
+  ${l1 ? `<section><h2>System context (C4 level 1)</h2>${mmBlock(l1.source, "From <code>.pi/architecture.md</code>, " + esc(l1.title) + ".")}</section>` : ""}
+  ${l2 ? `<section><h2>Containers (C4 level 2)</h2>${mmBlock(l2.source, "From <code>.pi/architecture.md</code>, " + esc(l2.title) + ".")}</section>` : ""}`;
+  renderMermaid();
+}
+
+/* ---------- L2: the context ---------- */
+function procRow(k, p, kind) {
+  const ins = [...(p.subscribes || []).map(e => blockLink(e, "events")), ...(p.reads || []).map(r => blockLink(r, "queries", "to-do"))];
+  if (kind === "periodic") ins.push(st("scr", "clock", p.schedule ? JSON.stringify(p.schedule).replace(/[{}"]/g, "").replace(/,/g, ", ") : ""));
+  return `<div class="flow"><span class="row-wrap">${ins.join("")}</span><span class="arr">→</span>${blockLink(k, kind, kind === "periodic" ? "timer" : "policy")}<span class="arr">→</span>
+    <span class="row-wrap">${(p.produces || []).map(x => blockLink(x, "commands")).join("")}</span>${p.description ? `<p>${esc(p.description)}</p>` : ""}</div>`;
+}
+function rmRow(k, r) {
+  const qs = Object.entries(ALL.queries).filter(([, q]) => (q.reads || []).includes(k)).map(([q]) => q);
+  return `<div class="flow"><span class="row-wrap">${(r.consumes || []).map(e => blockLink(e, "events")).join("")}</span><span class="arr">→</span>
+    ${blockLink(k, "readModels", "read model")}<span class="arr">→</span><span class="row-wrap">${qs.map(q => blockLink(q, "queries", "query")).join("")}</span>
+    ${r.description ? `<p>${esc(r.description)}</p>` : ""}</div>`;
+}
+const modBlocks = (kind, mid) => Object.keys(ALL[kind]).filter(k => owner[k] === mid);
+function viewCtx() {
+  crumbs([["Pi Harness", "home"], [CTX.name, "ctx"]]);
+  const rows = [...Object.entries(MODS).map(([mid, m]) => {
+    const cmds = modBlocks("commands", mid), evs = modBlocks("events", mid), sl = sliceOf(mid);
+    const refusals = m.rules.reduce((n, r) => n + requiresOf(r).length, 0);
+    const actors = uniq(m.rules.map(actorOf).filter(Boolean));
+    const cv = covCount(modObligations(mid));
+    return `<div class="agg-row">
+      <div class="agg-name"><a href="#${aggHash(mid)}">${esc(modTitle(mid))}</a><span class="muted" style="font-size:12px">${esc(m.file)}</span>${sl ? `<span class="row-wrap">${st("scr", sl.id, "slice")}</span>` : ""}<a class="drill" href="#${aggHash(mid)}">Open →</a></div>
+      <div><div class="row-wrap">${actors.map(a => st("scr", a)).join("")}</div><div class="row-wrap" style="margin-top:6px">${cmds.map(k => blockLink(k, "commands")).join("")}</div></div>
+      <div><div class="row-wrap">${evs.map(e => blockLink(e, "events")).join("") || `<span class="muted" style="font-size:12.5px">none on the event model</span>`}</div></div>
+      <div><div class="stack" style="font-size:12.5px"><span><b>${m.rules.length}</b> rules</span><span><b>${refusals}</b> refusals</span><span><b>${m.invariants.length + m.surfaces.reduce((n, s) => n + s.guarantees.length, 0)}</b> invariants and guarantees</span>${m.openQuestions.length ? `<span class="muted">${m.openQuestions.length} open questions</span>` : ""}</div></div>
+      <div style="font-size:12.5px"><b>${scenarios.filter(s => s.slice === sl?.id && s.kind === "spec").length}</b> scenarios<br><span class="muted">${scenarios.filter(s => s.slice === sl?.id && s.kind === "drafts").length} drafts</span><br><span class="muted">${cv.spec} covered · ${cv.none} uncovered</span></div>
+    </div>`;
+  }), ...SLICES.filter(s => !s.module).map(s => `<div class="agg-row">
+      <div class="agg-name"><a href="#${aggHash(s.id)}">${esc(modTitle(s.id))}</a><span class="row-wrap">${st("scr", s.id, "slice")}</span><a class="drill" href="#${aggHash(s.id)}">Open →</a></div>
+      <div class="muted" style="font-size:12.5px">no Allium file</div><div></div><div class="muted" style="font-size:12.5px">no spec</div>
+      <div style="font-size:12.5px"><b>${scenarios.filter(x => x.slice === s.id).length}</b> scenarios</div></div>`)].join("");
+  const procs = [...Object.entries(ALL.processors).map(([k, p]) => procRow(k, p, "processors")), ...Object.entries(ALL.periodic).map(([k, p]) => procRow(k, p, "periodic"))].join("") || `<div class="none">No policies or timers.</div>`;
+  const rms = Object.entries(ALL.readModels).map(([k, r]) => rmRow(k, r)).join("") || `<div class="none">No read models.</div>`;
+  const flows = Object.entries(FLOWS).map(([fk, f]) => `<h3>${esc(short(fk))}</h3>${mmBlock(c4Dynamic(fk, f), esc(f.description || ""))}`).join("");
+  const bound = Object.values(MODS).flatMap(m => m.contracts.flatMap(k => k.invariants.map(i => {
+    const cv = cov("boundary." + i.name);
+    return `<details class="inv"><summary><span class="t"><b>${esc(i.name)}</b> · ${esc(i.text.replace(/Verified by:.*$/, ""))}</span><span class="meta">${badge(cv)}</span><span class="id">contract ${esc(k.name)} · @allium-boundary.${esc(i.name)}</span></summary>
+      <div class="scens">${cv.sc.map(gherkin).join("") || `<div class="none">${cv.k === "gate" ? "Checked by gate " + esc(cv.o.gate) + ", not by a scenario." : "No scenario."}</div>`}</div></details>`;
+  }))).join("");
+  const ext = Object.values(MODS).flatMap(m => m.entities.filter(e => e.external)).map(e => st("ext", e.name)).join("");
+  const actors = Object.values(MODS).flatMap(m => m.actors);
+  const oq = Object.values(MODS).flatMap(m => m.openQuestions);
+  const l3 = C4(3);
+  document.getElementById("view").innerHTML = `
+  <div class="head">
+    <div class="eyebrow">Level 2 · bounded context</div>
+    <h1>${esc(CTX.name)}</h1>
+    <p class="muted">${esc(CTX.description)}</p>
+    <div class="stats"><span>Grain area <b>:${esc(MAIN)}</b></span><span><b>${Object.keys(MODS).length}</b> aggregates</span><span><b>${Object.keys(ALL.commands).length}</b> commands</span><span><b>${Object.keys(ALL.events).length}</b> events</span><span><b>${Object.keys(ALL.readModels).length}</b> read models</span><span><b>${Object.keys(ALL.queries).length}</b> queries</span><span><b>${Object.keys(ALL.processors).length + Object.keys(ALL.periodic).length}</b> policies and timers</span><span><b>${CTX.scen.length}</b> scenarios</span><span><b>${CTX.drafts.length}</b> drafts</span></div>
+    <div class="note ok">Specs in <code>.pi/model/</code>: <code>*.allium</code>, ${Object.values(AREAS).map(a => `<code>${esc(a.file.replace(".pi/model/", ""))}</code>`).join(", ")}, <code>plan/NN-slug/spec.feature</code>${CTX.drafts.length ? ", <code>drafts.feature</code>" : ""}.</div>
+  </div>
+  <section>
+    <h2>Event model, by aggregate</h2>
+    <p class="muted">One Allium file per aggregate, with its Gherkin slice. Who acts on it, the commands it handles, and the events it records (a block belongs to the Allium file its <code>:grain/allium</code> link names). Open one for its rules, refusals and Given/When/Then.</p>
+    <div class="frame"><div class="agg-board">
+      <div class="agg-row h"><div>Aggregate · slice</div><div>Actors · commands</div><div>Events</div><div>Allium</div><div>Gherkin</div></div>
+      ${rows}
+    </div></div>
+  </section>
+  ${l3 ? `<section><h2>Components (C4 level 3)</h2>${mmBlock(l3.source, "From <code>.pi/architecture.md</code>, " + esc(l3.title) + ".")}` : "<section>"}
+    <details class="inv"><summary><span class="t">Policies, timers, read models and queries, with their descriptions</span><span class="meta">${Object.keys(ALL.processors).length + Object.keys(ALL.periodic).length} policies · ${Object.keys(ALL.readModels).length} read models</span></summary><div class="inv-body"><div class="two"><div class="flow-list">${procs}</div><div class="flow-list">${rms}</div></div></div></details>
+  </section>
+  ${flows ? `<section><h2>Flows (dynamic views)</h2><p class="muted">Each <code>:flows</code> entry of the Event Model, numbered: screen → command → event → read model → query → policy, as Grain validates it.</p>
+    <div class="key"><span><i style="background:#e6e9e7"></i>screen</span><span><i style="background:#cfe0fb"></i>command</span><span><i style="background:#fde2bd"></i>event</span><span><i style="background:#cdeed5"></i>read model</span><span><i style="background:#e3f5e7"></i>query</span><span><i style="background:#e6d9f7"></i>policy or timer</span></div>${flows}</section>` : ""}
+  <section>
+    <h2>The boundary: what holds everywhere</h2>
+    <p class="muted">The actors that may act (${actors.map(a => `<code>${esc(a)}</code>`).join(", ") || "none"}), any contract every surface fulfils, and what others own.</p>
+    ${ext ? `<div class="row-wrap"><span class="lbl" style="align-self:center">outside the harness</span>${ext}</div>` : ""}
+    <div class="flow-list">${bound || `<div class="none">No boundary contract.</div>`}</div>
+  </section>
+  ${oq.length ? `<section><h2>Open questions</h2><p class="muted">Allium <code>open question</code>s: what no source settles yet.</p><ul class="qlist">${oq.map(q => `<li>${esc(q)}</li>`).join("")}</ul></section>` : ""}`;
+  renderMermaid();
+}
+
+/* ---------- entities and their states, across every Allium file ---------- */
+function parseEntity(src) {
+  const body = src.replace(/^[^{]*\{/, "").replace(/\}\s*$/, "");
+  const trans = [...body.matchAll(/transitions\s+(\w+)\s*\{([\s\S]*?)\n\s*\}/g)].map(m => {
+    const edges = [], terminal = [];
+    for (const raw of m[2].split("\n")) { const l = raw.replace(/--.*$/, "").trim(); let x;
+      if ((x = l.match(/^(\w+)\s*->\s*(\w+)/))) edges.push([x[1], x[2]]);
+      else if ((x = l.match(/^terminal:\s*(.+)$/))) terminal.push(...x[1].split(",").map(y => y.trim()));
+    }
+    return { field: m[1], edges, terminal };
+  });
+  const rest = body.replace(/transitions\s+\w+\s*\{[\s\S]*?\n\s*\}/g, "");
+  const fields = [];
+  for (const raw of rest.split("\n")) {
+    const l = raw.replace(/--.*$/, "").trim(); const m = l.match(/^(\w+):\s*(.+)$/); if (!m) continue;
+    const [, name, ty] = m;
+    const enumv = / \| /.test(ty) && /^[\w |]+$/.test(ty);
+    const derived = !enumv && (/[=<>()]| and | or | not |\bnow\b|\bin\b/.test(ty) || /\.\w+\s*[-+]/.test(ty));
+    fields.push({ name, type: ty.trim(), kind: enumv ? "enum" : derived ? "derived" : "field" });
+  }
+  return { fields, trans };
+}
+const ENTITIES = {};
+for (const [mid, m] of Object.entries(MODS)) for (const e of m.entities) ENTITIES[e.name] = { e, mid, p: parseEntity(e.src) };
+const stateFields = n => { const E = ENTITIES[n]; if (!E) return []; const f = new Set(E.p.trans.map(t => t.field)); if (E.p.fields.some(x => x.name === "status")) f.add("status"); return [...f]; };
+const STATE_ENTS = Object.keys(ENTITIES).filter(n => stateFields(n).length);
+function entityOfVar(r, v) {
+  let m = r.src.match(new RegExp(`\\b${v}:\\s*(?:\\w+[./])?([A-Z]\\w*)`)); if (m && ENTITIES[m[1]]) return m[1];
+  m = r.src.match(new RegExp(`for ${v} in (\\w+)`)); if (m) { const n = m[1].replace(/s$/, ""); if (ENTITIES[n]) return n; }
+  return STATE_ENTS.find(n => snakeOf(n) === v || snakeOf(n).endsWith("_" + v)) || null;
+}
+function createdArgs(ens) {
+  const out = [];
+  for (const m of ens.matchAll(/\b(?:\w+[./])?([A-Z]\w*)\.created\(/g)) { let d = 1, i = m.index + m[0].length; const s = i; while (i < ens.length && d) { if (ens[i] === "(") d++; else if (ens[i] === ")") d--; i++; } out.push([m[1], ens.slice(s, i - 1)]); }
+  return out;
+}
+const STATES = new Map();   // rule -> the states it needs ([entity, field, value] from requires and a `becomes` trigger) and the ones it sets
+for (const r of Object.values(RULES)) {
+  const i = r.src.indexOf("ensures:"), req = i < 0 ? r.src : r.src.slice(0, i), ens = i < 0 ? "" : r.src.slice(i);
+  const o = { needs: [], sets: [] };
+  const take = (list, path, f, v) => { const E = entityOfVar(r, path.split(".").pop()); if (E && stateFields(E).includes(f)) list.push([E, f, v]); };
+  for (const m of req.matchAll(/requires:\s*([\w.]+)\.(\w+)\s*=\s*(\w+)\s*$/gm)) take(o.needs, m[1], m[2], m[3]);
+  const b = (r.when || "").match(/(\w+):\s*(?:\w+[./])?([A-Z]\w*)\.(\w+)\s+becomes\s+(\w+)/); if (b && ENTITIES[b[2]]) o.needs.push([b[2], b[3], b[4]]);
+  for (const m of ens.matchAll(/^\s*(?:ensures:\s*)?([\w.]+)\.(\w+)\s*=\s*(\w+)\s*$/gm)) take(o.sets, m[1], m[2], m[3]);
+  for (const [E, args] of createdArgs(ens)) for (const f of stateFields(E)) { const v = args.match(new RegExp(`\\b${f}:\\s*(\\w+)`)); if (v) o.sets.push([E, f, v[1]]); }
+  STATES.set(r.name, o);
+}
+const stLabel = ([E, f, v]) => `${E}.${f} = ${v}`;
+function stateRules(ent, t) {
+  const lab = {}, init = {};
+  for (const r of Object.values(RULES)) {
+    const s = STATES.get(r.name), timed = /(<=|>=|<|>)\s*now\b/.test(r.when || ""), name = (timed ? "⏱ " : "") + r.name;
+    const froms = s.needs.filter(x => x[0] === ent && x[1] === t.field).map(x => x[2]);
+    const created = createdArgs(r.src.slice(Math.max(0, r.src.indexOf("ensures:")))).some(([E]) => E === ent);
+    for (const [, , to] of s.sets.filter(x => x[0] === ent && x[1] === t.field)) {
+      if (created) (init[to] ||= new Set()).add(name);
+      else for (const [a, b] of t.edges) if (b === to && (!froms.length || froms.includes(a))) (lab[a + ">" + b] ||= new Set()).add(name);
+    }
+  }
+  return { lab, init };
+}
+const baseType = ty => ty.replace(/^\w+[./]/, "").replace(/\?$/, "").replace(/^(Set|List)<(?:\w+[./])?(\w+)>$/, "$2");
+function entityDiagram(mid, m) {
+  const own = m.entities.filter(e => !e.external).map(e => ({ e, p: ENTITIES[e.name].p }));
+  const rels = [], others = new Set();
+  const cls = own.map(({ e, p }, i) => {
+    const lines = p.fields.map(f => {
+      const t = f.kind === "enum" ? "(" + f.type.split("|").map(x => x.trim()).join(", ") + ")" : f.type.replace(/^\w+[./]/, "").replace(/[{}<>]/g, "~").replace(/[\/]/g, ".").slice(0, 40);
+      const base = baseType(f.type);
+      if (f.kind === "field" && ENTITIES[base] && base !== e.name) { rels.push([e.name, base, f.name]); if (ENTITIES[base].mid !== mid) others.add(base); }
+      return f.kind === "derived" ? `      +${f.name}() derived` : `      +${t} ${f.name}`;
+    });
+    return `    class ${e.name} {\n      <<${i === 0 ? "aggregate root" : "entity"}>>\n${lines.join("\n")}\n    }`;
+  });
+  const ext = [...m.entities.filter(e => e.external).map(e => e.name), ...others].map(n => `    class ${n} {\n      <<${ENTITIES[n]?.e.external ? "external entity" : "entity in " + ENTITIES[n].mid + ".allium"}>>\n    }`);
+  return `---
+title: "Code diagram (C4 level 4): ${mq(modTitle(mid))}, ${mq(m.file)}"
+---
+classDiagram
+    direction LR
+${cls.join("\n")}
+${ext.join("\n")}
+${rels.map(([a, b, f]) => `    ${a} --> ${b} : ${f}`).join("\n")}`;
+}
+function stateDiagram(e, t) {
+  if (!t.edges.length) return null;
+  const { lab, init } = stateRules(e.name, t);
+  const starts = Object.keys(init).length ? Object.keys(init) : [t.edges[0][0]];
+  const ln = [];
+  for (const s0 of starts) ln.push(`    [*] --> ${s0}${init[s0] ? " : " + [...init[s0]].join(", ") : ""}`);
+  for (const [a, b] of t.edges) { const l = lab[a + ">" + b]; ln.push(`    ${a} --> ${b}${l ? " : " + [...l].join(", ") : ""}`); }
+  for (const x of t.terminal) ln.push(`    ${x} --> [*]`);
+  return `---
+title: "Dynamic diagram: ${mq(e.name)}.${mq(t.field)} lifecycle, each arrow the Allium rule that makes it"
+---
+stateDiagram-v2
+    direction LR
+${ln.join("\n")}`;
+}
+
+/* ---------- one rule: its Allium, its Event Model block, its obligations ---------- */
+const rid = n => "r-" + String(n).replace(/[^A-Za-z0-9]/g, "-");
+function ensuresParts(src) {
+  const at = src.indexOf("ensures:"); if (at < 0) return [];
+  const body = src.slice(at).replace(/\n\}\s*$/, "");
+  const stmts = []; let cur = null, depth = 0;
+  for (const raw of body.split("\n")) {
+    const line = raw.replace(/--.*$/, ""), opens = (line.match(/\(/g) || []).length - (line.match(/\)/g) || []).length;
+    if (cur && depth > 0) { cur.t += " " + line.trim(); depth += opens; continue; }
+    const t = line.trim().replace(/^ensures:\s*/, ""); if (!t) continue;
+    // an `ensures:` line is depth 0; a line of an `ensures:` block sits under the rule's 8 spaces
+    cur = { t, ind: /^\s*ensures:/.test(line) ? 0 : Math.max(0, raw.match(/^\s*/)[0].length - 8) }; depth = opens; stmts.push(cur);
+  }
+  return stmts.map(({ t, ind }) => {
+    const d = Math.max(0, Math.round(ind / 4)); let m;
+    if ((m = t.match(/^(?:\w+[./])?([A-Z]\w*)\.created\(/))) return ["creates", m[1], d];
+    if ((m = t.match(/^(?:(\w+)[./])?([A-Z]\w*)\(/))) return ["emits", (m[1] && /^[a-z]/.test(m[1]) ? m[1] + "." : "") + m[2], d];
+    if ((m = t.match(/^([\w.]+)\.(\w+)\s*=\s*(.+)$/))) return ["sets", `${m[2]} = ${m[3]}`, d];
+    if (/^(if|else|for|let)\b/.test(t)) return [t.startsWith("else") ? "otherwise" : t.startsWith("for") ? "for each" : t.startsWith("let") ? "let" : "if", t.replace(/^(if|else|for|let)\s*/, "").replace(/:$/, ""), d];
+    return ["also", t, d];
+  });
+}
+/* Given / When from the event model and the Allium: Given = the facts that left the aggregate in the
+   state the rule requires (what the rules that ensure that state emit, or the fact that triggered
+   them), plus the event that triggers it when another rule emits it; When = its command or trigger. */
+const GWT = new Map();
+function gwtOf(r) {
+  if (GWT.has(r.name)) return GWT.get(r.name);
+  const s = STATES.get(r.name) || { needs: [], sets: [] };
+  const given = s.needs.map(([E, f, v]) => {
+    const prods = Object.values(RULES).filter(o => o.name !== r.name && STATES.get(o.name).sets.some(x => x[0] === E && x[1] === f && x[2] === v));
+    const evs = uniq(prods.flatMap(o => o.emits.length ? o.emits.map(e => e.split(/[./]/).pop()) : [trig(o)].filter(Boolean)));
+    return { state: stLabel([E, f, v]), events: evs, by: prods.map(o => o.name) };
+  });
+  const t = trig(r);
+  const trigIsEvent = t && Object.values(RULES).some(o => o.name !== r.name && o.emits.some(e => e.split(/[./]/).pop() === t));
+  const blk = ruleBlock(r), actor = actorOf(r), timed = /(<=|>=|<|>)\s*now\b/.test(r.when || "");
+  const when = timed ? "time passes: " + (r.when || "") : blk && blk[1] === "commands" ? `${actor && actor !== "on event" ? actor + " · " : ""}${human(short(blk[0]))}` : t ? `${human(t)} happens` : human(r.name);
+  const out = { given, trigger: trigIsEvent && !given.some(x => x.events.includes(t)) ? t : null, when, blk };
+  GWT.set(r.name, out); return out;
+}
+const givenLines = g => [...g.given.map(x => x.events.length ? `${x.events.map(human).join(" or ")} <span class="muted">(${esc(x.state)})</span>` : `<span class="muted">the aggregate is ${esc(x.state)}</span>`), ...(g.trigger ? [`${esc(human(g.trigger))} <span class="muted">(triggers it)</span>`] : [])];
+const exSummary = s => `${s.kind === "drafts" ? "draft" : "@item-" + esc(s.item || "")} · ${esc(s.title)} ${tierChip(s)}`;
+function ruleCard(r) {
+  const blk = ruleBlock(r), ok = cov("rule-success." + r.name), reqs = requiresOf(r);
+  const sc = list => list.length ? list.map(s => `<details class="ex ${s.kind === "drafts" ? "draft" : ""}"><summary>${exSummary(s)}</summary>${gherkin(s)}</details>`).join("") : "";
+  const tiers = uniq([ok, ...reqs.map((_, i) => cov(`rule-failure.${r.name}.${i + 1}`))].flatMap(c => c.sc.filter(s => s.kind === "spec").map(s => s.tier)));
+  const refusals = reqs.map((q, i) => { const id = `rule-failure.${r.name}.${i + 1}`, cv = cov(id);
+    return `<li class="rq" id="${rid(r.name)}-${i + 1}"><span class="n">${i + 1}</span><div class="rq-body"><code class="cl">${esc(q)}</code>
+      <div class="rq-meta">${badge(cv)}<span class="muted">@allium-${esc(id)}</span>${cv.k === "unit" ? `<span class="muted">checked by a unit test: a refusal on the aggregate's own state, a pick between two rules, or a redelivery</span>` : ""}</div>${sc(cv.sc)}</div></li>`; }).join("");
+  const thenLines = ensuresParts(r.src).map(([k, t, d]) => `<li style="margin-left:${d * 22}px"><span class="verb ${k.replace(/ /g, "")}">${k}</span>${t ? `<code>${esc(t)}</code>` : ""}</li>`).join("");
+  return `<article class="spec" id="${rid(r.name)}">
+    <header class="spec-h"><div><span class="lbl">rule</span><h3>${esc(r.name)}</h3></div>
+      <div class="spec-tags">${st("scr", actorOf(r) || "on event", "issued by")}${blk ? blockLink(blk[0], blk[1], "Event Model") : ""}${badge(ok)}${tiers.map(t => tierChip({ tier: t })).join("")}</div></header>
+    <div class="spec-grid">
+      <div class="k">Given</div><div>${(() => { const ls = givenLines(gwtOf(r)); return ls.length ? `<ul class="then">${ls.map(l => `<li><span class="verb emits">event</span><span>${l}</span></li>`).join("")}</ul>` : `<span class="muted">nothing yet: this rule starts the lifecycle</span>`; })()}</div>
+      <div class="k">When</div><div><code class="cl">${esc(r.when || "")}</code></div>
+      <div class="k">Only if</div><div>${refusals ? `<ol class="rqs">${refusals}</ol>` : `<span class="muted">nothing can refuse it</span>`}</div>
+      <div class="k">Then</div><div>${thenLines ? `<ul class="then">${thenLines}</ul>` : `<span class="muted">no effect stated</span>`}</div>
+      <div class="k">Examples</div><div>${sc(ok.sc) || `<span class="muted">no scenario${ok.k === "none" ? ": @allium-rule-success." + esc(r.name) + " is uncovered" : ""}</span>`}</div>
+    </div>
+    <details class="src"><summary>Source: ${esc(MODS[r.mid].file)}${blk ? " · " + esc(emFile(blk[0])) : ""}</summary><div class="pair">${allium(r.src)}${blk ? ednBlock(blk[0], ALL[blk[1]][blk[0]], true, blk[1]) : ""}</div></details>
+  </article>`;
+}
+
+/* ---------- one Event Model block: its spec first ---------- */
+function viewBlock(key, kind) {
+  const b = ALL[kind][key], mid = owner[key];
+  crumbs([["Pi Harness", "home"], [CTX.name, "ctx"], ...(mid ? [[modTitle(mid), aggHash(mid)]] : []), [label(key), blkHash(key, kind)]]);
+  const rules = (b.allium || []).filter(a => a.kind === "rule").map(a => RULES[a.name]).filter(Boolean);
+  const refs = field => Object.keys(KINDS).flatMap(k => Object.entries(ALL[k]).filter(([, v]) => (v[field] || []).includes(key)).map(([kk]) => [kk, k]));
+  let spec = "", around = "";
+  if (kind === "events") {
+    const producers = Object.entries(ALL.commands).filter(([, v]) => (v.produces || []).includes(key)).map(([kk]) => kk);
+    const shown = uniq(producers.flatMap(kk => (ALL.commands[kk].allium || []).filter(a => a.kind === "rule").map(a => RULES[a.name]).filter(Boolean)));
+    spec = `<section><h2>Spec</h2><p class="muted">The event's schema, then the Allium rule${shown.length === 1 ? "" : "s"} whose command records it, with ${shown.length === 1 ? "its" : "their"} obligations and Given/When/Then.</p>${ednBlock(key, b, false, kind)}</section>
+      ${shown.length ? `<section><h2>Emitted by</h2><div class="flow-list">${shown.map(ruleCard).join("")}</div></section>` : ""}`;
+    const consumers = [...refs("consumes"), ...refs("subscribes")];
+    around = `<section><h2>Around it</h2><div class="pair"><div class="stack" style="align-items:stretch"><span class="lbl">Produced by</span><div class="row-wrap">${producers.map(kk => blockLink(kk, "commands")).join("") || `<span class="muted">${nsOf(key) === MAIN ? "no command" : "ORC's runtime"}</span>`}</div></div>
+      <div class="stack" style="align-items:stretch"><span class="lbl">Consumed by</span><div class="row-wrap">${consumers.map(([kk, k]) => blockLink(kk, k)).join("") || `<span class="muted">no read model or policy</span>`}</div></div></div></section>`;
+  } else if (kind === "commands") {
+    spec = `<section><h2>Spec</h2><p class="muted">The Event Model block, and the Allium rule it carries out: who issues it, each <code>requires</code> that refuses it, what it ensures, and the Given/When/Then behind every obligation.</p>
+      <div class="flow-list">${rules.map(ruleCard).join("") || ednBlock(key, b, false, kind)}</div></section>`;
+    const issuers = refs("produces").filter(([, k]) => k !== "commands").concat(refs("commands"));
+    around = `<section><h2>Around it</h2><div class="pair"><div class="stack" style="align-items:stretch"><span class="lbl">Issued by</span><div class="row-wrap">${uniq(rules.map(actorOf)).filter(Boolean).map(a => st("scr", a)).join("")}${issuers.map(([kk, k]) => blockLink(kk, k)).join("")}</div></div>
+      <div class="stack" style="align-items:stretch"><span class="lbl">Produces</span><div class="row-wrap">${(b.produces || []).map(e => blockLink(e, "events")).join("") || `<span class="muted">no event</span>`}</div></div></div></section>`;
+  } else {
+    const ins = [...(b.consumes || []).map(e => blockLink(e, "events")), ...(b.subscribes || []).map(e => blockLink(e, "events")), ...(b.reads || []).map(r => blockLink(r, kind === "queries" ? "readModels" : "queries"))];
+    const outs = [...(b.produces || []).map(x => blockLink(x, "commands")), ...(b.commands || []).map(x => blockLink(x, "commands")), ...(b.queries || []).map(x => blockLink(x, "queries")), ...refs("reads").filter(([, k]) => k !== kind).map(([kk, k]) => blockLink(kk, k)), ...refs("queries").map(([kk, k]) => blockLink(kk, k))];
+    spec = `<section><h2>Spec</h2>${ednBlock(key, b, false, kind)}${rules.length ? `<div class="flow-list">${rules.map(ruleCard).join("")}</div>` : (b.allium || []).length ? `<p class="muted">Linked to Allium ${b.allium.map(a => `${esc(a.kind)} <code>${esc(a.name)}</code>`).join(", ")}.</p>` : ""}</section>`;
+    around = `<section><h2>Around it</h2><div class="pair"><div class="stack" style="align-items:stretch"><span class="lbl">Fed by</span><div class="row-wrap">${ins.join("") || `<span class="muted">none</span>`}</div></div><div class="stack" style="align-items:stretch"><span class="lbl">Feeds</span><div class="row-wrap">${uniq(outs).join("") || `<span class="muted">none</span>`}</div></div></div></section>`;
+  }
+  const flows = Object.entries(FLOWS).filter(([, f]) => f.steps.some(([ak, a, zk, z]) => (a === key && STEP[ak] === kind) || (z === key && STEP[zk] === kind)));
+  document.getElementById("view").innerHTML = `
+  <div class="head">
+    <div class="eyebrow">${esc(KINDS[kind])} in :${esc(nsOf(key))}${mid ? " · aggregate " + esc(modTitle(mid)) : ""}</div>
+    <h1>${esc(short(key))}</h1>
+    ${b.description ? `<p class="muted">${esc(b.description)}</p>` : ""}
+    <div class="note ok"><code>${esc(emFile(key))}</code>${rules.length ? ` · <code>${esc(MODS[rules[0].mid].file)}</code>` : ""}${mid ? ` · <a href="#${aggHash(mid)}">open the aggregate</a>` : ""}</div>
+  </div>
+  ${spec}
+  ${around}
+  ${flows.length ? `<section><h2>In the flows</h2><p class="muted">Drawn on <a href="#ctx">${esc(CTX.name)}</a>: ${flows.map(([fk]) => `<b>${esc(short(fk))}</b>`).join(", ")}.</p></section>` : ""}`;
+  renderMermaid();
+}
+
+/* ---------- the aggregate as an event-storming board ---------- */
+function aggBoard(mid) {
+  const m = MODS[mid], ents = m.entities.filter(e => !e.external);
+  const rules = m.rules, idx = new Map(rules.map((r, i) => [r, i]));
+  const S = r => STATES.get(r.name), aggOf = r => (S(r).sets[0] || S(r).needs[0] || [])[0] || createdArgs(r.src)[0]?.[0] || ents[0]?.name || modTitle(mid);
+  const many = new Set(rules.map(aggOf)).size > 1;
+  const evKey = e => Object.keys(ALL.events).find(x => short(x) === kebab(e.split(/[./]/).pop()));
+  const alias = e => /[./]/.test(e) ? e.split(/[./]/)[0] : null;
+  const edges = [];
+  for (const a of rules) for (const b of rules) if (a !== b) {
+    const shared = S(a).sets.filter(x => S(b).needs.some(y => x[0] === y[0] && x[1] === y[1] && x[2] === y[2])).map(([e, f, x]) => (many ? e + "." : "") + x);
+    if (shared.length) edges.push([a, b, "state", uniq(shared).join(", ")]);
+    if (a.emits.some(e => !alias(e) && e === trig(b))) edges.push([a, b, "event", human(trig(b))]);
+  }
+  const policyOf = new Map();
+  for (const [pk, p] of [...Object.entries(ALL.processors), ...Object.entries(ALL.periodic)])
+    for (const k of p.produces || []) for (const r of rules) if (ruleBlock(r)?.[0] === k) (policyOf.get(r) || policyOf.set(r, new Set()).get(r)).add(short(pk));
+  const outs = new Map(rules.map(r => [r, edges.filter(([x]) => x === r).map(([, y]) => y)]));
+  const starts = rules.filter(r => S(r).sets.length && !S(r).needs.length).concat(rules.filter(r => !edges.some(([, y]) => y === r)));
+  const back = new Set(), seen = new Set(), onWalk = new Set();
+  const walk = r => { seen.add(r); onWalk.add(r); for (const y of outs.get(r)) { if (onWalk.has(y)) back.add(r.name + ">" + y.name); else if (!seen.has(y)) walk(y); } onWalk.delete(r); };
+  [...starts, ...rules].forEach(r => { if (!seen.has(r)) walk(r); });
+  const forward = edges.filter(([x, y]) => !back.has(x.name + ">" + y.name));
+  const layer = new Map(rules.map(r => [r, 0]));
+  for (let pass = 0; pass < rules.length; pass++) for (const [x, y] of forward) { const la = layer.get(x) + 1; if (la > layer.get(y)) layer.set(y, la); }
+  const pairs = new Map();
+  for (const [a, b, kind, lbl] of edges) { const k = a.name + ">" + b.name; const e = pairs.get(k) || { a: a.name, b: b.name, kinds: new Set(), lbls: new Set() };
+    e.kinds.add(kind); if (kind !== "event") e.lbls.add(lbl); pairs.set(k, e); }
+  for (const e of pairs.values()) { const b = rules.find(r => r.name === e.b); (policyOf.get(b) || []).forEach(n => { e.lbls.add(n); e.kinds.add("policy"); }); }
+  const cols = []; rules.forEach(r => (cols[layer.get(r)] ||= []).push(r));
+  const cluster = r => {
+    const blk = ruleBlock(r), t = trig(r), actor = actorOf(r);
+    const cmdBox = blk ? `<a class="sk cmd" href="#${blkHash(blk[0], blk[1])}">${esc(human(short(blk[0])))}</a>` : `<a class="sk cmd" href="#" data-jump="${rid(r.name)}">${esc(human(r.name))}</a>`;
+    const grain = blk && blk[1] === "commands" ? (ALL.commands[blk[0]].produces || []).map(e => `<a class="sk evt" href="#${blkHash(e, "events")}">${esc(human(short(e)))}</a>`) : [];
+    const evs = r.emits.filter(e => !grain.length || !evKey(e)).map(e => { const key = evKey(e); const f = alias(e) && m.uses?.[alias(e)]; const sub = f && MODS[f] ? `<small>→ <span data-to="${aggHash(f)}">${esc(modTitle(f))}</span></small>` : "";
+      return key ? `<a class="sk evt" href="#${blkHash(key, "events")}">${esc(human(e))}${sub}</a>` : `<span class="sk evt">${esc(human(e))}${sub}</span>`; });
+    const sets = S(r).sets.map(([e, f, x]) => `<span class="sk evt quiet">${esc((many ? e + " " : "") + f + " → " + x)}</span>`);
+    const refs = requiresOf(r).map((q, i) => `<a class="sk fail" href="#" data-jump="${rid(r.name)}-${i + 1}" title="${esc(q)}">${esc(human(r.name))} refused<br><small>${esc(q.length > 54 ? q.slice(0, 52) + "…" : q)}</small></a>`);
+    return `<div class="clu" data-rule="${esc(r.name)}">
+      <div class="agg-spot"><span class="sk agg">${esc(aggOf(r))}</span></div>
+      <div class="cmd-spot">${cmdBox}</div><div class="evt-spot">${[...grain, ...evs].join("") || sets.join("") || `<span class="sk evt quiet">no event</span>`}</div>
+      <div class="act-spot">${actor && actor !== "on event" ? `<span class="sk actor">${esc(actor === "time" ? "Time" : actor)}</span>` : t ? `<span class="sk actor quiet">on ${esc(human(t))}</span>` : ""}</div>
+      <div class="ref-spot">${refs.join("")}</div>
+    </div>`;
+  };
+  const L = n => layer.get(rules.find(r => r.name === n));
+  const data = [...pairs.values()].map(e => ({ a: e.a, b: e.b, skip: L(e.b) - L(e.a), kind: e.kinds.has("state") ? "state" : e.kinds.has("event") ? "event" : "policy", lbl: [...e.lbls].join(" · ") }));
+  return `<div class="storm" data-edges="${esc(JSON.stringify(data))}"><div class="storm-t">${esc(modTitle(mid))}</div>
+    <div class="storm-key"><span><i class="ln state"></i>state it reaches</span><span><i class="ln event"></i>event that triggers</span><span><i class="ln policy"></i>policy</span></div>
+    <div class="storm-flow">${cols.map(col => `<div class="storm-col">${col.map(cluster).join("")}</div>`).join("")}<svg class="storm-svg" aria-hidden="true"></svg></div></div>`;
+}
+function drawStorms() {
+  document.querySelectorAll?.(".storm").forEach(board => {
+    const flow = board.querySelector(".storm-flow"), svg = board.querySelector(".storm-svg"); if (!flow || !svg) return;
+    const edges = JSON.parse(board.dataset.edges || "[]"), base = flow.getBoundingClientRect();
+    svg.setAttribute("width", flow.scrollWidth); svg.setAttribute("height", flow.scrollHeight);
+    const box = n => { const cl = flow.querySelector(`.clu[data-rule="${CSS.escape(n)}"]`); return cl && { e: cl.querySelector(".evt-spot").getBoundingClientRect(), c: cl.querySelector(".cmd-spot").getBoundingClientRect() }; };
+    const col = { state: "#2d3833", event: "#6b3fc4", policy: "#6b3fc4" };
+    let out = `<defs>${Object.entries(col).map(([k, v]) => `<marker id="ah-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${v}"/></marker>`).join("")}</defs>`;
+    edges.forEach((ed, i) => { const A = box(ed.a), B = box(ed.b); if (!A || !B) return;
+      const x1 = A.e.right - base.left, y1 = A.e.top + A.e.height / 2 - base.top, x2 = B.c.left - base.left, y2 = B.c.top + B.c.height / 2 - base.top;
+      const dx = Math.max(40, Math.abs(x2 - x1) / 2), arc = ed.skip > 1 || x2 <= x1;
+      const top = Math.min(A.c.top, B.c.top) - base.top - 26 - (i % 4) * 12;
+      const d = arc ? `M${x1},${y1} C${x1 + 50},${top} ${x2 - 50},${top} ${x2},${y2}` : `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+      const mx = (x1 + x2) / 2, my = arc ? top + 8 : (y1 + y2) / 2 - 7;
+      out += `<path d="${d}" fill="none" stroke="${col[ed.kind]}" stroke-width="2.2" ${ed.kind === "state" ? "" : 'stroke-dasharray="7 5"'} marker-end="url(#ah-${ed.kind})"/>`;
+      if (ed.lbl) out += `<text x="${mx}" y="${my}" text-anchor="middle" class="storm-lbl ${ed.kind}">${esc(ed.lbl)}</text>`; });
+    svg.innerHTML = out;
+  });
+}
+window.addEventListener?.("resize", () => drawStorms());
+
+/* ---------- L3: one aggregate (an Allium file, its Grain blocks, its slice) ---------- */
+function byRule(list) { const g = {}; list.forEach(s => (g[s.rule || "(no Rule)"] ||= []).push(s)); return g; }
+function sliceScenarios(sl, onlyUnlinked) {
+  const list = scenarios.filter(s => s.slice === sl.id && (!onlyUnlinked || !s.tags.some(t => t.startsWith("@allium-"))));
+  return Object.entries(byRule(list)).map(([r, ss]) => `<details class="inv"><summary><span class="t">${esc(r)}</span><span class="meta">${ss.length} scenarios</span></summary><div class="scens">${ss.map(gherkin).join("")}</div></details>`).join("");
+}
+function viewSlice(id) {
+  const sl = SLICES.find(s => s.id === id);
+  crumbs([["Pi Harness", "home"], [CTX.name, "ctx"], [modTitle(id), aggHash(id)]]);
+  document.getElementById("view").innerHTML = `
+  <div class="head"><div class="eyebrow">Level 3 · slice in ${esc(CTX.name)}</div><h1>${esc(modTitle(id))}</h1>
+    <p class="muted">${esc(sl.feature || "")}. ${esc(sl.description || "")}</p>
+    <div class="note">No Allium file: this slice is specified only in Gherkin (<code>${esc(sl.specFile || "")}</code>).</div></div>
+  <section><h2>Rules, from the feature file</h2><div class="flow-list">${sliceScenarios(sl, false)}</div></section>`;
+}
+function viewMod(mid) {
+  if (!MODS[mid]) return viewSlice(mid);
+  const m = MODS[mid], sl = sliceOf(mid);
+  crumbs([["Pi Harness", "home"], [CTX.name, "ctx"], [modTitle(mid), aggHash(mid)]]);
+  const cmds = modBlocks("commands", mid), evs = modBlocks("events", mid);
+  const props = [
+    ...m.invariants.map(i => ({ id: "invariant." + i.name, name: i.name, kind: "invariant", src: i.src })),
+    ...m.surfaces.flatMap(s => s.guarantees.map(g => ({ id: "guarantee." + g.name, name: g.name, kind: "guarantee on " + s.name, text: g.text })))
+  ].map(p => { const cv = cov(p.id); return `<details class="inv"><summary><span class="t"><b>${esc(p.name)}</b>${p.text ? " · " + esc(p.text.replace(/Verified by:.*$/, "")) : ""}</span><span class="meta">${badge(cv)}</span><span class="id">${esc(p.kind)} · @allium-${esc(p.id)}</span></summary>
+      ${p.src ? `<div class="inv-body">${allium(p.src)}</div>` : ""}<div class="scens">${cv.sc.map(gherkin).join("") || `<div class="none">${cv.k === "gate" ? "Checked by gate " + esc(cv.o.gate) + "." : "No scenario."}</div>`}</div></details>`; }).join("");
+  const cv = covCount(modObligations(mid));
+  const own = m.entities.filter(e => !e.external);
+  const states = own.flatMap(e => ENTITIES[e.name].p.trans.map(t => stateDiagram(e, t)).filter(Boolean));
+  const unlinked = sl ? sliceScenarios(sl, true) : "";
+  document.getElementById("view").innerHTML = `
+  <div class="head">
+    <div class="eyebrow">Level 3 · aggregate in ${esc(CTX.name)}</div>
+    <h1>${esc(modTitle(mid))}</h1>
+    <p class="muted">${esc(m.header)}</p>
+    <div class="stats">${sl ? `<span>slice <b>${esc(sl.id)}</b></span>` : ""}<span><b>${cmds.length}</b> commands</span><span><b>${m.rules.length}</b> rules</span><span><b>${evs.length}</b> events</span><span><b>${scenarios.filter(s => s.slice === sl?.id && s.kind === "spec").length}</b> scenarios</span><span><b>${scenarios.filter(s => s.slice === sl?.id && s.kind === "drafts").length}</b> drafts</span><span><b>${cv.spec}</b> obligations covered · <b>${cv.draft}</b> drafted · <b>${cv.none}</b> uncovered · <b>${cv.unit}</b> unit level</span></div>
+    <div class="note ok"><code>${esc(m.file)}</code>${sl ? ` · <code>${esc(sl.specFile)}</code>` : ""}${sl?.draftsFile ? ` · <code>${esc(sl.draftsFile)}</code>` : ""}</div>
+  </div>
+  <section><h2>Event storm</h2><p class="muted">Each rule as a sticky cluster: the command (blue) and who issues it, the aggregate (yellow) over the event it records (orange), and below it each refusal, a <code>requires</code> that must hold. Read left to right: each column follows the one before it, by the state it needs, the event that triggers it or the policy that issues it. Click a sticky for its spec.</p>${aggBoard(mid)}</section>
+  <section id="states">
+    <h2>Entity and state</h2>
+    <p class="muted">The aggregate's entities in Allium as a C4 code-level diagram, and each <code>transitions</code> block, the only lifecycle allowed, as a state diagram.</p>
+    ${own.length ? mmBlock(entityDiagram(mid, m), "Each entity of the Allium file with its fields (<code>+Type name</code>), derived fields (<code>name() derived</code>, computed, never stored) and the entities it references.") : `<div class="none">No entity of its own.</div>`}
+    ${states.map(d => mmBlock(d, "Each state is a value of the field; each arrow names the rule whose <code>requires</code> and <code>ensures</code> make that transition, from any Allium file (⏱ a rule triggered by time). Unlabelled: no rule makes it.")).join("")}
+    <details class="inv"><summary><span class="t">Allium source</span><span class="meta">${esc(m.file)}</span></summary><div class="inv-body">${own.map(e => allium(e.src)).join("")}</div></details>
+  </section>
+  <section>
+    <h2>Rules, with their Given/When/Then</h2>
+    <p class="muted">Each rule beside its Event Model block. Below each, its obligations: the success, and one per <code>requires</code>. Each obligation opens the scenarios tagged with it; dashed amber ones are drafts awaiting the product owner.</p>
+    <div class="flow-list">${m.rules.map(r => ruleCard(RULES[r.name])).join("") || `<div class="none">No rules.</div>`}</div>
+  </section>
+  ${props ? `<section><h2>Invariants and guarantees</h2><p class="muted">What always holds (<code>invariant</code>), and what a surface promises (<code>@guarantee</code>).</p><div class="flow-list">${props}</div></section>` : ""}
+  ${unlinked ? `<section><h2>Scenarios not yet linked to a rule</h2><p class="muted">Scenarios of <code>${esc(sl.specFile)}</code> with no <code>@allium-…</code> tag, by their Gherkin <code>Rule:</code>. Tagging each with the obligations it checks moves it under its rule above.</p><div class="flow-list">${unlinked}</div></section>` : ""}
+  ${m.openQuestions.length ? `<section><h2>Open questions</h2><ul class="qlist">${m.openQuestions.map(q => `<li>${esc(q)}</li>`).join("")}</ul></section>` : ""}`;
+  renderMermaid();
+  globalThis.requestAnimationFrame?.(() => drawStorms());
+}
+
+/* ---------- Mermaid ---------- */
+const mq = t => String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "#quot;");
+const nid = t => "n_" + String(t).replace(/[^A-Za-z0-9]/g, "_");
+const nodeLbl = (name, type) => `"<b>${mq(name)}</b><br/>[${mq(type)}]"`;
+const KCLS = { command: "cmd", event: "evt", "read-model": "rm", query: "q", "todo-processor": "pol", "periodic-task": "pol", screen: "scr" };
+function c4Dynamic(fk, f) {
+  const nodes = new Map(), kindOfNode = new Map(), lines = [];
+  const node = (k, n) => { const id = nid(k + "_" + n); if (!nodes.has(id)) { nodes.set(id, `    ${id}[${nodeLbl(label(n), { "todo-processor": "policy", "periodic-task": "timer", "read-model": "read model" }[k] || k)}]`); kindOfNode.set(id, k); } return id; };
+  f.steps.forEach(([ak, an, zk, zn], i) => { if (!zk) return; const b = node(zk, zn); if (ak) lines.push(`    ${node(ak, an)} -->|"${i + 1}"| ${b}`); });
+  return `---
+title: "Dynamic diagram: ${mq(short(fk))} (:${mq(nsOf(fk))} flow)"
+---
+flowchart LR
+${[...nodes.values()].join("\n")}
+${lines.join("\n")}
+    classDef cmd fill:#cfe0fb,stroke:#1d3f7a,color:#1d3f7a
+    classDef evt fill:#fde2bd,stroke:#7a4207,color:#7a4207
+    classDef rm fill:#cdeed5,stroke:#1c5a2c,color:#1c5a2c
+    classDef q fill:#e3f5e7,stroke:#1c5a2c,color:#1c5a2c
+    classDef pol fill:#e6d9f7,stroke:#4b2a7a,color:#4b2a7a
+    classDef scr fill:#e6e9e7,stroke:#2d3833,color:#2d3833
+    linkStyle default stroke:#2d3833,stroke-width:1.7px
+${[...kindOfNode].map(([id, k]) => `    class ${id} ${KCLS[k] || "scr"}`).join("\n")}`;
+}
+const mmBlock = (src, note) => `<div class="mm"><button class="size" type="button" aria-pressed="false" onclick="mmSize(this)">Actual size</button><pre class="mermaid">${esc(src)}</pre></div>${note ? `<p class="c4-note">${note}</p>` : ""}`;
+function mmSize(btn) {
+  const m = btn.parentElement, svg = m.querySelector("svg"); if (!svg) return;
+  const on = m.classList.toggle("full");
+  if (svg.dataset.mw === undefined) svg.dataset.mw = svg.style.maxWidth || "";
+  const w = svg.viewBox?.baseVal?.width;
+  svg.style.maxWidth = on ? "none" : svg.dataset.mw;
+  svg.style.width = on && w ? w + "px" : "";
+  svg.style.maxHeight = on ? "none" : "";
+  btn.setAttribute("aria-pressed", String(on));
+  btn.textContent = on ? "Fit to width" : "Actual size";
+}
+function renderMermaid() {
+  if (!window.mermaid?.run) return;
+  try {
+    window.mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "base", flowchart: { htmlLabels: true, curve: "basis", useMaxWidth: true }, class: { useMaxWidth: true }, state: { useMaxWidth: true }, sequence: { useMaxWidth: true }, themeVariables: { fontFamily: "Instrument Sans, system-ui, sans-serif", fontSize: "13px" } });
+    window.mermaid.run({ querySelector: "#view pre.mermaid" }).catch(e => document.documentElement?.setAttribute?.("data-js-error", "mermaid: " + (e?.message || e)));
+  } catch (e) {}
+}
+
+/* ---------- Review: what the product owner decides ---------- */
+const RULE_OF_OB = o => o.rule ? `rule-${o.rule}` : null;
+function viewReview() {
+  crumbs([["Review", "review"]]);
+  const S = DOMAIN.coverage.summary, all = Object.values(OB);
+  const drafts = CTX.drafts;
+  const oqs = Object.entries(MODS).flatMap(([mid, m]) => m.openQuestions.map(q => [mid, q]));
+  const uncovered = Object.keys(MODS).map(mid => {
+    const os = all.filter(o => o.file === fileOf(mid) && o.status === "uncovered");
+    return os.length ? `<details class="inv"><summary><span class="t"><b>${esc(modTitle(mid))}</b></span><span class="meta">${os.length} uncovered</span><span class="id">${esc(MODS[mid].file)} · tag each on the scenario that checks it, or draft one in drafts.feature</span></summary><div class="inv-body"><ul class="qlist">${os.map(o => `<li><a href="#${RULE_OF_OB(o) || aggHash(mid)}"><code>@allium-${esc(o.id)}</code></a>${o.clause ? ` <span class="muted">${esc(o.clause)}</span>` : ""}</li>`).join("")}</ul></div></details>` : "";
+  }).join("");
+  const draftAt = s => { const r = s.tags.map(t => t.match(/^@allium-rule-(?:success|failure)\.(\w+)/)?.[1]).find(n => RULES[n]); return r ? `rule-${r}` : s.module ? aggHash(s.module) : "ctx"; };
+  const draftList = drafts.length ? `<ul class="qlist">${drafts.map(s => `<li><a href="#${draftAt(s)}">${esc(s.title)}</a> <span class="muted">${esc(s.file)}:${s.line}</span></li>`).join("")}</ul>` : `<div class="none">No drafts.</div>`;
+  const unknown = DOMAIN.coverage.unknownTags || [];
+  document.getElementById("view").innerHTML = `
+  <div class="head">
+    <div class="eyebrow">Review · the coverage gate, ${esc(DOMAIN.commit)}${DOMAIN.dirty ? " with local changes" : ""}</div>
+    <h1>What the product owner reviews</h1>
+    <p class="muted">The coverage gate's own result (<code>tools/spec/coverage.py</code>): every must-cover Allium obligation should be tagged <code>@allium-&lt;obligation&gt;</code> on an accepted scenario's tag line, or on a draft in the slice's <code>drafts.feature</code>. Only the product owner moves a draft into <code>spec.feature</code>.</p>
+    <div class="stats"><span><b>${S.mustCover}</b> must-cover</span><span><b>${S.covered}</b> covered</span><span><b>${S.drafted}</b> drafted</span><span><b>${S.uncovered}</b> uncovered</span><span><b>${S.unitLevel}</b> unit level</span><span><b>${drafts.length}</b> drafts</span><span><b>${oqs.length}</b> open questions</span></div>
+    <div class="note ${S.uncovered || unknown.length ? "" : "ok"}"><code>must-cover ${S.mustCover} | covered ${S.covered} | drafted ${S.drafted} | uncovered ${S.uncovered} | unit-level ${S.unitLevel}</code></div>
+  </div>
+  ${unknown.length ? `<section><h2>Unknown tags</h2><p class="muted">Tags naming no obligation <code>allium plan</code> derives: a renamed rule, or a typo.</p><ul class="qlist">${unknown.map(t => `<li><code>@allium-${esc(t)}</code></li>`).join("")}</ul></section>` : ""}
+  <section><h2>Drafts awaiting acceptance</h2><p class="muted">Scenarios proposed for obligations no accepted scenario covers; each opens the rule where it is shown in full. The harness does not read them until they are accepted and stamped.</p>${draftList}</section>
+  <section><h2>Uncovered obligations</h2><p class="muted">By Allium file. Each opens its rule card, where the obligation sits under its <code>requires</code> or its examples.</p><div class="flow-list">${uncovered || `<div class="none">None.</div>`}</div></section>
+  <section><h2>Unit level, set aside</h2><p class="muted">Refusals a unit test checks, not the black box: a refusal on the aggregate's own state, a pick between two rules, or a redelivery.</p><ul class="qlist">${all.filter(o => o.status === "unit").map(o => `<li><a href="#${RULE_OF_OB(o)}"><code>${esc(o.id)}</code></a> <span class="muted">${esc(o.unit)} · ${esc(o.clause || "")}</span></li>`).join("")}</ul></section>
+  <section><h2>Open questions</h2><p class="muted">Allium <code>open question</code>s, listed on each aggregate's page.</p>${oqs.length ? `<ul class="qlist">${oqs.map(([mid, q]) => `<li><a href="#${aggHash(mid)}">${esc(modTitle(mid))}</a>: ${esc(q)}</li>`).join("")}</ul>` : `<div class="none">None.</div>`}</section>`;
+}
+
+/* every address the page has, for tools/spec/views/smoke.mjs */
+const ROUTES = () => ["", "ctx", "review", ...Object.keys(HASH), ...Object.keys(BLK), ...Object.keys(RULES).map(n => "rule-" + n)];
+function route() {
+  const h = (location.hash || "").replace(/^#/, "");
+  if (h === "review") viewReview();
+  else if (h === "ctx") viewCtx();
+  else if (h.startsWith("rule-") && RULES[h.slice(5)]) { viewMod(RULES[h.slice(5)].mid); globalThis.requestAnimationFrame?.(() => document.getElementById(rid(h.slice(5)))?.scrollIntoView({ block: "start" })); return; }
+  else if (BLK[h]) viewBlock(...BLK[h]);
+  else if (HASH[h]) viewMod(HASH[h]);
+  else viewHome();
+  window.scrollTo(0, 0);
+}
+window.addEventListener("hashchange", route);
+document.addEventListener?.("click", e => {
+  const a = e.target.closest?.("a[data-jump]"); if (!a) return;
+  e.preventDefault(); const t = document.getElementById(a.dataset.jump); if (!t) return;
+  if (t.tagName === "DETAILS") t.open = true; t.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+route();
+</script>
