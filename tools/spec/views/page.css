@@ -335,3 +335,15 @@ pre { max-width: 100%; overflow-x: auto; }
 code, .id, .tag, .cov, .k, .edn-h, .crumbs a, .crumbs span { overflow-wrap: anywhere; word-break: break-word; }
 .stats { flex-wrap: wrap; }
 @media (max-width: 640px) { .bar { position: static; } .legend { display: none; } }
+/* The event-storm board scrolls inside its own frame, so its columns keep their natural size. */
+.storm * { min-width: revert; }
+.storm { overflow-x: auto; }
+/* Long refusal conditions and "after" labels wrap inside their cluster's columns. */
+.storm .clu > *, .storm .sk, .storm .sk > * { min-width: 0; max-width: 100%; }
+.storm .sk.fail small, .storm .aft-spot, .storm .sk { overflow-wrap: anywhere; word-break: break-word; }
+/* Event-storm arrows, drawn by page.js once the browser has placed the clusters. */
+.storm-svg { position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; overflow: visible; }
+.storm-lbl { font: 600 11px var(--font-mono); paint-order: stroke; stroke: #f1f4f7; stroke-width: 4px; }
+.storm-lbl.event, .storm-lbl.policy { fill: #4b2a9a; }
+.storm-lbl.state { fill: #2d3833; }
+.storm .aft-spot { min-height: 22px; }

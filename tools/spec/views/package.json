@@ -1,0 +1,2 @@
+{ "name": "spec-page-checks", "private": true, "type": "module",
+  "devDependencies": { "playwright-core": "1.49.1" } }

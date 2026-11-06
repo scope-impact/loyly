@@ -611,18 +611,19 @@
                 refs (map-indexed (fn [i q] [:a.sk.fail {:href (str "#" (rid (:name r)) "-" (inc i)) :title q} (human (:name r)) " refused" [:br]
                                              [:small (if (> (count q) 54) (str (subs q 0 52) "…") q)]])
                                   (requires-of r))]
-            [:div.clu
-             [:div.aft-spot (for [p pairs :when (= r (:b p))]
-                              [:a {:class (:kind p) :href (str "#" (rid (:name (:a p))))} "after " (:name (:a p)) (when (seq (:lbl p)) (str ": " (:lbl p)))])]
+            [:div.clu {:data-rule (:name r)}
+             [:div.aft-spot]
              [:div.agg-spot [:span.sk.agg (agg-of r)]]
              [:div.cmd-spot (if blk [:a.sk.cmd {:href (str "#" (blk-hash (first blk) (second blk)))} (human (short (first blk)))] [:a.sk.cmd {:href (str "#" (rid (:name r)))} (human (:name r))])]
              [:div.evt-spot (or (seq (concat grain evs)) (seq sets) [:span.sk.evt.quiet "no event"])]
              [:div.act-spot (cond (and (seq actor) (not= actor "on event")) [:span.sk.actor (if (= actor "time") "Time" actor)]
                                   t [:span.sk.actor.quiet "on " (human t)])]
              [:div.ref-spot refs]]))]
-    [:div.storm [:div.storm-t (mod-title mid)]
-     [:div.storm-key [:span [:i.ln.state] "after a rule: the state it reaches"] [:span [:i.ln.event] "the event that triggers"] [:span [:i.ln.policy] "a policy"]]
-     [:div.storm-flow (for [[_ col] (sort-by key (group-by layer rules))] [:div.storm-col (map cluster (filter (set col) rules))])]]))
+    [:div.storm {:data-edges (json/generate-string (for [p pairs] {:a (:name (:a p)) :b (:name (:b p)) :skip (- (layer (:b p)) (layer (:a p))) :kind (:kind p) :lbl (:lbl p)}))}
+     [:div.storm-t (mod-title mid)]
+     [:div.storm-key [:span [:i.ln.state] "state it reaches"] [:span [:i.ln.event] "event that triggers"] [:span [:i.ln.policy] "policy"]]
+     [:div.storm-flow (for [[_ col] (sort-by key (group-by layer rules))] [:div.storm-col (map cluster (filter (set col) rules))])
+      [:svg.storm-svg {:aria-hidden "true"}]]]))
 
 ;; ---------- L3: one aggregate (an Allium file, its Grain blocks, its slice) ----------
 (defn slice-scenarios [sl only-unlinked?]

@@ -35,4 +35,9 @@ if [[ -x "$CHROME" ]]; then
 else
   echo "note: no Chrome at $CHROME, browser check skipped"
 fi
+if [[ -d "$V/node_modules/playwright-core" ]]; then
+  node "$V/layout.mjs" "$PAGE" || fail=1
+else
+  echo "note: run 'npm install' in tools/spec/views for the Playwright layout check"
+fi
 [[ $fail == 0 ]] && echo "every view renders" || { echo "CHECK FAILED"; exit 1; }
