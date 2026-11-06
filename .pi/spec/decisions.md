@@ -97,5 +97,11 @@ the harness can rebuild itself.
    writes) is the stack's and is listed, not refused. Each context's seam is its
    `seam.md`; so that a context's model validates on its own, a flow stays inside its
    context (`stamping-to-checklist` moved from Specification to Measurement).
-4. **Assembly later.** A gate that wires the contexts together through their handoffs comes
+4. **ORC use is verified through the store.** ORC runs on the Grain store the candidate is
+   handed, not a store of its own, so the gate can see it: each command runs as the ORC
+   workflow named after its flow, and the event-store check requires every event a command
+   produced to lie inside a run of that workflow that completed with success. ORC's own
+   events (`sheet/*`, `rlm/*`, `intervention/*`) are listed, not refused. A candidate whose
+   ORC keeps its own store fails the gate: the gate cannot tell ORC was used.
+5. **Assembly later.** A gate that wires the contexts together through their handoffs comes
    later, not now.

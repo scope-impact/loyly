@@ -68,8 +68,15 @@ The candidate records its facts in Grain's event store, the SQLite backend of Gr
   may use an in-memory store (its own tests, for example).
 - The gate hands the candidate a fresh file through `LOYLY_GRAIN_STORE`, and after the
   candidate has run, reads that file itself, not through this seam: it must hold at least
-  one event, every event's type must be an event of `event-model/`, and every event's
-  fields, other than Grain's own `:event/*` keys, must be exactly that event's `:schema`.
+  one event, every event's type must be an event of `event-model/` or ORC's own, and every
+  model event's fields, other than Grain's own `:event/*` keys, must be exactly that
+  event's `:schema`.
+- ORC runs on the same store: the same file and tenant, not a store of its own. Each
+  command method runs as the ORC workflow named after the flow its command belongs to
+  (`specification/stamp-slice` as the workflow `specification/stamping`); a query method
+  runs none. The gate requires every event a command produced to be written inside a run
+  of that workflow which completed with success (between its `:sheet/tree-tick-started`
+  and its `:sheet/tree-tick-completed`, `:root-status :success`).
 - The candidate registers this context's event model, `event-model/*.edn` merged, as given
   (Grain's `register-event-model!`), and refuses to start when Grain's boot guard
   (`verify-or-throw!`) finds the running blocks and the model apart.

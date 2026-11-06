@@ -51,8 +51,9 @@ fence → regenerate → gate → score → scoreboard
 - **Regenerate**: a fresh builder session rebuilds the selection from the clean room only.
 - **Gate**: a room the builder does not control boots the candidate fresh and proves its
   suite green and its identity over its seam, then reads the Grain store it handed the
-  candidate directly, not through the seam: it holds events, and each is an event of the
-  context's event model with exactly that event's fields. Done is the gate's verdict, never the builder's claim. A failed gate may start
+  candidate directly, not through the seam: it holds events, each is an event of the
+  context's event model with exactly that event's fields or ORC's own, and each event a
+  command produced lies inside a completed run of its ORC workflow in that same store. Done is the gate's verdict, never the builder's claim. A failed gate may start
   a fresh builder with only the previous candidate and the gate's evidence, at most three
   attempts.
 - **Score**: the approved sealed grader files one verdict per checklist item.
