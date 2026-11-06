@@ -5,7 +5,7 @@
 ;;
 ;; Commands issued by ORC runtime (its workflow nodes) enter a flow from nil: ORC owns the
 ;; execution order; the harness records the stage facts and guards them. Policies are to-do
-;; processors reading a to-do query. A refusal is the command's answer, not an event.
+;; processors reading a to-do query. A refusal is the command's reply, not an event.
 ;;
 ;; Handoffs consumed: cycle-preparation/source-cut-pinned, grader-lifecycle/instrument-golden-*,
 ;; measurement/measurement-filed, score-stage-failed, scoreboard-reported.
@@ -75,7 +75,7 @@
             {:from [:query :regeneration-cycle/cycle-progress] :to [:screen :regeneration-cycle/cycle-progress]}]}
 
    :regeneration-cycle/fence-refused-fails-cycle
-   {:description "prove-clean-room is refused (a fenced path matched nothing, or the prior implementation is reachable): nothing is recorded for the room, and ORC's fence node fails the cycle at the fence, naming the refusal."
+   {:description "prove-clean-room is refused (a fenced path matched nothing, or the prior candidate is reachable): nothing is recorded for the room, and ORC's fence node fails the cycle at the fence, naming the refusal."
     :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/clean-room.allium" :kind :rule :name "ProveCleanRoom"}
                    {:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :rule :name "FailCycle"}]
     :steps [{:from nil :to [:command :regeneration-cycle/fail-cycle]}

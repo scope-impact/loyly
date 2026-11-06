@@ -13,7 +13,7 @@
 --   RegenerationCycle  regeneration-cycle.allium  stage order, budget, attempts, the one
 --                                                 conclusion; the conclude-cycle policy
 --   HarnessSelfCheck   harness-self-check.allium  one per cycle, occasion and attempt
---   CleanRoom          clean-room.allium          one per cycle; the fence's proof
+--   CleanRoom          clean-room.allium          one per cycle; what the fence's probe found
 --   GateAttempt        gate-attempt.allium        one per cycle and attempt
 --
 -- Handoffs consumed: cycle-preparation SourceCutPinned, grader-lifecycle
@@ -104,7 +104,7 @@ contract FenceProbe {
     @invariant ObjectGraphNotWorkingTree
         -- A fenced path is absent only when it is absent from the working tree AND
         -- unreachable from every object of the clean room's history; a weaker probe once
-        -- passed while the prior implementation was reachable from an older commit.
+        -- passed while the prior candidate was reachable from an older commit.
 
     @invariant AFencedPathThatMatchesNothingIsAFault
         -- An entry of the fenced paths that matches nothing in the cut is a typo or a
@@ -117,14 +117,14 @@ contract GateRoom {
     identity_probe_present: (gate_room: String) -> Boolean
 
     @invariant SeamCheckedBeforeBoot
-        -- Before the candidate is launched the gate asks whether anything already answers
+        -- Before the candidate is launched the gate asks whether anything already responds
         -- on the public seam. If something does, the gate does not boot or grade: an
         -- orphan from a dead run once answered a health probe and the suite graded the
         -- wrong process (legacy verify.sh [1]; decisions.md b).
 
     @invariant BootClockStartsAtLaunch
         -- The boot clock starts when the launch entrypoint is started and stops at the
-        -- first answer, so a build inside the launch entrypoint is inside the boot budget
+        -- first response, so a build inside the launch entrypoint is inside the boot budget
         -- and a build inside the suite is not: the suite step is untimed (legacy
         -- @harness-058).
 

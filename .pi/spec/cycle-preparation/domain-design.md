@@ -39,6 +39,15 @@ source cut. From the storm (`../event-storm.md`, Prepare and approve).
   another, a second pin records nothing); 2 not a commit of the project repository; 3 the
   tree digest is not the commit's tree.
 
+## Drafts (R3, 2026-11-06)
+
+`drafts.feature`: 5 draft scenarios for the 6 must-cover obligations of this context
+(`tools/spec/v2/coverage.py`: each rule's success, each `requires` that is behaviour, each
+invariant, each contract invariant, each guarantee), every one tagged; 0 uncovered. Each
+draft names its rule, file and the Gherkin `Rule:` it goes under, cites the legacy
+`@harness-NNN` it preserves, and suggests a tier. Unit-level, not drafted (1): `PinSourceCut.1` (the guard of an idempotent creation), which guarantee `ImmutableOncePinned` and invariant `OneCutPerIdentity` still check through their draft.
+The product owner accepts a draft by moving it into `spec.feature` (R4).
+
 ## Open questions
 
 - **H35** (can wait): does an unapproved preparation, or an unused cut, expire?

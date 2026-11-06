@@ -6,11 +6,11 @@
 -- commit, every fenced path absent from the working tree AND the object graph, and a
 -- fenced path that matches nothing stops the fence. Legacy: fence.sh.
 --
--- A fence proof that does not hold is a refused ProveCleanRoom: no clean room exists, so
+-- A fence probe that does not hold is a refused ProveCleanRoom: no clean room exists, so
 -- nothing is recorded for it, and ORC's fence node then fails the cycle at the fence
 -- (FailCycle, reason fence_refused; decisions.md: a fence failure fails the cycle). The
 -- refusal codes keep the storm's names: "Fence refused: a fenced path matched nothing"
--- (refusal 2) and "Fence refused: prior implementation reachable in the object graph"
+-- (refusal 2) and "Fence refused: prior candidate reachable in the object graph"
 -- (refusal 6).
 
 use "context.allium" as ctx
@@ -39,8 +39,8 @@ entity CleanRoom {
 -- Rules
 ------------------------------------------------------------
 
--- Record the proof of the clean room ORC's fence built from the cycle's cut: the probe's
--- counts and the paths it found. Accepted only when the proof holds. Refusals 1-8 from R1
+-- Record the probe of the clean room ORC's fence built from the cycle's cut: the probe's
+-- counts and the paths it found. Accepted only when the probe holds. Refusals 1-8 from R1
 -- (fence.sh's checks, in its order); 9-10 added in R2 (decisions.md H25; a concluded cycle).
 rule ProveCleanRoom {
     when: ProveCleanRoom(orc, cycle_id, cut_id, clean_room_commit, fenced_paths, root_commits, commits, unmatched_paths, paths_left_in_tree, paths_reachable_in_object_graph)
@@ -55,7 +55,7 @@ rule ProveCleanRoom {
     requires: commits = 1
     -- 5. a fenced path left in the working tree
     requires: paths_left_in_tree.count = 0
-    -- 6. a fenced path reachable in the object graph (the prior implementation)
+    -- 6. a fenced path reachable in the object graph (the prior candidate)
     requires: paths_reachable_in_object_graph.count = 0
     -- 7. already proved
     requires: not exists CleanRoom{cycle_id: cycle_id}
@@ -107,12 +107,12 @@ surface Fence {
         fulfils FenceProbe
 
     @guarantee ProvedNotAsserted
-        -- A clean room exists only as a proof that held: one root commit, one commit,
+        -- A clean room exists only as a probe that held: one root commit, one commit,
         -- every fenced path absent from the working tree and unreachable in the object
         -- graph, and every fenced path matched something in the cut (legacy fence.sh).
 
     @guarantee RebuildNotCopy
         -- The room keeps the spec, the domain sources and the public application
-        -- contract, and loses every prior implementation, recorded measurement, report,
+        -- contract, and loses every prior candidate, recorded measurement, report,
         -- grader, calibration fixture and grading harness (AGENTS.md, The clean room).
 }

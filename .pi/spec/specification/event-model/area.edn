@@ -4,14 +4,14 @@
 ;; slice.edn; the handoff it publishes is in handoffs.edn. The loader merges them into one
 ;; Grain :event-model and refuses a block defined twice.
 ;;
-;; Commands produce only what happened. A refusal is the command's answer, written as a
+;; Commands produce only what happened. A refusal is the command's reply, written as a
 ;; `requires` in R2's Allium, and is not an event (domain-design.md).
 ;; Allium: ../allium/ (slice.allium: surface SpecAuthoring).
 {:specification
  {:description "Specification: the Gherkin scenarios and the item identity stamped on each. Upstream of every cycle; owns the published language (item identity, stamped scenario)."
   :screens
   {:specification/spec-authoring
-   {:description "Where the operator (spec author) edits a slice's spec and runs the stamper; shows each slice's stamped items and the next free item number."
+   {:description "Where the operator (spec author) edits a slice's spec and runs the stamper; shows each slice's stamped items and the next free number of its ledger."
     :grain/allium [{:spec ".pi/spec/specification/allium/slice.allium" :kind :surface :name "SpecAuthoring"}]
     :queries #{:specification/stamped-items}
     :commands #{:specification/stamp-slice}}}

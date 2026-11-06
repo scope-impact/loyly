@@ -3,7 +3,7 @@
 ;; one commit, every fenced path absent from the working tree AND the object graph, and a
 ;; fenced path that matches nothing stops the fence. Legacy: fence.sh.
 ;;
-;; The fence's refusals (fenced path matched nothing, prior implementation reachable,
+;; The fence's refusals (fenced path matched nothing, prior candidate reachable,
 ;; history not one commit, path left in the tree, harness not self-checked) are R2
 ;; `requires` on prove-clean-room, not events. ORC's fence node then fails the cycle
 ;; (regeneration-cycle/fail-cycle, stage fence).
@@ -11,7 +11,7 @@
 {:regeneration-cycle
  {:commands
   {:regeneration-cycle/prove-clean-room
-   {:description "Record the proof of the clean room ORC's fence built from the cycle's cut: the probe's counts and the paths it found. Accepted only when the proof holds. Issued by: ORC runtime (the fence node)."
+   {:description "Record the probe of the clean room ORC's fence built from the cycle's cut: the probe's counts and the paths it found. Accepted only when the probe holds. Issued by: ORC runtime (the fence node)."
     :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/clean-room.allium" :kind :rule :name "ProveCleanRoom"}]
     :schema [:map
              [:cycle-id :string]

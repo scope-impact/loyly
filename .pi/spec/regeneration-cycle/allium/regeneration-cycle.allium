@@ -177,7 +177,7 @@ rule NoteCleanRoomProved {
 
 -- The gate ratified the attempt's candidate.
 rule NoteGateAttemptPassed {
-    when: gate/GateAttemptPassed(cycle_id, cut_id, attempt, candidate_digest, boot_budget_seconds, boot_polls, answered_on_poll, identity_proof, evidence_root)
+    when: gate/GateAttemptPassed(cycle_id, cut_id, attempt, candidate_digest, boot_budget_seconds, boot_polls, answered_on_poll, identity_probe_result, evidence_root)
     let cycle = RegenerationCycle{cycle_id: cycle_id}
     requires: exists cycle
     ensures:
@@ -260,7 +260,7 @@ rule RecordRegeneratedCandidate {
     requires: cycle.status = running
     -- 7. a repair follows a failed gate attempt, never a passed one
     requires: cycle.stage = regenerate and cycle.failed_attempts = attempt - 1
-    -- 8. a repair continues the previous candidate
+    -- 8. a repair's parent is not the previous candidate
     requires: purpose = verification_repair implies parent_candidate_digest = cycle.candidate_digest
     -- 9. only a repair room mounts evidence, and only this cycle's gate evidence (H6)
     requires: (purpose = fresh_generation implies mounted_evidence.count = 0) and mounted_evidence.all(e => e in cycle.gate_evidence_roots)

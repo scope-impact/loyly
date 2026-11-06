@@ -1,6 +1,6 @@
 ;; .pi/spec/measurement/event-model/handoffs.edn: the events Measurement hands to other
 ;; contexts. All three go to the Regeneration cycle, only to conclude it (cycles-to-conclude,
-;; regeneration-cycles); none feeds the build loop. Later rounds add prompt optimisation as a
+;; regeneration-cycles); none feeds the build loop. Later rounds add prompt optimization as a
 ;; consumer of measurement-filed.
 {:measurement
  {:events

@@ -40,7 +40,7 @@ identity**, the **stamped scenario** and, since R2, the **one reading of Gherkin
   `ItemTagFromTheContiguousTagRun` and `OtherTagsDoNotStamp` (`@harness-005`, `019`),
   `SliceFromTheDirectory` (`@harness-001`, `014`). Dropped with reason: the checklist's
   "pending tag" wart (`@harness-020`), a second reading of the same file.
-- **2, "no spec found" distinct from "fully stamped"**: refusal 1 of both rules (the answer
+- **2, "no spec found" distinct from "fully stamped"**: refusal 1 of both rules (the refusal
   names where it looked), against success with nothing stamped; guarantee
   `NoSpecIsNotFullyStamped` (`@harness-011`).
 
@@ -58,6 +58,15 @@ identity**, the **stamped scenario** and, since R2, the **one reading of Gherkin
   ones, in file order; 5 (R2.1) the empty-title headings reported are not exactly the
   file's.
 - `StampSlice`: 1 no spec found; 2 not this slice's file; 3 no ledger yet; 4 and 5 as above.
+
+## Drafts (R3, 2026-11-06)
+
+`drafts.feature`: 17 draft scenarios for the 24 must-cover obligations of this context
+(`tools/spec/v2/coverage.py`: each rule's success, each `requires` that is behaviour, each
+invariant, each contract invariant, each guarantee), every one tagged; 0 uncovered. Each
+draft names its rule, file and the Gherkin `Rule:` it goes under, cites the legacy
+`@harness-NNN` it preserves, and suggests a tier. Unit-level, not drafted (2): `StampFirstScenarios.3` and `StampSlice.3` (one half each of the ledger / no-ledger pair). Refusals 2, 4 and 5 of the two stamping rules are drafted as Scenario Outlines with one example per rule (no ledger, a ledger).
+The product owner accepts a draft by moving it into `spec.feature` (R4).
 
 ## Open questions
 

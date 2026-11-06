@@ -14,6 +14,6 @@
              [:boot-budget-seconds pos-int?]
              [:boot-polls pos-int?]
              [:answered-on-poll pos-int?]
-             [:identity-proof :string]
+             [:identity-probe-result :string]
              [:evidence-root :string]
              [:passed-at inst?]]}}}}

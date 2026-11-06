@@ -35,7 +35,7 @@ states what it can rely on and never reach.
    into the cycle, as the `regeneration-cycles` read model does. The conclude-cycle policy
    is four rules on the cycle's derived to-do conditions (`awaits_failing_self_check`,
    `awaits_failing_gate`, `awaits_failing_score`, `awaits_passing`).
-4. **Self-check failed is a fact, a fence refusal is not.** A fence proof that does not
+4. **Self-check failed is a fact, a fence refusal is not.** A fence probe that does not
    hold is a refused `ProveCleanRoom`; ORC's fence node then fails the cycle (`FailCycle`,
    stage fence, reason `fence_refused`).
 5. **Two kinds of "no" at the gate** (changed by decision b). The guards the candidate can
@@ -99,8 +99,8 @@ budget; new flow `gate-attempt-repaired`.
 - **8, config completeness and the sibling-module check: dropped**, with this reason. The
   legacy `modules.sh` existed because one harness was copied by hand into three
   repositories, with each repository's differences in a hand-kept `config.sh`
-  (`@harness-050` to `055`, `059`, `062`, `064`, `068` to `070`). In v2 the harness is one
-  implementation generated from this spec and run by ORC; the values a repository declared
+  (`@harness-050` to `055`, `059`, `062`, `064`, `068` to `070`). In v2 there is one
+  harness, generated from this spec and run by ORC; the values a repository declared
   (`APP_DIR`, `PORT`, `FENCED_PATHS`, `APP_PROBE`, `SIBLING_REPOS`) are the approved
   preparation's and the room policy's, typed in their commands. What the check protected
   is carried elsewhere: the harness digest names the exact harness a self-check ran (a
@@ -117,7 +117,7 @@ budget; new flow `gate-attempt-repaired`.
 | ✗ Harness self-check failed | event `harness-self-check-failed`; the conclude policy records `cycle-failed` |
 | ◆ Clean room proved | event `clean-room-proved` |
 | ✗ Fence refused: a fenced path matched nothing | `ProveCleanRoom` refusal 2; ORC records `cycle-failed` (stage fence) |
-| ✗ Fence refused: prior implementation reachable in the object graph | `ProveCleanRoom` refusal 6; ORC records `cycle-failed` (stage fence) |
+| ✗ Fence refused: prior candidate reachable in the object graph | `ProveCleanRoom` refusal 6; ORC records `cycle-failed` (stage fence) |
 | ◆ Candidate regenerated | event `candidate-regenerated` |
 | Candidate installed in the gate room | event `candidate-installed-in-gate-room` |
 | ◆ Gate attempt passed | event `gate-attempt-passed` (handoff) |
@@ -154,7 +154,7 @@ worker replaced, model drift.
 - `InstallCandidateInGateRoom`: 1 no candidate for the attempt; 2 another digest; 3 already
   installed; 4 concluded.
 - `RecordGateAttempt`: 1 not installed; 2 already has a verdict; 3 failed without a reason or
-  passed with one; 4 passed without the answering poll and identity proof; 5 answered after
+  passed with one; 4 passed without the answering poll and identity probe result; 5 answered after
   the last poll; 6 another candidate; 7 no passing self-check for the attempt at this harness
   and the current goldens; 8 identity probe missing; 9 probe not the instrument's; 10 seam
   answered before boot; 11 concluded; 12 (R2.1) the self-check ran at other approved grader
@@ -165,6 +165,20 @@ worker replaced, model drift.
   5 (R2.1) infrastructure at a stage other than the gate.
 - `ConcludeOnStageTimeout` (R2.1, the stage clock): 1 concluded; 2 a stage without a
   timeout (scoreboard, result).
+
+## Drafts (R3, 2026-11-06)
+
+`drafts.feature`: 95 draft scenarios for the 126 must-cover obligations of this context
+(`tools/spec/v2/coverage.py`: each rule's success, each `requires` that is behaviour, each
+invariant, each contract invariant, each guarantee), every one tagged; 0 uncovered. Each
+draft names its rule, file and the Gherkin `Rule:` it goes under, cites the legacy
+`@harness-NNN` it preserves, and suggests a tier. Unit-level, not drafted (15): the idempotent creations (`ProveCleanRoom.7`, `InstallCandidateInGateRoom.3`, `RecordHarnessSelfCheck.3`, `NotePinnedCut.1`, `NoteGoldenWritten.1`, `OpenCycle.2`) and the cycle's own status (`RecordRegeneratedCandidate.6`, the six conclude-policy guards, `PassCycle.3`, `FailCycle.2`). A test of another aggregate's status (a concluded cycle refusing a gate verdict) is behaviour and is drafted.
+The product owner accepts a draft by moving it into `spec.feature` (R4).
+
+Glossary lint (R3): the words the glossary says to avoid left the Allium and the event
+model. The field formerly named for the identity check is now `identity_probe_result`
+(`record-gate-attempt`, `gate-attempt-passed`); the fence records its probe; the room loses
+every prior candidate; a refused command's reply is a reply.
 
 ## Open questions
 

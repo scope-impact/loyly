@@ -146,5 +146,5 @@ surface InstrumentGoldenDesk {
     @guarantee NeverMovedToTurnItGreen
         -- A golden moves only for one of the three recorded reasons; re-recording to get a
         -- green destroys the only evidence that anything moved (legacy README, What a red
-        -- oracle costs).
+        -- legacy oracle costs).
 }

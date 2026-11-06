@@ -88,7 +88,7 @@ rates.
 
 ## Refusals (the `requires`, numbered as in the Allium)
 
-- `DeriveChecklist`: 1 cut not pinned; 2 a scenario unstamped (every one listed; the answer
+- `DeriveChecklist`: 1 cut not pinned; 2 a scenario unstamped (every one listed; the refusal
   names the stamper); 3 checklist empty; 4 an identity never stamped; 5 an identity twice;
   6 already derived for the cut; 7 an item with an empty title.
 - `FileItemVerdicts` (refusal code for `fail-score-stage` in brackets): 1 cycle not gated
@@ -102,6 +102,15 @@ rates.
 - `FailScoreStage`: 1 not gated; 2 measurement filed; 3 already failed.
 - `ReportScoreboard`: 1 no measurement filed; 2 already reported. Invariant (R2.1)
   `ComparedWithinTheSelection`.
+
+## Drafts (R3, 2026-11-06)
+
+`drafts.feature`: 47 draft scenarios for the 69 must-cover obligations of this context
+(`tools/spec/v2/coverage.py`: each rule's success, each `requires` that is behaviour, each
+invariant, each contract invariant, each guarantee), every one tagged; 0 uncovered. Each
+draft names its rule, file and the Gherkin `Rule:` it goes under, cites the legacy
+`@harness-NNN` it preserves, and suggests a tier. Unit-level, not drafted (8): `DeriveChecklist.6`, `NoteItemIdentity.1`, `NotePinnedCut.1`, `OpenMeasurement.1`, `ReportScoreboard.2` (idempotent creations) and `FileItemVerdicts.8`, `FileScore.4`, `FailScoreStage.3` (the measurement's own status).
+The product owner accepts a draft by moving it into `spec.feature` (R4).
 
 ## Open questions
 

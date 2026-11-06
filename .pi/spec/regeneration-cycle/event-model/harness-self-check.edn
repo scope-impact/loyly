@@ -2,7 +2,7 @@
 ;; HarnessSelfCheck, in the harness's event store (one per cycle, occasion and attempt,
 ;; naming its harness digest). No clean room is built, and no candidate graded, over an
 ;; unchecked instrument. Legacy: fence.sh and verify.sh call check.sh --local first, which
-;; runs the oracle over the instrument goldens. R2 (decisions.md H24, H5, "to add" 7): the
+;; reproduces the instrument goldens (legacy oracle.sh). R2 (decisions.md H24, H5, "to add" 7): the
 ;; self-check runs before the fence AND before every gate attempt; the fence's self-check
 ;; carries the preparation's budget; a missing tool is a listed skip; a missing golden fails.
 ;; Allium: ../allium/harness-self-check.allium.

@@ -39,7 +39,7 @@
              [:boot-budget-seconds pos-int?]
              [:boot-polls pos-int?]
              [:answered-on-poll {:optional true} pos-int?]
-             [:identity-proof {:optional true} :string]
+             [:identity-probe-result {:optional true} :string]
              [:evidence-root :string]
              [:detail :string]
              [:grader-digests [:vector :string]]]

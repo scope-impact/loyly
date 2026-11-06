@@ -71,7 +71,7 @@ rule DeriveChecklist {
     when: DeriveChecklist(operator, cut_id, selection_id, items, unstamped, skipped_slices)
     -- 1. the cut is not pinned
     requires: exists PinnedCut{cut_id: cut_id}
-    -- 2. a scenario is unstamped: every one, in every file, is listed, and the answer
+    -- 2. a scenario is unstamped: every one, in every file, is listed, and the refusal
     --    names the stamper (legacy @harness-023; decisions.md: every unstamped file listed)
     requires: unstamped.count = 0
     -- 3. the checklist would be empty, whether no spec, every slice skipped, or no

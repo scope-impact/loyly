@@ -29,8 +29,25 @@ It fails closed (exit 1) unless every gate passes, and prints the gate lines the
    counted per file and per context. Must-cover = `rule_success` + `rule_failure` (one per
    `requires`, numbered in order) + `invariant`. Reported, not a gate; a spec that does not
    parse fails here too.
+4. **Coverage** (`coverage.py [context ...]`, ported from `tools/spec/coverage.py`): per
+   context, the must-cover obligations (each rule's success; each `requires` less the
+   unit-level ones: the rule's own aggregate tested on its status, stage or path, one half
+   of an `exists`/`not exists` pair between sibling rules of one trigger, the guard of an
+   idempotent creation; each invariant; each contract invariant; each guarantee not
+   "Verified by: gate") against the `@allium-…` tags of `<context>/spec.feature` and
+   `drafts.feature`. Prints `must-cover N | covered N | drafted N | uncovered N |
+   unit-level N` per context and in total. **The gate: 0 uncovered and no unknown tag.**
+   `--list` also lists the unit-level and gate-verified ones.
+5. **Given/When/Then** (`gwt-lint.py`, ported from `tools/spec/gwt-lint.py`): every scenario
+   and draft has a Given, a When and a Then. **The gate: 0 incomplete.**
+6. **Glossary** (`glossary-lint.py`, ported from `tools/spec/glossary-lint.py`): no term an
+   `_Avoid_` list of `.pi/model/GLOSSARY.md` names, in any file of `.pi/spec` (Allium, EDN,
+   Markdown, Gherkin). The R0 board (`event-storm.md`, `event-storm.edn`) and
+   `legacy-trace.md` keep other people's words and are reported, not counted; a line that
+   says "legacy", "formerly" or "avoid" is exempt. **The gate: 0 findings.** `--file F` lints
+   a draft before it lands.
 
-Needs `allium` (3.6), `jq`, the Clojure CLI and a JVM.
+Needs `allium` (3.6), `jq`, `python3`, the Clojure CLI and a JVM.
 
 `deps.edn` points Grain at `/Users/sathish.narayanan/Documents/git/loyly/grain`
 (`:local/root`), because the spec-v2 worktree has no submodules. In a checkout with the

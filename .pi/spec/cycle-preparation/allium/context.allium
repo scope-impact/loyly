@@ -17,7 +17,7 @@
 -- Contracts
 ------------------------------------------------------------
 
--- What the project repository answers about a commit.
+-- What the project repository tells about a commit.
 contract ProjectRepository {
     tree_of: (commit: String) -> String
     is_commit: (commit: String) -> Boolean

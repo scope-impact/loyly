@@ -52,7 +52,7 @@ entity StampedItem {
 -- opens it with nothing stamped (legacy @harness-022: not an error).
 rule StampFirstScenarios {
     when: StampSlice(author, slice_number, source, unstamped, empty_title_lines)
-    -- 1. no spec found: the answer names where it looked, and is not "fully stamped"
+    -- 1. no spec found: the refusal names where it looked, and is not "fully stamped"
     --    (legacy @harness-011; decisions.md "to add" 2)
     requires: spec_exists(source)
     -- 2. the source is not this slice's spec file
@@ -163,7 +163,7 @@ surface SpecAuthoring {
         -- out again: the ledger only goes up (legacy @harness-008, @harness-010 changed).
 
     @guarantee NoSpecIsNotFullyStamped
-        -- "No spec found", naming where the stamper looked, is a different answer from
+        -- "No spec found", naming where the stamper looked, is a different reply from
         -- "fully stamped, nothing to stamp": an absent spec and a finished one are very
         -- different states (legacy @harness-011; "to add" 2).
 

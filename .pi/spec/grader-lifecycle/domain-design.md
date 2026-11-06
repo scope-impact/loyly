@@ -49,6 +49,15 @@ README ("The goldens, and the three reasons one can change").
   additions-only diff; 4 an empty note; 5 the scenario digest is not the scenario's current
   digest.
 
+## Drafts (R3, 2026-11-06)
+
+`drafts.feature`: 11 draft scenarios for the 14 must-cover obligations of this context
+(`tools/spec/v2/coverage.py`: each rule's success, each `requires` that is behaviour, each
+invariant, each contract invariant, each guarantee), every one tagged; 0 uncovered. Each
+draft names its rule, file and the Gherkin `Rule:` it goes under, cites the legacy
+`@harness-NNN` it preserves, and suggests a tier. Unit-level, not drafted (1): `WriteInstrumentGolden.1` (an idempotent creation), which invariant `OneGoldenPerIdentity` checks through its draft.
+The product owner accepts a draft by moving it into `spec.feature` (R4).
+
 ## Open questions
 
 - **H19** (can wait): who checks a recorded reason is true? Only `spec_grew` has an
