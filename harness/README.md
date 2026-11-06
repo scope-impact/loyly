@@ -73,7 +73,13 @@ digest too. The grader of slice 03, `v2/graders/grade_grader_lifecycle.exs`, han
 candidate the current scenario digests in the `LOYLY_SCENARIO_DIGESTS` file after the
 candidate first answers, and is calibrated by `v2/graders/calibration-grader-lifecycle/calibrate.sh`
 (a reference stub passes all 4 items, each mutant fails the item it breaks);
-`v2/graders.pending.json` asks for its digest as well. Until the operator approves a slice's
+`v2/graders.pending.json` asks for its digest as well. The grader of slice 04,
+`v2/graders/grade_regeneration_cycle.exs`, plays ORC runtime: it offers the self-check run's,
+the fence probe's and the gate room's results as command params, hands the pinned cut and the
+goldens in through their handoff methods, sets `LOYLY_SCORING_TOOL_PATHS` only where the Given
+names the scoring tools, and is calibrated by `v2/graders/calibration-regeneration-cycle/calibrate.sh`
+(a reference stub passes all 27 items, each mutant fails the item it breaks);
+`v2/graders.pending.json` asks for its digest too. Until the operator approves a slice's
 grader, its cycle ends at the gate.
 
 **Where a spec-v2 cycle is filed (2026-11-07).** Each slice numbers its own cycles under
