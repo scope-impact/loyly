@@ -1,0 +1,668 @@
+;; Big Picture EventStorming board for the Pi harness, as data.
+;; Simulated workshop, 2026-11-06: operator, workflow, instrument, skeptic.
+;; Not yet reviewed by the product owner. The human board is event-storm.md.
+;; Extra keys beyond the agreed shape: :notes and :hot-spots on events, :kind on phases,
+;; :handoffs on contexts, :raised-by on disagreements.
+{:meta {:title "Pi harness: Big Picture EventStorming"
+        :date "2026-11-06"
+        :participants [:operator :workflow :instrument :skeptic]
+        :status "simulated workshop; not yet reviewed by the product owner"}
+
+ :phases
+ [{:id :specify
+   :name "Specify (upstream of every cycle)"
+   :kind :upstream
+   :events
+   [{:id :scenario-stamped :name "Scenario stamped"
+     :caused-by {:kind :actor :name "Operator (spec author), via the stamper"}
+     :pivotal? false :unhappy-of nil :raised-by [:operator :instrument]
+     :merged-from ["Scenarios stamped" "Scenario stamped with item identity"]
+     :notes "Item identity is never derived from wording; rewording keeps the cycle-to-cycle join."
+     :hot-spots []}
+    {:id :unstamped-scenario-found :name "Unstamped scenario found"
+     :caused-by {:kind :policy :name "Whenever a checklist is derived, then every selected scenario must carry an item identity"}
+     :pivotal? false :unhappy-of :scenario-stamped :raised-by [:instrument :skeptic :operator]
+     :merged-from ["Unstamped scenario found" "Selection found empty or unstamped (unstamped half)" "Unstamped ... stops here"]
+     :notes "Stops the cycle instead of shrinking the denominator."
+     :hot-spots []}]}
+
+  {:id :prepare
+   :name "Prepare and approve"
+   :kind :main
+   :events
+   [{:id :source-cut-pinned :name "Source cut pinned"
+     :caused-by {:kind :actor :name "Operator"}
+     :pivotal? true :unhappy-of nil :raised-by [:operator]
+     :merged-from ["Source cut pinned"]
+     :notes "Everything later binds to the cut's commit and tree content."
+     :hot-spots []}
+    {:id :slice-proposed :name "Slice proposed"
+     :caused-by {:kind :system :name "Operator session (LLM)"}
+     :pivotal? false :unhappy-of nil :raised-by [:operator]
+     :merged-from ["Slice proposed"]
+     :notes "A suggestion only; cannot approve itself or invent items."
+     :hot-spots [:hs-planned-slice-filter]}
+    {:id :selection-contract-presented :name "Selection contract presented"
+     :caused-by {:kind :system :name "Harness, resolving the proposal against the cut"}
+     :pivotal? false :unhappy-of nil :raised-by [:operator]
+     :merged-from ["Selection previewed"]
+     :notes "The exact items, scenario digests and digest the operator accepts."
+     :hot-spots []}
+    {:id :selection-approved :name "Selection approved"
+     :caused-by {:kind :actor :name "Operator"}
+     :pivotal? true :unhappy-of nil :raised-by [:operator :instrument]
+     :merged-from ["Selection approved"]
+     :notes "One exact digest; fixes which scenarios the instrument may count."
+     :hot-spots [:hs-whole-plan-submission]}
+    {:id :approval-refused :name "Approval refused: digest not the one reviewed"
+     :caused-by {:kind :policy :name "Whenever an approval names a digest other than the presented one, then refuse it"}
+     :pivotal? false :unhappy-of :selection-approved :raised-by [:skeptic]
+     :merged-from ["Approval refused: digest not the reviewed one"]
+     :notes "" :hot-spots []}
+    {:id :checklist-derived :name "Checklist derived"
+     :caused-by {:kind :policy :name "Whenever a selection is approved, then derive its checklist"}
+     :pivotal? false :unhappy-of nil :raised-by [:operator :instrument]
+     :merged-from ["Checklist derived"]
+     :notes "Sets the denominator; never hand-kept. Instrument marked it pivotal; facilitator kept it inside the phase (see disagreements)."
+     :hot-spots []}
+    {:id :empty-selection-refused :name "Empty selection refused"
+     :caused-by {:kind :policy :name "Whenever a checklist would be empty, then refuse the selection"}
+     :pivotal? false :unhappy-of :checklist-derived :raised-by [:instrument :skeptic :operator]
+     :merged-from ["Empty selection refused" "Selection found empty or unstamped (empty half)"]
+     :notes "Nothing that could fail is no measurement." :hot-spots []}
+    {:id :cycle-preparation-approved :name "Cycle preparation approved"
+     :caused-by {:kind :actor :name "Operator"}
+     :pivotal? true :unhappy-of nil :raised-by [:operator :skeptic]
+     :merged-from ["Cycle preparation approved" "preparation approved"]
+     :notes "Binds approved selection, approved grader digests, scope, stack, execution profile, budget. The one immutable hand-off to ORC."
+     :hot-spots [:hs-budget :hs-whole-plan-submission :hs-preparation-expiry]}]}
+
+  {:id :grader
+   :name "Grader preparation (parallel stream, own clock)"
+   :kind :parallel
+   :events
+   [{:id :grader-requested :name "Grader requested"
+     :caused-by {:kind :policy :name "Whenever a selection holds scenarios no approved grader covers, then request a grader"}
+     :pivotal? false :unhappy-of nil :raised-by [:operator]
+     :merged-from ["Grader requested"]
+     :notes "Operator wrote 'Operator / policy'." :hot-spots []}
+    {:id :instrument-golden-written :name "Instrument golden written"
+     :caused-by {:kind :actor :name "Instrument maintainer"}
+     :pivotal? false :unhappy-of nil :raised-by [:instrument]
+     :merged-from ["Instrument golden written"]
+     :notes "Written from the scenario, never recorded from a run." :hot-spots []}
+    {:id :grader-authored :name "Grader authored"
+     :caused-by {:kind :system :name "Grader author (builder session, blind)"}
+     :pivotal? false :unhappy-of nil :raised-by [:instrument]
+     :merged-from ["Grader authored"]
+     :notes "Sees only the selected Gherkin and the public calibration protocol."
+     :hot-spots [:hs-grader-author-blindness]}
+    {:id :grader-calibrated :name "Grader calibrated"
+     :caused-by {:kind :system :name "Calibration protocol"}
+     :pivotal? false :unhappy-of nil :raised-by [:instrument :operator]
+     :merged-from ["Grader calibrated: carried passed, uncarried failed" "Grader sealed (calibrated)"]
+     :notes "Carried behaviour passes, uncarried fails." :hot-spots []}
+    {:id :grader-discarded :name "Grader discarded: calibration failed"
+     :caused-by {:kind :system :name "Calibration protocol"}
+     :pivotal? false :unhappy-of :grader-calibrated :raised-by [:skeptic]
+     :merged-from ["Grader discarded: calibration failed"]
+     :notes "" :hot-spots [:hs-calibration-failure-cause]}
+    {:id :instrument-declared-unavailable :name "Instrument declared unavailable"
+     :caused-by {:kind :policy :name "Whenever calibration fails three times, then declare the slice unscoreable"}
+     :pivotal? false :unhappy-of :grader-calibrated :raised-by [:operator]
+     :merged-from ["Instrument declared unavailable"]
+     :notes "" :hot-spots [:hs-calibration-failure-cause]}
+    {:id :grader-sealed :name "Grader sealed"
+     :caused-by {:kind :system :name "Instrument"}
+     :pivotal? false :unhappy-of nil :raised-by [:operator :instrument]
+     :merged-from ["Grader sealed" "Grader sealed by digest"]
+     :notes "Content becomes immutable and nameable by digest." :hot-spots []}
+    {:id :grader-digest-approved :name "Grader digest approved"
+     :caused-by {:kind :actor :name "Operator"}
+     :pivotal? true :unhappy-of nil :raised-by [:operator :instrument]
+     :merged-from ["Grader approved" "Grader digest approved"]
+     :notes "Only this exact digest may file verdicts."
+     :hot-spots [:hs-grader-review-bias]}
+    {:id :grader-reused :name "Grader reused"
+     :caused-by {:kind :policy :name "Whenever a cycle's scenarios are unchanged, then reuse the approved grader"}
+     :pivotal? false :unhappy-of nil :raised-by [:instrument]
+     :merged-from ["Grader reused"]
+     :notes "Same ruler across cycles." :hot-spots []}
+    {:id :grader-found-stale :name "Grader found stale for the selection"
+     :caused-by {:kind :policy :name "Whenever a selected scenario digest differs from the grader's, then mark it stale"}
+     :pivotal? false :unhappy-of :grader-reused :raised-by [:skeptic]
+     :merged-from ["Grader found stale for the selection"]
+     :notes "" :hot-spots [:hs-staleness-key]}
+    {:id :grader-replaced :name "Grader replaced for a recorded reason"
+     :caused-by {:kind :actor :name "Operator, with a reason record"}
+     :pivotal? false :unhappy-of nil :raised-by [:operator :instrument]
+     :merged-from ["Grader replaced" "Grader replaced for a recorded reason"]
+     :notes "Reasons: instrument behaviour changed, wording replaced, spec grew (additions only). Approving the successor retires the old one."
+     :hot-spots [:hs-replacement-reason-truth]}
+    {:id :grader-replacement-refused :name "Grader replacement refused: no recorded reason"
+     :caused-by {:kind :policy :name "Whenever a replacement has no recorded reason, then refuse it"}
+     :pivotal? false :unhappy-of :grader-replaced :raised-by [:skeptic]
+     :merged-from ["Grader replacement refused: no recorded reason"]
+     :notes "Skeptic marked pivotal; facilitator kept it as an unhappy branch (no phase change)." :hot-spots []}
+    {:id :instrument-golden-moved :name "Instrument golden moved, reason recorded"
+     :caused-by {:kind :actor :name "Instrument maintainer"}
+     :pivotal? false :unhappy-of nil :raised-by [:instrument]
+     :merged-from ["Golden moved and its reason recorded"]
+     :notes "Additions-only diff is the test for 'spec grew'." :hot-spots [:hs-replacement-reason-truth]}]}
+
+  {:id :dispatch
+   :name "Submit and dispatch"
+   :kind :main
+   :events
+   [{:id :cycle-submitted :name "Cycle submitted"
+     :caused-by {:kind :actor :name "Operator"}
+     :pivotal? true :unhappy-of nil :raised-by [:operator :workflow :skeptic]
+     :merged-from ["Cycle submitted" "Workflow task submitted" "task submitted"]
+     :notes "Approval starts nothing; submission does."
+     :hot-spots [:hs-cycle-number :hs-builder-host-absent]}
+    {:id :receipt-issued :name "Receipt issued"
+     :caused-by {:kind :system :name "Harness"}
+     :pivotal? false :unhappy-of nil :raised-by [:operator]
+     :merged-from ["Receipt issued"]
+     :notes "" :hot-spots []}
+    {:id :duplicate-submission-answered :name "Duplicate submission answered with the original receipt"
+     :caused-by {:kind :policy :name "Whenever the same identity and payload is submitted again, then return the original receipt"}
+     :pivotal? false :unhappy-of :receipt-issued :raised-by [:skeptic :operator]
+     :merged-from ["Duplicate submission answered with original receipt" "Repeats return the same receipt"]
+     :notes "" :hot-spots []}
+    {:id :submission-refused :name "Submission refused: same identity, different payload"
+     :caused-by {:kind :policy :name "Whenever one identity arrives with a different payload, then refuse it"}
+     :pivotal? false :unhappy-of :receipt-issued :raised-by [:skeptic]
+     :merged-from ["Submission refused: same identity, different payload"]
+     :notes "Skeptic marked pivotal; facilitator kept it as an unhappy branch." :hot-spots []}
+    {:id :cycle-started :name "Cycle started by ORC"
+     :caused-by {:kind :system :name "ORC worker"}
+     :pivotal? false :unhappy-of nil :raised-by [:workflow]
+     :merged-from ["ORC tick dispatched"]
+     :notes "Turned from ORC machinery into the fact it hides: the cycle's task left not-started. The tick id becomes each builder's request identity."
+     :hot-spots []}]}
+
+  {:id :fence
+   :name "Fence"
+   :kind :main
+   :events
+   [{:id :self-check-passed :name "Harness self-check passed"
+     :caused-by {:kind :system :name "Harness (ORC stage)"}
+     :pivotal? true :unhappy-of nil :raised-by [:workflow :instrument :skeptic]
+     :merged-from ["Harness self-check passed (or refused)" "Harness self-check passed (or failed, naming the check)"]
+     :notes "No room is built over an unchecked instrument; reused only for an identical harness digest."
+     :hot-spots [:hs-self-check-coverage]}
+    {:id :self-check-failed :name "Harness self-check failed"
+     :caused-by {:kind :system :name "Harness (ORC stage)"}
+     :pivotal? false :unhappy-of :self-check-passed :raised-by [:workflow :instrument :skeptic]
+     :merged-from ["Harness self-check failed"]
+     :notes "Names the failing check; stops the cycle." :hot-spots []}
+    {:id :clean-room-proved :name "Clean room proved"
+     :caused-by {:kind :system :name "Fence"}
+     :pivotal? true :unhappy-of nil :raised-by [:operator :workflow]
+     :merged-from ["Clean room proved" "Clean room fenced" "Clean room proved (fenced paths absent from tree and object graph)"]
+     :notes "Physical: absent from working tree and object graph. 'Fenced' (ORC ran the stage) folded into 'proved' (the fact)."
+     :hot-spots [:hs-scoring-tools-fenced]}
+    {:id :fence-refused-empty-path :name "Fence refused: a fenced path matched nothing"
+     :caused-by {:kind :system :name "Fence"}
+     :pivotal? false :unhappy-of :clean-room-proved :raised-by [:skeptic :operator]
+     :merged-from ["Fence refused: fenced path matched nothing" "Fence refused"]
+     :notes "Stops before builders spend." :hot-spots []}
+    {:id :prior-implementation-reachable :name "Fence refused: prior implementation reachable in the object graph"
+     :caused-by {:kind :system :name "Fence probe"}
+     :pivotal? false :unhappy-of :clean-room-proved :raised-by [:skeptic]
+     :merged-from ["Prior implementation found reachable in object graph"]
+     :notes "Skeptic marked pivotal; kept as an unhappy branch." :hot-spots []}]}
+
+  {:id :regenerate
+   :name "Regenerate"
+   :kind :main
+   :events
+   [{:id :builder-room-started :name "Builder room started"
+     :caused-by {:kind :system :name "ORC (chooses the room) on Gondolin"}
+     :pivotal? false :unhappy-of nil :raised-by [:workflow]
+     :merged-from ["Builder room started"]
+     :notes "Stack image, cut read-only, candidate scope writable, offline. The builder host cannot widen it."
+     :hot-spots []}
+    {:id :builder-session-launched :name "Builder session launched"
+     :caused-by {:kind :policy :name "Whenever a builder tick starts, then launch its builder session with the production prompt"}
+     :pivotal? false :unhappy-of nil :raised-by [:workflow]
+     :merged-from ["Builder session launched"]
+     :notes "Production prompt digest recorded; tick is the request identity." :hot-spots []}
+    {:id :tool-result-committed :name "Tool result committed"
+     :caused-by {:kind :system :name "Builder host (pi-durable)"}
+     :pivotal? false :unhappy-of nil :raised-by [:workflow]
+     :merged-from ["Tool call committed" "Workspace generation bound"]
+     :notes "A turn counts only once committed; it binds a workspace generation."
+     :hot-spots [:hs-crash-between-effect-and-fact :hs-credential-leak]}
+    {:id :out-of-scope-access-refused :name "Out-of-scope read or write refused"
+     :caused-by {:kind :system :name "Builder room (Gondolin)"}
+     :pivotal? false :unhappy-of :tool-result-committed :raised-by [:skeptic]
+     :merged-from ["Out-of-scope read or write refused"]
+     :notes "Graders, host environment, egress." :hot-spots []}
+    {:id :builder-session-interrupted :name "Builder session interrupted"
+     :caused-by {:kind :system :name "Builder host or OS (crash, restart)"}
+     :pivotal? false :unhappy-of :tool-result-committed :raised-by [:workflow]
+     :merged-from ["Builder process crashed / harness restarted"]
+     :notes "" :hot-spots [:hs-relaunch-race]}
+    {:id :builder-session-resumed :name "Builder session resumed"
+     :caused-by {:kind :policy :name "Whenever the same tick is relaunched, then resume its session from committed turns"}
+     :pivotal? false :unhappy-of nil :raised-by [:workflow :skeptic]
+     :merged-from ["Builder session resumed" "Builder session resumed for the same tick"]
+     :notes "Never a second session. Workflow and skeptic marked it pivotal; facilitator demoted it (no phase change)."
+     :hot-spots [:hs-room-on-resume :hs-relaunch-race]}
+    {:id :resume-refused :name "Resume refused: transcript and workspace generation disagreed"
+     :caused-by {:kind :system :name "ORC"}
+     :pivotal? false :unhappy-of :builder-session-resumed :raised-by [:skeptic :workflow]
+     :merged-from ["Resume refused: transcript and workspace generation disagreed"]
+     :notes "Workflow asked which event says so; skeptic supplied it." :hot-spots [:hs-crash-between-effect-and-fact]}
+    {:id :intervention-recorded :name "Builder-session intervention recorded"
+     :caused-by {:kind :actor :name "Operator"}
+     :pivotal? false :unhappy-of nil :raised-by [:operator :workflow :skeptic]
+     :merged-from ["Builder intervened in" "Builder session observed / intervened (steer, fork)" "Intervention recorded; result marked assisted"]
+     :notes "Marks the candidate assisted. Observation alone is not an event."
+     :hot-spots [:hs-assisted-comparability]}
+    {:id :builder-session-ended :name "Builder session ended"
+     :caused-by {:kind :system :name "Builder host"}
+     :pivotal? false :unhappy-of nil :raised-by [:workflow]
+     :merged-from ["Builder session ended"]
+     :notes "Session end is not done." :hot-spots []}
+    {:id :builder-session-timed-out :name "Builder session timed out"
+     :caused-by {:kind :time :name "Builder session time limit"}
+     :pivotal? false :unhappy-of :builder-session-ended :raised-by [:skeptic]
+     :merged-from ["Builder session timed out"]
+     :notes "" :hot-spots [:hs-cancel-timeout-outcome :hs-budget]}
+    {:id :slice-built :name "Slice built"
+     :caused-by {:kind :system :name "ORC stage"}
+     :pivotal? false :unhappy-of nil :raised-by [:workflow :skeptic]
+     :merged-from ["Slice build recorded (candidate digest, uncarried list)" "Builder session ended with its slice uncarried"]
+     :notes "Carries candidate digest and the uncarried list, which is the builder's claim, not evidence."
+     :hot-spots [:hs-uncarried-list-steers]}
+    {:id :slice-builder-continued :name "Slice builder continued"
+     :caused-by {:kind :policy :name "Whenever items stay uncarried and continuations < 3, then continue the same session"}
+     :pivotal? false :unhappy-of :slice-built :raised-by [:workflow :skeptic]
+     :merged-from ["Slice builder continued" "Builder session continued (max three)"]
+     :notes "" :hot-spots [:hs-budget]}
+    {:id :continuation-stalled :name "Continuation stalled: candidate unchanged"
+     :caused-by {:kind :policy :name "Whenever a continuation leaves the candidate digest unchanged, then stop continuing"}
+     :pivotal? false :unhappy-of :slice-builder-continued :raised-by [:workflow]
+     :merged-from ["Continuation stalled (candidate unchanged)"]
+     :notes "" :hot-spots [:hs-unchanged-candidate]}
+    {:id :slice-left-candidate-unchanged :name "Slice left the candidate unchanged"
+     :caused-by {:kind :policy :name "Whenever a slice build leaves the candidate digest unchanged, then flag it"}
+     :pivotal? false :unhappy-of :slice-built :raised-by [:workflow]
+     :merged-from ["Slice left candidate unchanged"]
+     :notes "Legacy driver treats it as failure." :hot-spots [:hs-unchanged-candidate]}
+    {:id :candidate-regenerated :name "Candidate regenerated"
+     :caused-by {:kind :system :name "ORC stage"}
+     :pivotal? true :unhappy-of nil :raised-by [:operator :workflow]
+     :merged-from ["Candidate regenerated" "Candidate assembled (all slices, plan order)"]
+     :notes "Each slice extends the previous slice's candidate. A claim, not done." :hot-spots []}]}
+
+  {:id :gate
+   :name "Gate"
+   :kind :main
+   :events
+   [{:id :candidate-installed-in-gate-room :name "Candidate installed in the gate room"
+     :caused-by {:kind :system :name "ORC on Gondolin"}
+     :pivotal? false :unhappy-of nil :raised-by [:workflow]
+     :merged-from ["Candidate installed into gate room"]
+     :notes "The claimant never controls the judge." :hot-spots []}
+    {:id :gate-attempt-passed :name "Gate attempt passed"
+     :caused-by {:kind :system :name "Gate room"}
+     :pivotal? true :unhappy-of nil :raised-by [:operator :workflow]
+     :merged-from ["Gate passed" "Gate attempt passed"]
+     :notes "Booted fresh through the launch entrypoint, identity probed, suite green. Done is the gate's verdict."
+     :hot-spots [:hs-no-op-gate]}
+    {:id :gate-attempt-failed :name "Gate attempt failed"
+     :caused-by {:kind :system :name "Gate room"}
+     :pivotal? false :unhappy-of :gate-attempt-passed :raised-by [:operator :workflow :skeptic]
+     :merged-from ["Gate failed" "Gate attempt failed" "Gate attempt failed; repair builder started (failure half)"]
+     :notes "" :hot-spots []}
+    {:id :gate-refused-no-op-suite :name "Gate refused: tool missing or no-op suite"
+     :caused-by {:kind :system :name "Gate room"}
+     :pivotal? false :unhappy-of :gate-attempt-passed :raised-by [:skeptic :operator]
+     :merged-from ["Gate refused: tool missing, no-op suite" "gate that passed without exercising the product"]
+     :notes "Legacy failure. Skeptic marked pivotal." :hot-spots [:hs-no-op-gate]}
+    {:id :gate-refused-empty-suite :name "Gate refused: suite discovery empty"
+     :caused-by {:kind :system :name "Gate room"}
+     :pivotal? false :unhappy-of :gate-attempt-passed :raised-by [:skeptic]
+     :merged-from ["Gate refused: empty suite discovery"]
+     :notes "" :hot-spots [:hs-no-op-gate]}
+    {:id :gate-refused-answered-before-boot :name "Gate refused: seam answered before boot"
+     :caused-by {:kind :system :name "Gate room"}
+     :pivotal? false :unhappy-of :gate-attempt-passed :raised-by [:skeptic]
+     :merged-from ["Gate refused: something already answered before boot"]
+     :notes "Grading an orphan (legacy). Skeptic marked pivotal." :hot-spots []}
+    {:id :boot-budget-exhausted :name "Boot budget exhausted"
+     :caused-by {:kind :time :name "Gate boot budget"}
+     :pivotal? false :unhappy-of :gate-attempt-passed :raised-by [:skeptic]
+     :merged-from ["Boot budget exhausted"]
+     :notes "" :hot-spots []}
+    {:id :identity-probe-failed :name "Identity probe failed"
+     :caused-by {:kind :system :name "Gate room"}
+     :pivotal? false :unhappy-of :gate-attempt-passed :raised-by [:skeptic]
+     :merged-from ["Identity probe failed"]
+     :notes "A static fake (regen-3)." :hot-spots []}
+    {:id :repair-builder-launched :name "Repair builder launched"
+     :caused-by {:kind :policy :name "Whenever a gate attempt fails and attempts < 3, then launch a fresh repair builder"}
+     :pivotal? false :unhappy-of :gate-attempt-failed :raised-by [:workflow :skeptic]
+     :merged-from ["Repair builder launched" "repair builder started"]
+     :notes "Fresh session with only the previous candidate and gate evidence; re-enters the regenerate loop."
+     :hot-spots [:hs-leak-line :hs-repair-regression]}
+    {:id :gate-attempts-exhausted :name "Gate attempts exhausted"
+     :caused-by {:kind :policy :name "Whenever the third gate attempt fails, then fail the cycle without a score"}
+     :pivotal? true :unhappy-of :gate-attempt-passed :raised-by [:operator :workflow :skeptic]
+     :merged-from ["Gate attempts exhausted" "Third gate attempt failed; cycle failed"]
+     :notes "Pivotal: ends the build loop and skips the instrument." :hot-spots [:hs-cycle-number]}]}
+
+  {:id :score
+   :name "Score"
+   :kind :main
+   :events
+   [{:id :validation-room-started :name "Validation room started"
+     :caused-by {:kind :system :name "ORC on Gondolin, with the approved sealed graders"}
+     :pivotal? false :unhappy-of nil :raised-by [:workflow]
+     :merged-from ["Validation room started / grader run"]
+     :notes "Nothing flows back to the loop from here." :hot-spots [:hs-subject-binding]}
+    {:id :runtime-signals-collected :name "Runtime signals collected"
+     :caused-by {:kind :system :name "Independent validator"}
+     :pivotal? false :unhappy-of nil :raised-by [:instrument]
+     :merged-from ["Runtime signals collected, with collection completeness"]
+     :notes "Candidate-authored verdict fields are forbidden." :hot-spots [:hs-runtime-evidence-gap]}
+    {:id :evidence-refused-wrong-subject :name "Evidence refused: wrong cycle or candidate"
+     :caused-by {:kind :system :name "Harness"}
+     :pivotal? false :unhappy-of :runtime-signals-collected :raised-by [:skeptic]
+     :merged-from ["Evidence refused: wrong cycle or candidate"]
+     :notes "" :hot-spots [:hs-subject-binding]}
+    {:id :evidence-verdict-reached :name "Evidence verdict reached"
+     :caused-by {:kind :system :name "Independent invariant evaluation"}
+     :pivotal? false :unhappy-of nil :raised-by [:instrument]
+     :merged-from ["Evidence verdict reached (pass / fail / inconclusive)"]
+     :notes "" :hot-spots []}
+    {:id :evidence-inconclusive :name "Evidence found inconclusive"
+     :caused-by {:kind :system :name "Independent invariant evaluation"}
+     :pivotal? false :unhappy-of :evidence-verdict-reached :raised-by [:skeptic :instrument]
+     :merged-from ["Verdict found inconclusive"]
+     :notes "Incomplete collection is inconclusive, never pass; files as fail." :hot-spots [:hs-inconclusive-vs-unreached]}
+    {:id :item-verdicts-filed :name "Item verdicts filed"
+     :caused-by {:kind :system :name "Approved sealed grader, via the public seam"}
+     :pivotal? false :unhappy-of nil :raised-by [:instrument]
+     :merged-from ["Item verdicts filed, one per checklist item"]
+     :notes "" :hot-spots [:hs-subject-binding]}
+    {:id :unreached-item-failed :name "Unreached item recorded as fail"
+     :caused-by {:kind :policy :name "Whenever a checklist item has no verdict, then record it as fail"}
+     :pivotal? false :unhappy-of :item-verdicts-filed :raised-by [:instrument :skeptic :operator]
+     :merged-from ["Unreached item recorded as fail" "Unreached items recorded as fail" "Unreached items fail, stay counted"]
+     :notes "Denominator never shrinks. Skeptic marked pivotal." :hot-spots [:hs-inconclusive-vs-unreached :hs-coverage-gap]}
+    {:id :duplicate-verdict-superseded :name "Duplicate verdict superseded"
+     :caused-by {:kind :system :name "Instrument"}
+     :pivotal? false :unhappy-of :item-verdicts-filed :raised-by [:skeptic :instrument]
+     :merged-from ["Duplicate verdict superseded" "Duplicate verdicts, last wins silently"]
+     :notes "Contested: supersede or refuse (see disagreements)." :hot-spots [:hs-duplicate-verdicts]}
+    {:id :score-refused :name "Score refused"
+     :caused-by {:kind :system :name "Instrument"}
+     :pivotal? false :unhappy-of :measurement-filed :raised-by [:operator :instrument :skeptic]
+     :merged-from ["Score refused" "Score refused: zero verdicts / unknown ids / bad verdict value" "Score refused: zero verdicts or unknown item"]
+     :notes "Zero verdicts, unknown item, bad verdict value. Nothing filed; not scored is not all failed." :hot-spots []}
+    {:id :score-stage-failed :name "Score stage failed, not retried"
+     :caused-by {:kind :policy :name "Whenever a score is refused, then fail the score stage and never retry it in the cycle"}
+     :pivotal? false :unhappy-of :measurement-filed :raised-by [:skeptic]
+     :merged-from ["Score stage failed, not retried"]
+     :notes "Score never feeds the build loop." :hot-spots []}
+    {:id :measurement-filed :name "Measurement filed"
+     :caused-by {:kind :system :name "Instrument (FileScore)"}
+     :pivotal? true :unhappy-of nil :raised-by [:operator :workflow :instrument]
+     :merged-from ["Score filed" "Measurement filed"]
+     :notes "One per cycle; a false record cannot be untaken." :hot-spots [:hs-false-scored-record]}]}
+
+  {:id :scoreboard
+   :name "Scoreboard"
+   :kind :main
+   :events
+   [{:id :moved-item-set-restated :name "Moved item set restated"
+     :caused-by {:kind :policy :name "Whenever the denominator differs from the previous cycle, then restate it on shared items"}
+     :pivotal? false :unhappy-of nil :raised-by [:instrument :operator]
+     :merged-from ["Moved item set restated" "Is a moved denominator restated to me?"]
+     :notes "" :hot-spots []}
+    {:id :scoreboard-reported :name "Scoreboard reported"
+     :caused-by {:kind :system :name "Instrument, to a person"}
+     :pivotal? true :unhappy-of nil :raised-by [:operator :workflow :instrument]
+     :merged-from ["Scoreboard reported" "Scoreboard reported: shared newly-passing, shared newly-failing, new items as holdout"]
+     :notes "Newly passing and newly failing separately; new items are the untuned holdout; never a net."
+     :hot-spots [:hs-assisted-comparability :hs-coverage-gap :hs-evaluation-judges-misread]}]}
+
+  {:id :conclude
+   :name "Conclude and after the cycle"
+   :kind :main
+   :events
+   [{:id :cycle-passed :name "Cycle passed"
+     :caused-by {:kind :policy :name "Whenever the scoreboard is reported, then conclude the cycle once"}
+     :pivotal? true :unhappy-of nil :raised-by [:operator :workflow]
+     :merged-from ["Cycle passed / failed" "Cycle concluded (passed / failed)"]
+     :notes "Recorded once, when ORC completes the task." :hot-spots []}
+    {:id :cycle-failed :name "Cycle failed"
+     :caused-by {:kind :policy :name "Whenever gate attempts are exhausted or a stage fails, then conclude the cycle failed once"}
+     :pivotal? false :unhappy-of :cycle-passed :raised-by [:operator :workflow :skeptic]
+     :merged-from ["Cycle passed / failed (failed half)" "cycle failed"]
+     :notes "" :hot-spots [:hs-cancel-timeout-outcome]}
+    {:id :continuation-decided :name "Cycle continuation decided"
+     :caused-by {:kind :actor :name "Operator"}
+     :pivotal? false :unhappy-of nil :raised-by [:operator]
+     :merged-from ["Continuation decided"]
+     :notes "Stop, correct the spec, or prepare a child cycle." :hot-spots [:hs-spec-learning-vs-tuning]}
+    {:id :child-cycle-prepared :name "Child cycle prepared"
+     :caused-by {:kind :actor :name "Operator"}
+     :pivotal? false :unhappy-of nil :raised-by [:operator]
+     :merged-from ["Child cycle prepared"]
+     :notes "New cycle identity with lineage to its parent; loops back to Prepare." :hot-spots []}]}
+
+  {:id :out-of-band
+   :name "Out of band (any time during a cycle)"
+   :kind :parallel
+   :events
+   [{:id :cycle-cancelled :name "Cycle cancelled"
+     :caused-by {:kind :actor :name "Operator"}
+     :pivotal? false :unhappy-of nil :raised-by [:skeptic :workflow]
+     :merged-from ["Workflow task cancelled" "Tick timed out / cancelled (cancelled half)"]
+     :notes "Rooms must stop." :hot-spots [:hs-cancel-timeout-outcome]}
+    {:id :cycle-timed-out :name "Cycle timed out"
+     :caused-by {:kind :time :name "Task time limit"}
+     :pivotal? false :unhappy-of nil :raised-by [:workflow :operator]
+     :merged-from ["Tick timed out / cancelled (timed-out half)" "Outer-cycle budget runs out"]
+     :notes "" :hot-spots [:hs-cancel-timeout-outcome :hs-budget]}
+    {:id :operator-session-disconnected :name "Operator session disconnected; cycle continued"
+     :caused-by {:kind :actor :name "Operator"}
+     :pivotal? false :unhappy-of nil :raised-by [:skeptic]
+     :merged-from ["Operator session disconnected; cycle continued"]
+     :notes "A cycle never dies with a laptop." :hot-spots []}
+    {:id :orc-worker-replaced :name "ORC worker replaced; task answered from durable state"
+     :caused-by {:kind :system :name "ORC"}
+     :pivotal? false :unhappy-of nil :raised-by [:skeptic :workflow :operator]
+     :merged-from ["ORC worker replaced; wait answered from durable state" "Process restart of the harness" "A replaced ORC worker"]
+     :notes "Skeptic marked pivotal; facilitator kept it out of band." :hot-spots [:hs-worker-redispatch]}
+    {:id :model-drift-found :name "Model drift found; startup refused"
+     :caused-by {:kind :system :name "Harness process (event-model guard)"}
+     :pivotal? false :unhappy-of nil :raised-by [:skeptic]
+     :merged-from ["Model drift found; startup refused"]
+     :notes "Code and model diverged; happens before any cycle." :hot-spots []}]}
+
+  {:id :prompt-optimisation
+   :name "Prompt optimisation (parallel stream, outside the cycle)"
+   :kind :parallel
+   :events
+   [{:id :instruction-candidate-selected :name "Instruction candidate selected"
+     :caused-by {:kind :system :name "Prompt optimisation (GEPA, reflection model)"}
+     :pivotal? false :unhappy-of nil :raised-by [:skeptic]
+     :merged-from []
+     :notes "Facilitator added the happy counterpart from the glossary so the rejection has something to diverge from."
+     :hot-spots [:hs-optimisation-holdout]}
+    {:id :instruction-candidate-rejected-overfit :name "Instruction candidate rejected as overfit"
+     :caused-by {:kind :system :name "Prompt optimisation"}
+     :pivotal? false :unhappy-of :instruction-candidate-selected :raised-by [:skeptic]
+     :merged-from ["Instruction candidate rejected as overfit"]
+     :notes "" :hot-spots [:hs-optimisation-holdout]}]}]
+
+ :hot-spots
+ [;; blocking: answer before the event model
+  {:id :hs-crash-between-effect-and-fact :blocking? true :phase :regenerate :raised-by [:workflow :skeptic]
+   :question "When ORC or the builder host dies after an effect (a tool result, a gate run) but before its fact is recorded, which side is truth, and does replay spend another of the three gate attempts?"}
+  {:id :hs-relaunch-race :blocking? true :phase :regenerate :raised-by [:workflow]
+   :question "If a slow original builder host and a relaunch of the same tick are both alive, what fences the old writer?"}
+  {:id :hs-room-on-resume :blocking? true :phase :regenerate :raised-by [:workflow]
+   :question "On resume, is the builder room reattached or rebuilt, and if rebuilt, from which workspace generation?"}
+  {:id :hs-cancel-timeout-outcome :blocking? true :phase :out-of-band :raised-by [:skeptic :workflow :operator]
+   :question "Is a cancelled or timed-out cycle failed, unmeasured, or partly measured; who stops live rooms; and is a committed but unreported turn lost or replayed?"}
+  {:id :hs-budget :blocking? true :phase :prepare :raised-by [:operator :skeptic]
+   :question "What is the outer-cycle budget (time, attempts, money), how do continuations times repairs add up, which limits sit in the approved preparation, and what happens when it runs out mid-regenerate?"}
+  {:id :hs-leak-line :blocking? true :phase :gate :raised-by [:workflow :instrument]
+   :question "Where exactly is the line between gate evidence (may reach a repair builder) and score evidence (never), and which part enforces and proves it: room policy, fence, or something else?"}
+  {:id :hs-inconclusive-vs-unreached :blocking? true :phase :score :raised-by [:instrument :skeptic :operator]
+   :question "An item verdict is only pass or fail: where does the reason (unreached, inconclusive, outage) live so an outage reads differently from a regression?"}
+  {:id :hs-cycle-number :blocking? true :phase :dispatch :raised-by [:workflow]
+   :question "Is a cycle numbered at submission or when it is scored (legacy); is a cycle that failed the gate an unscored cycle or no cycle?"}
+  {:id :hs-builder-host-absent :blocking? true :phase :dispatch :raised-by [:workflow]
+   :question "If the builder host is absent or not built, is that a failed cycle or a refusal before any cycle exists?"}
+  {:id :hs-whole-plan-submission :blocking? true :phase :prepare :raised-by [:operator]
+   :question "Is a whole-plan submission its own approval, and does it skip the selection and grader-digest reviews?"}
+  {:id :hs-unchanged-candidate :blocking? true :phase :regenerate :raised-by [:workflow]
+   :question "Is a slice that leaves the candidate unchanged a failure (legacy) or a stall that just ends continuation?"}
+  {:id :hs-staleness-key :blocking? true :phase :grader :raised-by [:skeptic :instrument]
+   :question "Is grader staleness keyed per item scenario digest or per slice, so that growth does not stale a grader but a reword does?"}
+  {:id :hs-subject-binding :blocking? true :phase :score :raised-by [:skeptic]
+   :question "What proves the validation room scores the candidate the gate ratified, and is the grader digest re-checked at score time or only at preparation?"}
+  ;; can wait
+  {:id :hs-assisted-comparability :blocking? false :phase :scoreboard :raised-by [:operator :skeptic]
+   :question "Is an assisted candidate's score in the same scoreboard series as unassisted ones, or a separate series?"}
+  {:id :hs-no-op-gate :blocking? false :phase :gate :raised-by [:operator :skeptic]
+   :question "Beyond the three legacy refusals, who catches a gate that passed without exercising the product?"}
+  {:id :hs-false-scored-record :blocking? false :phase :score :raised-by [:operator :skeptic]
+   :question "Can an outage leave a false 'scored' record, given a filed measurement cannot be taken back?"}
+  {:id :hs-grader-review-bias :blocking? false :phase :grader :raised-by [:operator]
+   :question "What does the operator review before approving a grader digest without biasing later spec edits toward its tests?"}
+  {:id :hs-calibration-failure-cause :blocking? false :phase :grader :raised-by [:operator]
+   :question "When calibration fails three times, is the fix in the spec wording or in the calibration protocol?"}
+  {:id :hs-replacement-reason-truth :blocking? false :phase :grader :raised-by [:instrument :skeptic]
+   :question "Who checks that a recorded replacement reason is true, and is the additions-only diff the only enforceable test?"}
+  {:id :hs-grader-author-blindness :blocking? false :phase :grader :raised-by [:instrument]
+   :question "How is grader-author blindness proven rather than asserted, and are the three sealed Python graders valid until they are ported to Elixir and re-approved?"}
+  {:id :hs-coverage-gap :blocking? false :phase :scoreboard :raised-by [:instrument]
+   :question "With approved graders for about 17 of ~94 items, should the scoreboard also report graded coverage so a low rate is not read as the candidate's quality alone?"}
+  {:id :hs-runtime-evidence-gap :blocking? false :phase :score :raised-by [:instrument]
+   :question "The runtime-evidence contract has no collection-completeness accounting or inconclusive outcome yet; when is that gap closed?"}
+  {:id :hs-planned-slice-filter :blocking? false :phase :prepare :raised-by [:instrument]
+   :question "Can demoting a slice in the plan shrink the denominator with only a stderr warning?"}
+  {:id :hs-self-check-coverage :blocking? false :phase :fence :raised-by [:instrument]
+   :question "Does self-check reuse keyed on the harness digest also cover grader digests and the capture policy?"}
+  {:id :hs-scoring-tools-fenced :blocking? false :phase :fence :raised-by [:operator :instrument]
+   :question "Should scoring tools be fenced from the clean room?"}
+  {:id :hs-duplicate-verdicts :blocking? false :phase :score :raised-by [:instrument :skeptic]
+   :question "Should a grader that emits duplicate verdicts be refused instead of the last one silently winning?"}
+  {:id :hs-oracle-naming :blocking? false :phase :score :raised-by [:instrument]
+   :question "Legacy files still say 'oracle' for three different things; when are they renamed to glossary terms?"}
+  {:id :hs-evaluation-judges-misread :blocking? false :phase :scoreboard :raised-by [:instrument]
+   :question "How do we stop ORC evaluation-judge scores (diagnostics only) being read as the measurement?"}
+  {:id :hs-spec-learning-vs-tuning :blocking? false :phase :conclude :raised-by [:operator]
+   :question "After reading scores and editing the spec, where does learning from the spec end and tuning to the grader begin?"}
+  {:id :hs-optimisation-holdout :blocking? false :phase :prompt-optimisation :raised-by [:skeptic]
+   :question "What does prompt optimisation measure on, and who keeps a set it has never seen?"}
+  {:id :hs-worker-redispatch :blocking? false :phase :out-of-band :raised-by [:workflow :operator]
+   :question "Does a replacement ORC worker re-dispatch the builder launch for an in-flight tick, and does the operator see one task or two?"}
+  {:id :hs-credential-leak :blocking? false :phase :regenerate :raised-by [:workflow]
+   :question "Can tool output (logs, environment) leak host state or credentials into the builder transcript?"}
+  {:id :hs-uncarried-list-steers :blocking? false :phase :regenerate :raised-by [:workflow]
+   :question "The uncarried list lives in the scope the builder writes and decides continuations: is the builder allowed to steer the loop's length?"}
+  {:id :hs-repair-regression :blocking? false :phase :gate :raised-by [:workflow]
+   :question "The repair budget counts across the whole candidate: what catches a repair that regresses an earlier slice?"}
+  {:id :hs-preparation-expiry :blocking? false :phase :prepare :raised-by [:skeptic]
+   :question "Does an unapproved or unsubmitted preparation expire if the operator walks away?"}]
+
+ :contexts
+ [{:id :specification :name "Specification"
+   :owns [:scenario-stamped :unstamped-scenario-found]
+   :upstream-of [:cycle-preparation :grader-lifecycle :measurement]
+   :relationship "Open host with a published language (item identity, scenario digest, stamped item); every other context conforms."
+   :handoffs [:scenario-stamped]}
+  {:id :cycle-preparation :name "Cycle preparation (operator control)"
+   :owns [:source-cut-pinned :slice-proposed :selection-contract-presented :selection-approved :approval-refused
+          :cycle-preparation-approved :cycle-submitted :receipt-issued :duplicate-submission-answered :submission-refused
+          :intervention-recorded :cycle-cancelled :operator-session-disconnected :continuation-decided :child-cycle-prepared]
+   :upstream-of [:regeneration-cycle :measurement]
+   :relationship "Customer-supplier to the regeneration cycle: the approved preparation is the only crossing, immutable. Downstream of the measurement only through a person reading the scoreboard."
+   :handoffs [:cycle-submitted :selection-approved]}
+  {:id :grader-lifecycle :name "Grader lifecycle"
+   :owns [:grader-requested :instrument-golden-written :grader-authored :grader-calibrated :grader-discarded
+          :instrument-declared-unavailable :grader-sealed :grader-digest-approved :grader-reused :grader-found-stale
+          :grader-replaced :grader-replacement-refused :instrument-golden-moved]
+   :upstream-of [:cycle-preparation :measurement]
+   :relationship "Own clock, no cycle. Supplies approved grader digests the preparation binds and the measurement uses; conforms to the specification."
+   :handoffs [:grader-digest-approved]}
+  {:id :regeneration-cycle :name "Regeneration cycle (harness: fence and gate)"
+   :owns [:cycle-started :self-check-passed :self-check-failed :clean-room-proved :fence-refused-empty-path
+          :prior-implementation-reachable :builder-room-started :builder-session-launched :slice-built
+          :slice-builder-continued :continuation-stalled :slice-left-candidate-unchanged :candidate-regenerated
+          :candidate-installed-in-gate-room :gate-attempt-passed :gate-attempt-failed :gate-refused-no-op-suite
+          :gate-refused-empty-suite :gate-refused-answered-before-boot :boot-budget-exhausted :identity-probe-failed
+          :repair-builder-launched :gate-attempts-exhausted :cycle-passed :cycle-failed :cycle-timed-out
+          :orc-worker-replaced :model-drift-found]
+   :upstream-of [:builder-session :measurement]
+   :relationship "Owns stage order, room choice and the repair policy. Translates ORC facts through an anticorruption layer; hands the gated candidate to the measurement one-way (nothing flows back)."
+   :handoffs [:gate-attempt-passed :builder-session-launched :repair-builder-launched]}
+  {:id :builder-session :name "Builder session (durable)"
+   :owns [:tool-result-committed :out-of-scope-access-refused :builder-session-interrupted :builder-session-resumed
+          :resume-refused :builder-session-ended :builder-session-timed-out]
+   :upstream-of [:regeneration-cycle]
+   :relationship "Joined to the regeneration cycle by the tick. Conforms to the cycle's production prompt and room; reports only committed turns and the session end back, never a verdict."
+   :handoffs [:builder-session-ended]}
+  {:id :measurement :name "Measurement (instrument: score and scoreboard)"
+   :owns [:checklist-derived :empty-selection-refused :validation-room-started :runtime-signals-collected
+          :evidence-refused-wrong-subject :evidence-verdict-reached :evidence-inconclusive :item-verdicts-filed
+          :unreached-item-failed :duplicate-verdict-superseded :score-refused :score-stage-failed :measurement-filed
+          :moved-item-set-restated :scoreboard-reported]
+   :upstream-of [:prompt-optimisation]
+   :relationship "Downstream of preparation (checklist), grader lifecycle (digest) and the cycle (gated candidate). Reports to a person only; never upstream of the build loop."
+   :handoffs [:scoreboard-reported :measurement-filed]}
+  {:id :prompt-optimisation :name "Prompt optimisation"
+   :owns [:instruction-candidate-selected :instruction-candidate-rejected-overfit]
+   :upstream-of [:regeneration-cycle]
+   :relationship "Outside every cycle. Consumes independent measurements; supplies a selected builder instruction that a new approved preparation pins. Must stay away from the checklist it is judged on."
+   :handoffs [:instruction-candidate-selected]}]
+
+ :external
+ [{:name "ORC runtime (ORC worker)" :kind "workflow engine; provided"}
+  {:name "Builder host (pi-durable)" :kind "durable session runtime; provided"}
+  {:name "Gondolin" :kind "micro-VM rooms; provided"}
+  {:name "Builder model provider (Codex)" :kind "model provider"}
+  {:name "Reflection model provider" :kind "model provider; deferred"}
+  {:name "Project repository (git)" :kind "source of cuts"}
+  {:name "Grain event store" :kind "storage; provided"}
+  {:name "Candidate public seam (JSON-RPC over stdio)" :kind "the regenerated product"}
+  {:name "Legacy regeneration driver" :kind "legacy system"}
+  {:name "Operator session (Pi, Codex)" :kind "interactive agent acting for a person"}
+  {:name "Time" :kind "timeouts and budgets"}]
+
+ :disagreements
+ [{:topic "A slice that leaves the candidate unchanged"
+   :raised-by [:workflow]
+   :positions ["Legacy driver: it is a failure of the slice."
+               "Continuation policy: it is a stall; stop continuing and move on."]}
+  {:topic "Duplicate verdicts from one grader"
+   :raised-by [:skeptic :instrument]
+   :positions ["Skeptic: the duplicate is superseded (last one stands); only double counting must be prevented."
+               "Instrument: last-wins is silent; a grader emitting duplicates should be refused."]}
+  {:topic "Whether scoring tools are fenced from the clean room"
+   :raised-by [:operator :instrument]
+   :positions ["Fence them: the clean room holds no grading harness."
+               "Leave them: the legacy siblings did not fence them. Both participants report it undecided."]}
+  {:topic "What is pivotal inside the regenerate and gate phases"
+   :raised-by [:workflow :skeptic :operator :instrument]
+   :positions ["Workflow and skeptic: session resume, worker replacement and several refusals are pivotal; they protect the cycle's integrity."
+               "Operator and instrument: only approvals, the gate verdict, the filed measurement and the conclusion split the timeline. Facilitator followed this reading."]}
+  {:topic "Is the checklist a pivotal event"
+   :raised-by [:instrument :operator]
+   :positions ["Instrument: yes, it sets the denominator."
+               "Operator: no, it is a policy reaction to the selection being approved."]}
+  {:topic "Who issues the self-check and the receipt"
+   :raised-by [:workflow :skeptic :operator]
+   :positions ["Workflow: ORC stages do."
+               "Operator and skeptic: the harness does. Glossary: ORC reports execution facts; the harness records stage facts, so both may be right at different layers."]}]}
