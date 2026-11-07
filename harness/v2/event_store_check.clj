@@ -32,6 +32,17 @@
 ;;     first leaf and the completed one after its last, so a command issued outside ORC, or
 ;;     in a run that failed or never ended, is refused. It cannot tell two overlapping runs
 ;;     of the same workflow apart, which the gate's one caller never makes.
+;;   - rule "one terminal completion per tick": within a tenant, a tick has more than one
+;;     :sheet/tree-tick-completed whose :root-status is terminal (not :running), or a trace has
+;;     more than one :sheet/execution-traced (by :trace-id). ORC's processors append these; a
+;;     processor started without its :processor-name skips Grain's checkpoint and CAS, so
+;;     at-least-once delivery appends them twice. A :running completion followed by a fresh
+;;     tree-tick-started is ORC re-ticking, and is not counted.
+;;   - rule "processors are checkpointed": a tenant holds events ORC's processors write
+;;     (:sheet/tree-tick-completed, :sheet/execution-traced) but no
+;;     :grain/todo-processor-checkpoint, the event Grain's todo processor appends, atomically
+;;     with each output, only when it was started with a :processor-name. Grain's checkpoint
+;;     and effect-failure events are Grain's own (the grain namespace), listed and allowed.
 ;; The store is copied first and the copy is opened, because opening a Grain store writes to it.
 (ns event-store-check
   (:require [ai.obney.grain.event-store-v3.interface :as es]
@@ -161,6 +172,47 @@
                                           inside))
                       ")"))))))))
 
+(def processor-fix
+  "start each processor with its :processor-name (tp/start {... :processor-name ...}), so Grain checkpoints each output and drops a redelivered event")
+
+(defn duplicate-problems
+  "Rule \"one terminal completion per tick\": within a tenant, at most one terminal
+  :sheet/tree-tick-completed per :tick-id and one :sheet/execution-traced per :trace-id."
+  [events]
+  (let [doubled (fn [pred k]
+                  (sort-by str (for [[[t id] es] (group-by (juxt ::tenant k) (filter pred events))
+                                     :when (> (count es) 1)]
+                                 [t id es])))]
+    (vec (concat
+          (for [[t id es] (doubled #(and (= :sheet/tree-tick-completed (:event/type %))
+                                         (not= :running (:root-status %)))
+                                   :tick-id)]
+            (str "rule \"one terminal completion per tick\" failed: tick " id " (tenant " t ") has "
+                 (count es) " terminal sheet/tree-tick-completed events ("
+                 (str/join ", " (map #(str (some-> (:root-status %) name) " " (:event/id %)) es))
+                 "): an ORC processor appended its output more than once; " processor-fix))
+          (for [[t id es] (doubled #(= :sheet/execution-traced (:event/type %)) :trace-id)]
+            (str "rule \"one terminal completion per tick\" failed: trace " id " (tenant " t ") has "
+                 (count es) " sheet/execution-traced events ("
+                 (str/join ", " (map #(str (:event/id %)) es))
+                 "): an ORC processor appended its output more than once; " processor-fix))))))
+
+(def processor-written #{:sheet/tree-tick-completed :sheet/execution-traced})
+
+(defn checkpoint-problems
+  "Rule \"processors are checkpointed\": a tenant with events ORC's processors write holds
+  Grain's :grain/todo-processor-checkpoint events too."
+  [events]
+  (vec (for [[t es] (sort-by (comp str key) (group-by ::tenant events))
+             :let [written (filter #(processor-written (:event/type %)) es)]
+             :when (and (seq written)
+                        (not-any? #(= :grain/todo-processor-checkpoint (:event/type %)) es))]
+         (str "rule \"processors are checkpointed\" failed: tenant " t " holds "
+              (count written) " event(s) ORC's processors wrote ("
+              (str/join ", " (sort (set (map #(subs (str (:event/type %)) 1) written))))
+              ") but no grain/todo-processor-checkpoint: the processors ran without Grain's "
+              "checkpoint, so a redelivered event is processed again; " processor-fix))))
+
 (defn body [e]
   (into {} (remove (fn [[k _]] (or (= "event" (namespace k)) (= ::tenant k)))) e))
 
@@ -199,7 +251,9 @@
                       :when explain]
                   (str "event " (:event/id e) " (" (subs (str (:event/type e)) 1) ") does not match its schema: "
                        (pr-str (me/humanize explain))))
-                (workflow-problems workflows events))))))))
+                (workflow-problems workflows events)
+                (duplicate-problems events)
+                (checkpoint-problems events))))))))
 
 (let [[model-dir store] *command-line-args*
       _ (when-not (and model-dir store)
@@ -211,6 +265,6 @@
              (str "event-store check FAILED: " (count problems) " problem(s)")
              (str "event-store check OK: every event is an event of the model or a handoff it consumes, "
                   "with exactly its fields, or Grain's or ORC's own, and each event a command produced lies inside a completed run "
-                  "of its ORC workflow")))
+                  "of its ORC workflow, each tick completed once, and ORC's processors checkpointed")))
   (shutdown-agents)
   (System/exit (if (seq problems) 1 0)))

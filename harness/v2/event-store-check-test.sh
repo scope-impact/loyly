@@ -6,7 +6,9 @@
 # others, and a store
 # that is not there, fails for its own reason, among them a model event with no ORC run on
 # the store, one in a run that never completed with success, a consumed handoff off its
-# contract's schema, and a foreign event the slice does not consume.
+# contract's schema, a foreign event the slice does not consume, a tick completed twice, a
+# trace written twice, and ORC processor output with no Grain checkpoint (a re-ticked run,
+# :running then success, passes).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/event-store-check-test.XXXXXX")"
@@ -33,6 +35,10 @@ expect 1 "$WORK/fail-run-failed.sqlite"      "never completed with success (tick
 expect 1 "$WORK/fail-outside-run.sqlite"     "was not written inside a run of the ORC workflow specification/stamping"
 expect 1 "$WORK/fail-other-workflow.sqlite"  "was not written inside a run of the ORC workflow specification/stamping"
 expect 1 "$WORK/fail-unconsumed-handoff.sqlite" "cycle-preparation/source-cut-pinned is not an event of"
+expect 0 "$WORK/pass-re-ticked-run.sqlite"   "event-store check OK"
+expect 1 "$WORK/fail-doubled-completion.sqlite" 'rule "one terminal completion per tick" failed: tick .* has 2 terminal sheet/tree-tick-completed.*start each processor with its :processor-name'
+expect 1 "$WORK/fail-doubled-trace.sqlite"   'rule "one terminal completion per tick" failed: trace .* has 2 sheet/execution-traced.*start each processor with its :processor-name'
+expect 1 "$WORK/fail-no-checkpoint.sqlite"   'rule "processors are checkpointed" failed: tenant .*no grain/todo-processor-checkpoint.*start each processor with its :processor-name'
 expect 0 "$WORK/02-pass-handoffs-and-runs.sqlite" "event-store check OK"
 expect 1 "$WORK/02-fail-only-handoffs.sqlite" "holds no event of the model"
 expect 1 "$WORK/02-fail-handoff-schema.sqlite" ":branch"
@@ -49,4 +55,4 @@ expect 1 "$WORK/04-fail-foreign-event.sqlite" "measurement/checklist-derived is 
 expect 1 "$WORK/04-fail-outside-run.sqlite"  "was not written inside a run of the ORC workflow regeneration-cycle/fence-to-scoreboard"
 expect 1 "$WORK/04-fail-wrong-workflow.sqlite" "was not written inside a run of the ORC workflow regeneration-cycle/gate-refusals-fail-cycle"
 (( bad )) && { echo "event-store check test FAILED"; exit 1; }
-echo "event-store check test OK: 4 passes, 24 refusals, each for its own reason"
+echo "event-store check test OK: 5 passes, 27 refusals, each for its own reason"

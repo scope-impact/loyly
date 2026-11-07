@@ -7,7 +7,9 @@
 ;; as an open map: the fixtures may hold anything, and only the check judges them. The
 ;; "02-" stores are judged against slice 02 (measurement), the "03-" stores against slice 03
 ;; (grader-lifecycle, which consumes no handoff), the "04-" stores against slice 04
-;; (regeneration-cycle, which consumes six), the others against slice 01.
+;; (regeneration-cycle, which consumes six), the others against slice 01. Every completed run
+;; carries Grain's processor checkpoints, except where a case takes them out (unchecked) or
+;; doubles a processor's output (doubled).
 (ns event-store-fixtures
   (:require [ai.obney.grain.event-store-v3.interface :as es]
             [ai.obney.grain.event-store-sqlite-v3.interface]
@@ -22,17 +24,52 @@
 (def reported
   {:slice "07" :source "/tmp/plan/07-probe/spec.feature" :lines [9] :reported-at (java.time.Instant/now)})
 
+(defn processed
+  "What ORC's processors append when a run's tick completes with STATUS, as Grain's todo
+  processor writes it when started with a :processor-name: the tree-tick-completed, the
+  execution-traced, each with Grain's checkpoint."
+  [sheet-id tick status]
+  [[:sheet/tree-tick-completed {:sheet-id sheet-id :tick-id tick :root-status status}]
+   [:grain/todo-processor-checkpoint {:processor/name :sheet/tick-completer :triggered-by (random-uuid)}]
+   [:sheet/execution-traced {:sheet-id sheet-id :trace-id tick :root-trace-id tick :status status}]
+   [:grain/todo-processor-checkpoint {:processor/name :sheet/tracer :triggered-by (random-uuid)}]])
+
 (defn orc-run
   "EVENTS inside one run of the ORC workflow WORKFLOW as ORC writes it on the store: its sheet
   (one per workflow, so two runs of different workflows in one store keep their names apart),
-  then the run's tree-tick-started and, unless STATUS is nil, its tree-tick-completed."
+  then the run's tree-tick-started and, unless STATUS is nil, what its processors append
+  when it completes (processed)."
   ([events] (orc-run "specification/stamping" :success events))
   ([workflow status events]
    (let [tick (random-uuid) sheet-id (random-uuid)]
      (concat [[:sheet/sheet-created {:sheet-id sheet-id :name workflow}]
               [:sheet/tree-tick-started {:sheet-id sheet-id :tick-id tick}]]
              events
-             (when status [[:sheet/tree-tick-completed {:sheet-id sheet-id :tick-id tick :root-status status}]])))))
+             (when status (processed sheet-id tick status))))))
+
+(defn re-ticked-run
+  "EVENTS in a run ORC re-ticks: the tick completes :running, ORC starts it again, and the
+  second tick completes with success. One terminal completion: rule 1 holds."
+  [workflow events]
+  (let [tick (random-uuid) sheet-id (random-uuid)]
+    (concat [[:sheet/sheet-created {:sheet-id sheet-id :name workflow}]
+             [:sheet/tree-tick-started {:sheet-id sheet-id :tick-id tick}]
+             [:sheet/tree-tick-completed {:sheet-id sheet-id :tick-id tick :root-status :running}]
+             [:grain/todo-processor-checkpoint {:processor/name :sheet/tick-completer :triggered-by (random-uuid)}]
+             [:sheet/tree-tick-started {:sheet-id sheet-id :tick-id tick}]]
+            events
+            (processed sheet-id tick :success))))
+
+(defn doubled
+  "EVENTS with each event of type T appended twice, byte-identical, as an unchecked processor
+  redelivered."
+  [t events]
+  (mapcat #(if (= t (first %)) [% %] [%]) events))
+
+(defn unchecked
+  "EVENTS without Grain's checkpoints, as processors started with no :processor-name write them."
+  [events]
+  (remove #(= :grain/todo-processor-checkpoint (first %)) events))
 
 (def pinned
   {:cut-id "K-1" :commit "0123456789abcdef0123456789abcdef01234567" :tree-digest "sha256:t1" :pinned-at (java.util.Date.)})
@@ -160,7 +197,11 @@
    "fail-outside-run"      (concat (orc-run []) [[:specification/scenario-stamped stamped]])
    "fail-other-workflow"   (orc-run "specification-stamping" :success [[:specification/scenario-stamped stamped]])
    "fail-unconsumed-handoff" (concat [[:cycle-preparation/source-cut-pinned pinned]]
-                                     (orc-run [[:specification/scenario-stamped stamped]]))})
+                                     (orc-run [[:specification/scenario-stamped stamped]]))
+   "pass-re-ticked-run"    (re-ticked-run "specification/stamping" [[:specification/scenario-stamped stamped]])
+   "fail-doubled-completion" (doubled :sheet/tree-tick-completed (orc-run [[:specification/scenario-stamped stamped]]))
+   "fail-doubled-trace"    (doubled :sheet/execution-traced (orc-run [[:specification/scenario-stamped stamped]]))
+   "fail-no-checkpoint"    (unchecked (orc-run [[:specification/scenario-stamped stamped]]))})
 
 (def cases (merge cases-01 cases-02 cases-03 cases-04))
 
