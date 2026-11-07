@@ -1,22 +1,35 @@
 (ns loyly.grading
   "The grading step of harness/v2/score.sh (step 4), the legacy README's step 5 as is: grade each
-   checklist item against the running app, however you grade, then file. Here the grader is an
-   agent, the command LOYLY_GRADER_CMD, handed the pinned open-ended prompt prompt.md, and the
-   step runs as one ORC workflow on a Grain SQLite store, CYCLE/grading.sqlite. The workflow is a
-   sequence of three code steps, each result a sheet value in that store:
+   checklist item against the running app, however you grade, then file. Two ORC workflows, on
+   ONE Grain SQLite store that keeps every grading run, of every slice and cycle: the grading
+   history, LOYLY_GRADING_STORE (default history.sqlite beside this file, not committed).
 
-     render-prompt  prompt.md filled for the slice (item ids from CYCLE/checklist.json); its
-                    sha256 recorded; written to CYCLE/grader-prompt.md
-     run-grader     LOYLY_GRADER_CMD (bash -c), the prompt on stdin, its working directory a
-                    fresh scratch directory, killed after LOYLY_GRADER_TIMEOUT seconds; stdout
-                    and stderr kept in CYCLE/grader-stdout.log and grader-stderr.log
-     read-verdicts  the grader's verdicts.json, validated, written to CYCLE/verdicts.json for
-                    score.clj; its surprises.json, if any, copied to CYCLE/surprises.json
+     score        the parent, a sequence:
+                    load-checklist   the cycle's checklist.json, each item with its scenario's
+                                     text from the context's spec.feature
+                    grade            a fallback: delegate to open-grader; if that does not
+                                     finish, zero verdicts, noted
+                    check-verdicts   the rules below; CYCLE/verdicts.json for score.clj,
+                                     CYCLE/surprises.json
+     open-grader  the child, run by the delegate with its own blackboard: a sequence whose core
+                  is one repl-researcher, ORC's agentic node, with the open-ended instruction
+                  prompt.md. It decides itself how to grade: tool calls (loyly.seam: read the
+                  spec, start the candidate, JSON-RPC over its stdio, stop it) inline or in
+                  :code nodes it emits, and :llm nodes only where it wants a model's reading.
+
+   Every model call, the researcher's turns and any :llm node it emits, goes to the provider :pi
+   (loyly.pi-provider: one non-interactive pi session per call). The model is
+   LOYLY_GRADER_MODEL (default pi-default: pi's own default).
+
+   Each run's input blackboard carries slice, cycle, context, the candidate's start.sh and the
+   prompt's digest, so every run in the history is findable (loyly.grading-history lists them).
+   CYCLE/grading.json points into the history: store, sheet ids, the parent's and the delegated
+   child's tick ids, model, provider, prompt digest.
 
    Nothing here decides a score. An entry that is not {id, verdict pass|fail, evidence string},
    an id not on the checklist, and an id filed more than once are dropped with a note; an item
    left without a verdict is unreached, and score.clj fails it and keeps it in the denominator.
-   No file, or one that is not a JSON list, is zero verdicts: score.clj refuses to file.
+   No verdicts at all is zero verdicts: score.clj refuses to file.
 
    Usage, from harness/v2/grading: clojure -M:jvm -m loyly.grading NN CONTEXT SPEC_DIR START ROOM CYCLE"
   (:require [ai.obney.orc.orc-service.interface :as orc]
@@ -30,14 +43,15 @@
             [ai.obney.grain.kv-store-lmdb.interface :as lmdb]
             [clojure.data.json :as json]
             [clojure.java.io :as io]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [loyly.pi-provider :as pi]
+            [loyly.seam :as seam])
   (:import (java.nio.file Files)
            (java.nio.file.attribute FileAttribute)
-           (java.security MessageDigest)
-           (java.util.concurrent TimeUnit)))
+           (java.security MessageDigest)))
 
-(def default-command "claude -p --permission-mode bypassPermissions")
 (def default-timeout-s 1800)
+(def default-max-iterations 40)
 (def tenant-id #uuid "00000000-0000-0000-0000-0000000000a5")
 
 (defn- note! [& xs] (binding [*out* *err*] (apply println "grading:" xs)))
@@ -50,52 +64,43 @@
 (defn- checklist-items [path]
   (get (json/read-str (slurp path :encoding "UTF-8")) "items"))
 
-;; ---- 1. render the pinned prompt for the slice
+;; ---- load-checklist
 
-(defn render [template {:keys [slice context spec-dir start room checklist]}]
-  (let [items (str/join "\n" (map #(str "- `" (get % "id") "`: " (get % "name"))
-                                  (checklist-items checklist)))]
-    (reduce (fn [t [k v]] (str/replace t (str "{{" k "}}") v))
-            template
-            {"SLICE" slice "CONTEXT" context "SPEC_DIR" spec-dir "START" start "ROOM" room
-             "ITEMS" items})))
+(defn scenario-text
+  "The scenario starting at 1-based LINE of FEATURE-LINES (its tag line or its Scenario line), up
+   to the next tag, Scenario, Rule or Feature line."
+  [feature-lines line]
+  (let [head? #(re-find #"^\s*(@|Scenario|Rule:|Feature:|Background:)" %)
+        [first-lines rest-lines] (split-with #(re-find #"^\s*(@|Scenario)" %)
+                                             (drop (dec line) feature-lines))]
+    (str/trim (str/join "\n" (concat first-lines (take-while (complement head?) rest-lines))))))
 
-(defn render-prompt [{:keys [inputs]}]
-  (let [prompt (render (slurp (:template inputs) :encoding "UTF-8") inputs)]
-    (spit (io/file (:cycle inputs) "grader-prompt.md") prompt :encoding "UTF-8")
-    {:prompt prompt :prompt-digest (sha256 prompt)}))
+(defn load-checklist [{:keys [inputs]}]
+  (let [{:keys [checklist spec-dir]} inputs
+        feature (str/split-lines (slurp (io/file spec-dir "spec.feature") :encoding "UTF-8"))
+        items (mapv (fn [it]
+                      (let [line (some->> (get it "source") (re-find #":(\d+)$") second parse-long)]
+                        {:id (get it "id") :name (get it "name")
+                         :scenario (if line (scenario-text feature line) "")}))
+                    (checklist-items checklist))]
+    {:items items :ids (mapv :id items)}))
 
-;; ---- 2. run the grader command
+;; ---- grade: the fallback when the open grader does not finish
 
-(defn run-grader [{:keys [inputs]}]
-  (let [{:keys [prompt command timeout-s cycle slice]} inputs
-        dir (.toFile (Files/createTempDirectory (str "grade-" slice "-") (make-array FileAttribute 0)))
-        pb (doto (ProcessBuilder. ["bash" "-c" command])
-             (.directory dir)
-             (.redirectOutput (io/file cycle "grader-stdout.log"))
-             (.redirectError (io/file cycle "grader-stderr.log")))
-        _ (note! "grader" (pr-str command) "in" (str dir) "for at most" timeout-s "s")
-        p (.start pb)]
-    (with-open [w (io/writer (.getOutputStream p) :encoding "UTF-8")] (.write w ^String prompt))
-    (let [done? (.waitFor p (parse-long timeout-s) TimeUnit/SECONDS)]
-      (when-not done?
-        (run! #(.destroyForcibly ^java.lang.ProcessHandle %) (iterator-seq (.iterator (.descendants (.toHandle p)))))
-        (.destroyForcibly p)
-        (.waitFor p))
-      (let [exit (if done? (str (.exitValue p)) "timeout")]
-        (note! "grader exited:" exit)
-        {:grader-dir (str dir) :grader-exit exit}))))
+(defn grader-unfinished [_]
+  (note! "the open grader did not finish: zero verdicts")
+  {:verdicts [] :surprises [{:id nil :note "the open grader did not finish; no verdicts"}]})
 
-;; ---- 3. read and validate the verdicts
+;; ---- check-verdicts
 
 (defn validate
-  "[verdicts notes]: the entries of RAW (the grader's verdicts.json text, or nil) that score.clj
-   may file, in checklist order, and a note for everything dropped."
+  "[verdicts notes]: the entries of RAW (the verdicts as JSON text, or nil) that score.clj may
+   file, in checklist order, and a note for everything dropped."
   [raw ids]
   (let [parsed (when raw (try (json/read-str raw) (catch Exception e {::bad (.getMessage e)})))]
     (cond
-      (nil? raw) [[] ["no verdicts.json written: zero verdicts"]]
-      (not (vector? parsed)) [[] [(str "verdicts.json is not a JSON list"
+      (nil? raw) [[] ["no verdicts: zero verdicts"]]
+      (not (vector? parsed)) [[] [(str "the verdicts are not a list"
                                        (when-let [b (and (map? parsed) (::bad parsed))] (str " (" b ")"))
                                        ": zero verdicts")]]
       :else
@@ -112,6 +117,7 @@
                         good)]
         [(vec (keep by-id ids))
          (cond-> []
+           (empty? parsed) (conj "an empty list of verdicts: zero verdicts")
            (seq bad) (conj (str "dropped " (count bad) " entr" (if (= 1 (count bad)) "y" "ies")
                                 " not shaped {id, verdict pass|fail, evidence string}: "
                                 (str/join "; " (map #(let [s (json/write-str %)] (subs s 0 (min 120 (count s)))) bad))))
@@ -119,50 +125,83 @@
                                     (str/join ", " (map #(get % "id") unknown))))
            (seq twice) (conj (str "dropped ids filed more than once: " (str/join ", " twice))))]))))
 
-(defn read-verdicts [{:keys [inputs]}]
-  (let [{:keys [grader-dir checklist cycle]} inputs
-        f (io/file grader-dir "verdicts.json")
-        ids (mapv #(get % "id") (checklist-items checklist))
-        [verdicts notes] (validate (when (.isFile f) (slurp f :encoding "UTF-8")) ids)
-        missing (remove (set (map #(get % "id") verdicts)) ids)
+(defn- ->json-text [v]
+  (cond (nil? v) nil
+        (string? v) v
+        :else (json/write-str v :key-fn #(if (keyword? %) (name %) (str %)))))
+
+(defn check-verdicts [{:keys [inputs]}]
+  (let [{:keys [verdicts surprises ids cycle]} inputs
+        [kept notes] (validate (->json-text verdicts) ids)
+        missing (remove (set (map #(get % "id") kept)) ids)
         notes (cond-> notes
-                (and (seq verdicts) (seq missing))
-                (conj (str "no verdict for " (str/join ", " missing) ": unreached")))
-        s (io/file grader-dir "surprises.json")]
+                (and (seq kept) (seq missing))
+                (conj (str "no verdict for " (str/join ", " missing) ": unreached")))]
     (run! note! notes)
-    (spit (io/file cycle "verdicts.json") (json/write-str verdicts) :encoding "UTF-8")
-    (when (.isFile s) (io/copy s (io/file cycle "surprises.json")))
-    {:verdicts (json/write-str verdicts) :notes (json/write-str notes)}))
+    (spit (io/file cycle "verdicts.json") (json/write-str kept) :encoding "UTF-8")
+    (when (seq surprises)
+      (spit (io/file cycle "surprises.json") (->json-text surprises) :encoding "UTF-8"))
+    {:kept (json/write-str kept) :notes (vec notes)}))
 
-;; ---- the workflow
+;; ---- the workflows
 
-(def workflow
-  (orc/workflow "grading"
-    (orc/blackboard {:slice :string :context :string :spec-dir :string :start :string
-                     :room :string :cycle :string :checklist :string :template :string
-                     :command :string :timeout-s :string
-                     :prompt :string :prompt-digest :string
-                     :grader-dir :string :grader-exit :string
-                     :verdicts :string :notes :string})
-    (orc/sequence "grade"
-      (orc/code "render-prompt" :fn "loyly.grading/render-prompt"
-        :reads [:slice :context :spec-dir :start :room :checklist :template :cycle]
-        :writes [:prompt :prompt-digest])
-      (orc/code "run-grader" :fn "loyly.grading/run-grader"
-        :reads [:prompt :command :timeout-s :cycle :slice]
-        :writes [:grader-dir :grader-exit])
-      (orc/code "read-verdicts" :fn "loyly.grading/read-verdicts"
-        :reads [:grader-dir :checklist :cycle]
-        :writes [:verdicts :notes]))))
+(def item-schema [:map [:id :string] [:name :string] [:scenario :string]])
+(def verdict-schema [:map [:id :string] [:verdict :string] [:evidence :string]])
+(def surprise-schema [:map [:id [:maybe :string]] [:note :string]])
 
-(defn- start-store [store-file cache-dir]
+(defn open-grader [{:keys [model instruction max-iterations]}]
+  (orc/workflow "open-grader"
+    (orc/blackboard {:slice :string :context :string :items [:vector item-schema]
+                     :verdicts [:vector verdict-schema] :surprises [:vector surprise-schema]})
+    (orc/sequence "open-grader"
+      (orc/repl-researcher "grade"
+        :model model
+        :instruction instruction
+        :reads [:slice :context :items]
+        :writes [:verdicts :surprises]
+        :mcp-tools seam/tool-names
+        :max-iterations max-iterations
+        :rlm {:sub-model model}
+        :options {:optional-writes [:surprises]
+                  :tool-arg-specs seam/tool-arg-specs}))))
+
+(defn score [open-grader-sheet-id timeout-ms]
+  (orc/workflow "score"
+    (orc/blackboard {:slice :string :context :string :cycle :string :start :string
+                     :spec-dir :string :checklist :string :prompt-digest :string
+                     :model :string :provider :string
+                     :items [:vector item-schema] :ids [:vector :string]
+                     :verdicts [:vector verdict-schema] :surprises [:vector surprise-schema]
+                     :kept :string :notes [:vector :string]})
+    (orc/sequence "score"
+      (orc/code "load-checklist" :fn "loyly.grading/load-checklist"
+        :reads [:checklist :spec-dir]
+        :writes [:items :ids])
+      (orc/fallback "grade"
+        (orc/delegate "open-grader"
+          :target-sheet-id open-grader-sheet-id
+          :reads [:slice :context :items]
+          :writes [:verdicts :surprises]
+          :timeout-ms timeout-ms)
+        (orc/code "grader-unfinished" :fn "loyly.grading/grader-unfinished"
+          :reads []
+          :writes [:verdicts :surprises]))
+      (orc/code "check-verdicts" :fn "loyly.grading/check-verdicts"
+        :reads [:verdicts :surprises :ids :cycle]
+        :writes [:kept :notes]))))
+
+;; ---- the store: the grading history
+
+(defn start-store [store-file cache-dir]
   (let [ps (pubsub/start {:type :core-async :topic-fn :event/type})
         store (es/start {:conn {:type :sqlite :database-file (str store-file)}
                          :event-pubsub ps :logger nil})
         cache (kv/start (lmdb/->KV-Store-LMDB {:storage-dir (str cache-dir) :db-name "grading"}))
         base {:event-store store :cache cache :tenant-id tenant-id :event-pubsub ps
               :command-registry (cp/global-command-registry)
-              :query-registry (qp/global-query-registry)}
+              :query-registry (qp/global-query-registry)
+              :llm-provider :pi
+              :call-tool-fn seam/call-tool}
         ;; every Grain todo processor, ORC's included, starts with its :processor-name, so
         ;; Grain checkpoints it and writes each output once
         processors (mapv (fn [[proc-name {:keys [handler-fn topics]}]]
@@ -171,44 +210,76 @@
                          @tp/processor-registry*)]
     (assoc base :processors processors)))
 
-(defn- stop-store [{:keys [processors event-pubsub event-store cache]}]
+(defn stop-store [{:keys [processors event-pubsub event-store cache]}]
   (run! tp/stop processors)
   (pubsub/stop event-pubsub)
   (es/stop event-store)
   (kv/stop cache))
 
-(defn- await-trace [{:keys [event-store]} tick-id]
+(defn read-events [{:keys [event-store]} q]
+  (into [] (es/read event-store (assoc q :tenant-id tenant-id))))
+
+(defn- await-trace [ctx tick-id]
   (let [deadline (+ (System/currentTimeMillis) 30000)]
-    (while (and (empty? (into [] (es/read event-store {:tenant-id tenant-id
-                                                        :types #{:sheet/execution-traced}
-                                                        :tags #{[:tick tick-id]}})))
+    (while (and (empty? (read-events ctx {:types #{:sheet/execution-traced} :tags #{[:tick tick-id]}}))
                 (< (System/currentTimeMillis) deadline))
       (Thread/sleep 20))))
 
-(defn -main [slice context spec-dir start room cycle]
-  (let [timeout-s (or (System/getenv "LOYLY_GRADER_TIMEOUT") (str default-timeout-s))
+(defn- child-ticks [ctx tick-id]
+  (mapv :tick-id (read-events ctx {:types #{:sheet/tree-tick-started}
+                                   :tags #{[:parent-tick tick-id]}})))
+
+(defn store-path []
+  (str (.getCanonicalFile (io/file (or (not-empty (System/getenv "LOYLY_GRADING_STORE"))
+                                       "history.sqlite")))))
+
+(defn -main [slice context spec-dir start _room cycle]
+  (let [timeout-s (parse-long (or (System/getenv "LOYLY_GRADER_TIMEOUT") (str default-timeout-s)))
+        model (or (not-empty (System/getenv "LOYLY_GRADER_MODEL")) pi/default-model)
+        max-iterations (parse-long (or (System/getenv "LOYLY_GRADER_MAX_ITERATIONS")
+                                       (str default-max-iterations)))
+        instruction (slurp "prompt.md" :encoding "UTF-8")
+        digest (sha256 instruction)
+        store (store-path)
         cache-dir (.toFile (Files/createTempDirectory "grading-cache-" (make-array FileAttribute 0)))
-        ctx (start-store (io/file cycle "grading.sqlite") cache-dir)
-        sheet-id (orc/build-workflow! ctx workflow)
+        work-dir (.toFile (Files/createTempDirectory (str "grade-" slice "-") (make-array FileAttribute 0)))
+        _ (pi/register!)
+        _ (seam/configure! spec-dir start work-dir)
+        _ (note! "history" store "; model" model "via pi; work dir" (str work-dir))
+        ctx (start-store store cache-dir)
+        child-id (orc/build-workflow! ctx (open-grader {:model model :instruction instruction
+                                                        :max-iterations max-iterations}))
+        parent-id (orc/build-workflow! ctx (score child-id (* 1000 timeout-s)))
         tick-id (random-uuid)
-        result (orc/execute ctx sheet-id
-                            {:slice slice :context context :spec-dir spec-dir :start start
-                             :room room :cycle cycle
-                             :checklist (str (io/file cycle "checklist.json"))
-                             :template (str (.getCanonicalFile (io/file "prompt.md")))
-                             :command (or (System/getenv "LOYLY_GRADER_CMD") default-command)
-                             :timeout-s timeout-s}
-                            :timeout-ms (* 1000 (+ 300 (parse-long timeout-s)))
-                            :tick-id tick-id)]
+        result (try
+                 (orc/execute ctx parent-id
+                              {:slice slice :context context :cycle cycle :start start
+                               :spec-dir spec-dir :checklist (str (io/file cycle "checklist.json"))
+                               :prompt-digest digest :model model :provider "pi"}
+                              :timeout-ms (* 1000 (+ 300 timeout-s))
+                              :tick-id tick-id)
+                 (finally (seam/stop-all!)))]
     (await-trace ctx tick-id)
-    (stop-store ctx)
-    (if (= :success (:status result))
-      (let [out (:outputs result)
-            v #(or (get out %) (get out (name %)))]
-        (note! "prompt" (v :prompt-digest) "; verdicts kept:"
-               (count (json/read-str (v :verdicts))))
-        (shutdown-agents)
-        (System/exit 0))
-      (do (note! "the grading workflow did not succeed:" (name (:status result)) (:error result))
-          (shutdown-agents)
-          (System/exit 1)))))
+    (let [children (child-ticks ctx tick-id)
+          out (:outputs result)
+          v #(or (get out %) (get out (name %)))]
+      (spit (io/file cycle "grading.json")
+            (json/write-str
+             {:store (.getName (io/file store))
+              :workflows {:score (str parent-id) :open-grader (str child-id)}
+              :ticks {:score (str tick-id) :open-grader (mapv str children)}
+              :status (name (:status result))
+              :model model :provider "pi" :prompt-digest digest
+              :verdicts-kept (count (some-> (v :kept) json/read-str))}
+             :escape-slash false)
+            :encoding "UTF-8")
+      (stop-store ctx)
+      (when-not (.isFile (io/file cycle "verdicts.json"))
+        (spit (io/file cycle "verdicts.json") "[]"))
+      (note! "prompt" digest "; score tick" (str tick-id) "; open-grader tick"
+             (str/join "," children) "; verdicts kept:" (count (some-> (v :kept) json/read-str)))
+      (shutdown-agents)
+      (if (= :success (:status result))
+        (System/exit 0)
+        (do (note! "the score workflow did not succeed:" (name (:status result)) (:error result))
+            (System/exit 1))))))

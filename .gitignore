@@ -2,4 +2,4 @@ __pycache__/
 *.pyc
 server.log
 *.db
-harness/v2/cycles/*/*/grading.sqlite*
+harness/v2/grading/history.sqlite*

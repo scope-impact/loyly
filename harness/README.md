@@ -57,24 +57,38 @@ and reads the cycle back.
 
 After the gate, `harness/v2/score.sh NN ROOM` scores the cycle the legacy way (the legacy
 README's step 5: grade each checklist item against the running app, however you grade, then
-file). The grader is an agent: `LOYLY_GRADER_CMD` (by default `claude -p --permission-mode
-bypassPermissions`), handed the pinned, open-ended prompt `v2/grading/prompt.md` on stdin. The
-prompt names the slice's items, points at the context's spec, Allium, event model,
-`domain-design.md` and `seam.md`, says to start `ROOM/harness-impl/NN-<context>/start.sh` with a
-fresh `LOYLY_GRAIN_STORE` and drive it only over its seam, and asks for one `verdicts.json`,
-`[{"id", "verdict": "pass"|"fail", "evidence"}]`, and optionally a `surprises.json` that never
-changes a verdict. It forbids reading the candidate's source, the room, prior verdicts, cycles,
-graders, transcripts and credentials. The grading runs as an ORC workflow (`v2/grading/`, on a
-Grain store kept in the cycle as `grading.sqlite`, not committed): it renders the prompt and
-records its sha256, runs the command in a fresh scratch directory for at most
-`LOYLY_GRADER_TIMEOUT` seconds (1800), and validates the verdicts. An entry that is not shaped
-right, an id not on the checklist and an id filed twice are dropped with a note; an item without
-a verdict is unreached, and `score.clj` fails it and keeps it in the denominator; no file is
-zero verdicts, and `score.clj` refuses to file. The prompt's sha256 and the command are recorded
-in the cycle (`graders.txt`) as provenance; `SCORE_WHICH=1` prints them. Nobody approves the
-prompt; nothing is calibrated or sealed (decided 2026-11-07). The cycle `v2/cycles/NN/MM/` keeps
-the rendered prompt, `verdicts.json`, `surprises.json`, the grader's stdout and stderr and the
-workflow's log, and the legacy `score.clj` and `scoreboard.clj` file and report into it. The
+file). The grader is ORC's own agentic node: two ORC workflows in `v2/grading/`. The parent
+`score` loads the checklist (each item with its scenario's text), delegates to the child
+`open-grader`, and checks what comes back; the child's core is one `repl-researcher` handed the
+pinned, open-ended instruction `v2/grading/prompt.md`. The researcher decides itself how to grade:
+it calls the grader's tools inline or in `:code` nodes it emits, and emits `:llm` nodes only where
+it wants a model's reading. Its tools (`v2/grading/src/loyly/seam.clj`) are the only way out: read
+a file of the context's spec dir (spec, Allium, event model, `domain-design.md`, `seam.md`), start
+`ROOM/harness-impl/NN-<context>/start.sh` with a fresh `LOYLY_GRAIN_STORE` and the files and
+environment `seam.md` says are handed in, send one JSON-RPC line and read the response, stop it.
+No tool takes a path into the room, so the candidate's source stays out of reach; the instruction
+forbids prior verdicts, cycles, graders, transcripts and credentials. It finishes with
+`final! {:verdicts [{:id :verdict "pass"|"fail" :evidence}] :surprises [...]}`; a surprise never
+changes a verdict. Every model call (the researcher's turns and any `:llm` node) goes to the
+provider `pi`, registered with ORC's `register-provider!`: one non-interactive `pi -p` session
+per call, with no tools, extensions, skills or saved session, on `LOYLY_GRADER_MODEL` (default
+`pi-default`, pi's own default). The grading takes at most `LOYLY_GRADER_TIMEOUT` seconds (1800);
+the researcher at most `LOYLY_GRADER_MAX_ITERATIONS` turns (40). If it does not finish, the parent
+falls back to zero verdicts. An entry that is not shaped right, an id not on the checklist and an
+id filed twice are dropped with a note; an item without a verdict is unreached, and `score.clj`
+fails it and keeps it in the denominator; no verdicts is zero verdicts, and `score.clj` refuses to
+file. The prompt's sha256, the model and the provider are recorded in the cycle (`graders.txt`)
+as provenance; `SCORE_WHICH=1` prints them. Nobody approves the prompt; nothing is calibrated or
+sealed (decided 2026-11-07).
+
+ORC keeps the grading history: every run of every slice and cycle goes to one Grain store,
+`v2/grading/history.sqlite` (`LOYLY_GRADING_STORE` overrides it; not committed), each run's
+blackboard carrying its slice, cycle, `start.sh` and prompt digest. The cycle `v2/cycles/NN/MM/`
+keeps `grading.json`, which points into that history (the workflows' sheet ids, the score tick
+and the delegated open-grader tick, model, provider, prompt digest), with `verdicts.json`,
+`surprises.json` and the workflow's log; the legacy `score.clj` and `scoreboard.clj` file and
+report into it. `clojure -M:jvm -m loyly.grading-history` (from `v2/grading/`) lists the runs in
+the history: slice, cycle, time, verdict counts, trace id. The
 Elixir graders that scored cycles 01 to 03 of each slice are retired; git history keeps them.
 
 **Where a spec-v2 cycle is filed (2026-11-07).** Each slice numbers its own cycles under
