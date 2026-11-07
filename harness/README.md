@@ -258,3 +258,11 @@ slices' `spec.feature`: `02-033` to `02-043`, `03-009` to `03-011` and `04-041` 
 derived checklist is the 99 and those 50. The spec grew (additions only), so the golden was
 re-recorded with `harness/oracle.sh record`; its diff is additions plus the one `total` line
 (99 → 149). No approved grader's scenarios changed.
+
+**2026-11-07: the spec grew: slice 06, `cycle-runner`, accepted.** The product owner's spec round
+7b (`.pi/spec/decisions.md`, "Spec round 7b") added `.pi/plan/06-cycle-runner` and its 35 stamped
+items, `06-001` to `06-035` (the 34 drafts of round 7a and one added for Q1); the derived
+checklist is the 149 and those 35. The spec grew (additions only), so the golden was re-recorded
+with `harness/oracle.sh record`; its diff is additions plus the one `total` line (149 → 184). No
+approved grader's scenarios changed. A slice-06 room keeps the five other contexts' `seam.md` and
+`event-model/` (`harness/config.sh`), the contracts the runner speaks.

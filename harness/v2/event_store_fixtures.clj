@@ -8,7 +8,9 @@
 ;; "02-" stores are judged against slice 02 (measurement), the "03-" stores against slice 03
 ;; (grader-lifecycle, which consumes no handoff), the "04-" stores against slice 04
 ;; (regeneration-cycle, which consumes six), the "05-" stores against slice 05
-;; (cycle-preparation, which consumes none), the others against slice 01. Every completed run
+;; (cycle-preparation, which consumes none), the "06-" stores against slice 06 (cycle-runner,
+;; which consumes none: it relays the others' handoffs, never holds them), the others against
+;; slice 01. Every completed run
 ;; carries Grain's processor checkpoints, except where a case takes them out (unchecked) or
 ;; doubles a processor's output (doubled).
 (ns event-store-fixtures
@@ -196,6 +198,47 @@
                                         (orc-run "cycle-preparation/cut-to-fence" :success
                                                  [[:cycle-preparation/source-cut-pinned pinned]]))})
 
+;; Slice 06 (cycle-runner): start-run runs as the workflow of the flow run-to-gate, halt-run as
+;; that of effect-not-performed-halts-run (what probe-06.sh causes); it consumes no handoff, so
+;; another context's event in its store is refused.
+(def run-started
+  {:run-id "R-probe" :cycle-id "C-probe" :cut-id "K-probe" :commit "0123456789abcdef0123456789abcdef01234567"
+   :selection-id "whole-plan"
+   :budget {:gate-attempt-limit 1 :max-outer-cycles 1 :max-continuations 0
+            :stage-timeouts-seconds {:fence 60 :regenerate 60 :gate 60 :score 60}}
+   :grader-digests ["r-probe"] :started-at (java.util.Date.)})
+(def run-halted
+  {:run-id "R-probe" :effect "stamp" :reason "context-did-not-respond" :detail "specification exited"
+   :halted-at (java.util.Date.)})
+
+(def effect-recorded
+  {:run-id "R-probe" :position 1 :effect "fence" :attempt 0 :context "regeneration-cycle"
+   :method "regeneration-cycle/prove-clean-room" :outcome "refused" :refusal "fenced-path-matched-nothing"
+   :events [{:type "regeneration-cycle/cycle-failed" :cycle-id "C-probe"}] :detail "secret matched nothing"
+   :performed-at (java.util.Date.)})
+(def run-concluded
+  {:run-id "R-probe" :cycle-id "C-probe" :cycle-status "failed"
+   :cycle {:stage "fence" :status "failed" :attempts 0 :failure {:reason "fence-refused"}}
+   :concluded-at (java.util.Date.)})
+
+(def cases-06
+  {"06-pass-halted"          (concat (orc-run "cycle-runner/run-to-gate" :success
+                                              [[:cycle-runner/run-started run-started]])
+                                     (orc-run "cycle-runner/effect-not-performed-halts-run" :success
+                                              [[:cycle-runner/run-halted run-halted]]))
+   "06-pass-concluded"       (concat (orc-run "cycle-runner/run-to-gate" :success
+                                              [[:cycle-runner/run-started run-started]
+                                               [:cycle-runner/effect-recorded effect-recorded]])
+                                     (orc-run "cycle-runner/cycle-failed-ends-run" :success
+                                              [[:cycle-runner/run-concluded run-concluded]]))
+   "06-fail-halt-reason"     (orc-run "cycle-runner/effect-not-performed-halts-run" :success
+                                      [[:cycle-runner/run-halted (assoc run-halted :reason "gave-up")]])
+   "06-fail-outside-run"     (concat [[:cycle-runner/run-started run-started]]
+                                     (orc-run "cycle-runner/run-to-gate" :success []))
+   "06-fail-relayed-handoff" (orc-run "cycle-runner/run-to-gate" :success
+                                      [[:cycle-runner/run-started run-started]
+                                       [:specification/scenario-stamped stamped]])})
+
 (def cases-01
   {"pass-two-events"       (orc-run [[:specification/scenario-stamped stamped]
                                      [:specification/empty-title-headings-reported reported]])
@@ -217,7 +260,7 @@
    "fail-doubled-trace"    (doubled :sheet/execution-traced (orc-run [[:specification/scenario-stamped stamped]]))
    "fail-no-checkpoint"    (unchecked (orc-run [[:specification/scenario-stamped stamped]]))})
 
-(def cases (merge cases-01 cases-02 cases-03 cases-04 cases-05))
+(def cases (merge cases-01 cases-02 cases-03 cases-04 cases-05 cases-06))
 
 (schema/register! (into {} (for [[_ events] cases [t _] events] [t :map])))
 

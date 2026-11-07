@@ -53,6 +53,10 @@ FENCED_PATHS="archive/legacy-harness/cycles docs/plan impl raw"
 #                  (decisions.md, "Slice 02"). Slices 01, 03 and 05 consume none; slice 02 keeps
 #                  the handoffs.edn of specification, cycle-preparation and regeneration-cycle;
 #                  slice 04 those of cycle-preparation, grader-lifecycle and measurement.
+#                  A context that drives the others through their seams (its seam.md names
+#                  LOYLY_CONTEXTS: slice 06, cycle-runner) keeps, of every other context with
+#                  a seam.md, that seam.md and its event-model/: the contracts it speaks; the
+#                  rest of that context is fenced file by file (decisions.md, "Spec round 7b" 7).
 #     prior work   the legacy driver in harness/ (it implements the stamper, the checklist,
 #                  the score, the fence and the gate: every context's earlier answer), its
 #                  archive, tools/spec/v2/stamp.clj, the instrument in harness/v2, and every
@@ -77,6 +81,8 @@ if [[ -n "${SLICE:-}" ]]; then
     _cfg_fence+=" .pi/architecture.md .pi/affordances.schema.json"
     _cfg_fence+=" .pi/spec/event-storm.md .pi/spec/event-storm.edn .pi/spec/legacy-trace.md"
     _cfg_producers=" "
+    _cfg_drives=""
+    git -C "$_cfg_root" show "HEAD:.pi/spec/$_cfg_ctx/seam.md" 2>/dev/null | grep -q LOYLY_CONTEXTS && _cfg_drives=1
     for _cfg_k in $(git -C "$_cfg_root" grep -h -o -E ':[a-z][a-z0-9-]*/[a-z][a-z0-9-]*' HEAD \
                       -- ".pi/spec/$_cfg_ctx/event-model/" 2>/dev/null | sort -u); do
       _cfg_ns="${_cfg_k#:}"; _cfg_ns="${_cfg_ns%%/*}"
@@ -92,7 +98,12 @@ if [[ -n "${SLICE:-}" ]]; then
         .pi/spec/*.md|.pi/spec/*.edn) ;;
         *)
           _cfg_ns="${_cfg_p#.pi/spec/}"
-          if [[ "$_cfg_p" == .pi/spec/* && "$_cfg_producers" == *" $_cfg_ns "* ]]; then
+          if [[ "$_cfg_p" == .pi/spec/* && -n "$_cfg_drives" ]] \
+               && git -C "$_cfg_root" cat-file -e "HEAD:$_cfg_p/seam.md" 2>/dev/null; then
+            for _cfg_f in $(git -C "$_cfg_root" ls-tree -r --name-only HEAD "$_cfg_p/"); do
+              [[ "$_cfg_f" == "$_cfg_p/seam.md" || "$_cfg_f" == "$_cfg_p/event-model/"* ]] || _cfg_fence+=" $_cfg_f"
+            done
+          elif [[ "$_cfg_p" == .pi/spec/* && "$_cfg_producers" == *" $_cfg_ns "* ]]; then
             for _cfg_f in $(git -C "$_cfg_root" ls-tree -r --name-only HEAD "$_cfg_p/"); do
               [[ "$_cfg_f" == "$_cfg_p/event-model/handoffs.edn" ]] || _cfg_fence+=" $_cfg_f"
             done

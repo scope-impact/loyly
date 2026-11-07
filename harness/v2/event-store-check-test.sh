@@ -2,8 +2,10 @@
 # harness/v2/event-store-check-test.sh: the event-store check judged on hand-made stores
 # (event_store_fixtures.clj) against slice 01's event model, slice 02's (measurement, with
 # the handoffs it consumes), slice 03's (grader-lifecycle, which consumes none) and slice 04's
-# (regeneration-cycle, with the six it consumes) and slice 05's (cycle-preparation, which
-# consumes none): one store of each passes, and each of the
+# (regeneration-cycle, with the six it consumes), slice 05's (cycle-preparation, which
+# consumes none) and slice 06's (cycle-runner, which consumes none): one store of each passes
+# (two of slice 06's: a halted run, and a concluded one with the contexts' replies verbatim),
+# and each of the
 # others, and a store
 # that is not there, fails for its own reason, among them a model event with no ORC run on
 # the store, one in a run that never completed with success, a consumed handoff off its
@@ -59,5 +61,10 @@ expect 0 "$WORK/05-pass-pinned.sqlite"       "event-store check OK"
 expect 1 "$WORK/05-fail-short-commit.sqlite" ":commit"
 expect 1 "$WORK/05-fail-outside-run.sqlite"  "was not written inside a run of the ORC workflow cycle-preparation/cut-to-fence"
 expect 1 "$WORK/05-fail-unconsumed-handoff.sqlite" "specification/scenario-stamped is not an event of"
+expect 0 "$WORK/06-pass-halted.sqlite"       "event-store check OK"
+expect 0 "$WORK/06-pass-concluded.sqlite"    "event-store check OK"
+expect 1 "$WORK/06-fail-halt-reason.sqlite"  ":reason"
+expect 1 "$WORK/06-fail-outside-run.sqlite"  "was not written inside a run of the ORC workflow cycle-runner/run-to-gate"
+expect 1 "$WORK/06-fail-relayed-handoff.sqlite" "specification/scenario-stamped is not an event of"
 (( bad )) && { echo "event-store check test FAILED"; exit 1; }
-echo "event-store check test OK: 6 passes, 30 refusals, each for its own reason"
+echo "event-store check test OK: 8 passes, 33 refusals, each for its own reason"
