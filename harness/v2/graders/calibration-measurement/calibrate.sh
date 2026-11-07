@@ -2,7 +2,7 @@
 # calibrate.sh [GRADER] [OUT]: calibrate grade_measurement.exs by the public protocol
 # (AGENTS.md, "The instrument"): carried behaviour passes and uncarried behaviour fails, for
 # every item. The fixtures are written from the spec alone (stub.py): the reference carries
-# every scenario and must pass all 24 items; each mutant breaks one behaviour and must fail
+# every scenario and must pass all 31 items; each mutant breaks one behaviour and must fail
 # the item(s) it targets; a candidate that never answers is unreached and gets no verdict;
 # one that answers once and exits is reached: every item gets a verdict, and fails where its
 # scenario needs a second answer.
@@ -45,6 +45,13 @@ no-restatement         02-022
 always-restate         02-022
 half-up                02-023
 zero-percent           02-024
+filing-not-as-returned 02-025
+any-candidate          02-026
+any-grader             02-027
+no-reason-check        02-028
+refile-score           02-029
+score-any-grader       02-030
+stage-refusal-dropped  02-031
 "
 
 run() {  # run NAME START_BODY -> $WORK/NAME.json
@@ -63,7 +70,7 @@ DIGEST="sha256:$(shasum -a 256 "$GRADER" | cut -d' ' -f1)"
 python3 - "$WORK" "$OUT" "$DIGEST" "$MUTANTS" <<'PY'
 import json, sys
 work, out, digest, table = sys.argv[1:5]
-N = 24
+N = 31
 items = ["02-%03d" % i for i in range(1, N + 1)]
 load = lambda n: {v["id"]: v["verdict"] for v in json.load(open(f"{work}/{n}.json"))}
 ok, record, lines = True, [], []

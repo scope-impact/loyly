@@ -1,10 +1,11 @@
 # grade_measurement.exs START_SH: the sealed grader of spec v2 slice 02, the measurement
-# context (.pi/spec/measurement/spec.feature, @item-02-001 to @item-02-024).
+# context (.pi/spec/measurement/spec.feature, @item-02-001 to @item-02-031).
 #
 # Authored from the selected Gherkin, the public seam (.pi/spec/measurement/seam.md, with the
 # slice's event model and Allium for its params, results and refusals), the three consumed
 # handoff contracts (.pi/spec/{specification,cycle-preparation,regeneration-cycle}/event-model/
-# handoffs.edn), .pi/spec/decisions.md "Slice 02" and the public calibration protocol
+# handoffs.edn), .pi/spec/decisions.md "Slice 02" and "Spec round 2" (02-025 to 02-031 added,
+# reason "spec grew", additions only) and the public calibration protocol
 # (AGENTS.md, "The instrument") only. Its author read no candidate, transcript, prior verdict
 # or host credential.
 #
@@ -347,14 +348,15 @@ defmodule Op do
     given!(rpc("cycle-preparation/source-cut-pinned", p, cut), "the pinned cut #{cut}")
   end
 
-  def gated(cycle, cut, candidate) do
+  def gated(cycle, cut, candidate, attempt \\ 1) do
     p = %{
-      "cycle-id" => cycle, "cut-id" => cut, "attempt" => 1, "candidate-digest" => candidate,
+      "cycle-id" => cycle, "cut-id" => cut, "attempt" => attempt, "candidate-digest" => candidate,
       "boot-budget-seconds" => 120, "boot-polls" => 1, "answered-on-poll" => 1,
       "identity-probe-result" => "ok", "evidence-root" => "evidence/#{cycle}", "passed-at" => @at
     }
 
-    given!(rpc("regeneration-cycle/gate-attempt-passed", p, "#{cycle} #{candidate} at #{cut}"), "gate attempt 1 of #{cycle}")
+    given!(rpc("regeneration-cycle/gate-attempt-passed", p, "#{cycle} #{candidate} at #{cut}" <> if(attempt == 1, do: "", else: " (attempt #{attempt})")),
+           "gate attempt #{attempt} of #{cycle}")
   end
 
   # ---- this context's commands and queries
@@ -391,7 +393,10 @@ defmodule Op do
     rpc("measurement/file-item-verdicts", p, label || "#{cycle} #{candidate} by #{grader}: #{Ev.short(verdicts)}")
   end
 
-  def score(cycle), do: rpc("measurement/file-score", %{"cycle-id" => cycle, "approved-grader-digests" => ["G-1"]}, cycle)
+  def score(cycle, approved \\ ["G-1"]) do
+    label = if approved == ["G-1"], do: cycle, else: "#{cycle} with approved #{Enum.join(approved, ", ")}"
+    rpc("measurement/file-score", %{"cycle-id" => cycle, "approved-grader-digests" => approved}, label)
+  end
 
   def v(id, verdict), do: %{"item-id" => id, "verdict" => verdict, "evidence" => "graded #{id}"}
 
@@ -887,10 +892,106 @@ defmodule Items do
       eq!({s["items"], s["previous-rate"], s["rate"]}, {0, "n/a", "n/a"}, "the shared items and their rates")
     end)
   end
+
+  # ---- spec round 2 (decisions.md "Spec round 2"): additions only
+
+  def i025(w) do
+    example(w, "only", fn _ ->
+      given_checklist("K-3", ["03-001", "03-002"])
+      gated("C-7", "K-3", "D-1")
+      vs = [v("03-001", "pass"), v("03-002", "fail")]
+      r = ok!(file("C-7", "D-1", "G-1", vs), "filing the item verdicts")
+      e = event!(r, "measurement/item-verdicts-filed")
+      eq!({e["cycle-id"], e["candidate-digest"], e["grader-digest"]}, {"C-7", "D-1", "G-1"}, "the filing's cycle, candidate and grader")
+      eq!(e["verdicts"], vs, "the filed verdicts (as returned)")
+      if not (is_binary(e["filed-at"]) and e["filed-at"] != ""), do: fail!("the filing's filed-at is #{inspect(e["filed-at"])}")
+      # Filed for C-7: the cycle's score is built from them.
+      ok!(score("C-7"), "filing the score (to read what was filed)")
+      m = filed!("C-7")
+      eq!(for(i <- m["items"] || [], do: {i["item-id"], i["verdict"], i["evidence"]}),
+          [{"03-001", "pass", "graded 03-001"}, {"03-002", "fail", "graded 03-002"}], "C-7's measured items, from the filing")
+      eq!(m["candidate-digest"], "D-1", "C-7's measured candidate")
+    end)
+  end
+
+  # The checklist is derived so that only the candidate stands between the filing and success.
+  def i026(w) do
+    example(w, "only", fn _ ->
+      given_checklist("K-3", ["03-001"])
+      gated("C-7", "K-3", "D-2", 2)
+      refused!(file("C-7", "D-1", "G-1", [v("03-001", "pass")]), "not-the-gated-candidate", "filing the item verdicts for D-1")
+      nothing_filed!("C-7", "K-3", ["03-001"])
+    end)
+  end
+
+  # The checklist is derived so that requires 3 to 8 hold and only the digest is refused.
+  def i027(w) do
+    example(w, "only", fn _ ->
+      given_checklist("K-3", ["03-001"])
+      gated("C-7", "K-3", "D-1")
+      refused!(file("C-7", "D-1", "G-9", [v("03-001", "pass")]), "grader-not-approved", "filing the item verdicts by G-9")
+      nothing_filed!("C-7", "K-3", ["03-001"])
+    end)
+  end
+
+  def i028(w) do
+    example(w, "only", fn _ ->
+      given_checklist("K-3", ["03-001", "03-002"])
+      gated("C-7", "K-3", "D-1")
+      vs = [Map.put(v("03-001", "pass"), "reason", "outage"), Map.put(v("03-002", "fail"), "reason", "unreached")]
+      refused!(file("C-7", "D-1", "G-1", vs), "bad-verdict-reason", "filing the item verdicts")
+      nothing_filed!("C-7", "K-3", ["03-001", "03-002"])
+    end)
+  end
+
+  def i029(w) do
+    example(w, "only", fn _ ->
+      given_checklist("K-3", ["03-001", "03-002", "03-003"])
+      e = given_measured("C-7", "K-3", [v("03-001", "pass"), v("03-002", "pass"), v("03-003", "fail")])
+      if {e["passes"], e["total"]} != {2, 3}, do: fail!("the Given could not be established: C-7 was filed with #{Ev.short(e)}")
+      refused!(score("C-7"), "measurement-already-filed", "filing the score of C-7 again")
+      m = filed!("C-7")
+      eq!({m["passes"], m["total"]}, {2, 3}, "C-7's one measurement (passes, total)")
+    end)
+  end
+
+  def i030(w) do
+    example(w, "only", fn _ ->
+      given_checklist("K-3", ["03-001"])
+      gated("C-7", "K-3", "D-1")
+      given!(file("C-7", "D-1", "G-1", [v("03-001", "pass")]), "filing the verdicts of G-1 while approved")
+      refused!(score("C-7", ["G-2"]), "grader-not-approved", "filing the score with the approved digests G-2")
+      awaiting!("C-7")
+    end)
+  end
+
+  def i031(w) do
+    example(w, "only", fn _ ->
+      given_checklist("K-3", ["03-001"])
+      gated("C-7", "K-3", "D-1")
+
+      case file("C-7", "D-1", "G-1", [v("03-001", "pass"), v("09-001", "pass")]) do
+        {:error, %{"code" => -32000, "data" => %{"refusal" => "unknown-item"}}} -> Ev.note("observed: the grader's verdicts were refused as unknown-item")
+        _ -> fail!("the Given could not be established: the grader's verdicts were not refused as unknown-item")
+      end
+
+      detail = "09-001 is not on the checklist of K-3"
+      r = ok!(rpc("measurement/fail-score-stage", %{"cycle-id" => "C-7", "refusal" => "unknown-item", "detail" => detail}, "C-7"),
+              "recording the score stage failed")
+      e = event!(r, "measurement/score-stage-failed")
+      eq!({e["cycle-id"], e["refusal"], e["detail"]}, {"C-7", "unknown-item", detail}, "the event's cycle, refusal and detail")
+      m = measurement("C-7")
+      if not is_map(m), do: fail!("C-7's measurement receipt is #{Ev.short(m)}")
+      eq!({m["cycle-id"], m["status"], m["refusal"]}, {"C-7", "score-stage-failed", "unknown-item"}, "C-7's measurement receipt (cycle, status, refusal)")
+      score = for k <- ["total", "passes", "unreached", "items"], Map.get(m, k) != nil, do: k
+      if score != [], do: fail!("C-7's measurement receipt shows a score (#{Enum.join(score, ", ")}): #{Ev.short(m)}")
+      Ev.note("observed: the receipt shows no score")
+    end)
+  end
 end
 
 defmodule Main do
-  @items for n <- 1..24, do: String.pad_leading("#{n}", 3, "0")
+  @items for n <- 1..31, do: String.pad_leading("#{n}", 3, "0")
 
   defp realdir(dir), do: dir |> then(&System.cmd("pwd", ["-P"], cd: &1)) |> elem(0) |> String.trim()
 

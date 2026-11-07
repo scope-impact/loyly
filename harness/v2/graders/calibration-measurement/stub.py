@@ -126,7 +126,7 @@ def file_verdicts(p):
         return bad_params()
     db, cycle, vs = load(), p["cycle-id"], p["verdicts"]
     g = db["gated"].get(cycle)
-    if not g or p["candidate-digest"] != g["candidate"]:
+    if not g or (p["candidate-digest"] != g["candidate"] and MUTANT != "any-candidate"):
         return refusal("not-the-gated-candidate", "not the gated candidate")
     c = db["checklists"].get(g["cut"])
     if not c and MUTANT != "no-checklist-check":
@@ -147,9 +147,11 @@ def file_verdicts(p):
         return refusal("measurement-already-filed", "already filed")
     if st == "score-stage-failed":
         return refusal("score-stage-failed", "score stage failed")
-    if p["grader-digest"] not in p["approved-grader-digests"]:
+    if p["grader-digest"] not in p["approved-grader-digests"] and MUTANT != "any-grader":
         return refusal("grader-not-approved", "grader not approved")
     for v in vs:
+        if MUTANT == "no-reason-check":
+            break
         r = v.get("reason")
         if r is not None and not (v["verdict"] == "fail" and r in ("inconclusive", "outage")):
             return refusal("bad-verdict-reason", "bad reason")
@@ -158,7 +160,9 @@ def file_verdicts(p):
         e = {"item-id": v["item-id"], "verdict": v["verdict"]}
         if "reason" in v and MUTANT != "drop-reason":
             e["reason"] = v["reason"]
-        if MUTANT != "evidence-absent":
+        if MUTANT == "filing-not-as-returned":
+            e["evidence"] = ""
+        elif MUTANT != "evidence-absent":
             e["evidence"] = v.get("evidence", "")
         elif "evidence" in v:
             e["evidence"] = v["evidence"]
@@ -182,11 +186,11 @@ def file_score(p):
     if not filings and MUTANT != "score-zero":
         return refusal("zero-verdicts", "zero verdicts filed")
     st = status(db, cycle)
-    if st == "filed":
+    if st == "filed" and MUTANT != "refile-score":
         return refusal("measurement-already-filed", "already filed")
     if st == "score-stage-failed":
         return refusal("score-stage-failed", "score stage failed")
-    if any(f["grader-digest"] not in p["approved-grader-digests"] for f in filings):
+    if any(f["grader-digest"] not in p["approved-grader-digests"] for f in filings) and MUTANT != "score-any-grader":
         return refusal("grader-not-approved", "grader not approved")
     c = db["checklists"][g["cut"]]
     flat = [(f["grader-digest"], v) for f in filings for v in f["verdicts"]]
@@ -237,7 +241,9 @@ def fail_stage(p):
         return refusal("measurement-already-filed", "already filed")
     if st == "score-stage-failed":
         return refusal("score-stage-failed", "already failed")
-    db["measurements"][cycle] = {"cycle-id": cycle, "status": "score-stage-failed", "refusal": p["refusal"]}
+    db["measurements"][cycle] = {"cycle-id": cycle, "status": "score-stage-failed"}
+    if MUTANT != "stage-refusal-dropped":
+        db["measurements"][cycle]["refusal"] = p["refusal"]
     save(db)
     return {"events": [{"type": "measurement/score-stage-failed", "cycle-id": cycle, "refusal": p["refusal"],
                         "detail": p["detail"], "failed-at": AT}]}, None

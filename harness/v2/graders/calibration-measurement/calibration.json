@@ -1,5 +1,5 @@
 {
- "grader_digest": "sha256:29a21329dcd5300bbaab26de8b5daac07861bbf7e1873035e20d95e2f5a34d1d",
+ "grader_digest": "sha256:41bdb7523b62a4024f4808148a6759ce0bc7247f1fbd6cfe7f641dffa683989b",
  "entry": "grade_measurement.exs",
  "items": [
   "02-001",
@@ -25,43 +25,57 @@
   "02-021",
   "02-022",
   "02-023",
-  "02-024"
+  "02-024",
+  "02-025",
+  "02-026",
+  "02-027",
+  "02-028",
+  "02-029",
+  "02-030",
+  "02-031"
  ],
  "protocol": "AGENTS.md, The instrument: carried behaviour passes and uncarried behaviour fails for every item",
  "fixtures": "harness/v2/graders/calibration-measurement/stub.py (reference and MUTANT=<name>), written from the spec alone",
  "calibrated": true,
  "summary": [
-  "reference              24/24 pass",
-  "digest-constant        targets 02-001: fails; failing 1/24: 02-001",
-  "sort-items             targets 02-002: fails; failing 1/24: 02-002",
-  "rule-empty             targets 02-002: fails; failing 3/24: 02-001,02-002,02-003",
-  "rule-null              targets 02-002: fails; failing 1/24: 02-002",
-  "drop-skipped           targets 02-003: fails; failing 1/24: 02-003",
-  "first-unstamped-only   targets 02-004: fails; failing 1/24: 02-004",
-  "allow-empty            targets 02-005: fails; failing 1/24: 02-005",
-  "no-identity-check      targets 02-006: fails; failing 1/24: 02-006",
-  "no-title-check         targets 02-007: fails; failing 1/24: 02-007",
-  "no-checklist-check     targets 02-008: fails; failing 1/24: 02-008",
-  "accept-zero            targets 02-009: fails; failing 1/24: 02-009",
-  "unknown-first          targets 02-010: fails; failing 1/24: 02-010",
-  "no-unknown-check       targets 02-011: fails; failing 1/24: 02-011",
-  "verdict-order          targets 02-012: fails; failing 2/24: 02-012,02-013",
-  "drop-unreached         targets 02-013: fails; failing 1/24: 02-013",
-  "drop-reason            targets 02-014: fails; failing 1/24: 02-014",
-  "first-wins             targets 02-015: fails; failing 1/24: 02-015",
-  "no-superseded          targets 02-015: fails; failing 1/24: 02-015",
-  "evidence-absent        targets 02-016: fails; failing 1/24: 02-016",
-  "score-zero             targets 02-017: fails; failing 5/24: 02-008,02-009,02-010,02-011,02-017",
-  "no-policy              targets 02-018: fails; failing 6/24: 02-018,02-020,02-021,02-022,02-023,02-024",
-  "report-unfiled         targets 02-019: fails; failing 1/24: 02-019",
-  "previous-minus-one     targets 02-020: fails; failing 2/24: 02-018,02-020",
-  "net-key                targets 02-021: fails; failing 1/24: 02-021",
-  "no-restatement         targets 02-022: fails; failing 1/24: 02-022",
-  "always-restate         targets 02-022: fails; failing 1/24: 02-022",
-  "half-up                targets 02-023: fails; failing 1/24: 02-023",
-  "zero-percent           targets 02-024: fails; failing 1/24: 02-024",
-  "never-starts           0 verdicts filed, 24 unreached",
-  "exit-after-one         24 verdicts filed, none unreached; fail where a second answer was needed: 24/24"
+  "reference              31/31 pass",
+  "digest-constant        targets 02-001: fails; failing 1/31: 02-001",
+  "sort-items             targets 02-002: fails; failing 1/31: 02-002",
+  "rule-empty             targets 02-002: fails; failing 3/31: 02-001,02-002,02-003",
+  "rule-null              targets 02-002: fails; failing 1/31: 02-002",
+  "drop-skipped           targets 02-003: fails; failing 1/31: 02-003",
+  "first-unstamped-only   targets 02-004: fails; failing 1/31: 02-004",
+  "allow-empty            targets 02-005: fails; failing 1/31: 02-005",
+  "no-identity-check      targets 02-006: fails; failing 1/31: 02-006",
+  "no-title-check         targets 02-007: fails; failing 1/31: 02-007",
+  "no-checklist-check     targets 02-008: fails; failing 1/31: 02-008",
+  "accept-zero            targets 02-009: fails; failing 1/31: 02-009",
+  "unknown-first          targets 02-010: fails; failing 1/31: 02-010",
+  "no-unknown-check       targets 02-011: fails; failing 2/31: 02-011,02-031",
+  "verdict-order          targets 02-012: fails; failing 2/31: 02-012,02-013",
+  "drop-unreached         targets 02-013: fails; failing 1/31: 02-013",
+  "drop-reason            targets 02-014: fails; failing 1/31: 02-014",
+  "first-wins             targets 02-015: fails; failing 1/31: 02-015",
+  "no-superseded          targets 02-015: fails; failing 1/31: 02-015",
+  "evidence-absent        targets 02-016: fails; failing 1/31: 02-016",
+  "score-zero             targets 02-017: fails; failing 8/31: 02-008,02-009,02-010,02-011,02-017,02-026,02-027,02-028",
+  "no-policy              targets 02-018: fails; failing 6/31: 02-018,02-020,02-021,02-022,02-023,02-024",
+  "report-unfiled         targets 02-019: fails; failing 1/31: 02-019",
+  "previous-minus-one     targets 02-020: fails; failing 2/31: 02-018,02-020",
+  "net-key                targets 02-021: fails; failing 1/31: 02-021",
+  "no-restatement         targets 02-022: fails; failing 1/31: 02-022",
+  "always-restate         targets 02-022: fails; failing 1/31: 02-022",
+  "half-up                targets 02-023: fails; failing 1/31: 02-023",
+  "zero-percent           targets 02-024: fails; failing 1/31: 02-024",
+  "filing-not-as-returned targets 02-025: fails; failing 1/31: 02-025",
+  "any-candidate          targets 02-026: fails; failing 1/31: 02-026",
+  "any-grader             targets 02-027: fails; failing 1/31: 02-027",
+  "no-reason-check        targets 02-028: fails; failing 1/31: 02-028",
+  "refile-score           targets 02-029: fails; failing 1/31: 02-029",
+  "score-any-grader       targets 02-030: fails; failing 1/31: 02-030",
+  "stage-refusal-dropped  targets 02-031: fails; failing 1/31: 02-031",
+  "never-starts           0 verdicts filed, 31 unreached",
+  "exit-after-one         31 verdicts filed, none unreached; fail where a second answer was needed: 31/31"
  ],
  "calibration": [
   {
@@ -204,6 +218,48 @@
   },
   {
    "item": "02-024",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-025",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-026",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-027",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-028",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-029",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-030",
+   "role": "carried",
+   "fixture": "reference",
+   "verdict": "pass"
+  },
+  {
+   "item": "02-031",
    "role": "carried",
    "fixture": "reference",
    "verdict": "pass"
@@ -374,6 +430,48 @@
    "item": "02-024",
    "role": "uncarried",
    "fixture": "zero-percent",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-025",
+   "role": "uncarried",
+   "fixture": "filing-not-as-returned",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-026",
+   "role": "uncarried",
+   "fixture": "any-candidate",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-027",
+   "role": "uncarried",
+   "fixture": "any-grader",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-028",
+   "role": "uncarried",
+   "fixture": "no-reason-check",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-029",
+   "role": "uncarried",
+   "fixture": "refile-score",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-030",
+   "role": "uncarried",
+   "fixture": "score-any-grader",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-031",
+   "role": "uncarried",
+   "fixture": "stage-refusal-dropped",
    "verdict": "fail"
   }
  ]
