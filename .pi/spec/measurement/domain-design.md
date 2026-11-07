@@ -153,8 +153,11 @@ Settled by `../decisions.md`: H7 (the field), H13, H26, g. Still open (also as
   measured?** A measurement filed after the Regeneration cycle failed that cycle at the score
   stage stays this context's record and can be the next cycle's baseline
   (`last_measured_before`), while the Regeneration cycle leaves the cycle failed
-  (`@item-04-040`). The candidate fix, a `cycle-failed` handoff to Measurement, is deferred to
-  the assembly gate (`../decisions.md`, "Spec round 4" 3).
+  (`@item-04-040`). **Decided (round 5): leave it (option c).** This context's record and the
+  cycle's status settle different questions: the measurement stays filed and may be the next
+  cycle's baseline (legacy: `score.clj` files whatever was scored, and the legacy harness
+  keeps no cycle state). Deferred: a `cycle-failed` handoff to Measurement
+  (`../decisions.md`, "Spec round 5" 3).
 
 Settled in R2.1 (`../decisions.md`, "Questions raised by R2", 7): **the same selection** is
 the same selected slices, by name, across cuts; whole-plan cycles compare with the last

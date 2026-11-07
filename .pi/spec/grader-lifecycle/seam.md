@@ -95,9 +95,11 @@ The candidate records its facts in Grain's event store, the SQLite backend of Gr
   one event of `event-model/`; every event's type must be an event of `event-model/` or ORC's
   or Grain's own (this context consumes no handoff); and every such event's fields, other
   than Grain's own `:event/*` keys, must be exactly its `:schema`.
-- ORC runs on the same store: the same file and tenant, not a store of its own. Each
-  command method runs as the ORC workflow named after the flow its command belongs to in
-  `event-model/area.edn`; a query method runs none.
+- ORC runs on this candidate's store: ORC shares this candidate's file and tenant, not a
+  store or tenant of its own, and no other context shares them: each context keeps its own
+  store (`../decisions.md`, "Spec round 5" 1). Each command method runs as the ORC
+  workflow named after the flow its command belongs to in `event-model/area.edn`; a query
+  method runs none.
 
   | Command | ORC workflow |
   |---|---|

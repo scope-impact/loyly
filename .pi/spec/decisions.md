@@ -548,3 +548,50 @@ schema and no golden changed.
 
 No grader changes: no item was added, reworded or dropped, so every sealed grader stands and the
 checklist golden stays at 99.
+
+## Spec round 5 (decided 2026-11-07)
+
+The operator decided the three gaps of the first assembly gate (`harness/v2/assemble.sh`,
+commit 3f5249f, the five gated candidates of slices 01 to 05): wording and readings only. A
+spec round: no builder ran, no accepted scenario's text or tag, no Allium `requires` or
+`ensures`, no event-model schema and no golden changed.
+
+1. **Gap 1: the assembly is the relay, for now (option B).** As in the legacy harness, whose
+   tools pass files and share nothing else, each context keeps its own Grain store, and ORC
+   shares that candidate's store and tenant; the contexts do not share one store. A handoff
+   reaches a consumer only through the consumer's hand-in methods (each `seam.md`, "The
+   consumed handoffs, handed in"), which the relay calls with the producer's event unchanged,
+   in the producer's order. Every `seam.md` now says ORC shares this candidate's file and
+   tenant, not one across contexts, and the hand-in methods say they are how the producers'
+   facts reach a context assembled, replacing "until a gate assembles the contexts".
+   Deferred, the end state (option A1), to be taken up when ORC hosts all contexts: one shared
+   store with one fixed tenant id (such as `6c6f796c-7900-4000-8000-000000000000`) named in
+   every `seam.md`; a consumer's read models project from that store, and its policies on
+   foreign events poll it (Grain's `start-polling` or `start-tenant-poller`, every 250 ms).
+   The evidence behind deferring it: the gate's shared-store experiment ran the five
+   candidates on one store file, one after the other and concurrently; the file held five
+   Grain tenants, one per candidate, and the consumers refused `cut-not-pinned` for a cut the
+   producer had pinned in the same file. The Grain facts: a todo processor's `start` takes
+   its events from Grain's pubsub inside its own JVM, so it never sees another candidate's
+   appends; the polling variants read the store and do; read models re-read the store when
+   queried.
+2. **Gap 2: the relay's artefact is the producer's store.** The relay takes every handoff from
+   the producer's store file: the events of the producer's handoff types
+   (`event-model/handoffs.edn`), within the producer's tenant, in store order, not from
+   command results. A handoff a policy issues, such as Measurement's
+   `measurement/scoreboard-reported` (`report-scoreboard-once`, inside `file-score`), is
+   recorded in the producer's store and is in no command's result; round 4's wording
+   (`regeneration-cycle/seam.md`, "Measurement's handoffs are handed in in the producer's
+   order") stands. No spec change.
+3. **Gap 3, the round-4 open question, closed: leave it (option c).** A measurement filed after
+   its cycle failed at the score stage stays Measurement's record and may be the next cycle's
+   baseline (`last_measured_before`), while the Regeneration cycle keeps the cycle failed
+   (`NoteMeasurementFiled` requires 2, `@item-04-040`). They settle different questions:
+   Measurement's record says what was scored, the cycle's status how the cycle ended. Legacy
+   precedent: `archive/legacy-harness/score.clj` files whatever was scored, and the legacy
+   harness keeps no cycle state. Deferred: a `cycle-failed` handoff to Measurement. Closed in
+   the open questions of `regeneration-cycle/domain-design.md` and
+   `measurement/domain-design.md`; the assembly gate checks it as a reading.
+
+No grader changes: no item was added, reworded or dropped, so every sealed grader stands and the
+checklist golden stays at 99.

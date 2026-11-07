@@ -136,9 +136,11 @@ measurement filed, so a scoreboard with no measurement filed passes nothing). A 
 to pass only with its measurement filed and its scoreboard reported (`awaits_passing`). A
 handed-in `measurement/score-stage-failed` or
 `measurement/scoreboard-reported` may make a cycle due to conclude: the policy then runs before
-the method responds (below). These methods stand in for the producers until a gate assembles
-the contexts (`../decisions.md`, "First light" 5); they are the only way another context's event
-enters the store.
+the method responds (below). These methods stand in for the producers in a cycle of this
+context alone, and they are how the producers' facts reach it assembled: the assembly is a
+relay, which takes each handoff from its producer's store and hands it in unchanged, in the
+producer's order, through these methods (`../decisions.md`, "Spec round 5" 1). They are the
+only way another context's event enters the store.
 
 - **Measurement's handoffs are handed in in the producer's order.** Measurement reports a
   cycle's scoreboard only after that cycle's measurement is filed, and once: its rule
@@ -224,9 +226,11 @@ The candidate records its facts in Grain's event store, the SQLite backend of Gr
   one event of `event-model/`; every event's type must be an event of `event-model/`, a
   consumed handoff above, or ORC's or Grain's own; and every such event's fields, other than
   Grain's own `:event/*` keys, must be exactly its `:schema` (a handoff's, its contract's).
-- ORC runs on the same store: the same file and tenant, not a store of its own. Each
-  command runs as the ORC workflow named after a flow of `event-model/area.edn` that holds its
-  command, whoever issues it; a query method and a handed-in handoff run none.
+- ORC runs on this candidate's store: ORC shares this candidate's file and tenant, not a
+  store or tenant of its own, and no other context shares them: each context keeps its own
+  store (`../decisions.md`, "Spec round 5" 1). Each command runs as the ORC workflow named
+  after a flow of `event-model/area.edn` that holds its command, whoever issues it; a query
+  method and a handed-in handoff run none.
 
   | Command, by its issuer | ORC workflow |
   |---|---|

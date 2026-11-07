@@ -234,6 +234,10 @@ self-check key, the reworded golden). Still open (the first also as `open questi
   measured?** A measurement filed after the cycle failed at the score stage leaves the cycle
   where it failed (`NoteMeasurementFiled` requires 2, `@item-04-040`), but stays Measurement's
   record, and can be the next cycle's baseline (`last_measured_before`). In the assembled
-  system the two contexts may disagree on whether that cycle was measured. The candidate fix, a
-  `cycle-failed` handoff to Measurement, is deferred to the assembly gate (`../decisions.md`,
-  "Spec round 4" 3; `../measurement/domain-design.md`, "Open questions").
+  system the two contexts may disagree on whether that cycle was measured. **Decided (round 5):
+  leave it (option c).** The two settle different questions: the cycle's status is this
+  context's, and a measurement filed after the cycle failed at the score stage stays
+  Measurement's record and may be the next cycle's baseline (legacy: `score.clj` files whatever
+  was scored, and the legacy harness keeps no cycle state). Deferred: a `cycle-failed` handoff
+  to Measurement (`../decisions.md`, "Spec round 5" 3; `../measurement/domain-design.md`,
+  "Open questions").
