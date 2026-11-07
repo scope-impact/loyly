@@ -1,9 +1,10 @@
 # Cycle runner: domain design
 
-status: DRAFT, 2026-11-07 (spec v2, spec round 7a; `../decisions.md`, "Slice 06 (draft)"). For
-the product owner's review before any scenario is accepted. From the stage-1 triage (effects E1 to
-E8), the legacy harness's operator steps (`archive/legacy-harness/README.md`, "A cycle") and the
-relay of the first assembly gate (`harness/v2/assemble.clj`), in the glossary's words.
+status: accepted, 2026-11-07 (spec v2; drafted in spec round 7a, `../decisions.md`, "Slice 06
+(draft)"; accepted as slice 06 in spec round 7b, "Spec round 7b"). From the stage-1 triage
+(effects E1 to E8), the legacy harness's operator steps (`archive/legacy-harness/README.md`, "A
+cycle") and the relay of the first assembly gate (`harness/v2/assemble.clj`), in the glossary's
+words.
 
 ## Purpose
 
@@ -18,8 +19,10 @@ the context that owns it, through that context's seam. It is also the relay: no 
 hands them in to the consumers, as `harness/v2/assemble.clj` does.
 
 The benchmark it runs is the full Löyly app as planned (the main working copy's `docs/plan`, today
-01-booking-core, 11 items), with the legacy settings of `archive/legacy-harness/config.sh`: the
-HTTP seam on port 8901, the probe kept as-is (a name check, for parity), the gate on the host.
+01-booking-core, 11 items), with its own configuration, handed in: the archived Löyly settings of
+`archive/legacy-harness/config.sh` (the HTTP seam on port 8901, the probe kept as-is, a name check,
+for parity) and the fence `impl harness-impl .pi archive/legacy-harness/cycles`; the gate on the
+host.
 
 ## Boundaries
 
@@ -31,10 +34,11 @@ HTTP seam on port 8901, the probe kept as-is (a name check, for parity), the gat
 - **Its own rules guard only its own facts**: one run at a time, a cycle run once, the verdicts
   taken once and only for a gated candidate at an approved grader digest, an effect result recorded
   once at its position, a handoff relayed once per consumer, no builder after the verdicts.
-- **It never grades.** The verdicts file is handed in: one legacy-step-5 grading subagent per
-  candidate writes it, and the main session hands in, with the others, the verdict of an item it
-  judges itself (`@item-01-011` of the Löyly app). The same file goes to legacy `score.clj` in a
-  shadow run. The sealed Löyly grader comes after the switch (OG1 = no).
+- **It never grades.** The verdicts file is handed in: shared black-box verdicts, one
+  legacy-step-5 grading subagent per candidate writing one file, which goes unchanged to this
+  runner and to legacy `score.clj` in a shadow run; the main session hands in, with the others,
+  the verdict of an item it judges itself (`@item-01-011` of the Löyly app). The main session is
+  the final judge of every shadow run. The sealed Löyly grader comes after the switch (OG1 = no).
 - **One builder per run at a time**: pi with its Gondolin backend, launched by the runner, which
   waits for it. The builder's exit is not evidence; the gate is.
 - **The gate runs on the host in stage 1**, in legacy `verify.sh`'s order, on a copy of the
@@ -44,14 +48,14 @@ HTTP seam on port 8901, the probe kept as-is (a name check, for parity), the gat
 
 | Module | Event Model | Allium | Aggregate | Lives |
 |---|---|---|---|---|
-| Context | `event-model/area.edn` (screen `run-desk`; four flows) | `allium/context.allium` (RunBudget, contracts `ContextSeams`, `ProjectRepository`, `BuilderLaunch`, `GateOnTheHost`, enums, config, open questions) | none | |
+| Context | `event-model/area.edn` (screen `run-desk`; four flows) | `allium/context.allium` (RunBudget, contracts `ContextSeams`, `ProjectRepository`, `BuilderLaunch`, `GateOnTheHost`, enums, config, the decided questions) | none | |
 | Cycle run | `event-model/cycle-run.edn` | `allium/cycle-run.allium` (rules `StartRun`, `RecordEffect`, `RecordEffectAfterTheVerdicts`, `RelayHandoff`, `HandInVerdicts`, `ConcludeWithTheCycle`, `ConcludeRunPassed`, `ConcludeRunFailed`, `HaltRun`; surfaces `RunDesk`, `EffectNodes`) | **CycleRun** (with EffectResult, RelayedHandoff) | the runner's own event store; one per run |
 | Handoffs | none | | | the five contexts' handoffs are relayed, never held |
 
 Actors: the **operator** starts a run and hands in its verdicts (`RunDesk`); the runner's
 **effect nodes** (ORC's worker) issue the rest (`EffectNodes`).
 
-## Design decisions (draft)
+## Design decisions
 
 1. **One aggregate, one generic effect fact.** `effect-recorded` names the effect, the attempt,
    the context, the method and the context's reply; the order of the effects is the legacy cycle's
@@ -61,7 +65,8 @@ Actors: the **operator** starts a run and hands in its verdicts (`RunDesk`); the
    a grader observes what it did through `run-progress` (`seam.md`). This differs from the five
    contexts, whose grader plays the issuer.
 3. **Synchronous methods.** `start-run` responds when the run awaits its verdicts, concluded or
-   halted; `hand-in-verdicts` when it concluded or halted (open question Q4).
+   halted; `hand-in-verdicts` when it concluded or halted (decided, Q4 below). The judge watches a
+   live run through the runner's Grain store and the pi session directly.
 4. **The conclusion is read, not decided.** After every recording and relay the runner reads the
    Regeneration cycle's `cycle-progress`; a concluded cycle concludes the run with that progress.
 5. **A halt is the runner's own fact**: an effect it could not perform (a context that did not
@@ -71,6 +76,12 @@ Actors: the **operator** starts a run and hands in its verdicts (`RunDesk`); the
    it black-box with a fixture repository, a stub self-check, a stub builder and fixture
    candidates; only the five contexts are the real gated candidates, since the relay reads their
    Grain stores.
+7. **Its own suite stands the five contexts in.** The builder's room holds the five contexts'
+   `seam.md` and `event-model/` (the contracts the runner speaks) and no other context's
+   candidate. The candidate's tests launch stand-in contexts through their own `LOYLY_CONTEXTS`:
+   programs that speak a context's seam as the test scripts them and append the handoffs they
+   produce to a Grain store of their own, which the relay reads as it reads a real producer's
+   (`seam.md`, "How the candidate's own suite drives it without the five candidates").
 
 ## The effects, by triage
 
@@ -97,32 +108,34 @@ Actors: the **operator** starts a run and hands in its verdicts (`RunDesk`); the
   `RelayHandoff`, `ConcludeWithTheCycle`, `ConcludeRunFailed`, `HaltRun` 1: a run that ended stays
   as it ended; `ConcludeRunPassed` 2 and `ConcludeRunFailed` 2: the run ends as the cycle did.
 
-## Drafts (round 7a)
+## Accepted (spec round 7b)
 
-`drafts.feature`: 34 drafts for the 40 must-cover obligations (`tools/spec/v2/coverage.py`), 0
-uncovered; 7 unit level, 1 gate-verified (`TheGateRoomIsNotTheBuilders`, planned `room-policy`).
-Suggested tiers: 20 minimum (19 cite legacy behaviour; the not-a-commit refusal is new), 14 balance. Grouped by effect: start
-(6), stamp, pin, checklist and relay (2), self-check (2), fence (2), regenerate (4), gate (5),
-repair (2), verdicts and conclusion (8), halt and observation (3).
+`spec.feature`: all 34 drafts of round 7a, and one added for Q1, stamped `@item-06-001` to
+`@item-06-035` (`.pi/plan/06-cycle-runner`): 21 minimum, 14 balance. Three were reworded so each
+step is observable through the seam or carries a decision (`../decisions.md`, "Spec round 7b" 1).
+`drafts.feature` holds none. Of the 40 must-cover obligations (`tools/spec/v2/coverage.py`), 7
+are unit level and 1 gate-verified (`TheGateRoomIsNotTheBuilders`, planned `room-policy`).
 
-## Open questions
+## Decided questions (spec round 7b)
 
-- **Q1 (blocks the benchmark)**: the Löyly plan is already stamped (`@item-01-001` to `011`), and
-  Specification's ledger starts empty in every run (each context on a fresh store), so no
-  `scenario-stamped` names those items and Measurement refuses the checklist (`unknown-item`).
-  Draft reading in `seam.md`: the runner stamps a copy of each spec file with its item tags
-  removed, so the ledger hands out the same identities in file order. Alternatives: a persistent
-  Specification store per project, or an import command in Specification (a spec change there).
-- **Q2 (blocks the benchmark)**: legacy `FENCED_PATHS="impl harness/cycles"`, but the main
-  working copy has no `harness/cycles` (only `impl/README.md` is tracked), so the fence of today's cut
-  refuses `fenced-path-matched-nothing` and every run fails at the fence. Keep the legacy value,
-  or declare the benchmark's own configuration?
-- **Q3**: the harness digest of a self-check; draft: the SHA-256 of the configuration file, the
-  self-check command and the identity probe, in that order.
-- **Q4**: synchronous methods mean nothing can be read through the seam during a live builder's
-  hours. Keep, or respond at once and advance in the background (a grader then polls)?
-- **Q5**: the clean room of the Löyly cut holds this repository's `.pi/`, `harness/` and
-  `harness-impl/` as well as `docs/plan`; legacy fenced only `impl` and `harness/cycles`. Is that
-  the room the product owner wants the builder to see, for parity?
-- **Q6**: the scenario digest formula (`seam.md`) is the runner's reading; Specification's
-  `ScenarioReading` names none. Confirm, or name it in Specification.
+- **Q1, the stamped plan against a fresh ledger: restamp a stripped copy.** The runner stamps a
+  copy of each plan spec file with its item tags removed; the identities the stamp hands out
+  must equal the file's own tags, in file order, else the run halts (`refused-before-the-cycle`).
+  Specification is unchanged. A plan whose numbering has a gap halts too; the Löyly plan's
+  `@item-01-001` to `011` has none.
+- **Q2 and Q5, the benchmark's fence and clean room: its own configuration.** The archived Löyly
+  configuration with `FENCED_PATHS="impl harness-impl .pi archive/legacy-harness/cycles"`: the
+  paths that hold a prior candidate or evidence; `docs/`, `raw/` and the harness tools stay in
+  the room. The archived value, `impl harness/cycles`, stops at the fence today
+  (`fenced-path-matched-nothing`), because the main working copy has no `harness/cycles`. The
+  configuration is handed in (`LOYLY_HARNESS_CONFIG`); the spec holds only its reading. Open for
+  the product owner: `harness-impl` is tracked in no branch today (the main working copy at
+  `6d42c8e` has none), so at today's cut that entry stops the fence the same way; the value
+  holds once `harness-impl` is committed at the cut, or drops that entry (`../decisions.md`,
+  "Spec round 7b" 3).
+- **Q3, the harness digest**: the SHA-256 of the configuration file, the self-check command and
+  the identity probe, in that order, as drafted.
+- **Q4, synchronous methods**, as drafted; the judge watches a long run through the Grain store
+  and the pi session directly.
+- **Q6, the scenario digest**: the runner's reading in `seam.md`, as drafted; Specification names
+  none.

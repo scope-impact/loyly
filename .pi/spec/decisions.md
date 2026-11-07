@@ -728,3 +728,83 @@ stand); Q2 `harness/cycles` does not exist at today's cut, so the legacy fence r
 `fenced-path-matched-nothing`; Q3 the harness digest; Q4 synchronous methods against a builder
 that takes hours; Q5 what the Löyly clean room holds beyond `docs/plan`; Q6 the scenario digest
 formula.
+
+## Spec round 7b (decided 2026-11-07)
+
+The product owner decided the six open questions of "Slice 06 (draft)" and accepted the cycle
+runner as slice 06: `.pi/plan/06-cycle-runner -> ../spec/cycle-runner`. A spec round: no builder
+ran; no other context's `spec.feature`, Allium `requires` or event-model schema changed.
+
+1. **Accepted: all 34 drafts, and one added** (item 2), in a new `cycle-runner/spec.feature`
+   under the drafts' Rule headers, in the drafts' order, `@draft` → their suggested tier
+   (`@minimum` 21, `@balance` 14), the `# Suggested tier` line dropped, the `@allium-*` tags and
+   `# Legacy:` lines kept, stamped by `tools/spec/v2/stamp.clj`, `@item-06-001` to
+   `@item-06-035`. Each is black-box gradeable through the runner's seam with what a grader
+   states (`cycle-runner/seam.md`, "How a grader drives it without a live pi"): a fixture
+   repository, a stub self-check, a stub builder and fixture candidates, a port it holds, the
+   five gated candidates of slices 01 to 05 as `LOYLY_CONTEXTS`, and an entrypoint that exits at
+   once or wraps a gated candidate and exits on one method. `drafts.feature` holds none.
+   Reworded before acceptance:
+   - `@item-06-008` "A checklist Measurement refuses halts the run with Measurement's refusal":
+     its plan held a scenario with no item identity, which item 2 now halts at the stamp, so the
+     checklist was never reached. Its plan now holds only a spec file with no scenario, which
+     Measurement refuses `empty-checklist` (`DeriveChecklist` 3; AGENTS.md "an empty selection
+     stops the cycle"); the run halts at the checklist effect.
+   - `@item-06-034` "A run that ended stays as it ended": "its contexts were stopped" left the
+     Given (no query shows it); "a minute later" became "5 seconds after each start responded"
+     (a grader waits seconds, not minutes; Spec round 6, 4), and its Then reads the effect
+     results and relayed handoffs against those when each start responded, which the seam
+     shows, in place of "after it ended".
+   - `@item-06-006`: "does not respond its seam" → "does not respond on its seam".
+2. **Q1: restamp a stripped copy.** For each slice of the plan at the cut, the runner stamps a
+   copy of the spec file with the `@item` tags of its tag lines removed, under a folder of the
+   slice's own name, through `specification/stamp-slice` on Specification's fresh ledger; the
+   identities the stamp hands out, in file order, must equal the file's own tags, else the run
+   halts at the stamp effect, reason `refused-before-the-cycle`, after the stamp effect is
+   recorded as Specification answered. No change to slice 01. New scenario `@item-06-009` "A
+   plan whose item identities a fresh stamp does not give back halts the run before the cycle"
+   (`@minimum`, `HaltRun`). A plan whose numbering has a gap halts too; the Löyly plan's
+   `@item-01-001` to `011` has none. Allium: comments of `HaltReason` and `HaltRun`;
+   event-model: `halt-run`'s description.
+3. **Q2 and Q5: the Löyly benchmark has its own configuration**, the archived Löyly
+   configuration (`archive/legacy-harness/config.sh`: `PORT=8901`, `PLAN_DIR=docs/plan`,
+   `APP_MARKER=sauna`, `APP_PROBE=harness/probe.sh`) with `FENCED_PATHS="impl harness-impl .pi
+   archive/legacy-harness/cycles"`: the paths that hold a prior candidate or evidence; `docs/`,
+   `raw/` and the harness tools stay in the room. The archived value `"impl harness/cycles"`
+   stops at the fence today (`fenced-path-matched-nothing`), because `harness/cycles` does not
+   exist in the main working copy. The configuration is handed in (`LOYLY_HARNESS_CONFIG`), so
+   the spec holds only its reading (`cycle-runner/seam.md`, "Handed in"). **Open, found while
+   recording:** `harness-impl` is tracked in no branch today (the main working copy at `6d42c8e`
+   has none), so at today's cut that entry stops the fence the same way; the value holds once
+   `harness-impl` is committed at the cut, else that entry is dropped. No scenario depends on it.
+4. **Q3 and Q6: the drafted readings.** The harness digest of a self-check is the SHA-256 of the
+   configuration file, the self-check command and the identity probe, in that order; the
+   scenario digest is the runner's reading in `cycle-runner/seam.md` (Specification's
+   `ScenarioReading` names none).
+5. **Q4: synchronous methods.** `start-run` responds once the run awaits its verdicts, concluded
+   or halted; `hand-in-verdicts` once it concluded or halted. The judge watches a long run
+   through the runner's Grain store and the pi session directly, not through the seam.
+6. **Who judges.** The main session is the final judge of shadow runs. Grading is shared
+   black-box verdicts: one legacy-step-5 grading subagent per candidate writes one verdicts
+   file, handed unchanged to both harnesses (this runner and legacy `score.clj`). `@item-01-011`
+   of the Löyly app is judged by the main session, and its verdict handed in with the others.
+7. **The builder's room and its own suite.** A slice-06 builder's clean room holds no other
+   context's candidate; it holds the five contexts' `seam.md` and `event-model/` (the contracts
+   the runner speaks) and nothing else of them (`harness/config.sh`). The candidate's own tests
+   stand the five contexts in: programs named in the test's own `LOYLY_CONTEXTS` that speak
+   each seam as the test scripts them and append the handoffs they produce to a Grain store of
+   their own, which the relay reads as a real producer's (`cycle-runner/seam.md`, "How the
+   candidate's own suite drives it without the five candidates"). The black-box grader uses the
+   real gated candidates of slices 01 to 05.
+8. **Seam wording.** A context responds when it replies to a query of its own seam with a response
+   carrying the request's `id`; `contexts-not-responding` names every context not named or not
+   responding in `data.contexts`; a context that stops responding later halts the run.
+
+9. **Event schemas the gate can hold a candidate to.** The gate's event-store check closes every
+   map of an event's schema, so a bare `:map` admits only `{}`. `run-started`'s `budget` now
+   spells out `start-run`'s budget schema; `effect-recorded`'s `events` and `run-concluded`'s
+   `cycle`, the contexts' replies carried verbatim, are `[:map {:closed false}]`. No field was
+   added or removed.
+
+A grader for slice 06 is written once from these 35 items ("spec grew": a new slice). The
+checklist golden grows 149 → 184. The 35 new items are the next cycle's untuned holdout.

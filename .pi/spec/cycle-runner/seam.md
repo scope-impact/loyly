@@ -1,9 +1,9 @@
-# Cycle runner: the public seam (DRAFT)
+# Cycle runner: the public seam
 
-How a grader and an operator drive this context's candidate (slice 06, not yet accepted). Derived
-from `event-model/*.edn`; where this note and the event model disagree, the event model wins and
-this note is wrong. Drafted 2026-11-07 (`../decisions.md`, "Slice 06 (draft)"), in the shape of
-`../regeneration-cycle/seam.md`.
+How a gate, a grader and an operator drive this context's candidate (slice 06). Derived from
+`event-model/*.edn`; where this note and the event model disagree, the event model wins and this
+note is wrong. Drafted 2026-11-07 (`../decisions.md`, "Slice 06 (draft)"), in the shape of
+`../regeneration-cycle/seam.md`; decided in spec round 7b (`../decisions.md`, "Spec round 7b").
 
 ## What the candidate does, and what it is told
 
@@ -52,8 +52,10 @@ instants travel as ISO-8601 UTC text.
   processor performs every effect up to the gate's verdict and responds when the run awaits its
   verdicts, concluded (a failed self-check, a refused fence, nothing regenerated, gate attempts
   exhausted, three gate refusals, a stage timeout) or halted. `hand-in-verdicts` likewise responds
-  when the run concluded or halted. So `runs-to-advance` is `[]` after every method (open question
-  Q4: a live builder takes hours).
+  when the run concluded or halted. So `runs-to-advance` is `[]` after every method. The methods
+  are synchronous by decision (`../decisions.md`, "Spec round 7b" 5): a live builder takes hours,
+  and whoever watches a live run (the main session) reads the runner's Grain store and the pi
+  session directly, not through this seam.
 - **A run's progress** is the read model `:cycle-runner/runs` of that run, its fields verbatim
   (`run-id`, `cycle-id`, `cut-id`, `commit`, `status`, `effects`, `attempts`, `candidate-digest`,
   `verdicts-digest`, `cycle`, `halt`), plus `effect-results`: the rows of
@@ -75,7 +77,7 @@ first. In order:
 
 | Triage | Effect | What the runner does | Recorded through |
 |---|---|---|---|
-| E1 | `stamp` | per slice of the plan at the cut: the spec file read with `git show`, a copy with its item tags removed written to the run's directory (draft reading, open question Q1), its unstamped scenarios and empty-title headings read | `specification/stamp-slice` |
+| E1 | `stamp` | per slice of the plan at the cut, in slice order: the spec file read with `git show`; a copy with the `@item-NN-SSS` tags of its tag lines removed (a tag line left empty goes; comments and other tags stay) written to the run's directory under a folder of the slice's own name, so Specification reads the same slice; that copy's unstamped scenarios and empty-title headings read and offered. After the recording, the identities the stamp handed out (its `scenario-stamped` events' `item-id`s, in file order) must equal the original file's own item tags, in file order; else the run halts, `refused-before-the-cycle` (below) | `specification/stamp-slice` |
 | E1 | `pin` | the commit's tree digest read with `git rev-parse <commit>^{tree}` | `cycle-preparation/pin-source-cut` |
 | E1 | `checklist` | the cut's stamped scenarios read with legacy `gen_checklist`'s reading (item identity from the ledger, scenario digest below, Rule, `source:line`, title; planned and backlog slices skipped) | `measurement/derive-checklist` |
 | E2 | `self-check` | `LOYLY_SELF_CHECK_CMD` run in the project repository: exit 0 passed, any other failed; the last line it printed is the failing check; each line `SKIP <check>` a skipped check | `regeneration-cycle/record-harness-self-check` (before the fence: attempt 0, the run's budget; before the gate: the attempt) |
@@ -104,7 +106,9 @@ first. In order:
 - **A halt.** A recording refused before the cycle opened (the stamp, the pin or the checklist:
   no self-check has named the cycle yet, so there is no cycle to fail) halts the run, reason
   `refused-before-the-cycle` (AGENTS.md: an unstamped scenario or an empty selection stops the
-  cycle). An effect that could not be performed at all halts it too, recording nothing for that
+  cycle). So does a stamp whose identities are not the plan's own (E1): the stamp effect is
+  recorded as Specification answered, and the run halts at it, its `detail` naming the plan's
+  identities and the stamp's. An effect that could not be performed at all halts it too, recording nothing for that
   effect: a context that did not respond (`context-did-not-respond`) or a handed-in command that
   could not be started (`effect-could-not-run`). The contexts are stopped; a halt is never the
   cycle's conclusion.
@@ -116,8 +120,10 @@ first. In order:
   `"sha256:"` and the SHA-256 of one line per file of the candidate scope, `<path>` TAB `<sha256 hex
   of its bytes>` LF, by path. The goldens digest is `../regeneration-cycle/seam.md`'s formula over
   `grader-lifecycle/instrument-goldens`. The identity-probe digest is the SHA-256 of `APP_PROBE` at
-  the cut; the harness digest, draft reading (open question Q3), the SHA-256 of the configuration
-  file, the self-check command and the identity probe, in that order.
+  the cut; the harness digest is the SHA-256 of the configuration file, the self-check command
+  and the identity probe, in that order (`../decisions.md`, "Spec round 7b" 4). The scenario
+  digest above is the runner's own reading, decided there too; Specification's `ScenarioReading`
+  names none.
 
 ## Handed in
 
@@ -130,16 +136,21 @@ Read when `start-run` runs, never only at boot, so a grader changes them between
   `git cat-file -e <commit>^{commit}`.
 - `LOYLY_HARNESS_CONFIG`: the project's harness configuration, legacy `config.sh` as-is
   (`KEY=value` lines: `APP_DIR`, `PORT`, `PLAN_DIR`, `APP_MARKER`, `APP_PROBE`, `FENCED_PATHS`),
-  paths relative to the repository at the cut. The benchmark's is
-  `archive/legacy-harness/config.sh` (`PORT=8901`, `PLAN_DIR=docs/plan`, `APP_MARKER=sauna`,
-  `APP_PROBE=harness/probe.sh`, `FENCED_PATHS="impl harness/cycles"`; open question Q2).
+  paths relative to the repository at the cut. The Löyly benchmark's is its own: the archived
+  Löyly configuration (`archive/legacy-harness/config.sh`: `APP_DIR=impl`, `PORT=8901`,
+  `PLAN_DIR=docs/plan`, `APP_MARKER=sauna`, `APP_PROBE=harness/probe.sh`) with
+  `FENCED_PATHS="impl harness-impl .pi archive/legacy-harness/cycles"` (`../decisions.md`, "Spec
+  round 7b" 3). The runner reads the file it is handed; it holds no benchmark value itself.
 - `LOYLY_CONTEXTS`: a JSON file naming each context's candidate by its launch entrypoint:
   `{"specification": ".../harness-impl/01-specification/start.sh", ...}`, the five gated candidates
   of slices 01 to 05. The runner starts each for the run with a fresh `LOYLY_GRAIN_STORE` in the
   run's directory and the fixtures it wrote there (`LOYLY_PROJECT_COMMITS`: the commit and its tree;
   `LOYLY_SCENARIO_DIGESTS`: the cut's scenario digests; `LOYLY_SCORING_TOOL_PATHS` passed through),
-  and stops them when the run ends. A context not named, or not responding to a
-  query of its own seam (such as `cycle-preparation/source-cuts`), refuses the start (`contexts-not-responding`, `data.contexts`).
+  and stops them when the run ends. A context responds when it replies to a query of its own seam
+  (such as `cycle-preparation/source-cuts`) with a JSON-RPC response carrying the request's `id`.
+  A context not named, or not responding, refuses the start (`contexts-not-responding`), and
+  `data.contexts` names every such context. A context that stops responding later halts the run
+  (`context-did-not-respond`).
 - `LOYLY_SELF_CHECK_CMD`: the harness self-check, legacy `harness/check.sh --local`.
 - `LOYLY_BUILDER_CMD`: the builder launcher, run as `<cmd> <builder-room> <instruction-file>` and
   waited for. Live: pi with its Gondolin backend, one builder per run at a time. Its exit status is
@@ -162,12 +173,46 @@ Everything the runner acts on is a fixture a grader states, so no item waits for
   the paths it was handed;
 - a `PORT` the grader chooses, and holds itself to see the seam respond before boot;
 - the five gated candidates of slices 01 to 05 as `LOYLY_CONTEXTS` (the relay reads their Grain
-  stores, which a stub cannot write), or an entrypoint that never responds to see a halt;
+  stores), or an entrypoint that never responds, exits at once, or wraps a gated candidate and
+  exits when asked one method, to see a refusal or a halt;
 - a verdicts file in legacy `score.clj`'s shape (a list of `{"id", "verdict", "evidence"}`, an
   optional `"reason"`), handed in by `hand-in-verdicts`.
 
 The grader observes through `run-progress` only: the effect results with the contexts' replies, the
-relayed handoffs, the cycle's progress at the conclusion, and the run's status.
+relayed handoffs, the cycle's progress at the conclusion, and the run's status. What the stub
+builder and the fixture candidates record (the paths a builder room held, each launch, whether a
+launch entrypoint ran) is the grader's own fixture, read from where the grader told it to write.
+
+The verdicts a grader of the runner hands in are its own fixtures too. In the live benchmark they
+are shared black-box verdicts: one legacy-step-5 grading subagent per candidate writes one
+verdicts file, which goes unchanged to this runner and to legacy `score.clj` in a shadow run; the
+main session judges `@item-01-011` of the Löyly app itself and hands that verdict in with the
+others, and is the final judge of every shadow run's comparison (`../decisions.md`, "Spec round
+7b" 6).
+
+### How the candidate's own suite drives it without the five candidates
+
+The builder's clean room holds no other context's candidate. It holds each of the five contexts'
+contract, `.pi/spec/<context>/seam.md` and `.pi/spec/<context>/event-model/*.edn` (the methods,
+params, results, refusal codes and handoffs the runner speaks), and nothing else of them. So the
+candidate's own tests stand the five contexts in themselves:
+
+- each **stand-in** is a program the test names in its own `LOYLY_CONTEXTS` file: it speaks its
+  context's seam (JSON-RPC 2.0 over stdio, the methods, results and refusal codes its `seam.md`
+  names) and appends the handoff events it produces, with exactly the fields of its
+  `event-model/handoffs.edn`, to a Grain store (`event-store-v3`, SQLite) at the
+  `LOYLY_GRAIN_STORE` the runner hands it, so the relay reads a stand-in's store as it reads a real
+  producer's;
+- a stand-in replies as its test scripts it (record and reply with events, refuse with a code,
+  stop answering, exit) and keeps what it was handed, so the suite checks the order of the
+  effects, the relay (what was handed in, to whom, in which order, once), a refusal shown as heard,
+  a halt, and a conclusion read from the stand-in Regeneration cycle's `cycle-progress`;
+- the project repository, the self-check, the builder and the verdicts file are fixtures, as
+  above.
+
+The stand-ins are the suite's, never the product's: the product holds no rule of the five
+contexts and reaches them only through `LOYLY_CONTEXTS`. The black-box grader of this slice uses
+the real gated candidates of slices 01 to 05 instead.
 
 ## Refusals
 

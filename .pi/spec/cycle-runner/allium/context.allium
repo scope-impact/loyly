@@ -1,7 +1,8 @@
 -- allium: 3
 -- .pi/spec/cycle-runner/allium/context.allium
 --
--- Scope: the shared language of the Cycle runner (DRAFT, slice 06, spec round 7a): the ORC
+-- Scope: the shared language of the Cycle runner (slice 06; drafted in spec round 7a,
+--        accepted in spec round 7b, decisions.md "Spec round 7b"): the ORC
 --        workflow that performs a cycle's effects in the real world and records each
 --        effect's result into the context that owns it, through that context's seam. It
 --        owns no rule of the five contexts: every refusal it shows is a context's, as
@@ -120,7 +121,10 @@ enum RelayOutcome { accepted | refused }
 -- Why a run halted: an effect that could not be performed at all, so nothing was
 -- recorded for it; or a recording refused before the cycle opened (the stamp, the pin or
 -- the checklist), where there is no cycle to fail (AGENTS.md: an unstamped scenario or an
--- empty selection stops the cycle).
+-- empty selection stops the cycle). A stamp whose identities are not the plan's own is
+-- refused_before_the_cycle too: the runner stamps a copy of each plan spec file with its
+-- item tags removed, and the identities the stamp hands out must equal the file's own
+-- tags, in file order (decisions.md, "Spec round 7b" 2, Q1).
 enum HaltReason { context_did_not_respond | effect_could_not_run | refused_before_the_cycle }
 
 ------------------------------------------------------------
@@ -141,12 +145,17 @@ config {
 }
 
 ------------------------------------------------------------
--- Open Questions
+-- Decided questions (spec round 7b; decisions.md, "Spec round 7b")
 ------------------------------------------------------------
-
-open question "Q1: the benchmark's plan is already stamped (@item-01-001 to 011), and Specification's ledger starts empty in every run, so no scenario-stamped event names those items and Measurement refuses the checklist (unknown-item). Draft reading: the runner stamps a copy of each spec file with its item tags removed and requires the ledger's identities to equal the plan's; else a persistent Specification store, or an import command in Specification."
-open question "Q2: legacy FENCED_PATHS is \"impl harness/cycles\"; the main working copy has no harness/cycles, so the fence of today's cut refuses fenced-path-matched-nothing. Keep the legacy value (the run fails at the fence) or declare the benchmark's own?"
-open question "Q3: the harness digest of a self-check: draft reading, the SHA-256 of the configuration file, the self-check command and the identity probe, in that order. Confirm."
-open question "Q4: a run is synchronous (start-run responds when the run awaits its verdicts or concluded); a live builder takes hours, and nothing can be read through the seam meanwhile. Keep, or respond at once and advance in the background?"
-open question "Q5: the clean room of the Löyly cut holds this repository's .pi/, harness/ and harness-impl/ as well as docs/plan; legacy fenced only impl and harness/cycles. Is that the room the builder should see, for parity?"
-open question "Q6: the scenario digest formula (seam.md) is the runner's reading; Specification's ScenarioReading names none. Confirm, or name it in Specification."
+--
+-- Q1: the stamped plan against a fresh Specification ledger: the runner restamps a copy
+--     of each plan spec file with its item tags removed; the restamped identities must
+--     equal the file's own tags, else the run halts (HaltReason above). Specification is
+--     unchanged.
+-- Q2, Q5: the benchmark's configuration is its own, handed in: the archived Löyly
+--     configuration with the fence "impl harness-impl .pi archive/legacy-harness/cycles".
+-- Q3: the harness digest is the SHA-256 of the configuration file, the self-check command
+--     and the identity probe, in that order.
+-- Q4: the methods are synchronous (StartRun responds once the run awaits its verdicts,
+--     concluded or halted).
+-- Q6: the scenario digest is the runner's reading (seam.md); Specification names none.

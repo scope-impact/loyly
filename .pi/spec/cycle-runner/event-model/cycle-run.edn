@@ -1,5 +1,5 @@
 ;; .pi/spec/cycle-runner/event-model/cycle-run.edn: aggregate CycleRun, in the runner's own
-;; event store (one per run). DRAFT (decisions.md, "Slice 06 (draft)"). The runner performs a
+;; event store (one per run). Slice 06 (decisions.md, "Slice 06 (draft)", "Spec round 7b"). The runner performs a
 ;; cycle's effects in the real world and records each effect's result into the context that
 ;; owns it, through that context's seam; its own facts are which effect it performed and what
 ;; the context answered, which handoff it relayed and how the consumer took it, the verdicts
@@ -75,7 +75,7 @@
     :reads #{:cycle-runner/runs}
     :produces #{:cycle-runner/run-concluded}}
    :cycle-runner/halt-run
-   {:description "Halt the run: an effect could not be performed at all (a context did not respond, a handed-in command could not be started), so nothing was recorded for it; or the stamp, the pin or the checklist was refused before the cycle opened, so there is no cycle to fail. A halt is the runner's fact, never the cycle's conclusion. Issued by: the advance-run processor."
+   {:description "Halt the run: an effect could not be performed at all (a context did not respond, a handed-in command could not be started), so nothing was recorded for it; or the stamp, the pin or the checklist was refused before the cycle opened, or the stamp handed out identities that are not the plan's own, so there is no cycle to fail. A halt is the runner's fact, never the cycle's conclusion. Issued by: the advance-run processor."
     :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "HaltRun"}]
     :schema [:map
              [:run-id :string]
@@ -93,7 +93,11 @@
              [:cut-id :string]
              [:commit :string]
              [:selection-id :string]
-             [:budget :map]
+             [:budget [:map
+                       [:gate-attempt-limit [:int {:min 1 :max 3}]]
+                       [:max-outer-cycles pos-int?]
+                       [:max-continuations [:int {:min 0 :max 3}]]
+                       [:stage-timeouts-seconds [:map [:fence pos-int?] [:regenerate pos-int?] [:gate pos-int?] [:score pos-int?]]]]]
              [:grader-digests [:vector :string]]
              [:started-at inst?]]}
    :cycle-runner/effect-recorded
@@ -107,7 +111,7 @@
              [:method :string]
              [:outcome [:enum "recorded" "refused"]]
              [:refusal {:optional true} :string]
-             [:events [:vector :map]]
+             [:events [:vector [:map {:closed false}]]]
              [:detail :string]
              [:performed-at inst?]]}
    :cycle-runner/handoff-relayed
@@ -135,7 +139,7 @@
              [:run-id :string]
              [:cycle-id :string]
              [:cycle-status [:enum "passed" "failed"]]
-             [:cycle :map]
+             [:cycle [:map {:closed false}]]
              [:concluded-at inst?]]}
    :cycle-runner/run-halted
    {:description "The run halted: an effect could not be performed, so nothing was recorded for it. Loud, and never the cycle's conclusion."

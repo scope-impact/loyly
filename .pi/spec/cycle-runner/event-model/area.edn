@@ -1,5 +1,5 @@
 ;; .pi/spec/cycle-runner/event-model/area.edn
-;; The Cycle runner (DRAFT, slice 06, spec round 7a): its screen and its flows. The aggregate's
+;; The Cycle runner (slice 06; spec rounds 7a and 7b): its screen and its flows. The aggregate's
 ;; blocks are in cycle-run.edn. It produces no handoff and consumes none: the five contexts'
 ;; events never enter its store; it reads them from each producer's store and hands them in
 ;; through the consumers' seams (decisions.md, "Spec round 5" 1 and 2).
