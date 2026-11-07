@@ -545,9 +545,33 @@
    "name": "A filed measurement moves the cycle to the scoreboard and nothing else",
    "rule": "The instrument's facts only conclude the cycle, and never feed the build loop",
    "source": ".pi/plan/04-regeneration-cycle/spec.feature:449"
+  },
+  {
+   "id": "05-001",
+   "name": "The operator pins a source cut",
+   "rule": "A source cut is one commit and its tree, pinned once and never changed",
+   "source": ".pi/plan/05-cycle-preparation/spec.feature:11"
+  },
+  {
+   "id": "05-002",
+   "name": "A pinned source cut is never pinned again",
+   "rule": "A source cut is one commit and its tree, pinned once and never changed",
+   "source": ".pi/plan/05-cycle-preparation/spec.feature:20"
+  },
+  {
+   "id": "05-003",
+   "name": "A source cut of something that is not a commit is refused",
+   "rule": "A source cut is one commit and its tree, pinned once and never changed",
+   "source": ".pi/plan/05-cycle-preparation/spec.feature:30"
+  },
+  {
+   "id": "05-004",
+   "name": "A source cut whose tree digest is not its commit's tree is refused",
+   "rule": "A source cut is one commit and its tree, pinned once and never changed",
+   "source": ".pi/plan/05-cycle-preparation/spec.feature:39"
   }
  ],
  "counts": {
-  "total": 91
+  "total": 95
  }
 }

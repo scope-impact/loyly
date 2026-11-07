@@ -100,7 +100,19 @@
                         "cycle through `regeneration-cycle/record-harness-self-check` at the goldens digest `seam.md` "
                         "defines, refuse a clean room whose fenced path matched nothing, prove one through "
                         "`regeneration-cycle/prove-clean-room`, and report the cycle through "
-                        "`regeneration-cycle/cycle-progress`")}})
+                        "`regeneration-cycle/cycle-progress`")}
+   "05" {:allium "the contract `ProjectRepository`"
+         :product (str "it pins each source cut at a commit of the project repository, checking the commit and its "
+                       "tree digest against the repository's commits it is handed (the contract `ProjectRepository`), "
+                       "never pins a cut identity twice, refuses what the Allium refuses, records each pinned cut as "
+                       "the event `cycle-preparation/source-cut-pinned`, the handoff it produces for Measurement and "
+                       "the Regeneration cycle (its contract is `.pi/spec/cycle-preparation/event-model/handoffs.edn`), "
+                       "and answers its query from its read model. It runs no git and computes no digest.")
+         :inputs (str "It is also handed the project repository's commits, a JSON file that `LOYLY_PROJECT_COMMITS` "
+                      "names (each commit to its tree digest), read at every command, never only at boot.")
+         :identity (str "the product, handed two commits through `LOYLY_PROJECT_COMMITS`, must pin a source cut at "
+                        "one of them through `cycle-preparation/pin-source-cut`, refuse to pin that cut again at the "
+                        "other, and report the one cut through `cycle-preparation/source-cuts`")}})
 
 (defn render [slice]
   (let [{:keys [app-dir app-stack plan-dir app-probe]} (config slice)

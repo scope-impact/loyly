@@ -7,7 +7,8 @@
 ;; as an open map: the fixtures may hold anything, and only the check judges them. The
 ;; "02-" stores are judged against slice 02 (measurement), the "03-" stores against slice 03
 ;; (grader-lifecycle, which consumes no handoff), the "04-" stores against slice 04
-;; (regeneration-cycle, which consumes six), the others against slice 01. Every completed run
+;; (regeneration-cycle, which consumes six), the "05-" stores against slice 05
+;; (cycle-preparation, which consumes none), the others against slice 01. Every completed run
 ;; carries Grain's processor checkpoints, except where a case takes them out (unchecked) or
 ;; doubles a processor's output (doubled).
 (ns event-store-fixtures
@@ -182,6 +183,19 @@
                                                 [[:regeneration-cycle/harness-self-check-passed self-check-passed]
                                                  [:regeneration-cycle/gate-attempt-refused gate-refused]]))})
 
+;; Slice 05 (cycle-preparation): its one command runs as the workflow of its one flow, and it
+;; consumes no handoff, so any other context's event is refused.
+(def cases-05
+  {"05-pass-pinned"             (orc-run "cycle-preparation/cut-to-fence" :success
+                                         [[:cycle-preparation/source-cut-pinned pinned]])
+   "05-fail-short-commit"       (orc-run "cycle-preparation/cut-to-fence" :success
+                                         [[:cycle-preparation/source-cut-pinned (assoc pinned :commit "4f2a9c1")]])
+   "05-fail-outside-run"        (concat [[:cycle-preparation/source-cut-pinned pinned]]
+                                        (orc-run "cycle-preparation/cut-to-fence" :success []))
+   "05-fail-unconsumed-handoff" (concat [[:specification/scenario-stamped stamped]]
+                                        (orc-run "cycle-preparation/cut-to-fence" :success
+                                                 [[:cycle-preparation/source-cut-pinned pinned]]))})
+
 (def cases-01
   {"pass-two-events"       (orc-run [[:specification/scenario-stamped stamped]
                                      [:specification/empty-title-headings-reported reported]])
@@ -203,7 +217,7 @@
    "fail-doubled-trace"    (doubled :sheet/execution-traced (orc-run [[:specification/scenario-stamped stamped]]))
    "fail-no-checkpoint"    (unchecked (orc-run [[:specification/scenario-stamped stamped]]))})
 
-(def cases (merge cases-01 cases-02 cases-03 cases-04))
+(def cases (merge cases-01 cases-02 cases-03 cases-04 cases-05))
 
 (schema/register! (into {} (for [[_ events] cases [t _] events] [t :map])))
 
