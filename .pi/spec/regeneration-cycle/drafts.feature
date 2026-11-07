@@ -448,12 +448,15 @@ Feature: Regeneration cycle, draft scenarios
 
     # regeneration-cycle.allium, rule NoteScoreStageFailed (requires 2)
     # Suggested tier: balance
+    # Reachable only through the stub: Measurement fails no score stage of a cycle it never
+    # saw gated (measurement FailScoreStage requires 1); decisions.md, "Spec round 4".
     @draft @allium-rule-failure.NoteScoreStageFailed.2
     Scenario: A score stage failed before the gate passed is not the cycle's
       Given candidate D-1 was installed in gate room G-1 for gate attempt 1 of regeneration cycle C-7
       And the measurement recorded the score stage of cycle C-7 failed, its score refused for zero verdicts
       When ORC runtime records gate attempt 1 passed
       Then the cycle progress view shows cycle C-7 running at the score stage
+      And cycles-to-conclude does not list cycle C-7
 
   Rule: The operator observes a cycle, and observing changes nothing
 

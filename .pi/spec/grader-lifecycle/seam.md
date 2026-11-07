@@ -57,7 +57,8 @@ scenario from, so its current scenario digests are handed in, like its store:
 - The candidate reads the file each time a command checks a scenario digest, never only at
   boot: a reworded scenario shows as soon as the file says so. `digest_of_scenario(s)` is the
   file's value for the key `s`, exactly; a scenario the file does not name, an absent file and
-  an unset variable have no digest, so every offered digest differs from it.
+  an unset variable have no digest, so every offered digest differs from it: without the file
+  the context is inert, every write refused (`../decisions.md`, "Spec round 4").
 - `scenario` itself is recorded as offered (the golden's `scenario`), and
   `MoveInstrumentGolden` looks up the golden's recorded `scenario`, not a new one.
 

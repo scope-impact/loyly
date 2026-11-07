@@ -51,7 +51,10 @@ exactly the fields of that event's `:schema`.
   the policy `report-scoreboard-once` issues `measurement/report-scoreboard` for it, and that
   scoreboard is reported before `measurement/file-score` responds; its events are not in
   `file-score`'s result, and `measurement/scoreboard` reads them. Calling
-  `measurement/report-scoreboard` for that cycle again is refused (already reported).
+  `measurement/report-scoreboard` for that cycle again is refused (already reported). So
+  `measurement/measurements-to-report` is observed `[]` after every method: a filed
+  measurement's scoreboard is reported before `file-score` responds (`../decisions.md`, "Spec
+  round 4").
 - **The previous cycle** of a scoreboard is the last cycle whose measurement was filed before
   this one's, with the same `selection-id`; a cycle with no filed measurement is never one.
 - **Evidence defaults empty.** A verdict offered to `measurement/file-item-verdicts` without

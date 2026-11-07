@@ -230,3 +230,10 @@ self-check key, the reworded golden). Still open (the first also as `open questi
 - **R3.1, the planned `room-policy` check** (Checks): it cannot exist before ORC's room
   policy does; until then `TheClaimantNeverControlsTheGate`, `ProbeOutOfReach` and
   `PublicSeamOnly` are verified by nothing that runs.
+- **Spec round 4, an assembly-gate question: was a cycle that failed at the score stage
+  measured?** A measurement filed after the cycle failed at the score stage leaves the cycle
+  where it failed (`NoteMeasurementFiled` requires 2, `@item-04-040`), but stays Measurement's
+  record, and can be the next cycle's baseline (`last_measured_before`). In the assembled
+  system the two contexts may disagree on whether that cycle was measured. The candidate fix, a
+  `cycle-failed` handoff to Measurement, is deferred to the assembly gate (`../decisions.md`,
+  "Spec round 4" 3; `../measurement/domain-design.md`, "Open questions").

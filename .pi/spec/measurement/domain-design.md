@@ -149,6 +149,12 @@ Settled by `../decisions.md`: H7 (the field), H13, H26, g. Still open (also as
   grader's filing carry (its instruction, its model), and who approves it, if anyone?
   **Decided (round 3): OG1 is no**, OG2 and OG3 moot; the open grader drafts stay parked
   (`../decisions.md`, "Spec round 3").
+- **Spec round 4, an assembly-gate question: was a cycle that failed at the score stage
+  measured?** A measurement filed after the Regeneration cycle failed that cycle at the score
+  stage stays this context's record and can be the next cycle's baseline
+  (`last_measured_before`), while the Regeneration cycle leaves the cycle failed
+  (`@item-04-040`). The candidate fix, a `cycle-failed` handoff to Measurement, is deferred to
+  the assembly gate (`../decisions.md`, "Spec round 4" 3).
 
 Settled in R2.1 (`../decisions.md`, "Questions raised by R2", 7): **the same selection** is
 the same selected slices, by name, across cuts; whole-plan cycles compare with the last

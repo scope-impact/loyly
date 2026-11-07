@@ -107,6 +107,9 @@ contract RateFormat {
 
 contract Comparison {
     last_measured_before: (measurement: Any) -> Any
+    -- True when an item was added or an item was dropped (either set is non-empty), even
+    -- with the same total: 1 added and 1 dropped is restated (legacy scoreboard.clj,
+    -- @harness-047; decisions.md, "Spec round 4").
     item_set_moved: (measurement: Any, previous: Any) -> Boolean
 
     @invariant LastMeasuredCycleOfTheSameSelection

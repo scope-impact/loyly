@@ -487,3 +487,64 @@ Graders 02, 03 and 04 must grow by the new items, reason "spec grew" (additions 
 must be rebuilt from the changed folds and read model; slices 02 and 03 gain one item each
 (their seams changed only in wording); slices 01 and 05 changed only in `seam.md` wording. The
 checklist golden grows 95 → 99. The 4 new items are the next cycle's untuned holdout.
+
+## Spec round 4 (decided 2026-11-07)
+
+The operator accepted the triage package of the cycle 04 inbox (`harness/v2/cycles/02/04`,
+`03/04` and `04/04`, `surprises.json`): wording and readings only. A spec round: no builder
+ran, no accepted scenario's text or tag, no Allium `requires` or `ensures`, no event-model
+schema and no golden changed.
+
+1. **Round 3's guard stays; Measurement's handoffs are handed in in the producer's order.**
+   `NoteScoreboardReported` keeps requires 2 (`@item-04-039`). The inbox (04) found that after
+   an ignored scoreboard and a later measurement the cycle waits for a second
+   `scoreboard-reported`. Reading: in the assembled system `scoreboard-reported` cannot precede
+   `measurement-filed`. Both are Measurement's, in the same store; its rule `ReportScoreboard`
+   requires 1 a filed measurement and 2 no scoreboard yet, and its policy
+   `ReportScoreboardOnce` is triggered by `measurement-filed` and reports once
+   (`measurement/allium/scoreboard.allium:44-61`, `measurement/event-model/scoreboard.edn:47-52`;
+   legacy `@harness-043`, `archive/legacy-harness/scoreboard.clj`: no scoreboard without a
+   filed score). The "needs a second scoreboard" path is a stub's artefact only.
+   `regeneration-cycle/seam.md`, "The consumed handoffs, handed in", says so.
+2. **A measured cycle at the scoreboard stage has no timeout.** The stage clock times out
+   `fence`, `regenerate`, `gate` and `score` only; a scoreboard follows its measurement, and the
+   legacy harness keeps no cycle state to time out. No change.
+3. **Open, for the assembly gate: was a cycle that failed at the score stage measured?** A
+   measurement filed after the cycle failed at the score stage leaves the cycle failed
+   (`NoteMeasurementFiled` requires 2, `@item-04-040`) but stays Measurement's record, and can
+   be the next cycle's baseline (`last_measured_before`). Assembled, the two contexts may
+   disagree on whether that cycle was measured. The candidate fix, a `cycle-failed` handoff to
+   Measurement, is deferred. Recorded in the open questions of
+   `regeneration-cycle/domain-design.md` and `measurement/domain-design.md`.
+4. **Readings of accepted scenarios and the seams** (no scenario text changes; a grader reads
+   them so):
+   - Slice 04: "1 failed gate attempt" (`@item-04-018`, `@item-04-024`) is the attempt rows
+     with `verdict` `failed`; the surface `CycleProgress` exposes `failed_attempts`, the read
+     model does not, and no schema changes. The policies' to-do queries
+     (`regeneration-cycle/cycles-to-conclude`, `measurement/measurements-to-report`) are
+     observed empty after every method, since the policy runs before the method responds; both
+     `seam.md` say so.
+   - Slice 04, not requirements: Givens a contract invariant states and the seam cannot observe
+     (a 30-second build, tools answering "unknown id") are the issuer's, read as "Slice 04" 4; a
+     handed-in event a fold ignores is still appended and echoed (the seam already says so).
+   - Slice 02: `@item-02-020`'s "C-6 failed at the gate" in Measurement alone is "no
+     `gate-attempt-passed` handed in for C-6". `item_set_moved` is "added or dropped is
+     non-empty", so 1 added and 1 dropped is restated (legacy `scoreboard.clj`,
+     `@harness-047`); a comment on the contract `Comparison` in
+     `measurement/allium/context.allium` says so.
+   - Slice 02, not requirements: a padded title is stored verbatim (trimming is the issuer's
+     reading, "Slice 02" 5); a whitespace-only title is accepted; `file-score` after a failed
+     score stage with no filings refuses `zero-verdicts` (`FileScore` requires 2 before 4); a
+     row field beyond the read model's (`detail`); a baseline's scoreboard leaving `shared` out.
+   - Slice 03: `@item-03-001`'s "recorded with ... the scenario digest" is checked through the
+     command's event result and the golden's current scenario digest (the read model's move
+     entries carry no scenario digest). Not a requirement: with no digests file every write is
+     refused; `grader-lifecycle/seam.md` says the context is inert without it.
+   - Slice 05: already specified (round 3).
+5. **The round 3 balance draft "A score stage failed before the gate passed is not the
+   cycle's"** (`regeneration-cycle/drafts.feature`) gains the step "And cycles-to-conclude does
+   not list cycle C-7" and a comment: it is reachable only through the stub (measurement
+   `FailScoreStage` requires 1). It stays a draft.
+
+No grader changes: no item was added, reworded or dropped, so every sealed grader stands and the
+checklist golden stays at 99.

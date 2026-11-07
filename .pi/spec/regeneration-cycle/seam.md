@@ -65,7 +65,10 @@ produced, each `{"type": "<area>/<event>", ...}` with exactly the fields of that
   the cycle reached (`result` once passed); `gate-attempts` is the number of candidates
   regenerated (the Allium's `attempts`); `budget` is the budget its first self-check carried,
   as offered; `failure` is `{"stage", "reason", "detail"}` of its `cycle-failed`;
-  `boot-margin-polls` is `boot-polls` less `answered-on-poll` of a passed attempt.
+  `boot-margin-polls` is `boot-polls` less `answered-on-poll` of a passed attempt. The view
+  has no failed-attempts count (the surface `CycleProgress` exposes `failed_attempts`, the
+  read model does not): a cycle's failed gate attempts are its `attempts` rows with `verdict`
+  `failed` (`../decisions.md`, "Spec round 4").
 - **No score is not all failed.** This context holds no item verdict, and the view shows none.
   A failed cycle shows its failure (stage, reason, detail) and nothing else of a score: it never
   had a measurement (invariant `FailedBeforeScoreHasNoMeasurement`; `FailCycle` never fails a
@@ -137,6 +140,17 @@ the method responds (below). These methods stand in for the producers until a ga
 the contexts (`../decisions.md`, "First light" 5); they are the only way another context's event
 enters the store.
 
+- **Measurement's handoffs are handed in in the producer's order.** Measurement reports a
+  cycle's scoreboard only after that cycle's measurement is filed, and once: its rule
+  `ReportScoreboard` requires 1 a filed measurement (legacy `@harness-043`: no scoreboard
+  without a recorded score), and its policy `report-scoreboard-once` (`ReportScoreboardOnce`)
+  subscribes to `measurement/measurement-filed` and reports no scoreboard twice
+  (`../measurement/allium/scoreboard.allium`, `../measurement/event-model/scoreboard.edn`). So a
+  `measurement/scoreboard-reported` handed in before the cycle's `measurement/measurement-filed`
+  is a stub's artefact: it is ignored (`NoteScoreboardReported`, requires 2) and Measurement
+  never sends it again. A cycle whose scoreboard was ignored so waits for a scoreboard no
+  producer would report (`../decisions.md`, "Spec round 4").
+
 ## The conclude-cycle policy and the stage clock
 
 - **The policy runs first.** When an event the policy `conclude-cycle` subscribes to is recorded
@@ -148,7 +162,10 @@ enters the store.
   conclusion is recorded before the method that recorded the event responds. Its events are not
   in that method's result; `regeneration-cycle/cycle-progress` reads them. The policy's command
   is held to the same `requires` as the method of the same name: refused, it records nothing,
-  and the method that triggered it still responds with its own events.
+  and the method that triggered it still responds with its own events. So
+  `regeneration-cycle/cycles-to-conclude` is observed `[]` after every method: a cycle due to
+  conclude is concluded before the method that made it due responds, and the query cannot tell
+  "never due" from "due and already concluded" (`../decisions.md`, "Spec round 4").
 - **The stage clock runs on the wall clock**, at the event model's schedule (the periodic task
   `stage-clock`, every 30 seconds). A running cycle's stage started when the candidate recorded
   the fact that moved it there (`stage-entered-at`); when the stage is `fence`, `regenerate`,
