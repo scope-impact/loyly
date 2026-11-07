@@ -61,7 +61,34 @@ the 4 that cite legacy behaviour and are tier minimum are accepted, `@item-03-00
 `@item-03-004` (slice 03, `.pi/plan/03-grader-lifecycle`); 7 stay drafts, 4 of them new minimum.
 Its seam is `seam.md` (`../decisions.md`, "Slice 03").
 
+2026-11-07: 8 more drafts, the open grader (`drafts.feature`, "The open grader"), with no
+Allium yet and no `@allium` tag, for the next spec round: it grades however it judges, deciding
+per step whether it needs a model; it reaches the candidate only through the seam tools (start
+the candidate with a fresh event store, send a request, hand in a file, stop it, read the spec);
+a step naming anything but a seam tool or its own contained code is refused and recorded; it may
+hand an item to an explore session with all tools, recorded, and still files the verdict itself;
+every grading run is kept in the grading history, findable by slice, cycle and candidate, and a
+trial files nothing; a black-box audit reports a run clean or names each breach (the room, the
+candidate's source, a prior cycle, a credential). Measurement holds the matching filing drafts.
+
 ## Open questions
+
+The open grader drafts (2026-11-07) conflict with accepted text; the spec round decides each
+before any of them is accepted:
+
+- **OG1** (blocks the drafts): AGENTS.md "The instrument" and the glossary's **Grader** say a
+  grader is written once by a grader author, calibrated so carried behaviour passes and
+  uncarried behaviour fails, sealed by digest, and used only after an operator approves that
+  digest, and the sealed graders are Elixir scripts. The open grader grades each cycle however
+  it judges, and the legacy-style scoring decision (2026-11-07) dropped calibration and approval
+  for our own cycles. Either the glossary and AGENTS.md change, or the open grader is not a
+  grader. The glossary also avoids "per-cycle judge" and "LLM judge" for Grader.
+- **OG2**: AGENTS.md says graders share no code or runtime with what they measure, in a
+  functional language other than the product's Clojure. The open grader runs as an ORC child
+  workflow, on the harness's own ORC and Grain. Is that independence kept?
+- **OG3**: the explore session has all its tools; the black box around it is an audit after the
+  run, not a room. "The fence is physical, never an instruction": does an explore session need
+  its own room, or is a named breach enough?
 
 - **H19** (can wait): who checks a recorded reason is true? Only `spec_grew` has an
   enforceable test.

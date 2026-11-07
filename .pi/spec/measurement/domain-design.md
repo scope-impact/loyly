@@ -124,6 +124,12 @@ the 24 that cite legacy behaviour and are tier minimum are accepted, `@item-02-0
 `@item-02-024` (slice 02, `.pi/plan/02-measurement`); 21 stay drafts, 8 of them new minimum.
 Its seam is `seam.md` (`../decisions.md`, "Slice 02").
 
+2026-11-07: 4 more drafts, the score stage with the open grader (`drafts.feature`, "The open
+grader"), with no Allium yet and no `@allium` tag, for the next spec round: the score stage
+delegates grading to a child grading workflow over the gated candidate; an item the open grader
+leaves out is unreached and fails; no verdicts files no score; a surprise is on the receipt and
+never changes a verdict. How it grades is Grader lifecycle's drafts.
+
 ## Open questions
 
 Settled by `../decisions.md`: H7 (the field), H13, H26, g. Still open (also as
@@ -134,6 +140,11 @@ Settled by `../decisions.md`: H7 (the field), H13, H26, g. Still open (also as
   `outage` reason is recordable but nothing requires it.
 - **H21** (can wait): should the scoreboard also report graded coverage?
 - **R3.1**: `PublicSeamOnly` waits for the planned `room-policy` check.
+- **OG1 to OG3** (the open grader drafts, 2026-11-07; `../grader-lifecycle/domain-design.md`,
+  "Open questions"): the accepted Rule "The approved sealed grader files the item verdicts it
+  returned for the gated candidate only", `FileItemVerdicts` refusal 9, `FileScore` refusal 5
+  and guarantee `ApprovedDigestOnly` bind an approved grader digest. What digest does an open
+  grader's filing carry (its instruction, its model), and who approves it, if anyone?
 
 Settled in R2.1 (`../decisions.md`, "Questions raised by R2", 7): **the same selection** is
 the same selected slices, by name, across cuts; whole-plan cycles compare with the last
