@@ -1,0 +1,162 @@
+[
+ {
+  "id": "02-001",
+  "verdict": "pass",
+  "evidence": "K-3 pinned, 03-001/03-002/04-001 stamped; derive-checklist -> checklist-derived with the 3 items in offered order, total 3, sha256 digest; query returns same. Same items at K-4 give the same digest; different set (K-5) or order (K-6) give different digests. Variations refused correctly: unpinned cut (cut-not-pinned), re-derive (checklist-already-derived), item twice (item-twice)."
+ },
+ {
+  "id": "02-002",
+  "verdict": "pass",
+  "evidence": "Offered 03-002 (rule null, :3) then 03-001 (rule 'Stamping', source s/03/spec.feature:6, title 'a padded title'); event and query keep that order and fields, not sorted by id."
+ },
+ {
+  "id": "02-003",
+  "verdict": "pass",
+  "evidence": "Items of slice 05 only with skipped-slices [03 planned, 04 backlog]; checklist-derived and the checklist query hold only 05 items and record both skipped slices with their statuses."
+ },
+ {
+  "id": "02-004",
+  "verdict": "pass",
+  "evidence": "Two unstamped scenarios offered -> -32000 unstamped-scenarios, data.unstamped lists both (source, title), message names specification/stamp-slice; checklist query null."
+ },
+ {
+  "id": "02-005",
+  "verdict": "pass",
+  "evidence": "Empty items, all slices skipped -> -32000 empty-checklist; checklist query null."
+ },
+ {
+  "id": "02-006",
+  "verdict": "pass",
+  "evidence": "Only 03-001 stamped; offering 03-001 and 03-007 -> -32000 item-never-stamped, item-ids [03-007]; checklist null."
+ },
+ {
+  "id": "02-007",
+  "verdict": "pass",
+  "evidence": "03-001 offered with title '' -> -32000 empty-title, item-ids [03-001]; checklist null (also with a valid item beside it). A whitespace-only title is accepted, as allium requires 7 says."
+ },
+ {
+  "id": "02-008",
+  "verdict": "pass",
+  "evidence": "C-7 gated (D-1, K-3), K-3 pinned but no checklist; file-item-verdicts -> -32000 no-checklist; cycle-measurement null; file-score -> zero-verdicts."
+ },
+ {
+  "id": "02-009",
+  "verdict": "pass",
+  "evidence": "Empty verdicts -> -32000 zero-verdicts; cycle-measurement null; file-score -> zero-verdicts (no score shown)."
+ },
+ {
+  "id": "02-010",
+  "verdict": "pass",
+  "evidence": "'maybe' for 03-001 + pass for unknown 09-001 -> bad-verdict-value (either order); measurement null; file-score -> zero-verdicts."
+ },
+ {
+  "id": "02-011",
+  "verdict": "pass",
+  "evidence": "pass 03-001, pass 09-001 -> -32000 unknown-item, item-ids [09-001]; measurement null; file-score zero-verdicts."
+ },
+ {
+  "id": "02-012",
+  "verdict": "pass",
+  "evidence": "Verdicts filed fail 04-001, pass 03-001, pass 03-002; file-score -> measurement-filed items in checklist order 03-001,03-002,04-001; total 3 passes 2 unreached 0; checklist-digest equals K-3's; grader-digests [G-1]; query status filed."
+ },
+ {
+  "id": "02-013",
+  "verdict": "pass",
+  "evidence": "Only pass 03-001 filed; measurement files 03-002 and 03-003 as fail reason unreached; total 3, unreached 2, passes 1."
+ },
+ {
+  "id": "02-014",
+  "verdict": "pass",
+  "evidence": "fail+outage 03-001, fail no reason 03-002 -> measurement 03-001 fail reason outage, 03-002 fail with no reason key; inconclusive also carried."
+ },
+ {
+  "id": "02-015",
+  "verdict": "pass",
+  "evidence": "fail then pass for 03-001 (one call, and across two filings G-1/G-2) -> item pass; superseded [{03-001, G-1, fail}]."
+ },
+ {
+  "id": "02-016",
+  "verdict": "pass",
+  "evidence": "Verdict without evidence -> evidence '' in item-verdicts-filed and in the measurement items; given evidence kept."
+ },
+ {
+  "id": "02-017",
+  "verdict": "pass",
+  "evidence": "Gated C-7, no verdicts; file-score -> -32000 zero-verdicts; cycle-measurement null (awaiting). Ungated C-8 -> not-the-gated-candidate."
+ },
+ {
+  "id": "02-018",
+  "verdict": "pass",
+  "evidence": "Filed 2 of 3 for C-7 (no earlier cycle); policy reported scoreboard before file-score returned: passes 2, total 3, rate '66.7%', previous-cycle-id null; measurements-to-report empty; manual report-scoreboard -> scoreboard-already-reported."
+ },
+ {
+  "id": "02-019",
+  "verdict": "pass",
+  "evidence": "C-8 score stage failed; report-scoreboard C-8 -> -32000 no-measurement-filed; scoreboard null."
+ },
+ {
+  "id": "02-020",
+  "verdict": "pass",
+  "evidence": "C-5 measured, C-6 gated with no measurement (and variant: C-6 score stage failed, plus a measured cycle of another selection in between); C-7 scoreboard previous-cycle-id C-5, never C-6/C-6b/C-7."
+ },
+ {
+  "id": "02-021",
+  "verdict": "pass",
+  "evidence": "C-6: 03-001 pass, 03-002 fail; C-7: reverse -> shared newly-passing [03-002], newly-failing [03-001], previous-rate 50.0%, rate 50.0%; no net field."
+ },
+ {
+  "id": "02-022",
+  "verdict": "pass",
+  "evidence": "C-6 total 3, C-7 total 4 (03-004 added) -> restatement previous-total 3, total 4, added 1, dropped 0; C-8 with unchanged item set -> restatement null."
+ },
+ {
+  "id": "02-023",
+  "verdict": "pass",
+  "evidence": "1/16 -> '6.2%', 5/16 -> '31.2%'; also 3/16 -> '18.8%', 11/16 -> '68.8%' (half to even)."
+ },
+ {
+  "id": "02-024",
+  "verdict": "pass",
+  "evidence": "C-6 only 03-001, C-7 only 04-001 -> shared items 0, previous-rate and rate 'n/a'; new-items [04-001], dropped [03-001]."
+ },
+ {
+  "id": "02-025",
+  "verdict": "pass",
+  "evidence": "K-3 checklist 03-001/03-002, C-7 gated D-1; G-1 files pass/fail -> item-verdicts-filed {cycle-id C-7, candidate D-1, grader G-1, verdicts as returned with evidence}; exact event fields."
+ },
+ {
+  "id": "02-026",
+  "verdict": "pass",
+  "evidence": "Attempt 2 passed for D-2; filing for D-1 -> -32000 not-the-gated-candidate; file-score zero-verdicts; measurement null. Filing for D-2 accepted; ungated C-9 refused not-the-gated-candidate."
+ },
+ {
+  "id": "02-027",
+  "verdict": "pass",
+  "evidence": "Grader G-9 with approved [G-1] -> -32000 grader-not-approved; file-score zero-verdicts; measurement null."
+ },
+ {
+  "id": "02-028",
+  "verdict": "pass",
+  "evidence": "pass+outage 03-001 and fail+unreached 03-002 -> one refusal bad-verdict-reason, item-ids [03-001, 03-002]; file-score zero-verdicts; measurement null. fail+'bogus' and pass+inconclusive also refused."
+ },
+ {
+  "id": "02-029",
+  "verdict": "pass",
+  "evidence": "Filed 2 of 3; file-score again -> measurement-already-filed; measurement still 2 of 3; fail-score-stage and further verdicts also refused measurement-already-filed."
+ },
+ {
+  "id": "02-030",
+  "verdict": "pass",
+  "evidence": "G-1 filed while approved; file-score with approved [G-2] -> grader-not-approved; measurement null, measurements-to-report empty (still awaiting); a later file-score with [G-1] files it."
+ },
+ {
+  "id": "02-031",
+  "verdict": "pass",
+  "evidence": "Verdicts refused unknown-item; fail-score-stage(unknown-item) -> score-stage-failed event; cycle-measurement status score-stage-failed, refusal unknown-item, no total/passes; second fail-score-stage refused score-stage-failed; scoreboard null."
+ },
+ {
+  "id": "02-032",
+  "verdict": "pass",
+  "evidence": "Score stage of C-7 failed (unknown-item); valid verdicts for D-1 again -> -32000 score-stage-failed; receipt unchanged."
+ }
+]

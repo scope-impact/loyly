@@ -1,0 +1,10 @@
+[
+ "A padded title offered to derive-checklist is stored verbatim (not trimmed): per decisions 'Slice 02' 5 trimming is the issuer's reading, so @item-02-002 was played with the trimmed title the one reading yields.",
+ "A whitespace-only title is accepted (allium DeriveChecklist 7 comment says it is a scenario); the spec gives no scenario for it.",
+ "@item-02-020's 'C-6 failed at the gate' has no seam method; represented as no gate-attempt-passed, and also as gated-but-unscored and score-stage-failed variants.",
+ "file-score after a failed score stage with no filings refuses zero-verdicts, not score-stage-failed: FileScore requires 2 precedes 4, so the order is per spec, but the receipt-level reason differs from what an operator might expect.",
+ "measurements-to-report is never observably non-empty: the report-scoreboard-once policy runs before file-score responds, so the to-do list can only be seen empty over the seam.",
+ "An item set that changed with the same total (1 added, 1 dropped) is restated (added 1, dropped 1); the spec defines item_set_moved only abstractly.",
+ "The score-stage-failed receipt carries an extra 'detail' field beyond the read model; allowed by seam.md ('a query row carries at least the read-model fields').",
+ "Scoreboard of a baseline cycle omits 'shared' entirely (optional in the schema) rather than null."
+]
