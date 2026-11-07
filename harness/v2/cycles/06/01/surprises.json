@@ -1,0 +1,11 @@
+[
+ "Gate room: the installed candidate's files are read-only (r--/r-x) but its directories, and the gate room itself, stay writable (drwxr-xr-x); seam.md says 'a copy ... read-only'. Not tested by any Then.",
+ "Repair room: previous candidate and gate evidence are read-only by permission bits only (owned by the same user as the builder, who could chmod them); the builder-room root is writable.",
+ "Fresh builder room: the clean room's plan, config, probe and check files and all its directories are writable by the builder (AGENTS.md says the builder reads the clean room read-only); the spec's Thens only require it to be seen.",
+ "A builder's background children are not stopped when the builder exits: a late writer kept writing into the builder room for 30 s; only the gate's copy is protected. Writes that race the builder's exit land in the candidate.",
+ "After a gate refusal the runner's re-run self-check is refused by regeneration-cycle (self-check-already-recorded) and recorded as a refused self-check effect between each refusal pair.",
+ "The repair's 'gate evidence mounted' is visible only in the effect's detail text; regeneration-cycle/candidate-regenerated carries no mounted-evidence field (its event schema has none).",
+ "For a spec file with no scenario the stamp effect is recorded with zero events, and the halt comes at the checklist (empty-checklist), as 06-008 expects.",
+ "contexts-not-responding takes ~10-11 s to answer (a response timeout); the identity probe is run with the port as its argument, cwd the gate room.",
+ "Harness digest observed = SHA-256 of config file bytes + self-check command text + probe bytes, concatenated with no separator."
+]
