@@ -1,0 +1,4 @@
+[
+ "The spec leaves open whether the commits file is read at the moment of each pin, so that a cut pinned earlier stays pinned even after its commit or tree changes in the file. The candidate reads it on every pin, as seam.md says.",
+ "Re-pinning with the same content: seam.md says this is refused (cut-already-pinned), not accepted as an idempotent no-op. The candidate refuses it. The scenario itself only covers a re-pin with different content."
+]

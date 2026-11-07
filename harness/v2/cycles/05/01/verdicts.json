@@ -1,0 +1,6 @@
+[
+ {"id":"05-001","verdict":"pass","evidence":"Fresh store, commits file {C1:t-81}: pin K-3 at C1/t-81 returns one cycle-preparation/source-cut-pinned event with cut-id, commit, tree-digest, pinned-at; source-cuts lists K-3 with C1/t-81 (empty before). Still there after restart. A second cut K-9 (C2/t-82, added to the commits file while the candidate was running) is pinned and listed newest first."},
+ {"id":"05-002","verdict":"pass","evidence":"Re-pinning K-3 at C2/t-82 (and at the same C1/t-81) gives -32000 refusal cut-already-pinned; source-cuts holds a single K-3 at C1/t-81. Same result after a restart. Ordering holds: re-pinning K-3 with a non-commit still gives cut-already-pinned."},
+ {"id":"05-003","verdict":"pass","evidence":"deadbeef... not in the commits file: pin K-4 gives -32000 not-a-commit and source-cuts is []. Short or upper-case commits give -32602. Deleting the commits file mid-run gives not-a-commit for C1. Adding deadbeef to the file mid-run then lets K-4 pin, so the file is read on every pin, not mocked."},
+ {"id":"05-004","verdict":"pass","evidence":"C1 maps to t-81: pin K-4 at C1/t-99 gives -32000 tree-digest-not-the-commits and source-cuts is []. T-81 is refused too (compared as exact text). Changing the file to C1:t-99 mid-run then lets K-4 pin at t-99."}
+]
