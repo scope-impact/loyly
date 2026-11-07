@@ -251,3 +251,10 @@ slices' `spec.feature`: `02-032`, `03-008`, `04-039` and `04-040`; the derived c
 95 and those 4. The spec grew (additions only), so the golden was re-recorded with
 `harness/oracle.sh record`; its diff is additions plus the one `total` line (95 → 99). No
 approved grader's scenarios changed.
+
+**2026-11-07: the spec grew: spec round 6.** The product owner's spec round 6
+(`.pi/spec/decisions.md`, "Spec round 6") appended 50 stamped balance items at the end of their
+slices' `spec.feature`: `02-033` to `02-043`, `03-009` to `03-011` and `04-041` to `04-076`; the
+derived checklist is the 99 and those 50. The spec grew (additions only), so the golden was
+re-recorded with `harness/oracle.sh record`; its diff is additions plus the one `total` line
+(99 → 149). No approved grader's scenarios changed.
