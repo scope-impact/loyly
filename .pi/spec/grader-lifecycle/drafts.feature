@@ -6,39 +6,6 @@ Feature: Grader lifecycle, draft scenarios
   tag is dropped. Every noun is a term of .pi/model/GLOSSARY.md (the instrument maintainer is
   the event model's word for the person who keeps the instrument goldens).
 
-  Rule: An instrument golden is written from its scenario and carries that scenario's digest
-
-    # instrument-golden.allium, invariant OneGoldenPerIdentity
-    # Suggested tier: balance
-    @draft @allium-invariant.OneGoldenPerIdentity
-    Scenario: A golden is written once
-      Given instrument golden G-score-unknown was written with the digest "g-40"
-      When the instrument maintainer writes instrument golden G-score-unknown again with the digest "g-41"
-      Then the writing is refused
-      And there is one instrument golden G-score-unknown, with the digest "g-40"
-
-  Rule: A golden moves only with one recorded reason, and the scenario it was written from
-
-    # instrument-golden.allium, rule MoveInstrumentGolden (requires 1)
-    # Suggested tier: balance
-    @draft @allium-rule-failure.MoveInstrumentGolden.1
-    Scenario: Moving a golden that was never written is refused
-      Given no instrument golden G-unknown was ever written
-      When the instrument maintainer moves G-unknown to the digest "g-41" for "spec grew"
-      Then the move is refused
-      And there is no instrument golden G-unknown
-
-    # grader-lifecycle/allium/context.allium, contract ScenarioDigests, invariant DigestChangesWithTheBehaviour
-    # Suggested tier: balance
-    @draft @allium-boundary.DigestChangesWithTheBehaviour
-    Scenario: Rewording a scenario changes its scenario digest and keeps its item identity
-      Given the instrument scenario "@item-03-004" has the scenario digest "s-12"
-      And instrument golden G-score-unknown was written from it with the scenario digest "s-12"
-      When the scenario "@item-03-004" is reworded
-      And the instrument maintainer moves G-score-unknown to the digest "g-41" for "wording replaced" with the scenario's new scenario digest
-      Then G-score-unknown carries a scenario digest other than "s-12"
-      And the scenario it was written from is still "@item-03-004"
-
   # ---- The open grader (proposed 2026-11-07, for the next spec round)
   # Drafts with no Allium yet: behaviour first, from the open grader tried and reverted in the
   # spec-v2 harness (6708388, b6fcf72 and its uncommitted follow-up). They name no obligation and

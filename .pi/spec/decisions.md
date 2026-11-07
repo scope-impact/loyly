@@ -595,3 +595,98 @@ spec round: no builder ran, no accepted scenario's text or tag, no Allium `requi
 
 No grader changes: no item was added, reworded or dropped, so every sealed grader stands and the
 checklist golden stays at 99.
+
+## Spec round 6 (decided 2026-11-07)
+
+The operator accepted the triage of the remaining drafts ("Core 50"): 50 balance drafts of
+slices 02, 03 and 04, nine of them reworded so that every step is observable through the
+context's seam. A spec round: no builder ran, no accepted scenario's text or tag, no Allium
+`requires` or `ensures`, no event-model schema and no seam changed.
+
+1. **Accepted: 50, appended at the end of each `spec.feature`** (Spec round 2, 6: additions
+   only, a repeated Rule header where the Rule sits higher), `@draft` → `@balance` (their
+   suggested tier, as accepted minimum drafts carry `@minimum`), the `# Suggested tier` line
+   dropped, the `@allium-*` tags and `# Legacy:` lines kept, stamped by
+   `tools/spec/v2/stamp.clj`:
+   - measurement 11, `@item-02-033` to `@item-02-043`: the refusals `DeriveChecklist` 1 and 5,
+     `FileItemVerdicts` 1 and 7, `FileScore` 1, `FailScoreStage` 1 and 2; the invariants
+     `OneChecklistPerCut`, `OneScoreboardPerCycle`, `ComparedWithinTheSelection`; the holdout
+     (`NewItemsAreTheHoldout`).
+   - grader-lifecycle 3, `@item-03-009` to `@item-03-011`: `OneGoldenPerIdentity`,
+     `MoveInstrumentGolden` 1, `DigestChangesWithTheBehaviour`.
+   - regeneration-cycle 36, `@item-04-041` to `@item-04-076`: `RecordHarnessSelfCheck` 1, 4,
+     5, 7, 10 and `OneSelfCheckPerOccasion`; `OneCleanRoomPerCycle`, `ProveCleanRoom` 8 and 10;
+     `InstallCandidateInGateRoom` 1, 2, 4; `RecordGateAttempt` 1, 3, 4, 5, 6, 11, 12; the gate
+     refusals (`RecordGateRefusal` and its 1 to 3, three in a row fail for infrastructure, a
+     verdict resets the count) under the new Rule "Gate refusals spend no attempt, and three in
+     a row fail the cycle for infrastructure"; `RecordRegeneratedCandidate` 1, 3, 5 (a Scenario
+     Outline, its `Examples:` table moved with it), 7, 8; `PassCycle` 2, `OneConclusion`,
+     `FailCycle` 3 to 5; `ObservingChangesNothing` under the new Rule "The operator observes a
+     cycle, and observing changes nothing", whose draft Rule, now empty, left `drafts.feature`.
+2. **Reworded before acceptance** (each a step the seam cannot observe, or a Given the model
+   cannot hold):
+   - `@item-03-011`: the read model `instrument-goldens` holds no scenario (Spec round 3, 7), so
+     "the scenario it was written from is still @item-03-004" is dropped; the reworded scenario's
+     digest is named, "s-13", and the Then reads the golden's digest and scenario digest.
+   - `@item-02-041`: "the measurement-filed fact of C-7 is delivered again" is no seam action
+     (a context's own event has no hand-in method); now the scoreboard of C-7 is reported again
+     and refused (`scoreboard-already-reported`).
+   - `@item-02-042`: C-5 (slices 03 and 04) moved from source cut K-3 to K-4. A cut has one
+     checklist (`OneChecklistPerCut`), and a cycle's selection is its cut's checklist's, so two
+     selections at one cut cannot both hold.
+   - `@item-04-043`: "cycle C-7's harness self-checks are unchanged" dropped: the harness
+     self-checks have no query (`seam.md`).
+   - `@item-04-044`: gains "the clean room of cycle C-7 was proved" (no candidate is regenerated
+     before it, `@item-04-025`); its Then is the refusal and an unchanged progress view, in place
+     of "exactly one harness self-check", which no query shows.
+   - `@item-04-051` and `@item-04-052`: "C-7 has no gate attempt" became "gate attempt 1 of C-7
+     is not installed": a regenerated candidate already has its attempt row, `installed?` false.
+   - `@item-04-076`: "no stage fact is recorded" became "both readings are identical": a grader
+     does not read the store.
+3. **Readings of the accepted scenarios** (no seam change; a grader reads them so):
+   - `@item-04-045`: a budget of 4 gate attempts is outside `gate-attempt-limit`'s
+     `[:int {:min 1 :max 3}]`, so it is heard as `-32602` and records nothing, as in "Slice 04"
+     7 and Spec round 2, 3; `RecordHarnessSelfCheck` requires 7 cannot be reached through the
+     seam. "Refused" covers it.
+   - "The conclude-cycle policy passes cycle C-7" (`@item-04-071`) is the method
+     `regeneration-cycle/pass-cycle`, held to the policy's `requires`.
+   - "Awaits its verdict" (`@item-04-054` to `@item-04-059`, `@item-04-060`) is an attempt row
+     with no `verdict`; "C-7 has no gate attempt verdict" (`@item-04-053`) the same; "spent" is
+     an attempt with a recorded verdict (Spec round 2, 3). "C-7 has no gate refusal" is
+     `consecutive-gate-refusals` 0 and no `last-refusal`.
+   - "Cycle C-7's clean room is still commit R-1" (`@item-04-047`) is the progress view's
+     `clean-room-commit`; "nothing is recorded" there is the refusal `clean-room-already-proved`.
+   - `@item-04-065`, `@item-04-068` (its second row) and `@item-04-069` need a budget of at least
+     2 gate attempts, which their regenerated or refused attempt 2 implies.
+   - Measurement: "no checklist exists for K-9" is `measurement/checklist` returning `null`;
+     "C-8 has no measurement" is `measurement/cycle-measurement` returning `null`; "C-7 has one
+     scoreboard" is `measurement/scoreboard` unchanged; `@item-02-043`'s new, dropped and shared
+     items are the scoreboard's `new-items`, `dropped-items` and `shared`; `@item-02-042`'s
+     previous selection is its `previous-selection-id`.
+4. **Stay drafts** (one line each):
+   - measurement "An item identity handed over twice is known once": no query shows
+     `item-identities`; it needs a query, a seam change.
+   - measurement "The measurement receipt shows every verdict and reason, …": its steps are
+     `@item-02-013` to `@item-02-015`'s, and "the receipt shows the superseded verdict" needs
+     `superseded` in `cycle-measurements`, a schema change.
+   - regeneration-cycle "The clean room keeps the spec … loses every prior candidate": the
+     room's content is the ORC fence node's doing; the candidate only records the probe
+     ("Slice 04" 4).
+   - regeneration-cycle's two `ConcludeOnStageTimeout` drafts and "The stage clock does not fail
+     a cycle waiting at the scoreboard": the stage clock runs on the wall clock (30-second
+     period), and a scenario in minutes cannot be graded; restated in seconds they cost a grader
+     a wait per item.
+   - regeneration-cycle "No harness policy starts a stage" (deferred): waits on the clock too.
+   - regeneration-cycle "A passing harness self-check before a gate attempt opens no cycle",
+     "Passing a cycle that never opened is refused" and "Failing a cycle that never opened is
+     refused": tier deferred.
+   - regeneration-cycle "A score stage failed before the gate passed is not the cycle's":
+     reachable only through the stub (Spec round 4, 5).
+   - specification (2) and cycle-preparation (1): deferred, so that slices 01 and 05 are not
+     rebuilt for them.
+   - The 12 open-grader drafts: parked while OG1 is no (Spec round 3, 4).
+
+Graders 02, 03 and 04 must grow by the new items, reason "spec grew" (additions only: no
+existing scenario's wording changed), and slices 02 to 04 must be rebuilt for them; slices 01
+and 05 are unchanged. The checklist golden grows 99 → 149. The 50 new items are the next
+cycle's untuned holdout.

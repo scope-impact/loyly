@@ -87,3 +87,35 @@ Feature: Grader lifecycle
       When the instrument maintainer writes instrument golden G-score-unknown from that scenario, with the scenario digest "s-12" and the digest "g-40"
       Then instrument golden G-score-unknown is written with the digest "g-40" and the scenario digest "s-12"
       And the instrument goldens show G-score-unknown with the digest "g-40" and the scenario digest "s-12"
+
+  Rule: An instrument golden is written from its scenario and carries that scenario's digest
+
+    # instrument-golden.allium, invariant OneGoldenPerIdentity
+    @balance @allium-invariant.OneGoldenPerIdentity
+    @item-03-009
+    Scenario: A golden is written once
+      Given instrument golden G-score-unknown was written with the digest "g-40"
+      When the instrument maintainer writes instrument golden G-score-unknown again with the digest "g-41"
+      Then the writing is refused
+      And there is one instrument golden G-score-unknown, with the digest "g-40"
+
+  Rule: A golden moves only with one recorded reason, and the scenario it was written from
+
+    # instrument-golden.allium, rule MoveInstrumentGolden (requires 1)
+    @balance @allium-rule-failure.MoveInstrumentGolden.1
+    @item-03-010
+    Scenario: Moving a golden that was never written is refused
+      Given no instrument golden G-unknown was ever written
+      When the instrument maintainer moves G-unknown to the digest "g-41" for "spec grew"
+      Then the move is refused
+      And there is no instrument golden G-unknown
+
+    # grader-lifecycle/allium/context.allium, contract ScenarioDigests, invariant DigestChangesWithTheBehaviour
+    @balance @allium-boundary.DigestChangesWithTheBehaviour
+    @item-03-011
+    Scenario: Rewording a scenario changes its scenario digest and keeps its item identity
+      Given the instrument scenario "@item-03-004" has the scenario digest "s-12"
+      And instrument golden G-score-unknown was written from it with the scenario digest "s-12"
+      When the scenario "@item-03-004" is reworded, so its scenario digest is now "s-13"
+      And the instrument maintainer moves G-score-unknown to the digest "g-41" for "wording replaced" with the scenario digest "s-13"
+      Then the instrument goldens show G-score-unknown with the digest "g-41" and the scenario digest "s-13"
