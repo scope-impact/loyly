@@ -88,8 +88,8 @@
    :regeneration-cycle/cycles-to-conclude
    {:description "The conclude-cycle policy's to-do list: running cycles whose self-check failed, whose third gate attempt failed, whose gate refused three times in a row, whose score stage failed, or whose scoreboard is reported; a concluded cycle leaves it."
     :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :entity :name "RegenerationCycle"}]
-    :consumes #{:regeneration-cycle/harness-self-check-failed :regeneration-cycle/gate-attempt-failed
-                :regeneration-cycle/gate-attempt-refused :regeneration-cycle/gate-attempt-passed
+    :consumes #{:regeneration-cycle/harness-self-check-passed :regeneration-cycle/harness-self-check-failed
+                :regeneration-cycle/gate-attempt-failed :regeneration-cycle/gate-attempt-refused :regeneration-cycle/gate-attempt-passed
                 :measurement/score-stage-failed :measurement/scoreboard-reported
                 :regeneration-cycle/cycle-passed :regeneration-cycle/cycle-failed}}}
   :queries

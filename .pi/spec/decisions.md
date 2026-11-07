@@ -267,3 +267,32 @@ change of behaviour.
 10. **Room policy stays out.** `TheClaimantNeverControlsTheGate`, `ProbeOutOfReach` and
     Measurement's `PublicSeamOnly` are verified by the planned gate `room-policy`; they are not
     in this slice's builder scope, and no accepted scenario names them.
+
+## Spec round 1 (decided 2026-11-07)
+
+Three fixes the operator decided after the baseline cycle of slices 01 to 04. A spec round:
+no builder ran, no item identity changed (`stamp.clj`: total stamped 0).
+
+1. **`@item-02-002` holds a file the one reading allows.** It put stamped scenario 03-001 under
+   no Rule after 03-002 under the Rule "Stamping" in one file, but under `ScenarioReading`
+   (specification) a Rule runs to the end of its file, so no file holds that. Now the file
+   holds 03-002 under no Rule first, then 03-001 under the Rule "Stamping" on line 6 with the
+   title "  a padded title  "; the first stamped item is 03-002 with no Rule, the second 03-001
+   with the Rule, source line 6 and the trimmed title. File order still differs from item
+   identity, so the scenario still proves the items are never sorted. Its title is unchanged.
+2. **`@item-02-018` drops "no command of the build loop reads it".** The step states a property
+   of the build loop, not an outcome of reporting this scoreboard. The guarantee
+   `ToAPersonNeverIntoTheLoop` (`scoreboard.allium`) already says "no command of the build
+   loop reads it", unchanged; the scenario keeps its tag, since it still reports the
+   scoreboard to the operator.
+3. **`regeneration-cycle/cycles-to-conclude` consumes `harness-self-check-passed`.** The
+   conclude-cycle policy decides "the last gate attempt its budget allows failed" and so needs
+   the cycle's budget, which a cycle first carries on the self-check that opens it; the read
+   model consumed only the failed self-check. "Refused three times in a row" needs nothing
+   more: the gate attempt events it already consumes count and reset the refusals. No event
+   schema, command, flow or scenario changed. Reported by the slice-04 builder.
+
+Grader 02 (`sha256:3efb14e2…`) must be replaced, reason "wording replaced", for `02-002` and
+`02-018`; the derived checklist of slice 02 keeps its 24 items, ids, titles and Rules (only the
+source lines of `02-019` to `02-024` move up one). Slice 04's grader is unaffected (no scenario
+changed), but slice 04 must be rebuilt from the changed read model.

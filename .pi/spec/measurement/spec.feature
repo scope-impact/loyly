@@ -24,10 +24,10 @@ Feature: Measurement
     @item-02-002
     Scenario: The checklist reads the spec as the stamper does: file order, Rule, source line and trimmed title
       Given source cut K-3 was pinned
-      And slice 03's spec file holds, in this order, stamped scenario 03-002 under the Rule "Stamping" on line 6 with the title "  a padded title  " and stamped scenario 03-001 under no Rule
+      And slice 03's spec file holds, in this order, stamped scenario 03-002 under no Rule and stamped scenario 03-001 under the Rule "Stamping" on line 6 with the title "  a padded title  "
       When the operator derives the checklist of K-3
-      Then the first stamped item is 03-002 with the Rule "Stamping", source line 6 and the title "a padded title"
-      And the second stamped item is 03-001 with no Rule
+      Then the first stamped item is 03-002 with no Rule
+      And the second stamped item is 03-001 with the Rule "Stamping", source line 6 and the title "a padded title"
       And the stamped items are never sorted by item identity
 
     # checklist.allium, rule DeriveChecklist; guarantee ShrunkDenominatorIsOnRecord
@@ -215,7 +215,6 @@ Feature: Measurement
       Then the report-scoreboard-once policy reports the scoreboard of C-7 to the operator
       And the scoreboard shows 2 passes of 3 and the rate "66.7%"
       And it has no previous cycle
-      And no command of the build loop reads it
 
     # scoreboard.allium, rule ReportScoreboard (requires 1)
     # Legacy: @harness-043
