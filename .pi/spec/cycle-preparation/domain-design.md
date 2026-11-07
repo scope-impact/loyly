@@ -44,9 +44,14 @@ source cut. From the storm (`../event-storm.md`, Prepare and approve).
 `drafts.feature`: 5 draft scenarios for the 6 must-cover obligations of this context
 (`tools/spec/v2/coverage.py`: each rule's success, each `requires` that is behaviour, each
 invariant, each contract invariant, each guarantee), every one tagged; 0 uncovered. Each
-draft names its rule, file and the Gherkin `Rule:` it goes under, cites the legacy
-`@harness-NNN` it preserves, and suggests a tier. Unit-level, not drafted (1): `PinSourceCut.1` (the guard of an idempotent creation), which guarantee `ImmutableOncePinned` and invariant `OneCutPerIdentity` still check through their draft.
-The product owner accepts a draft by moving it into `spec.feature` (R4).
+draft names its rule, file and the Gherkin `Rule:` it goes under, and suggests a tier. None
+cites legacy behaviour (no `# Legacy:` line): the legacy harness pins no cut, so every draft
+here is new. Unit-level, not drafted (1): `PinSourceCut.1` (the guard of an idempotent creation), which guarantee `ImmutableOncePinned` and invariant `OneCutPerIdentity` still check through their draft.
+The product owner accepts a draft by moving it into `spec.feature` (R4). R4.5 (2026-11-07):
+the 4 new drafts of tier minimum are accepted, reworded with full 40-hex commits (the event
+model's `commit` schema refuses short ones), `@item-05-001` to `@item-05-004` (slice 05,
+`.pi/plan/05-cycle-preparation`); the balance draft `TreeContentIsTheCommits` stays a draft.
+Its seam is `seam.md` (`../decisions.md`, "Slice 05").
 
 ## Open questions
 

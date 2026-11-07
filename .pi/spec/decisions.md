@@ -370,3 +370,39 @@ A spec round: no builder ran, no existing item identity, title or Rule changed.
 Graders 02, 03 and 04 must grow by the new items, reason "spec grew" (additions only: no
 existing scenario's wording changed), and slices 02 to 04 must be rebuilt (slice 02 also from
 the changed `:reads`). The 21 new items are the next cycle's untuned holdout.
+
+## Slice 05: cycle-preparation (decided 2026-11-07)
+
+How the fifth context, `cycle-preparation`, is built alone, in the shape of "Slice 03". Taken
+while preparing its cycle; each is a reading of the spec, not a change of behaviour.
+
+1. **Accepted.** None of this context's drafts cites legacy behaviour (no `# Legacy:` line: the
+   legacy harness pins no cut), so all are new. The 4 of tier minimum moved into
+   `cycle-preparation/spec.feature` under the Rule "A source cut is one commit and its tree,
+   pinned once and never changed", `@draft` → `@minimum`, the `# Suggested tier` line dropped,
+   the `@allium-*` tags kept (Spec round 2, 1), and stamped `@item-05-001` to `@item-05-004`;
+   `.pi/plan/05-cycle-preparation` makes it slice 05. The balance draft
+   (`TreeContentIsTheCommits`) stays a draft, its When now carrying the tree digest the
+   command's schema requires. No Scenario Outline.
+2. **Full 40-hex commits.** The drafts quoted short commits ("4f2a9c1"), which the event
+   model's `commit` (`[:re "^[0-9a-f]{40,64}$"]`) refuses as `-32602`, and "not-a-commit",
+   which the schema refuses before `PinSourceCut` requires 2 is reached. The accepted
+   scenarios quote full 40-hex commits, and the not-a-commit scenario a well-formed hex string
+   the repository does not name ("deadbeef…"), so each is refused by the `requires` it names.
+   The success and re-pin scenarios also read the cut back through the pinned source cuts
+   (the query), in place of "the checklist derivation and the regeneration cycle can each bind
+   to source cut K-3", which other contexts do and this seam cannot observe (Spec round 2, 2).
+3. **Its model validates alone.** The flow `cut-to-fence` ran on into Measurement
+   (`pinned-cuts`, `derive-checklist`, `checklist-derived`) and the Regeneration cycle
+   (`pinned-cuts`, `record-harness-self-check`, `harness-self-check-passed`): 6 dangling
+   references alone. They are cut, as specification's, grader-lifecycle's and
+   regeneration-cycle's were; both consumers' read models still consume
+   `source-cut-pinned`, so nothing of the handoff is lost. Cycle preparation consumes no
+   handoff. `grain-validate.clj`: cycle-preparation alone, 0 errors, 0 warnings.
+4. **The repository's facts are handed in.** `PinSourceCut` asks the contract
+   `ProjectRepository` (`is_commit`, `tree_of`), and the event model gives the candidate no
+   place to read a repository from. So, like the scenario digests ("Slice 03" 3), they are
+   handed in: `LOYLY_PROJECT_COMMITS` names a JSON object mapping each commit to its tree
+   digest, re-read at every command; a commit it does not name is not a commit; tree digests
+   are opaque text ("t-81"), never computed (`seam.md`). Rejected: the candidate running `git`
+   (the scenarios' repository is a fixture a grader states, not a repository in the room).

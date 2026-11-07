@@ -13,16 +13,10 @@
     :commands #{:cycle-preparation/pin-source-cut}}}
   :flows
   {:cycle-preparation/cut-to-fence
-   {:description "A pinned cut is what the checklist is derived from and what the fence builds a clean room of; the harness self-check of a cycle names its cut."
+   {:description "A pinned cut is what the checklist is derived from and what the fence builds a clean room of; the harness self-check of a cycle names its cut. The flow stays inside this context: Measurement and the Regeneration cycle fold source-cut-pinned (a handoff) into their own pinned-cuts, so this context's model validates alone, as a candidate registers it (decisions.md, \"Slice 05\")."
     :grain/allium [{:spec ".pi/spec/cycle-preparation/allium/source-cut.allium" :kind :rule :name "PinSourceCut"}]
     :steps [{:from [:screen :cycle-preparation/preparation] :to [:command :cycle-preparation/pin-source-cut]}
             {:from [:command :cycle-preparation/pin-source-cut] :to [:event :cycle-preparation/source-cut-pinned]}
             {:from [:event :cycle-preparation/source-cut-pinned] :to [:read-model :cycle-preparation/source-cuts]}
             {:from [:read-model :cycle-preparation/source-cuts] :to [:query :cycle-preparation/source-cuts]}
-            {:from [:query :cycle-preparation/source-cuts] :to [:screen :cycle-preparation/preparation]}
-            {:from [:event :cycle-preparation/source-cut-pinned] :to [:read-model :measurement/pinned-cuts]}
-            {:from [:read-model :measurement/pinned-cuts] :to [:command :measurement/derive-checklist]}
-            {:from [:command :measurement/derive-checklist] :to [:event :measurement/checklist-derived]}
-            {:from [:event :cycle-preparation/source-cut-pinned] :to [:read-model :regeneration-cycle/pinned-cuts]}
-            {:from [:read-model :regeneration-cycle/pinned-cuts] :to [:command :regeneration-cycle/record-harness-self-check]}
-            {:from [:command :regeneration-cycle/record-harness-self-check] :to [:event :regeneration-cycle/harness-self-check-passed]}]}}}}
+            {:from [:query :cycle-preparation/source-cuts] :to [:screen :cycle-preparation/preparation]}]}}}}
