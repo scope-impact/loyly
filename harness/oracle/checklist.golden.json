@@ -202,37 +202,37 @@
    "id": "02-019",
    "name": "A scoreboard for a cycle with no measurement filed is refused",
    "rule": "The scoreboard is reported once a cycle, to a person, never into the loop",
-   "source": ".pi/plan/02-measurement/spec.feature:224"
+   "source": ".pi/plan/02-measurement/spec.feature:223"
   },
   {
    "id": "02-020",
    "name": "A cycle after an unscored one is compared with the last measured cycle, not the one before it",
    "rule": "A cycle is compared with the last measured cycle of the same selection, both directions apart, never a net",
-   "source": ".pi/plan/02-measurement/spec.feature:236"
+   "source": ".pi/plan/02-measurement/spec.feature:235"
   },
   {
    "id": "02-021",
    "name": "Newly passing and newly failing shared items are counted apart, with no net",
    "rule": "A cycle is compared with the last measured cycle of the same selection, both directions apart, never a net",
-   "source": ".pi/plan/02-measurement/spec.feature:247"
+   "source": ".pi/plan/02-measurement/spec.feature:246"
   },
   {
    "id": "02-022",
    "name": "The comparison is restated on the shared items only when the item set moved",
    "rule": "A cycle is compared with the last measured cycle of the same selection, both directions apart, never a net",
-   "source": ".pi/plan/02-measurement/spec.feature:258"
+   "source": ".pi/plan/02-measurement/spec.feature:257"
   },
   {
    "id": "02-023",
    "name": "A rate exactly on a half rounds to the even digit",
    "rule": "A rate has one decimal, rounded half to even, and \"n/a\" over zero",
-   "source": ".pi/plan/02-measurement/spec.feature:270"
+   "source": ".pi/plan/02-measurement/spec.feature:269"
   },
   {
    "id": "02-024",
    "name": "A previous cycle with no shared item rates the shared items \"n/a\"",
    "rule": "A rate has one decimal, rounded half to even, and \"n/a\" over zero",
-   "source": ".pi/plan/02-measurement/spec.feature:280"
+   "source": ".pi/plan/02-measurement/spec.feature:279"
   },
   {
    "id": "03-001",
