@@ -1,0 +1,382 @@
+[
+ {
+  "id": "04-001",
+  "verdict": "pass",
+  "evidence": "self-check-passed event carries H-1, goldens digest (seam formula), D-1, P-1, budget; progress running/fence/K-3/limit 3/0 attempts/no candidate; wrong digest refused goldens-not-current"
+ },
+ {
+  "id": "04-002",
+  "verdict": "pass",
+  "evidence": "self-check at G-1 after move refused goldens-not-current; C-7 null; control at G-2 accepted"
+ },
+ {
+  "id": "04-003",
+  "verdict": "pass",
+  "evidence": "harness-self-check-failed recorded for C-7, failing-check names score-refusal; cycle failed with detail naming it"
+ },
+ {
+  "id": "04-004",
+  "verdict": "pass",
+  "evidence": "before-gate attempt 2 refused no-candidate-for-attempt; progress unchanged; attempt 1 self-check still accepted"
+ },
+ {
+  "id": "04-005",
+  "verdict": "pass",
+  "evidence": "refused missing-golden, data.goldens and message name scoreboard-01; C-7 null"
+ },
+ {
+  "id": "04-006",
+  "verdict": "pass",
+  "evidence": "with golden scoreboard-01 written and missing-goldens [], harness-self-check-passed recorded (no missing golden)"
+ },
+ {
+  "id": "04-007",
+  "verdict": "pass",
+  "evidence": "before-gate attempt 1 passed, skipped-checks [score]"
+ },
+ {
+  "id": "04-008",
+  "verdict": "pass",
+  "evidence": "clean-room-proved names R-1 and both fenced paths; progress regenerate with clean-room-commit R-1"
+ },
+ {
+  "id": "04-009",
+  "verdict": "pass",
+  "evidence": "prove refused self-check-not-passed; no clean-room-commit"
+ },
+ {
+  "id": "04-010",
+  "verdict": "pass",
+  "evidence": "refused fenced-path-matched-nothing naming harness/scroe.clj; no clean room"
+ },
+ {
+  "id": "04-011",
+  "verdict": "pass",
+  "evidence": "refused root-commits-not-one; no clean room"
+ },
+ {
+  "id": "04-012",
+  "verdict": "pass",
+  "evidence": "refused commits-not-one; no clean room"
+ },
+ {
+  "id": "04-013",
+  "verdict": "pass",
+  "evidence": "refused fenced-path-left-in-tree naming harness/cycles"
+ },
+ {
+  "id": "04-014",
+  "verdict": "pass",
+  "evidence": "refused fenced-path-reachable-in-object-graph naming harness-impl"
+ },
+ {
+  "id": "04-015",
+  "verdict": "pass",
+  "evidence": "refused scoring-tool-not-fenced naming only harness/scoreboard.clj; control with both fenced proved"
+ },
+ {
+  "id": "04-016",
+  "verdict": "pass",
+  "evidence": "empty fenced-paths -32602; no clean room"
+ },
+ {
+  "id": "04-017",
+  "verdict": "pass",
+  "evidence": "gate-attempt-passed D-1 with 10s/20 polls/poll 2; progress score, D-1, boot-margin-polls 18"
+ },
+ {
+  "id": "04-018",
+  "verdict": "pass",
+  "evidence": "gate-attempt-failed boot-budget-exhausted 10s/20 polls E-1; progress regenerate, 1 attempt, 1 failed row; repair attempt 2 mounting E-1 accepted"
+ },
+ {
+  "id": "04-019",
+  "verdict": "pass",
+  "evidence": "offered result recorded faithfully: attempt 1 failed boot-budget-exhausted (boot clock is the issuer's, Slice 04 4)"
+ },
+ {
+  "id": "04-020",
+  "verdict": "pass",
+  "evidence": "verdict at H-2 refused no-passing-self-check; attempt 1 still awaiting, unspent; control at H-1 accepted"
+ },
+ {
+  "id": "04-021",
+  "verdict": "pass",
+  "evidence": "refused identity-probe-missing; attempt awaiting, not spent"
+ },
+ {
+  "id": "04-022",
+  "verdict": "pass",
+  "evidence": "refused identity-probe-not-the-instruments; attempt awaiting, not spent"
+ },
+ {
+  "id": "04-023",
+  "verdict": "pass",
+  "evidence": "C-7 failed at fence, reason harness-self-check-failed, detail names the check; no clean room (prove refused); no score fields"
+ },
+ {
+  "id": "04-024",
+  "verdict": "pass",
+  "evidence": "policy failed C-7 at gate, harness-self-check-failed; install of attempt 2 refused, row installed? false; 1 failed row"
+ },
+ {
+  "id": "04-025",
+  "verdict": "pass",
+  "evidence": "refused no-clean-room; progress fence, 0 attempts"
+ },
+ {
+  "id": "04-026",
+  "verdict": "pass",
+  "evidence": "after attempt 3 failed, policy failed C-7 at gate, gate-attempts-exhausted; status failed (no score); still running after 2 failures"
+ },
+ {
+  "id": "04-027",
+  "verdict": "pass",
+  "evidence": "cycle-failed fence/fence-refused with detail; progress failed with that failure"
+ },
+ {
+  "id": "04-028",
+  "verdict": "pass",
+  "evidence": "refused reworded-golden naming checklist; C-7 null"
+ },
+ {
+  "id": "04-029",
+  "verdict": "pass",
+  "evidence": "candidate-installed-in-gate-room D-1/G-1/attempt 1; row installed? true, no verdict"
+ },
+ {
+  "id": "04-030",
+  "verdict": "pass",
+  "evidence": "install attempt 4 refused (-32602 schema); 3 attempt rows, gate-attempts 3"
+ },
+ {
+  "id": "04-031",
+  "verdict": "pass",
+  "evidence": "replay refused verdict-already-recorded; one row, verdict failed, one spent"
+ },
+ {
+  "id": "04-032",
+  "verdict": "pass",
+  "evidence": "refused seam-answered-before-boot; attempt awaiting, none spent"
+ },
+ {
+  "id": "04-033",
+  "verdict": "pass",
+  "evidence": "candidate-regenerated D-1 attempt 1; progress running at gate, 1 attempt, D-1; pass-cycle refused"
+ },
+ {
+  "id": "04-034",
+  "verdict": "pass",
+  "evidence": "attempt 3 refused; progress 2 attempts (budget 2)"
+ },
+ {
+  "id": "04-035",
+  "verdict": "pass",
+  "evidence": "all three rows refused evidence-not-mountable with attempts unchanged (0,1,1); E-5 was a real failed gate root of C-6; control mounting own E-1 accepted"
+ },
+ {
+  "id": "04-036",
+  "verdict": "pass",
+  "evidence": "score-stage-failed handed in -> C-7 failed at score, score-stage-failed; later measurement leaves it failed"
+ },
+ {
+  "id": "04-037",
+  "verdict": "pass",
+  "evidence": "after measurement filed + scoreboard reported, C-7 passed at result with D-1 (pass-cycle again refused cycle-concluded)"
+ },
+ {
+  "id": "04-038",
+  "verdict": "pass",
+  "evidence": "running at scoreboard, 1 attempt, attempt rows unchanged"
+ },
+ {
+  "id": "04-039",
+  "verdict": "pass",
+  "evidence": "scoreboard without measurement: running at score; cycles-to-conclude empty"
+ },
+ {
+  "id": "04-040",
+  "verdict": "pass",
+  "evidence": "failed at score reason budget, stage still score after measurement filed"
+ },
+ {
+  "id": "04-041",
+  "verdict": "pass",
+  "evidence": "refused cut-not-pinned; C-7 null"
+ },
+ {
+  "id": "04-042",
+  "verdict": "pass",
+  "evidence": "refused no-failing-check; C-7 null"
+ },
+ {
+  "id": "04-043",
+  "verdict": "pass",
+  "evidence": "refused not-the-cycles-first-fact; C-7 listed once at regenerate with clean room"
+ },
+ {
+  "id": "04-044",
+  "verdict": "pass",
+  "evidence": "refused self-check-already-recorded; progress identical"
+ },
+ {
+  "id": "04-045",
+  "verdict": "pass",
+  "evidence": "budget 4 refused (-32602); C-7 null"
+ },
+ {
+  "id": "04-046",
+  "verdict": "pass",
+  "evidence": "refused reworded-golden-not-current; C-7 null"
+ },
+ {
+  "id": "04-047",
+  "verdict": "pass",
+  "evidence": "second proof refused clean-room-already-proved; clean-room-commit R-1"
+ },
+ {
+  "id": "04-048",
+  "verdict": "pass",
+  "evidence": "refused not-the-self-checked-cut; no clean room"
+ },
+ {
+  "id": "04-049",
+  "verdict": "pass",
+  "evidence": "refused cycle-concluded; no clean room"
+ },
+ {
+  "id": "04-050",
+  "verdict": "pass",
+  "evidence": "refused no-candidate-for-attempt; no attempt rows"
+ },
+ {
+  "id": "04-051",
+  "verdict": "pass",
+  "evidence": "refused not-the-regenerated-candidate; row installed? false"
+ },
+ {
+  "id": "04-052",
+  "verdict": "pass",
+  "evidence": "refused cycle-concluded; row installed? false"
+ },
+ {
+  "id": "04-053",
+  "verdict": "pass",
+  "evidence": "refused not-installed; no verdict"
+ },
+ {
+  "id": "04-054",
+  "verdict": "pass",
+  "evidence": "failed without reason refused reason-does-not-fit-outcome; awaiting"
+ },
+ {
+  "id": "04-055",
+  "verdict": "pass",
+  "evidence": "refused pass-without-poll-or-probe-result; awaiting"
+ },
+ {
+  "id": "04-056",
+  "verdict": "pass",
+  "evidence": "refused answered-after-last-poll; awaiting"
+ },
+ {
+  "id": "04-057",
+  "verdict": "pass",
+  "evidence": "refused not-the-installed-candidate; awaiting for D-1"
+ },
+ {
+  "id": "04-058",
+  "verdict": "pass",
+  "evidence": "refused cycle-concluded; no verdict"
+ },
+ {
+  "id": "04-059",
+  "verdict": "pass",
+  "evidence": "refused other-grader-digests; awaiting, unspent"
+ },
+ {
+  "id": "04-060",
+  "verdict": "pass",
+  "evidence": "gate-attempt-refused recorded; row last-refusal seam-answered-before-boot, no verdict, none spent"
+ },
+ {
+  "id": "04-061",
+  "verdict": "pass",
+  "evidence": "refused not-installed; no gate refusal"
+ },
+ {
+  "id": "04-062",
+  "verdict": "pass",
+  "evidence": "refused verdict-already-recorded; still passed, no gate refusal"
+ },
+ {
+  "id": "04-063",
+  "verdict": "pass",
+  "evidence": "refused cycle-concluded; no gate refusal"
+ },
+ {
+  "id": "04-064",
+  "verdict": "pass",
+  "evidence": "third refusal -> failed at gate, infrastructure; 1 attempt, 0 failed; running after two"
+ },
+ {
+  "id": "04-065",
+  "verdict": "pass",
+  "evidence": "after reset, refusal of attempt 2: running at gate, 2 attempts, 1 failed, consecutive 1"
+ },
+ {
+  "id": "04-066",
+  "verdict": "pass",
+  "evidence": "refused no-cycle; C-9 null"
+ },
+ {
+  "id": "04-067",
+  "verdict": "pass",
+  "evidence": "refused not-the-next-attempt; regenerate, 0 attempts"
+ },
+ {
+  "id": "04-068",
+  "verdict": "pass",
+  "evidence": "both rows refused wrong-purpose; attempts 0 and 1 unchanged"
+ },
+ {
+  "id": "04-069",
+  "verdict": "pass",
+  "evidence": "refused not-after-a-failed-attempt; score, 1 attempt"
+ },
+ {
+  "id": "04-070",
+  "verdict": "pass",
+  "evidence": "refused not-the-previous-candidate; regenerate with D-1"
+ },
+ {
+  "id": "04-071",
+  "verdict": "pass",
+  "evidence": "pass-cycle refused scoreboard-not-reported; running at scoreboard"
+ },
+ {
+  "id": "04-072",
+  "verdict": "pass",
+  "evidence": "refused cycle-concluded; failure fence-refused unchanged"
+ },
+ {
+  "id": "04-073",
+  "verdict": "pass",
+  "evidence": "refused not-the-stage-reached; running at regenerate"
+ },
+ {
+  "id": "04-074",
+  "verdict": "pass",
+  "evidence": "refused reason-not-of-the-stage; running at gate"
+ },
+ {
+  "id": "04-075",
+  "verdict": "pass",
+  "evidence": "refused infrastructure-not-at-the-gate; running at regenerate"
+ },
+ {
+  "id": "04-076",
+  "verdict": "pass",
+  "evidence": "two readings identical: gate, 1 attempt"
+ }
+]

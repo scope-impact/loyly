@@ -1,0 +1,7 @@
+[
+ "04-003, 04-006, 04-007, 04-019: the contract invariants (golden reproduced, golden with no cycle beside it, missing tool as skip, boot clock covers a build) are the issuer's; per decisions 'Slice 04' 4 they are graded only as faithful recording of the offered result. 04-019's 'a build inside the suite would not have counted' is unobservable through the seam.",
+ "04-006: 'it lists no missing golden' has nothing to read: harness-self-check-passed carries no missing-goldens field and the self-checks have no query; graded on acceptance with missing-goldens [].",
+ "04-034: with budget 2 and attempts 1 and 2 failed, the policy has already failed the cycle (gate-attempts-exhausted) before attempt 3 is offered, so both requires 4 and 6 fail; the candidate refuses over-gate-attempt-limit (first in Allium order). The scenario does not say the cycle is concluded.",
+ "04-030: attempt 4 is outside the attempt schema, so the refusal is -32602 (decisions Spec round 2, 3); with budget 3 the third failed attempt has also concluded the cycle (gate-attempts-exhausted), which the scenario does not mention.",
+ "A duplicate handed-in source-cut-pinned is appended and echoed, not refused (as seam.md says); a grader cannot tell from the seam whether the fold ignored it."
+]
