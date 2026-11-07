@@ -1,0 +1,10 @@
+[
+ "02-002: a padded title is not observable as trimmed by the candidate; per decisions 'Slice 02' 5 the issuer trims, so the item was offered as \"a padded title\" and the candidate stored it verbatim.",
+ "02-007: a whitespace-only title ('   ') is accepted, as decisions Spec round 4 says (not a requirement).",
+ "Two gate-attempt-passed for one cycle (attempt 1 for D-1, then attempt 2 for D-2) leave D-1 as the gated candidate (OpenMeasurement requires 1 ignores the second); the spec does not say whether a later passed attempt should rebind the candidate. 02-026 was graded with only attempt 2 handed in.",
+ "Refusal data carries fields beyond seam.md: unstamped-scenarios adds data.stamper; bad-verdict-value adds data.item-ids (seam says item-ids where it names items, so allowed).",
+ "Receipt row of a score-stage-failed cycle carries detail and failed-at, and a filed row carries filed-at, selection-id, checklist-digest, grader-digests and superseded beyond the read model (allowed: 'at least the read-model fields').",
+ "A baseline scoreboard leaves 'shared' out (decisions Spec round 4 notes this as not a requirement); a no-shared-items scoreboard (02-024) reports shared.items 0 with rates n/a and also a restatement (1 added, 1 dropped).",
+ "Re-pinning the same cut-id is appended and echoed with no refusal, as seam.md says for handed-in events.",
+ "The checklist digest differs when the same items are offered in another order; the spec only requires same items in same order -> same digest, different items -> different digest."
+]

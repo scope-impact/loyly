@@ -1,0 +1,217 @@
+[
+ {
+  "id": "02-001",
+  "verdict": "pass",
+  "evidence": "items ['03-001', '03-002', '04-001'] total 3; digest same-items-equal=True, diff-items-differ=True, reordered-differs=True; event fields ['checklist-digest', 'cut-id', 'derived-at', 'items', 'selection-id', 'skipped-slices', 'total', 'type']"
+ },
+ {
+  "id": "02-002",
+  "verdict": "pass",
+  "evidence": "items=[{'item-id': '03-002', 'scenario-digest': 'sd-03-002', 'rule': None, 'source': '.pi/spec/s03/spec.feature:3', 'title': 't 03-002'}, {'item-id': '03-001', 'scenario-digest': 'sd-03-001', 'rule': 'Stamping', 'source': '.pi/spec/s03/spec.feature:6', 'title': 'a padded title'}]"
+ },
+ {
+  "id": "02-003",
+  "verdict": "pass",
+  "evidence": "items ['05-001', '05-002']; skipped in query=[{'slice': '03', 'status': 'planned'}, {'slice': '04', 'status': 'backlog'}]; in event=[{'slice': '03', 'status': 'planned'}, {'slice': '04', 'status': 'backlog'}]"
+ },
+ {
+  "id": "02-004",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 3, \"error\": {\"code\": -32000, \"message\": \"2 unstamped scenario(s) found; stamp them first with the stamper, specification/stamp-slice.\", \"data\": {\"refusal\": \"unstamped-scenarios\", \"unstamped\": [{\"source\": \".pi/spec/s01/spec.feature:4\", \"title\": \"unstamped one\"}, {\"source\": \".pi/spec/s02/spec.feature:9\", \"title\": \"unstamped two\"}], \"stamper\": \"specification/stamp-slice\"}}}; checklist=None"
+ },
+ {
+  "id": "02-005",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 2, \"error\": {\"code\": -32000, \"message\": \"The checklist of K-3 would hold no stamped item.\", \"data\": {\"refusal\": \"empty-checklist\"}}}; checklist=None"
+ },
+ {
+  "id": "02-006",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 3, \"error\": {\"code\": -32000, \"message\": \"Item identities the stamper never handed out: 03-007\", \"data\": {\"refusal\": \"item-never-stamped\", \"item-ids\": [\"03-007\"]}}}; checklist=None"
+ },
+ {
+  "id": "02-007",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 3, \"error\": {\"code\": -32000, \"message\": \"Stamped items with an empty title: 03-001\", \"data\": {\"refusal\": \"empty-title\", \"item-ids\": [\"03-001\"]}}}; checklist=None; whitespace-title accepted=True"
+ },
+ {
+  "id": "02-008",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 4, \"error\": {\"code\": -32000, \"message\": \"No checklist was derived for source cut K-3.\", \"data\": {\"refusal\": \"no-checklist\"}}}; file-score after=zero-verdicts, measurement=None"
+ },
+ {
+  "id": "02-009",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 5, \"error\": {\"code\": -32000, \"message\": \"Zero item verdicts: the grading did not happen, nothing is filed.\", \"data\": {\"refusal\": \"zero-verdicts\"}}}; file-score after=zero-verdicts, measurement=None"
+ },
+ {
+  "id": "02-010",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 5, \"error\": {\"code\": -32000, \"message\": \"A verdict is neither pass nor fail.\", \"data\": {\"refusal\": \"bad-verdict-value\", \"item-ids\": [\"03-001\"]}}}; file-score after=zero-verdicts, measurement=None"
+ },
+ {
+  "id": "02-011",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 5, \"error\": {\"code\": -32000, \"message\": \"Verdicts for items not on the checklist: 09-001\", \"data\": {\"refusal\": \"unknown-item\", \"item-ids\": [\"09-001\"]}}}; file-score after=zero-verdicts, measurement=None"
+ },
+ {
+  "id": "02-012",
+  "verdict": "pass",
+  "evidence": "file-score events=[{\"total\": 3, \"cycle-id\": \"C-7\", \"candidate-digest\": \"D-1\", \"selection-id\": \"whole-plan\", \"filed-at\": \"2026-11-07T19:08:51.581697Z\", \"checklist-digest\": \"sha256:da0c6a41a2c5173ac82012881af7d263a02cad800de166843a169966f96d2c7c\", \"grader-digests\": [\"G-1\"], \"items\": [{\"item-id\": \"03-001\", \"verdict\": \"pass\", \"evidence\": \"\"}, {\"item-id\": \"03-002\", \"verdict\": \"pass\", \"evidence\": \"\"}, {\"item-id\": \"04-001\", \"verdict\": \"fail\", \"evidence\": \"\"}], \"unreached\": 0, \"cut-id\": \"K-3\", \"type\": \"measurement/measurement-filed\", \"passes\": 2, \"superseded\": []}]; receipt={\"total\": 3, \"cycle-id\": \"C-7\", \"candidate-digest\": \"D-1\", \"selection-id\": \"whole-plan\", \"filed-at\": \"2026-11-07T19:08:51.581697Z\", \"checklist-digest\": \"sha256:da0c6a41a2c5173ac82012881af7d263a02cad800de166843a169966f96d2c7c\", \"grader-digests\": [\"G-1\"], \"items\": [{\"item-id\": \"03-001\", \"verdict\": \"pass\", \"evidence\": \"\"}, {\"item-id\": \"03-002\", \"verdict\": \"pass\", \"evidence\": \"\"}, {\"item-id\": \"04-001\", \"verdict\": \"fail\", \"evidence\": \"\"}], \"status\": \"filed\", \"unreached\": 0, \"cut-id\": \"K-3\", \"passes\": 2, \"superseded\": []}"
+ },
+ {
+  "id": "02-013",
+  "verdict": "pass",
+  "evidence": "receipt={\"total\": 3, \"cycle-id\": \"C-7\", \"candidate-digest\": \"D-1\", \"selection-id\": \"whole-plan\", \"filed-at\": \"2026-11-07T19:08:50.918135Z\", \"checklist-digest\": \"sha256:1924e8f8d0b65d708fc187f52588577d76cc5669fcacb0e083c92ade57cfdc3f\", \"grader-digests\": [\"G-1\"], \"items\": [{\"item-id\": \"03-001\", \"verdict\": \"pass\", \"evidence\": \"\"}, {\"item-id\": \"03-002\", \"verdict\": \"fail\", \"reason\": \"unreached\", \"evidence\": \"\"}, {\"item-id\": \"03-003\", \"verdict\": \"fail\", \"reason\": \"unreached\", \"evidence\": \"\"}], \"status\": \"filed\", \"unreached\": 2, \"cut-id\": \"K-3\", \"passes\": 1, \"superseded\": []}"
+ },
+ {
+  "id": "02-014",
+  "verdict": "pass",
+  "evidence": "filing={\"jsonrpc\": \"2.0\", \"id\": 6, \"result\": {\"events\": [{\"type\": \"measurement/item-verdicts-filed\", \"cycle-id\": \"C-7\", \"candidate-digest\": \"D-1\", \"grader-digest\": \"G-1\", \"verdicts\": [{\"item-id\": \"03-001\", \"verdict\": \"fail\", \"evidence\": \"\", \"reason\": \"outage\"}, {\"item-id\": \"03-002\", \"verdict\": \"fail\", \"evi; receipt items=[{\"item-id\": \"03-001\", \"verdict\": \"fail\", \"evidence\": \"\", \"reason\": \"outage\"}, {\"item-id\": \"03-002\", \"verdict\": \"fail\", \"evidence\": \"\"}]"
+ },
+ {
+  "id": "02-015",
+  "verdict": "pass",
+  "evidence": "items=[{\"item-id\": \"03-001\", \"verdict\": \"pass\", \"evidence\": \"\"}]; event superseded=[{\"item-id\": \"03-001\", \"grader-digest\": \"G-1\", \"verdict\": \"fail\"}]; receipt superseded=[{\"item-id\": \"03-001\", \"grader-digest\": \"G-1\", \"verdict\": \"fail\"}]"
+ },
+ {
+  "id": "02-016",
+  "verdict": "pass",
+  "evidence": "filed verdicts=[{\"item-id\": \"03-001\", \"verdict\": \"pass\", \"evidence\": \"\"}]; receipt items=[{\"item-id\": \"03-001\", \"verdict\": \"pass\", \"evidence\": \"\"}]"
+ },
+ {
+  "id": "02-017",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 5, \"error\": {\"code\": -32000, \"message\": \"No item verdicts were filed for C-7.\", \"data\": {\"refusal\": \"zero-verdicts\"}}}; receipt=None"
+ },
+ {
+  "id": "02-018",
+  "verdict": "pass",
+  "evidence": "file-score event types=['measurement/measurement-filed']; scoreboard={\"restatement\": null, \"total\": 3, \"reported-at\": \"2026-11-07T19:10:31.955297Z\", \"previous-selection-id\": null, \"cycle-id\": \"C-7\", \"selection-id\": \"whole-plan\", \"dropped-items\": [], \"rate\": \"66.7%\", \"new-items\": [], \"passes\": 2, \"previous-cycle-id\": null}; to-report=[]"
+ },
+ {
+  "id": "02-019",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 6, \"error\": {\"code\": -32000, \"message\": \"No measurement is filed for C-8.\", \"data\": {\"refusal\": \"no-measurement-filed\"}}}; scoreboard=None; never-gated=no-measurement-filed"
+ },
+ {
+  "id": "02-020",
+  "verdict": "pass",
+  "evidence": "C-7 previous=C-5; variation C-8 after score-failed C-6 previous=C-7"
+ },
+ {
+  "id": "02-021",
+  "verdict": "pass",
+  "evidence": "scoreboard={\"restatement\": null, \"total\": 2, \"reported-at\": \"2026-11-07T19:10:32.887402Z\", \"previous-selection-id\": \"whole-plan\", \"cycle-id\": \"C-7\", \"shared\": {\"items\": 2, \"previous-passes\": 1, \"passes\": 1, \"previous-rate\": \"50.0%\", \"rate\": \"50.0%\", \"newly-passing\": [\"03-002\"], \"newly-failing\": [\"03-001\"]}, \"selection-id\": \"whole-plan\", \"dropped-items\": [], \"rate\": \"50.0%\", \"new-items\": [], \"passes\": 1, \"previous-cycle-id\": \"C-6\"}"
+ },
+ {
+  "id": "02-022",
+  "verdict": "pass",
+  "evidence": "C-7 restatement={\"added\": 1, \"previous-cycle-id\": \"C-6\", \"cycle-id\": \"C-7\", \"dropped\": 0, \"total\": 4, \"previous-total\": 3, \"restated-at\": \"2026-11-07T19:10:31.749788Z\"}; C-8 (unmoved) restatement=None; C-9 (1 added,1 dropped, same total) restatement={\"added\": 1, \"previous-cycle-id\": \"C-8\", \"cycle-id\": \"C-9\", \"dropped\": 1, \"total\": 4, \"previous-total\": 4, \"restated-at\": \"2026-11-07T19:10:32.269421Z\"}"
+ },
+ {
+  "id": "02-023",
+  "verdict": "pass",
+  "evidence": "1/16=6.2%, 5/16=31.2%; probes={'3/16': '18.8%', '7/16': '43.8%', '13/16': '81.2%', '16/16': '100.0%'} (expected half-even {'3/16': '18.8%', '7/16': '43.8%', '13/16': '81.2%', '16/16': '100.0%'})"
+ },
+ {
+  "id": "02-024",
+  "verdict": "pass",
+  "evidence": "scoreboard={\"restatement\": {\"added\": 1, \"previous-cycle-id\": \"C-6\", \"cycle-id\": \"C-7\", \"dropped\": 1, \"total\": 1, \"previous-total\": 1, \"restated-at\": \"2026-11-07T19:10:41.645619Z\"}, \"total\": 1, \"reported-at\": \"2026-11-07T19:10:41.645619Z\", \"previous-selection-id\": \"whole-plan\", \"cycle-id\": \"C-7\", \"shared\": {\"items\": 0, \"previous-passes\": 0, \"passes\": 0, \"previous-rate\": \"n/a\", \"rate\": \"n/a\", \"newly-passing\": [], \"newly-failing\": []}, \"selection-id\": \"whole-plan\", \"dropped-items\": [\"03-001\"], \"rate\": \"100.0%\", \"new-items\": [\"04-001\"], \"passes\": 1, \"previous-cycle-id\": \"C-6\"}"
+ },
+ {
+  "id": "02-025",
+  "verdict": "pass",
+  "evidence": "filed=[{\"type\": \"measurement/item-verdicts-filed\", \"cycle-id\": \"C-7\", \"candidate-digest\": \"D-1\", \"grader-digest\": \"G-1\", \"verdicts\": [{\"item-id\": \"03-001\", \"verdict\": \"pass\", \"evidence\": \"ok\"}, {\"item-id\": \"03-002\", \"verdict\": \"fail\", \"evidence\": \"\"}], \"filed-at\": \"2026-11-07T19:09:03.598264Z\"}]; receipt passes=1"
+ },
+ {
+  "id": "02-026",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 5, \"error\": {\"code\": -32000, \"message\": \"Candidate D-1 is not the candidate the gate ratified for C-7.\", \"data\": {\"refusal\": \"not-the-gated-candidate\"}}}; file-score after=zero-verdicts, measurement=None; D-2 accepted=True"
+ },
+ {
+  "id": "02-027",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 5, \"error\": {\"code\": -32000, \"message\": \"Grader digest G-9 is not approved.\", \"data\": {\"refusal\": \"grader-not-approved\"}}}; file-score after=zero-verdicts, measurement=None"
+ },
+ {
+  "id": "02-028",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 6, \"error\": {\"code\": -32000, \"message\": \"A reason sits only beside a fail, and is inconclusive or outage.\", \"data\": {\"refusal\": \"bad-verdict-reason\", \"item-ids\": [\"03-001\", \"03-002\"]}}}; file-score after=zero-verdicts, measurement=None"
+ },
+ {
+  "id": "02-029",
+  "verdict": "pass",
+  "evidence": "second={\"jsonrpc\": \"2.0\", \"id\": 9, \"error\": {\"code\": -32000, \"message\": \"The measurement of C-7 is already filed.\", \"data\": {\"refusal\": \"measurement-already-filed\"}}}; receipt passes/total=2/3"
+ },
+ {
+  "id": "02-030",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 6, \"error\": {\"code\": -32000, \"message\": \"Grader digest(s) no longer approved: G-1\", \"data\": {\"refusal\": \"grader-not-approved\"}}}; receipt=None; later file-score with G-1 ok=True"
+ },
+ {
+  "id": "02-031",
+  "verdict": "pass",
+  "evidence": "events=[{\"type\": \"measurement/score-stage-failed\", \"cycle-id\": \"C-7\", \"refusal\": \"unknown-item\", \"detail\": \"09-001\", \"failed-at\": \"2026-11-07T19:09:15.243506Z\"}]; receipt={\"cycle-id\": \"C-7\", \"refusal\": \"unknown-item\", \"detail\": \"09-001\", \"failed-at\": \"2026-11-07T19:09:15.243506Z\", \"status\": \"score-stage-failed\"}"
+ },
+ {
+  "id": "02-032",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 6, \"error\": {\"code\": -32000, \"message\": \"The score stage of C-7 failed; it is never retaken.\", \"data\": {\"refusal\": \"score-stage-failed\"}}}; receipt status=score-stage-failed; file-score after=zero-verdicts"
+ },
+ {
+  "id": "02-033",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 2, \"error\": {\"code\": -32000, \"message\": \"Source cut K-9 was never pinned.\", \"data\": {\"refusal\": \"cut-not-pinned\"}}}; checklist=None"
+ },
+ {
+  "id": "02-034",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 3, \"error\": {\"code\": -32000, \"message\": \"Item identities carried by more than one scenario: 03-001\", \"data\": {\"refusal\": \"item-twice\", \"item-ids\": [\"03-001\"]}}}; checklist=None"
+ },
+ {
+  "id": "02-035",
+  "verdict": "pass",
+  "evidence": "second derive={\"jsonrpc\": \"2.0\", \"id\": 7, \"error\": {\"code\": -32000, \"message\": \"The checklist of K-3 was already derived.\", \"data\": {\"refusal\": \"checklist-already-derived\"}}}; checklist total=3"
+ },
+ {
+  "id": "02-036",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 4, \"error\": {\"code\": -32000, \"message\": \"No gate attempt of cycle C-8 passed.\", \"data\": {\"refusal\": \"not-the-gated-candidate\"}}}; receipt=None"
+ },
+ {
+  "id": "02-037",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 9, \"error\": {\"code\": -32000, \"message\": \"The measurement of C-7 is already filed.\", \"data\": {\"refusal\": \"measurement-already-filed\"}}}; receipt passes=2"
+ },
+ {
+  "id": "02-038",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 1, \"error\": {\"code\": -32000, \"message\": \"No gate attempt of cycle C-8 passed.\", \"data\": {\"refusal\": \"not-the-gated-candidate\"}}}; receipt=None"
+ },
+ {
+  "id": "02-039",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 1, \"error\": {\"code\": -32000, \"message\": \"No gate attempt of cycle C-8 passed.\", \"data\": {\"refusal\": \"not-the-gated-candidate\"}}}; receipt=None"
+ },
+ {
+  "id": "02-040",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 9, \"error\": {\"code\": -32000, \"message\": \"The measurement of C-7 is already filed.\", \"data\": {\"refusal\": \"measurement-already-filed\"}}}; receipt=filed 2/3"
+ },
+ {
+  "id": "02-041",
+  "verdict": "pass",
+  "evidence": "resp={\"jsonrpc\": \"2.0\", \"id\": 8, \"error\": {\"code\": -32000, \"message\": \"The scoreboard of C-7 was already reported.\", \"data\": {\"refusal\": \"scoreboard-already-reported\"}}}; scoreboard unchanged=True"
+ },
+ {
+  "id": "02-042",
+  "verdict": "pass",
+  "evidence": "C-6 previous=C-4 prev-selection=whole-plan; C-5 previous=None"
+ },
+ {
+  "id": "02-043",
+  "verdict": "pass",
+  "evidence": "new=['04-001'] dropped=['03-002'] shared={\"items\": 1, \"previous-passes\": 1, \"passes\": 1, \"previous-rate\": \"100.0%\", \"rate\": \"100.0%\", \"newly-passing\": [], \"newly-failing\": []}"
+ }
+]
