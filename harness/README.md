@@ -73,6 +73,24 @@ them. An open grader run by ORC is a new-harness feature, drafted in the spec
 (`.pi/spec/grader-lifecycle/drafts.feature`, `.pi/spec/measurement/drafts.feature`), not part
 of this tool.
 
+**Assembly gate (2026-11-07).** `harness/v2/assemble.sh ROOM01 ROOM02 ROOM03 ROOM04 ROOM05`
+(with `v2/assemble.clj`) wires the five gated candidates together through their handoffs
+(`.pi/spec/decisions.md`, "First light" 5), driving each only through its `start.sh` seam. It
+first tries one shared `LOYLY_GRAIN_STORE` for producers and consumers, one after the other and
+concurrently, and records whether a consumer sees a producer's facts with nothing handed in
+(it did not: each candidate writes its own Grain tenant). Then each candidate runs on its own
+fresh store and one story runs end to end: stamp, pin a cut, write and move a golden, derive
+the checklist, a regeneration cycle to a passed gate attempt, item verdicts, the score, the
+scoreboard, the cycle passed. Every handoff a producer's command result carries is handed in
+unchanged, in the producer's order, to every consumer the event models name (a read model's
+`:consumes` or a processor's `:subscribes` of a foreign event); `scoreboard-reported`, which
+Measurement's policy issues inside `file-score`, is read through `measurement/scoreboard`. It
+checks the contracts fit (no hand-in refused, each echoed as given, the order kept), the cycle
+passed measured and reported, and the cut id, candidate digest, goldens digest and item ids
+agree across contexts; then it reports, as a finding, what each context shows of a cycle the
+stage clock failed at the score stage and Measurement measured anyway ("Spec round 4" 3).
+Exit 0 only when every check passes; it stops every process it starts.
+
 **Where a spec-v2 cycle is filed (2026-11-07).** Each slice numbers its own cycles under
 `v2/cycles/NN/` (`01`, `02`, ...), never under `harness/cycles/`. `oracle.sh`, a shared module
 file, reads `harness/cycles/01` as this repository's recorded cycle 01 and judges it against
