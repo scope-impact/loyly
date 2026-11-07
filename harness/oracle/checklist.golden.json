@@ -277,6 +277,12 @@
    "source": ".pi/plan/02-measurement/spec.feature:351"
   },
   {
+   "id": "02-032",
+   "name": "Item verdicts after a failed score stage are refused",
+   "rule": "A refused score fails the score stage, once, and the score is never retaken within the cycle",
+   "source": ".pi/plan/02-measurement/spec.feature:361"
+  },
+  {
    "id": "03-001",
    "name": "The instrument maintainer moves a golden for a recorded reason",
    "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
@@ -317,6 +323,12 @@
    "name": "A move that names a stale scenario digest is refused",
    "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
    "source": ".pi/plan/03-grader-lifecycle/spec.feature:74"
+  },
+  {
+   "id": "03-008",
+   "name": "The instrument maintainer writes a golden from its scenario",
+   "rule": "An instrument golden is written from its scenario and carries that scenario's digest",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:85"
   },
   {
    "id": "04-001",
@@ -547,6 +559,18 @@
    "source": ".pi/plan/04-regeneration-cycle/spec.feature:449"
   },
   {
+   "id": "04-039",
+   "name": "A scoreboard reported with no measurement filed does not pass the cycle",
+   "rule": "A cycle concludes once, passed after its scoreboard or failed at a named stage for a named reason",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:460"
+  },
+  {
+   "id": "04-040",
+   "name": "A measurement filed after the cycle failed leaves it where it failed",
+   "rule": "A cycle concludes once, passed after its scoreboard or failed at a named stage for a named reason",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:469"
+  },
+  {
    "id": "05-001",
    "name": "The operator pins a source cut",
    "rule": "A source cut is one commit and its tree, pinned once and never changed",
@@ -572,6 +596,6 @@
   }
  ],
  "counts": {
-  "total": 95
+  "total": 99
  }
 }

@@ -219,3 +219,10 @@ acceptance of cycle-preparation's new minimum drafts (none cites legacy behaviou
 checklist is slices 01 to 04's 91 and those 4. The spec grew (additions only), so the golden was
 re-recorded with `harness/oracle.sh record`; its diff is additions plus the one `total` line
 (91 → 95). No approved grader's scenarios changed.
+
+**2026-11-07: the spec grew: spec round 3.** The product owner's spec round 3
+(`.pi/spec/decisions.md`, "Spec round 3") appended 4 stamped minimum items at the end of their
+slices' `spec.feature`: `02-032`, `03-008`, `04-039` and `04-040`; the derived checklist is the
+95 and those 4. The spec grew (additions only), so the golden was re-recorded with
+`harness/oracle.sh record`; its diff is additions plus the one `total` line (95 → 99). No
+approved grader's scenarios changed.
