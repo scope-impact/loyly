@@ -235,6 +235,48 @@
    "source": ".pi/plan/02-measurement/spec.feature:279"
   },
   {
+   "id": "02-025",
+   "name": "The approved grader files its item verdicts for the candidate the gate ratified",
+   "rule": "The approved sealed grader files the item verdicts it returned for the gated candidate only",
+   "source": ".pi/plan/02-measurement/spec.feature:290"
+  },
+  {
+   "id": "02-026",
+   "name": "Item verdicts for another candidate than the gated one are refused",
+   "rule": "The approved sealed grader files the item verdicts it returned for the gated candidate only",
+   "source": ".pi/plan/02-measurement/spec.feature:299"
+  },
+  {
+   "id": "02-027",
+   "name": "Item verdicts from a grader digest that is not approved are refused",
+   "rule": "The approved sealed grader files the item verdicts it returned for the gated candidate only",
+   "source": ".pi/plan/02-measurement/spec.feature:308"
+  },
+  {
+   "id": "02-028",
+   "name": "A reason beside a pass, or the reason unreached, from the grader is refused",
+   "rule": "The approved sealed grader files the item verdicts it returned for the gated candidate only",
+   "source": ".pi/plan/02-measurement/spec.feature:318"
+  },
+  {
+   "id": "02-029",
+   "name": "A filed measurement is never filed again",
+   "rule": "The score files one measurement of every checklist item; an unreached item fails and stays counted",
+   "source": ".pi/plan/02-measurement/spec.feature:329"
+  },
+  {
+   "id": "02-030",
+   "name": "A score whose grader digest is no longer approved when it is filed is refused",
+   "rule": "The score files one measurement of every checklist item; an unreached item fails and stays counted",
+   "source": ".pi/plan/02-measurement/spec.feature:339"
+  },
+  {
+   "id": "02-031",
+   "name": "ORC runtime records the score stage failed after a refused score",
+   "rule": "A refused score fails the score stage, once, and the score is never retaken within the cycle",
+   "source": ".pi/plan/02-measurement/spec.feature:351"
+  },
+  {
    "id": "03-001",
    "name": "The instrument maintainer moves a golden for a recorded reason",
    "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
@@ -257,6 +299,24 @@
    "name": "A golden is never moved for a reason outside the three",
    "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
    "source": ".pi/plan/03-grader-lifecycle/spec.feature:43"
+  },
+  {
+   "id": "03-005",
+   "name": "A golden whose scenario digest is not its scenario's is refused",
+   "rule": "An instrument golden is written from its scenario and carries that scenario's digest",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:54"
+  },
+  {
+   "id": "03-006",
+   "name": "A move to the same digest is refused",
+   "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:65"
+  },
+  {
+   "id": "03-007",
+   "name": "A move that names a stale scenario digest is refused",
+   "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:74"
   },
   {
    "id": "04-001",
@@ -419,9 +479,75 @@
    "name": "A refused fence fails the cycle at the fence",
    "rule": "A cycle concludes once, passed after its scoreboard or failed at a named stage for a named reason",
    "source": ".pi/plan/04-regeneration-cycle/spec.feature:318"
+  },
+  {
+   "id": "04-028",
+   "name": "A golden whose scenario was reworded since it was written fails the harness self-check",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:330"
+  },
+  {
+   "id": "04-029",
+   "name": "The candidate of an attempt is installed in a fresh gate room",
+   "rule": "The gate installs the regenerated candidate in a fresh gate room ORC chose",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:343"
+  },
+  {
+   "id": "04-030",
+   "name": "A cycle never has a fourth gate attempt",
+   "rule": "The gate installs the regenerated candidate in a fresh gate room ORC chose",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:353"
+  },
+  {
+   "id": "04-031",
+   "name": "A replayed verdict records nothing and spends no attempt",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:364"
+  },
+  {
+   "id": "04-032",
+   "name": "A seam that already responded before boot is not graded and spends no attempt",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:375"
+  },
+  {
+   "id": "04-033",
+   "name": "The first candidate is a fresh generation for gate attempt 1, and a claim, not done",
+   "rule": "A candidate is regenerated for the next gate attempt, within the budget",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:389"
+  },
+  {
+   "id": "04-034",
+   "name": "No candidate is regenerated beyond the budget's gate-attempt limit",
+   "rule": "A candidate is regenerated for the next gate attempt, within the budget",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:399"
+  },
+  {
+   "id": "04-035",
+   "name": "Only a repair room mounts evidence, and only this cycle's gate evidence",
+   "rule": "A candidate is regenerated for the next gate attempt, within the budget",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:410"
+  },
+  {
+   "id": "04-036",
+   "name": "A failed score stage fails the cycle at the score",
+   "rule": "A cycle concludes once, passed after its scoreboard or failed at a named stage for a named reason",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:427"
+  },
+  {
+   "id": "04-037",
+   "name": "A cycle passes once its scoreboard is reported",
+   "rule": "A cycle concludes once, passed after its scoreboard or failed at a named stage for a named reason",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:437"
+  },
+  {
+   "id": "04-038",
+   "name": "A filed measurement moves the cycle to the scoreboard and nothing else",
+   "rule": "The instrument's facts only conclude the cycle, and never feed the build loop",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:449"
   }
  ],
  "counts": {
-  "total": 70
+  "total": 91
  }
 }
