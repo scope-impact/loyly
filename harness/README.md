@@ -266,3 +266,14 @@ checklist is the 149 and those 35. The spec grew (additions only), so the golden
 with `harness/oracle.sh record`; its diff is additions plus the one `total` line (149 → 184). No
 approved grader's scenarios changed. A slice-06 room keeps the five other contexts' `seam.md` and
 `event-model/` (`harness/config.sh`), the contracts the runner speaks.
+
+**2026-11-08: the spec grew: spec round 7c.** Shadow run 1 found the runner's gate calling the
+identity probe with the bare port where legacy `verify.sh` passes `http://127.0.0.1:PORT`; the
+product owner's spec round 7c (`.pi/spec/decisions.md`, "Spec round 7c") stated legacy
+`verify.sh`'s and `fence.sh`'s arguments in `cycle-runner/seam.md` and appended one stamped
+minimum item at the end of slice 06's `spec.feature`: `06-036`; the derived checklist is the 184
+and that one. The spec grew (additions only), so the golden was re-recorded with
+`harness/oracle.sh record`; its diff is additions plus the one `total` line (184 → 185). The
+slice-06 grader grows by that item for the recorded reason "spec grew"; no other approved
+grader's scenarios changed. `probe-06.sh` and `prompt.clj` state no probe call, so neither
+changed.
