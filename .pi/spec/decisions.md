@@ -808,3 +808,41 @@ ran; no other context's `spec.feature`, Allium `requires` or event-model schema 
 
 A grader for slice 06 is written once from these 35 items ("spec grew": a new slice). The
 checklist golden grows 149 → 184. The 35 new items are the next cycle's untuned holdout.
+
+## Spec round 7c (decided 2026-11-08)
+
+A spec round: no builder ran; no other context's `spec.feature`, Allium `requires` or
+event-model schema changed; no existing scenario's text changed.
+
+1. **The finding: shadow run 1.** On the same candidate (one digest, three copies) legacy
+   `verify.sh` passed and the runner's gate failed attempt 1 for `identity-probe-failed`, so the
+   cycle failed at the gate (`gate-attempts-exhausted`, limit 1). Every earlier step agreed. The
+   runner ran the identity probe as `harness/probe.sh 8901`; legacy `verify.sh` runs
+   `"$ROOT/$APP_PROBE" "$URL"` with `URL="http://127.0.0.1:$PORT"`. The legacy probe runs
+   `curl -s "$URL"`; handed `8901`, curl reaches nothing, so the probe reports the page lacks the
+   marker. A replay with a logging curl confirmed it, and the legacy probe passed 100 of 100
+   against the same candidate served on the host.
+2. **The judge's decision (main session).** The gate stage disagreed; the new harness was wrong;
+   the cause is a spec gap: `cycle-runner/seam.md` E5 said "legacy `verify.sh`'s order" and never
+   stated the probe's argument, so a candidate built from the spec could pass its own suite and
+   still call the probe with the port.
+3. **The fix.** E5 now states legacy `verify.sh`'s arguments, not only its order: `URL` is
+   `http://127.0.0.1:` followed by `PORT`; `test.sh` runs with no argument; `start.sh` with one,
+   `PORT`, in the background, output discarded; the boot is done once an HTTP GET of `URL` returns a status below 400
+   (`curl -sf`); the marker is matched ignoring case; the probe runs as `APP_PROBE URL`, never
+   with the bare port, its printed line the reason; no configuration value is exported to any of
+   them; the gate room is the working directory. `GateOnTheHost`'s `TheLegacyGateOrder` says the
+   same. Checked while there, every other effect that cites a legacy tool: E3 (`fence.sh` as-is)
+   left unstated its one argument (the clean room's path, which must not exist yet), the split of
+   `FENCED_PATHS` on whitespace, what "found" means (present in the cloned tree), the reflog
+   expiry and prune, the probe's expected counts (one root commit, one commit) and what
+   "reachable" means (a path of `git rev-list --objects --all` equal to the entry without its
+   trailing `/`, or beneath it); all now stated. E1's `gen_checklist` reading, E2's
+   `check.sh --local` and E4's builder launch already state their arguments.
+4. **One new scenario**, `@item-06-036` "The identity probe is handed the served URL, and passes
+   a candidate that serves the marker" (`@minimum`, `TheLegacyGateOrder`), appended under a
+   repeat of the gate's Rule header: a probe that passes only on the served URL and fails on a
+   bare port is passed by the gate on a candidate that serves the marker.
+
+The slice-06 grader grows by this one item ("spec grew", additions only). The checklist golden
+grows 184 → 185. `@item-06-036` is the next cycle's untuned holdout.

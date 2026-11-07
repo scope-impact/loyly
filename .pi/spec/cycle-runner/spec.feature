@@ -377,3 +377,16 @@ Feature: Cycle runner
       When the operator reads the run progress of run R-1 twice
       Then both readings are identical
       And run R-1 still awaits its verdicts
+
+  Rule: The gate grades a copy of the candidate on the host, in legacy verify.sh's order
+
+    # context.allium, contract GateOnTheHost, invariant TheLegacyGateOrder
+    # Legacy: verify.sh [4], "$ROOT/$APP_PROBE" "$URL", with URL "http://127.0.0.1:$PORT"; shadow run 1, decisions.md "Spec round 7c"
+    @minimum @allium-boundary.TheLegacyGateOrder
+    @item-06-036
+    Scenario: The identity probe is handed the served URL, and passes a candidate that serves the marker
+      Given the stub builder leaves a candidate whose suite is green and whose launch entrypoint serves the marker on the port
+      And the cut's identity probe exits 0 only when its one argument is "http://127.0.0.1:" followed by the configured port and the page there carries the marker, and exits 1 when handed the bare port
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then the gate effect of run R-1 for attempt 1 was recorded with the event "regeneration-cycle/gate-attempt-passed"
+      And run R-1 awaits its verdicts

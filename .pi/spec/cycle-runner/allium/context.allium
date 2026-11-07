@@ -90,7 +90,7 @@ contract BuilderLaunch {
 
 -- The gate, run on the host for stage 1, in the order of legacy verify.sh: the contract's
 -- two entry points, the identity probe, the port free, the suite, the boot within its
--- budget, the marker, the identity probe's reply.
+-- budget, the marker, the identity probe's reply, each with legacy verify.sh's arguments.
 contract GateOnTheHost {
     @invariant TheGateGradesACopy
         -- The gate grades a copy of the candidate taken when its builder session ended, in
@@ -100,7 +100,10 @@ contract GateOnTheHost {
     @invariant TheLegacyGateOrder
         -- The first guard that does not hold is the gate's reply, in legacy verify.sh's
         -- order; the port already answering is a refusal to grade, not a failed attempt
-        -- (decisions.md b).
+        -- (decisions.md b). Each step takes legacy verify.sh's arguments (seam.md, E5):
+        -- test.sh none; start.sh the port; the identity probe the served URL,
+        -- "http://127.0.0.1:" followed by the port, never the bare port (decisions.md,
+        -- "Spec round 7c").
 }
 
 ------------------------------------------------------------
