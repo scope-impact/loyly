@@ -1,0 +1,23 @@
+;; harness/v2/grading: the grading step of harness/v2/score.sh, run as an ORC workflow on a
+;; Grain SQLite store, at the ORC and Grain commits the candidates are built on.
+{:paths ["src"]
+ :deps {org.clojure/clojure {:mvn/version "1.12.0"}
+        org.clojure/data.json {:mvn/version "2.5.1"}
+        org.lmdbjava/lmdbjava {:mvn/version "0.9.3"}
+        org.slf4j/slf4j-nop {:mvn/version "2.0.16"}
+        obneyai/grain-core-v2
+        {:git/url "https://github.com/ObneyAI/grain.git"
+         :git/sha "dbf5b5229aad09785e40f71e96adf65c90f971d5"
+         :deps/root "projects/grain-core-v2"}
+        obneyai/grain-event-store-sqlite-v3
+        {:git/url "https://github.com/ObneyAI/grain.git"
+         :git/sha "dbf5b5229aad09785e40f71e96adf65c90f971d5"
+         :deps/root "projects/grain-event-store-sqlite-v3"}
+        obneyai/orc-service
+        {:git/url "https://github.com/ObneyAI/orc.git"
+         :git/sha "af086675be0e8a3fae0ebda503abe9942c9437ce"
+         :deps/root "projects/orc-service"}}
+ :aliases
+ {:jvm {:jvm-opts ["--add-opens=java.base/java.nio=ALL-UNNAMED"
+                   "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"
+                   "--enable-native-access=ALL-UNNAMED"]}}}
