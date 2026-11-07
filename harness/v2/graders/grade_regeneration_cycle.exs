@@ -1,12 +1,14 @@
 # grade_regeneration_cycle.exs START_SH: the sealed grader of spec v2 slice 04, the
 # regeneration-cycle context (.pi/spec/regeneration-cycle/spec.feature, @item-04-001 to
-# @item-04-027).
+# @item-04-038; 04-028 to 04-038 added by spec round 2, reason "spec grew", additions only).
 #
 # Authored from the selected Gherkin, the public seam (.pi/spec/regeneration-cycle/seam.md, with
 # the slice's event model and Allium for its params, results and refusals), the consumed handoff
 # contracts (.pi/spec/{cycle-preparation,grader-lifecycle,measurement}/event-model/handoffs.edn),
-# .pi/spec/decisions.md "Slice 04" and the public calibration protocol (AGENTS.md, "The
-# instrument") only. Its author read no candidate, transcript, prior verdict or host credential.
+# .pi/spec/decisions.md "Slice 04" and "Spec round 2" (its readings for graders in item 3) and
+# the public calibration protocol (AGENTS.md, "The instrument") only. Its author read no
+# candidate, transcript, prior verdict or host credential. A Scenario Outline (04-035) is graded
+# row by row, each row from fresh state; the item passes only when every row passes.
 #
 # The grader plays ORC runtime (decisions.md "Slice 04" 4): the results of what ORC's nodes did
 # in a room (the self-check run, the fence probe, the gate room) arrive as the params it offers,
@@ -213,6 +215,19 @@ defmodule Op do
   @view_keys ~w(cycle-id cut-id status stage stage-entered-at consecutive-gate-refusals budget harness-digest clean-room-commit candidate-digest gate-attempts failure attempts)
 
   def cycle, do: @cycle
+  # The cycle the commands name: C-7, unless a Given runs a step for another cycle (as_cycle).
+  def cyc, do: Process.get(:cycle, @cycle)
+
+  def as_cycle(id, fun) do
+    Process.put(:cycle, id)
+
+    try do
+      fun.()
+    after
+      Process.delete(:cycle)
+    end
+  end
+
   def cut, do: @cut
   def budget, do: @budget
   def room_commit, do: @room_commit
@@ -327,8 +342,8 @@ defmodule Op do
     Ev.note("given: source cut #{cut} was pinned")
   end
 
-  def golden(id, digest) do
-    p = %{"golden-id" => id, "scenario" => "the scenario of #{id}", "scenario-digest" => "s-" <> id,
+  def golden(id, digest, scenario_digest \\ nil) do
+    p = %{"golden-id" => id, "scenario" => "the scenario of #{id}", "scenario-digest" => scenario_digest || "s-" <> id,
           "path" => "harness/oracle/#{id}.golden", "digest" => digest, "written-at" => @at}
     event!(given!(rpc("grader-lifecycle/instrument-golden-written", p, "#{id} at #{digest}"), "writing the golden #{id}"),
            "grader-lifecycle/instrument-golden-written")
@@ -362,7 +377,7 @@ defmodule Op do
   def self_check(over, label) do
     p =
       Map.merge(
-        %{"cycle-id" => @cycle, "cut-id" => @cut, "occasion" => "before-fence", "attempt" => 0, "harness-digest" => "H-1",
+        %{"cycle-id" => cyc(), "cut-id" => @cut, "occasion" => "before-fence", "attempt" => 0, "harness-digest" => "H-1",
           "goldens-digest" => goldens_digest(), "identity-probe-digest" => "P-1", "outcome" => "passed",
           "skipped-checks" => [], "missing-goldens" => [], "reworded-goldens" => [], "grader-digests" => ["R-1"],
           "budget" => @budget},
@@ -375,7 +390,7 @@ defmodule Op do
   def prove(over, label) do
     p =
       Map.merge(
-        %{"cycle-id" => @cycle, "cut-id" => @cut, "clean-room-commit" => @room_commit,
+        %{"cycle-id" => cyc(), "cut-id" => @cut, "clean-room-commit" => @room_commit,
           "fenced-paths" => ["harness/score.clj", "harness/cycles"], "root-commits" => 1, "commits" => 1,
           "unmatched-paths" => [], "paths-left-in-tree" => [], "paths-reachable-in-object-graph" => []},
         over
@@ -386,14 +401,14 @@ defmodule Op do
 
   def regen(attempt, digest, parent, mounted) do
     purpose = if attempt == 1, do: "fresh-generation", else: "verification-repair"
-    p = %{"cycle-id" => @cycle, "attempt" => attempt, "purpose" => purpose, "candidate-digest" => digest, "mounted-evidence" => mounted}
+    p = %{"cycle-id" => cyc(), "attempt" => attempt, "purpose" => purpose, "candidate-digest" => digest, "mounted-evidence" => mounted}
     p = if parent, do: Map.put(p, "parent-candidate-digest", parent), else: p
     rpc(@rc <> "record-regenerated-candidate", p, "#{digest} for attempt #{attempt} by #{purpose}, mounting #{Ev.short(mounted)}")
   end
 
   def install(attempt, digest, room) do
     purpose = if attempt == 1, do: "fresh-generation", else: "verification-repair"
-    p = %{"cycle-id" => @cycle, "attempt" => attempt, "candidate-digest" => digest, "purpose" => purpose, "gate-room" => room}
+    p = %{"cycle-id" => cyc(), "attempt" => attempt, "candidate-digest" => digest, "purpose" => purpose, "gate-room" => room}
     rpc(@rc <> "install-candidate-in-gate-room", p, "#{digest} in #{room} for attempt #{attempt}")
   end
 
@@ -410,7 +425,7 @@ defmodule Op do
   def gate_raw(attempt, digest, over, drop, label) do
     p =
       Map.merge(
-        %{"cycle-id" => @cycle, "attempt" => attempt, "candidate-digest" => digest, "harness-digest" => "H-1",
+        %{"cycle-id" => cyc(), "attempt" => attempt, "candidate-digest" => digest, "harness-digest" => "H-1",
           "outcome" => "passed", "identity-probe-present" => true, "identity-probe-digest" => "P-1",
           "seam-answered-before-boot" => false, "boot-budget-seconds" => 10, "boot-polls" => 20,
           "answered-on-poll" => 2, "identity-probe-result" => "kalibra", "evidence-root" => "E-#{attempt}",
@@ -507,14 +522,19 @@ defmodule Op do
     fresh!()
     pin(@cut)
     golden("checklist", "g-1")
+    self_checked(over)
+  end
+
+  # The passing self-check before the fence alone, over the cut and goldens already handed in.
+  def self_checked(over \\ %{}) do
     e = event!(given!(self_check(over, "before the fence, passed"), "the self-check before the fence"), "harness-self-check-passed")
-    if e["cycle-id"] != @cycle, do: fail!("the Given could not be established: the self-check names #{Ev.short(e)}")
-    Ev.note("given: harness self-check passed was recorded for C-7 before the fence on K-3")
+    if e["cycle-id"] != cyc(), do: fail!("the Given could not be established: the self-check names #{Ev.short(e)}")
+    Ev.note("given: harness self-check passed was recorded for #{cyc()} before the fence on K-3")
   end
 
   def proved do
-    event!(given!(prove(%{}, "with one root commit, one commit, every fenced path matched and gone"), "the clean room of C-7"), "clean-room-proved")
-    Ev.note("given: the clean room of C-7 was proved")
+    event!(given!(prove(%{}, "with one root commit, one commit, every fenced path matched and gone"), "the clean room of #{cyc()}"), "clean-room-proved")
+    Ev.note("given: the clean room of #{cyc()} was proved")
   end
 
   def regenerated(n, digest, parent, mounted) do
@@ -555,6 +575,58 @@ defmodule Op do
     regenerated(n, digest, parent, [evidence])
     installed(n, digest, "G-#{n}")
     gate_checked(n)
+  end
+
+  # ---- spec round 2 (04-028 to 04-038)
+
+  # A failed attempt for a named reason (suite-red: the suite ran, so the gate room's poll and
+  # probe results are left out as for any failed attempt).
+  def gate_failed_for(attempt, digest, evidence, reason) do
+    over = %{"outcome" => "failed", "reason" => reason, "evidence-root" => evidence, "detail" => "the suite is red"}
+    gate_raw(attempt, digest, over, ["answered-on-poll", "identity-probe-result"], "#{attempt} failed with #{reason}, evidence #{evidence}")
+  end
+
+  def failed_gate_for(n, digest, evidence, reason) do
+    event!(given!(gate_failed_for(n, digest, evidence, reason), "gate attempt #{n} failed with #{reason}"), "gate-attempt-failed")
+    Ev.note("given: gate attempt #{n} of #{cyc()} failed with #{reason}, evidence #{evidence}")
+  end
+
+  def passed_gate_1 do
+    at_gate_1()
+    event!(given!(gate(1, "D-1", %{}, "1 passed"), "gate attempt 1 passed"), "gate-attempt-passed")
+    Ev.note("given: candidate D-1 of C-7 passed gate attempt 1")
+  end
+
+  # "Spent" (decisions.md, "Spec round 2" 3): an attempt with a recorded verdict.
+  def spent!(v, n) do
+    got = Enum.count(attempts!(v), &(is_map(&1) and Map.get(&1, "verdict") != nil))
+    eq!(got, n, "the gate attempts #{v["cycle-id"]} has spent (attempts with a recorded verdict)")
+  end
+
+  def pass_cycle do
+    rpc(@rc <> "pass-cycle", %{"cycle-id" => cyc()}, cyc())
+  end
+
+  # A consumed handoff, handed in through its seam method: the candidate appends the event
+  # exactly as given and answers it, nothing added (seam.md, "The consumed handoffs").
+  def hand_in(method, p, label) do
+    r = ok!(rpc(method, p, label), method)
+    eq!(events(r), [Map.put(p, "type", method)], "the events #{method} answered")
+    r
+  end
+
+  def measurement_filed_params do
+    %{"cycle-id" => cyc(), "cut-id" => @cut, "selection-id" => "slice-04", "candidate-digest" => "D-1",
+      "checklist-digest" => "sha256:" <> hex("checklist of slice-04"), "grader-digests" => ["R-1"], "total" => 1,
+      "passes" => 1, "unreached" => 0,
+      "items" => [%{"item-id" => "04-001", "verdict" => "pass", "evidence" => "the cycle opened"}],
+      "superseded" => [], "filed-at" => @at}
+  end
+
+  def scoreboard_reported_params do
+    %{"cycle-id" => cyc(), "selection-id" => "slice-04", "passes" => 1, "total" => 1, "rate" => "100.0",
+      "previous-cycle-id" => nil, "previous-selection-id" => nil, "new-items" => ["04-001"], "dropped-items" => [],
+      "reported-at" => @at}
   end
 end
 
@@ -973,10 +1045,254 @@ defmodule Items do
       eq!(get_in(v, ["failure", "detail"]), detail, "C-7's failure detail")
     end)
   end
+
+  # ---- spec round 2, "spec grew" (decisions.md, "Spec round 2"; its readings in item 3)
+
+  # A golden whose scenario was reworded since it was written fails the harness self-check.
+  def i028(w) do
+    example(w, "only", fn ->
+      fresh!()
+      pin("K-3")
+      golden("checklist", "g-1", "S-1")
+      Ev.note("given: the scenario of the golden checklist was reworded: its scenario digest is now S-2; the run finds checklist reworded")
+      resp = self_check(%{"reworded-goldens" => ["checklist"]}, "before the fence, passed, reworded golden checklist")
+      e = refused!(resp, "reworded-golden", "the passing self-check with a reworded golden")
+      names!(e, "goldens", ["checklist"], "the reworded-golden refusal")
+      no_cycle!()
+    end)
+  end
+
+  # The candidate of an attempt is installed in a fresh gate room; "read-only" is what the
+  # installation records (decisions.md, "Spec round 2" 3).
+  def i029(w) do
+    example(w, "only", fn ->
+      opened()
+      proved()
+      regenerated(1, "D-1", nil, [])
+      e = event!(ok!(install(1, "D-1", "G-1"), "installing D-1 in G-1"), "candidate-installed-in-gate-room")
+      fields!(e, "candidate-installed-in-gate-room")
+      has!(e, %{"cycle-id" => "C-7", "attempt" => 1, "candidate-digest" => "D-1", "purpose" => "fresh-generation", "gate-room" => "G-1"},
+           "candidate-installed-in-gate-room")
+      v = view!()
+      has!(v, %{"status" => "running", "stage" => "gate", "gate-attempts" => 1}, "C-7's progress")
+      r = row!(v, 1)
+      has!(r, %{"candidate-digest" => "D-1", "installed?" => true}, "attempt 1's row")
+      absent!(r, "verdict", "attempt 1's row")
+      spent!(v, 0)
+    end)
+  end
+
+  # A cycle never has a fourth gate attempt: attempt 4 is outside the schema, -32602
+  # (decisions.md, "Spec round 2" 3).
+  def i030(w) do
+    example(w, "only", fn ->
+      at_gate_1()
+      failed_gate_for(1, "D-1", "E-1", "suite-red")
+      repaired(2, "D-2", "D-1", "E-1")
+      failed_gate_for(2, "D-2", "E-2", "suite-red")
+      repaired(3, "D-3", "D-2", "E-2")
+      failed_gate_for(3, "D-3", "E-3", "suite-red")
+      before = view!()
+      error!(install(4, "D-4", "G-4"), -32602, "installing D-4 in G-4 for gate attempt 4")
+      Ev.note("observed: the installation for gate attempt 4 is refused as -32602")
+      v = view!()
+      eq!(v, before, "C-7's progress after the refusal")
+      eq!(v["gate-attempts"], 3, "C-7's gate attempts")
+      eq!(Enum.map(attempts!(v), &(is_map(&1) && &1["attempt"])), [1, 2, 3], "the attempts of C-7's progress")
+      spent!(v, 3)
+    end)
+  end
+
+  # A replayed verdict records nothing and spends no attempt.
+  def i031(w) do
+    example(w, "only", fn ->
+      at_gate_1()
+      failed_gate_for(1, "D-1", "E-1", "suite-red")
+      before = view!()
+      refused!(gate_failed_for(1, "D-1", "E-1", "suite-red"), "verdict-already-recorded", "gate attempt 1 failed with suite-red again")
+      v = view!()
+      eq!(v, before, "C-7's progress after the replay")
+      has!(row!(v, 1), %{"verdict" => "failed", "reason" => "suite-red"}, "attempt 1's row")
+      spent!(v, 1)
+      eq!(v["gate-attempts"], 1, "C-7's gate attempts")
+    end)
+  end
+
+  # A seam that already responded before boot is not graded and spends no attempt.
+  def i032(w) do
+    example(w, "only", fn ->
+      at_gate_1()
+      Ev.note("given: an orphan of an earlier run already responds on the public seam of G-1")
+      resp = gate(1, "D-1", %{"seam-answered-before-boot" => true}, "1 passed with the seam responding before boot")
+      refused!(resp, "seam-answered-before-boot", "the verdict with the seam responding before boot")
+      spent!(view!(), 0)
+      still_awaits!()
+    end)
+  end
+
+  # The first candidate is a fresh generation for gate attempt 1, and a claim, not done. The
+  # builder's report has no param; the gate room the builder does not control is the one the
+  # installation records (decisions.md, "Spec round 2" 3).
+  def i033(w) do
+    example(w, "only", fn ->
+      opened()
+      proved()
+      resp = regen(1, "D-1", nil, [])
+      Ev.note("given: the builder session reports the slice done")
+      e = event!(ok!(resp, "the candidate D-1 for attempt 1"), "candidate-regenerated")
+      fields!(e, "candidate-regenerated")
+      has!(e, %{"cycle-id" => "C-7", "attempt" => 1, "purpose" => "fresh-generation", "candidate-digest" => "D-1"}, "candidate-regenerated")
+      v = view!()
+      has!(v, %{"status" => "running", "stage" => "gate", "gate-attempts" => 1, "candidate-digest" => "D-1"}, "C-7's progress")
+      to_conclude!([])
+      # Not done on the claim: no verdict is recorded before the candidate is installed in a
+      # gate room, and the cycle cannot conclude passed.
+      gate_checked(1)
+      refused!(gate(1, "D-1", %{}, "1 passed before D-1 was installed in a gate room"), "not-installed", "a verdict on D-1 before its installation")
+      refused!(pass_cycle(), "scoreboard-not-reported", "passing C-7 on the builder's claim")
+      v = view!()
+      has!(v, %{"status" => "running", "stage" => "gate"}, "C-7's progress")
+      absent!(row!(v, 1), "verdict", "attempt 1's row")
+      installed(1, "D-1", "G-1")
+      event!(ok!(gate(1, "D-1", %{}, "1 passed in G-1"), "gate attempt 1 in G-1"), "gate-attempt-passed")
+      has!(row!(view!(), 1), %{"verdict" => "passed"}, "attempt 1's row once recorded in G-1")
+    end)
+  end
+
+  # No candidate is regenerated beyond the budget's gate-attempt limit.
+  def i034(w) do
+    example(w, "only", fn ->
+      b2 = Map.put(budget(), "gate-attempt-limit", 2)
+      opened(%{"budget" => b2})
+      proved()
+      regenerated(1, "D-1", nil, [])
+      installed(1, "D-1", "G-1")
+      gate_checked(1, %{"budget" => b2})
+      failed_gate(1, "D-1", "E-1")
+      regenerated(2, "D-2", "D-1", ["E-1"])
+      installed(2, "D-2", "G-2")
+      gate_checked(2, %{"budget" => b2})
+      failed_gate(2, "D-2", "E-2")
+      eq!(get_in(view!(), ["budget", "gate-attempt-limit"]), 2, "C-7's budget of gate attempts")
+      refused!(regen(3, "D-3", "D-2", ["E-2"]), "over-gate-attempt-limit", "the candidate for attempt 3 by verification repair")
+      v = view!()
+      eq!(v["gate-attempts"], 2, "C-7's gate attempts")
+      eq!(Enum.map(attempts!(v), &(is_map(&1) && &1["attempt"])), [1, 2], "the attempts of C-7's progress")
+    end)
+  end
+
+  # Only a repair room mounts evidence, and only this cycle's gate evidence. A Scenario
+  # Outline: every row of its Examples is graded, each from fresh state; the item passes only
+  # when every row passes.
+  def i035(w) do
+    rows = [
+      {"row-1", fn ->
+         opened()
+         proved()
+         refused!(regen(1, "D-1", nil, ["E-0"]), "evidence-not-mountable", "the candidate for attempt 1 by fresh generation mounting E-0")
+         unchanged!(0)
+       end},
+      {"row-2", fn ->
+         at_gate_1()
+         failed_gate(1, "D-1", "E-1")
+         ev = "score-evidence/C-6"
+         Ev.note("given: #{ev} is the score evidence of cycle C-6")
+         refused!(regen(2, "D-2", "D-1", [ev]), "evidence-not-mountable", "the repair for attempt 2 mounting the score evidence of C-6")
+         unchanged!(1)
+       end},
+      {"row-3", fn ->
+         fresh!()
+         pin(cut())
+         golden("checklist", "g-1")
+         as_cycle("C-6", fn ->
+           self_checked()
+           proved()
+           regenerated(1, "D-1", nil, [])
+           installed(1, "D-1", "G-1")
+           gate_checked(1)
+           failed_gate(1, "D-1", "E-5")
+         end)
+         Ev.note("given: E-5 is the gate evidence root of cycle C-6")
+         self_checked()
+         proved()
+         regenerated(1, "D-1", nil, [])
+         installed(1, "D-1", "G-1")
+         gate_checked(1)
+         failed_gate(1, "D-1", "E-1")
+         refused!(regen(2, "D-2", "D-1", ["E-5"]), "evidence-not-mountable", "the repair for attempt 2 mounting E-5 of cycle C-6")
+         unchanged!(1)
+       end}
+    ]
+
+    failed =
+      for {name, fun} <- rows, reduce: [] do
+        acc ->
+          try do
+            example(w, name, fun)
+            Ev.note("#{name} passed")
+            acc
+          catch
+            {:fail, why} ->
+              Ev.note("#{name} FAILED: #{why}")
+              acc ++ ["#{name}: #{why}"]
+          end
+      end
+
+    if failed != [], do: fail!("#{length(failed)} of #{length(rows)} rows failed: " <> Enum.join(failed, " | "))
+  end
+
+  defp unchanged!(n) do
+    v = view!()
+    has!(v, %{"status" => "running", "stage" => "regenerate", "gate-attempts" => n}, "C-7's progress")
+    eq!(length(attempts!(v)), n, "the attempts of C-7's progress")
+  end
+
+  # A failed score stage fails the cycle at the score; "no score is retaken" is the cycle's
+  # failed status (decisions.md, "Spec round 2" 3).
+  def i036(w) do
+    example(w, "only", fn ->
+      passed_gate_1()
+      has!(view!(), %{"status" => "running", "stage" => "score"}, "C-7's progress before the When")
+      p = %{"cycle-id" => "C-7", "refusal" => "zero-verdicts", "detail" => "the grader filed zero verdicts", "failed-at" => "2026-11-07T00:00:00Z"}
+      hand_in("measurement/score-stage-failed", p, "C-7, refused for zero verdicts")
+      v = view!()
+      no_score!(v, "score", "score-stage-failed")
+      to_conclude!([])
+    end)
+  end
+
+  # A cycle passes once its scoreboard is reported.
+  def i037(w) do
+    example(w, "only", fn ->
+      passed_gate_1()
+      given!(rpc("measurement/measurement-filed", measurement_filed_params(), "C-7"), "the measurement of C-7")
+      Ev.note("given: the measurement of C-7 was filed")
+      has!(view!(), %{"status" => "running"}, "C-7's progress before the When")
+      hand_in("measurement/scoreboard-reported", scoreboard_reported_params(), "C-7")
+      v = view!()
+      has!(v, %{"status" => "passed", "stage" => "result", "candidate-digest" => "D-1"}, "C-7's progress")
+      absent!(v, "failure", "C-7's progress")
+      to_conclude!([])
+    end)
+  end
+
+  # A filed measurement moves the cycle to the scoreboard and nothing else.
+  def i038(w) do
+    example(w, "only", fn ->
+      passed_gate_1()
+      before = view!()
+      hand_in("measurement/measurement-filed", measurement_filed_params(), "C-7")
+      v = view!()
+      has!(v, %{"status" => "running", "stage" => "scoreboard", "gate-attempts" => 1, "candidate-digest" => "D-1"}, "C-7's progress")
+      eq!(attempts!(v), attempts!(before), "the attempts of C-7's progress")
+      spent!(v, 1)
+      to_conclude!([])
+    end)
+  end
 end
 
 defmodule Main do
-  @items for n <- 1..27, do: String.pad_leading("#{n}", 3, "0")
+  @items for n <- 1..38, do: String.pad_leading("#{n}", 3, "0")
 
   defp realdir(dir), do: dir |> then(&System.cmd("pwd", ["-P"], cd: &1)) |> elem(0) |> String.trim()
 

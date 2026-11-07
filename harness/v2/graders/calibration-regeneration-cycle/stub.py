@@ -60,6 +60,10 @@ def need(p, spec):
             raise BadParams()
         if t == "strs" and not (isinstance(v, list) and all(isinstance(x, str) for x in v)):
             raise BadParams()
+        if t == "list" and not isinstance(v, list):
+            raise BadParams()
+        if t == "list1" and not (isinstance(v, list) and v):
+            raise BadParams()
         if t == "strs1" and not (isinstance(v, list) and v and all(isinstance(x, str) for x in v)):
             raise BadParams()
         if isinstance(t, set) and v not in t:
@@ -162,29 +166,38 @@ def golden_moved(p):
 
 
 def measurement_filed(p):
-    need(p, {"cycle-id": "str"})
+    need(p, {"cycle-id": "str", "cut-id": "str", "selection-id": "str", "candidate-digest": "str", "checklist-digest": "str",
+             "grader-digests": "strs1", "total": "pos", "passes": "int", "unreached": "int", "superseded": "list",
+             "items": "list1", "filed-at": "str"})
     c = cycle(p["cycle-id"])
     if c:
         c["measurement-filed"] = True
-        c["stage"] = "scoreboard"
+        if MUTANT != "filed-stays-score":
+            c["stage"] = "scoreboard"
     return [dict({"type": "measurement/measurement-filed"}, **p)]
 
 
 def score_stage_failed(p):
-    need(p, {"cycle-id": "str", "refusal": "str", "detail": "str", "failed-at": "str"})
+    need(p, {"cycle-id": "str", "refusal": {"not-the-gated-candidate", "no-checklist", "zero-verdicts", "bad-verdict-value",
+                                            "unknown-item", "grader-not-approved", "bad-verdict-reason"},
+             "detail": "str", "failed-at": "str"})
     c = cycle(p["cycle-id"])
-    if c:
+    if c and MUTANT != "ignore-score-stage-failed":
         c["score-stage-failed"] = True
         policy(p["cycle-id"])
     return [dict({"type": "measurement/score-stage-failed"}, **p)]
 
 
 def scoreboard_reported(p):
-    need(p, {"cycle-id": "str"})
+    need(p, {"cycle-id": "str", "selection-id": "str", "passes": "int", "total": "pos", "rate": "str",
+             "new-items": "strs", "dropped-items": "strs", "reported-at": "str"})
+    if "previous-cycle-id" not in p or "previous-selection-id" not in p:
+        raise BadParams()
     c = cycle(p["cycle-id"])
     if c:
         c["scoreboard-reported"] = True
-        policy(p["cycle-id"])
+        if MUTANT != "scoreboard-not-concluded":
+            policy(p["cycle-id"])
     return [dict({"type": "measurement/scoreboard-reported"}, **p)]
 
 
@@ -225,7 +238,7 @@ def record_harness_self_check(p):
     if passed and MUTANT == "golden-needs-cycle" and any(g.startswith("scoreboard-") for g in db["goldens"]):
         missing = [g for g in db["goldens"] if g.startswith("scoreboard-")]
         raise Refused("missing-golden", goldens=missing)
-    if passed and p["reworded-goldens"]:
+    if passed and p["reworded-goldens"] and MUTANT != "accept-reworded-golden":
         raise Refused("reworded-golden", goldens=p["reworded-goldens"])
     if any(g not in db["goldens"] for g in p["reworded-goldens"]):
         raise Refused("reworded-golden-not-current", goldens=p["reworded-goldens"])
@@ -313,7 +326,7 @@ def record_regenerated_candidate(p):
         raise Refused("no-clean-room")
     if a != c["attempts"] + 1:
         raise Refused("not-the-next-attempt")
-    if a > c["budget"]["gate-attempt-limit"]:
+    if a > c["budget"]["gate-attempt-limit"] and MUTANT != "regen-beyond-budget":
         raise Refused("over-gate-attempt-limit")
     if (a == 1) != (p["purpose"] == "fresh-generation"):
         raise Refused("wrong-purpose")
@@ -323,8 +336,9 @@ def record_regenerated_candidate(p):
         raise Refused("not-after-a-failed-attempt")
     if p["purpose"] == "verification-repair" and p.get("parent-candidate-digest") != c.get("candidate-digest"):
         raise Refused("not-the-previous-candidate")
+    mountable = [e for o in db["cycles"].values() for e in o["evidence"]] if MUTANT == "mount-other-cycle-evidence" else c["evidence"]
     if (p["purpose"] == "fresh-generation" and p["mounted-evidence"]) or \
-            (MUTANT != "mount-any-evidence" and any(e not in c["evidence"] for e in p["mounted-evidence"])):
+            (MUTANT != "mount-any-evidence" and any(e not in mountable for e in p["mounted-evidence"])):
         raise Refused("evidence-not-mountable")
     c["attempts"] = a
     c["gate-attempts"] = a
@@ -338,6 +352,8 @@ def record_regenerated_candidate(p):
 def install_candidate_in_gate_room(p):
     need(p, {"cycle-id": "str", "attempt": "int", "candidate-digest": "str",
              "purpose": {"fresh-generation", "verification-repair"}, "gate-room": "str"})
+    if not 1 <= p["attempt"] <= 3 and MUTANT != "install-attempt-unbounded":
+        raise BadParams()
     c = cycle(p["cycle-id"])
     if not c or c["attempts"] != p["attempt"]:
         raise Refused("no-candidate-for-attempt")
@@ -349,7 +365,10 @@ def install_candidate_in_gate_room(p):
     if c["status"] != "running":
         raise Refused("cycle-concluded")
     r["installed?"] = True
-    return [ev("candidate-installed-in-gate-room", **p, **{"installed-at": AT})]
+    e = ev("candidate-installed-in-gate-room", **p, **{"installed-at": AT})
+    if MUTANT == "install-drops-room":
+        del e["gate-room"]
+    return [e]
 
 
 def record_gate_attempt(p):
@@ -358,13 +377,15 @@ def record_gate_attempt(p):
              "identity-probe-digest": "str", "seam-answered-before-boot": "bool", "boot-budget-seconds": "pos",
              "boot-polls": "pos", "answered-on-poll": ("pos",), "identity-probe-result": ("str",), "evidence-root": "str",
              "detail": "str", "grader-digests": "strs"})
+    if not 1 <= p["attempt"] <= 3:
+        raise BadParams()
     cid, a = p["cycle-id"], p["attempt"]
     c = cycle(cid)
     r = rows(cid).get(str(a)) if c else None
     passed = p["outcome"] == "passed"
-    if not r or not r["installed?"]:
+    if not r or (not r["installed?"] and MUTANT != "gate-without-install"):
         raise Refused("not-installed")
-    if "verdict" in r:
+    if "verdict" in r and MUTANT != "replay-verdict":
         raise Refused("verdict-already-recorded")
     if (not passed and "reason" not in p) or (passed and "reason" in p):
         raise Refused("reason-does-not-fit-outcome")
@@ -383,7 +404,7 @@ def record_gate_attempt(p):
         refusal = "identity-probe-missing"
     elif p["identity-probe-digest"] != chk["identity-probe-digest"] and MUTANT != "any-probe-digest":
         refusal = "identity-probe-not-the-instruments"
-    elif p["seam-answered-before-boot"]:
+    elif p["seam-answered-before-boot"] and MUTANT != "seam-before-boot-unchecked":
         refusal = "seam-answered-before-boot"
     if refusal:
         if MUTANT == "refuse-but-spend":
