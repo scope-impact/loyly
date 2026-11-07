@@ -1,0 +1,2 @@
+verdicts: sha256:f6b7d0948c6107008319440b2fdd870e16be7c7f6182604f1a33de23b2082f90 verdicts.json
+by: legacy step 5: black-box grading subagent over the seam (spec + seam + decisions readings)

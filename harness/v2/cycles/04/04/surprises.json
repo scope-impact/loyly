@@ -1,0 +1,8 @@
+[
+ "04-019 and 04-003 (and 04-006/007/010/014/022) only record what the issuer offers; per decisions.md Slice 04 4 that is the reading, but the scenarios' Givens (a 30s build, tools giving 'unknown id') cannot be observed through the seam.",
+ "Handed-in events that the fold ignores (duplicate golden-written, move of a never-written golden, scoreboard/measurement for an unknown cycle) are still appended and echoed in the result; the spec says so (only -32602 refuses), but the store then holds e.g. a measurement-filed for a cycle that never existed.",
+ "The progress view exposes no failed-attempts count; '1 failed gate attempt' (04-018, 04-024) is read from the attempt rows' verdicts. The Allium CycleProgress surface exposes failed_attempts, the read model schema does not.",
+ "cycles-to-conclude is always [] when observed, since the policy concludes synchronously before the method responds; the query cannot distinguish 'never due' from 'due and already concluded'.",
+ "After a scoreboard is ignored (04-039) and a measurement is filed later, the cycle waits for a second scoreboard-reported; whether Measurement would ever report twice is not decided here.",
+ "Stage clock checked once: fence timeout 1s failed the cycle at fence with reason budget, detail 'stage timeout', within 65s."
+]

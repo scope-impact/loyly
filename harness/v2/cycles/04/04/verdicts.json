@@ -1,0 +1,202 @@
+[
+ {
+  "id": "04-001",
+  "verdict": "pass",
+  "evidence": "pinned K-3, goldens checklist g-1/scoreboard-01 g-2, self-check before-fence attempt 0 passed: event harness-self-check-passed with harness-digest, goldens-digest (= seam formula), grader-digests [D-1], identity-probe-digest, budget; cycle-progress: running, stage fence, cut K-3, budget limit 3, gate-attempts 0, attempts [], no candidate-digest. Variations: unpinned cut refused cut-not-pinned, replay self-check-already-recorded, attempt 1 before fence not-the-cycles-first-fact."
+ },
+ {
+  "id": "04-002",
+  "verdict": "pass",
+  "evidence": "after golden checklist moved (spec-grew) self-check at old digest G-1 refused -32000 goldens-not-current; cycle-progress C-002 null. Same call at new digest G-2 accepted. Duplicate golden-written and move of unknown golden ignored by the fold (digest unchanged)."
+ },
+ {
+  "id": "04-003",
+  "verdict": "pass",
+  "evidence": "self-check offered failed with failing-check 'instrument golden score-refusal': harness-self-check-failed recorded naming that check; cycle failed at fence."
+ },
+ {
+  "id": "04-004",
+  "verdict": "pass",
+  "evidence": "cycle with clean room and candidate for attempt 1; self-check before-gate attempt 2 refused no-candidate-for-attempt; nothing recorded (attempt-1 self-check later still accepted in other cycles)."
+ },
+ {
+  "id": "04-005",
+  "verdict": "pass",
+  "evidence": "passed self-check with missing-goldens [scoreboard-01] refused missing-golden, data.goldens [scoreboard-01]; cycle-progress null. A failed self-check with the same missing golden is accepted."
+ },
+ {
+  "id": "04-006",
+  "verdict": "pass",
+  "evidence": "golden scoreboard-01 written, self-check offered passed with missing-goldens []: harness-self-check-passed recorded, no missing golden."
+ },
+ {
+  "id": "04-007",
+  "verdict": "pass",
+  "evidence": "self-check before-gate attempt 1 passed with skipped-checks [score]: harness-self-check-passed occasion before-gate attempt 1, skipped-checks [score]."
+ },
+ {
+  "id": "04-008",
+  "verdict": "pass",
+  "evidence": "(LOYLY_SCORING_TOOL_PATHS unset) prove-clean-room with fenced harness/score.clj, harness/cycles, 1 root commit, 1 commit, no leftovers: clean-room-proved with commit and fenced paths; progress stage regenerate, clean-room-commit shown."
+ },
+ {
+  "id": "04-009",
+  "verdict": "pass",
+  "evidence": "after failed self-check, prove-clean-room refused self-check-not-passed; progress has no clean-room-commit (cycle failed at fence)."
+ },
+ {
+  "id": "04-010",
+  "verdict": "pass",
+  "evidence": "unmatched-paths [harness/scroe.clj] (plus root-commits 2) refused fenced-path-matched-nothing, data.paths [harness/scroe.clj] (first requires wins); progress still fence, no clean room."
+ },
+ {
+  "id": "04-011",
+  "verdict": "pass",
+  "evidence": "root-commits 2 refused root-commits-not-one; no clean room."
+ },
+ {
+  "id": "04-012",
+  "verdict": "pass",
+  "evidence": "commits 3 refused commits-not-one; no clean room."
+ },
+ {
+  "id": "04-013",
+  "verdict": "pass",
+  "evidence": "paths-left-in-tree [harness/cycles] refused fenced-path-left-in-tree, data.paths [harness/cycles]; no clean room."
+ },
+ {
+  "id": "04-014",
+  "verdict": "pass",
+  "evidence": "paths-reachable-in-object-graph [harness-impl] refused fenced-path-reachable-in-object-graph, data.paths [harness-impl]; no clean room."
+ },
+ {
+  "id": "04-015",
+  "verdict": "pass",
+  "evidence": "tools [score.clj, scoreboard.clj]; fenced only harness/score.clj refused scoring-tool-not-fenced, data.paths [harness/scoreboard.clj]; no clean room."
+ },
+ {
+  "id": "04-016",
+  "verdict": "pass",
+  "evidence": "fenced-paths [] -> -32602 (min 1), nothing recorded; progress still fence, no clean room (later valid prove succeeds)."
+ },
+ {
+  "id": "04-017",
+  "verdict": "pass",
+  "evidence": "gate attempt 1 passed, 10s/20 polls, answered-on-poll 2, probe result kalibra: gate-attempt-passed carries boot-budget-seconds 10, boot-polls 20, answered-on-poll 2; progress stage score, candidate-digest D-1, attempt row boot-margin-polls 18. Guards: poll 21 answered-after-last-poll, pass without poll, pass with reason, wrong candidate, other grader digests all refused."
+ },
+ {
+  "id": "04-018",
+  "verdict": "pass",
+  "evidence": "gate attempt 1 failed boot-budget-exhausted, evidence E-1: gate-attempt-failed with 10s/20 polls; progress stage regenerate, gate-attempts 1, attempt row verdict failed; repair attempt 2 mounting E-1 accepted."
+ },
+ {
+  "id": "04-019",
+  "verdict": "pass",
+  "evidence": "recorded as offered: gate-attempt-failed reason boot-budget-exhausted with 10s/20 polls (decisions Slice 04 4: the boot-clock coverage is the gate's own doing)."
+ },
+ {
+  "id": "04-020",
+  "verdict": "pass",
+  "evidence": "self-check at H-1, gate attempt passed at H-2 refused no-passing-self-check; attempt row has no verdict, stage gate. Also refused after a golden moved since the self-check."
+ },
+ {
+  "id": "04-021",
+  "verdict": "pass",
+  "evidence": "identity-probe-present false refused identity-probe-missing; attempt still awaiting, stage gate."
+ },
+ {
+  "id": "04-022",
+  "verdict": "pass",
+  "evidence": "probe digest P-9 vs self-checked P-1 refused identity-probe-not-the-instruments; attempt still awaiting; same call with P-1 then passes."
+ },
+ {
+  "id": "04-023",
+  "verdict": "pass",
+  "evidence": "failed self-check before fence naming 'instrument golden scoreboard-arithmetic': cycle exists, status failed, failure {fence, harness-self-check-failed, that check}; prove-clean-room refused; view holds no score fields."
+ },
+ {
+  "id": "04-024",
+  "verdict": "pass",
+  "evidence": "attempt 1 failed, attempt 2 regenerated; failed before-gate self-check attempt 2 -> policy failed cycle at gate, reason harness-self-check-failed; install attempt 2 refused cycle-concluded; attempt 2 row installed? false; 1 failed verdict shown."
+ },
+ {
+  "id": "04-025",
+  "verdict": "pass",
+  "evidence": "no clean room: regenerate attempt 1 refused no-clean-room; progress stage fence, gate-attempts 0."
+ },
+ {
+  "id": "04-026",
+  "verdict": "pass",
+  "evidence": "limit 3, attempts 1,2 failed, D-3 repair installed; attempt 3 failed boot-budget-exhausted -> policy failed cycle at gate, reason gate-attempts-exhausted; status failed, no score."
+ },
+ {
+  "id": "04-027",
+  "verdict": "pass",
+  "evidence": "fence refused (harness-impl/ matched nothing), fail-cycle fence/fence-refused with that detail: cycle-failed recorded; progress failed at fence, reason fence-refused, detail kept; second fail refused cycle-concluded."
+ },
+ {
+  "id": "04-028",
+  "verdict": "pass",
+  "evidence": "self-check passed with reworded-goldens [checklist] refused reworded-golden, data.goldens [checklist]; cycle-progress null."
+ },
+ {
+  "id": "04-029",
+  "verdict": "pass",
+  "evidence": "after clean room and regen D-1, install in G-1: candidate-installed-in-gate-room (attempt 1, D-1, G-1); attempt row installed? true, no verdict; re-install refused already-installed."
+ },
+ {
+  "id": "04-030",
+  "verdict": "pass",
+  "evidence": "3 failed attempts; install attempt 4 (and regen 4) -> -32602 (attempt max 3), nothing recorded; progress shows 3 attempt rows, gate-attempts 3."
+ },
+ {
+  "id": "04-031",
+  "verdict": "pass",
+  "evidence": "attempt 1 failed suite-red; replay refused verdict-already-recorded; attempt row one verdict failed; gate-attempts 1, cycle at regenerate."
+ },
+ {
+  "id": "04-032",
+  "verdict": "pass",
+  "evidence": "seam-answered-before-boot true refused seam-answered-before-boot; attempt 1 awaiting (no verdict), stage gate."
+ },
+ {
+  "id": "04-033",
+  "verdict": "pass",
+  "evidence": "regen D-1 attempt 1 fresh-generation, no mounts: candidate-regenerated D-1; progress running at gate, gate-attempts 1, candidate D-1, not passed; pass-cycle refused scoreboard-not-reported."
+ },
+ {
+  "id": "04-034",
+  "verdict": "pass",
+  "evidence": "limit 2, attempts 1 and 2 failed (cycle concluded gate-attempts-exhausted); regen attempt 3 refused over-gate-attempt-limit; progress gate-attempts 2. Also limit 1 running cycle refuses attempt 2 over-gate-attempt-limit."
+ },
+ {
+  "id": "04-035",
+  "verdict": "pass",
+  "evidence": "row1 fresh gen mounting E-0 refused evidence-not-mountable (attempts 0); row2 repair mounting C-6 score evidence refused; row3 mounting C-6's real gate evidence E-5 refused (attempts 1 unchanged); E-1 then accepted."
+ },
+ {
+  "id": "04-036",
+  "verdict": "pass",
+  "evidence": "gate passed, handed-in score-stage-failed zero-verdicts: policy failed cycle at score, reason score-stage-failed; a later measurement-filed leaves it failed at score."
+ },
+ {
+  "id": "04-037",
+  "verdict": "pass",
+  "evidence": "gate passed, measurement filed (stage scoreboard), scoreboard reported: policy passed cycle; progress status passed, stage result, candidate D-1; pass again refused cycle-concluded."
+ },
+ {
+  "id": "04-038",
+  "verdict": "pass",
+  "evidence": "measurement filed after gate pass: running at scoreboard, gate-attempts 1; regen refused not-after-a-failed-attempt; no new gate rows."
+ },
+ {
+  "id": "04-039",
+  "verdict": "pass",
+  "evidence": "gate passed, scoreboard reported with no measurement: progress running at score; cycles-to-conclude []; pass-cycle refused. Then measurement filed -> stage scoreboard, still running (earlier scoreboard did not count); a second scoreboard then passes it. Scoreboard on a gate-stage cycle and an unknown cycle ignored."
+ },
+ {
+  "id": "04-040",
+  "verdict": "pass",
+  "evidence": "gate passed, fail-cycle score/budget: failed; measurement filed then: progress still failed at score, reason budget, stage score; cycles-to-conclude []; scoreboard after it also ignored. Measurement filed at gate stage ignored (stage stays gate), score-stage-failed at gate ignored."
+ }
+]
