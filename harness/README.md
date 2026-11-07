@@ -55,32 +55,19 @@ paths, `LOYLY_SCORING_TOOL_PATHS` (`.pi/spec/decisions.md`, "Slice 04"). Its pro
 digest `seam.md` defines, has a fence whose path matched nothing refused, proves the clean room
 and reads the cycle back.
 
-After the gate, `harness/v2/score.sh 01 ROOM` scores the cycle: the sealed graders approved for
-spec v2 in `v2/graders.approved.json` (never v1's `graders.approved.json`, whose `01-005`
-is a v1 scenario) run against `ROOM/harness-impl/01-specification/start.sh`, and the legacy
-`score.clj` and `scoreboard.clj` file and report into `v2/cycles/01/MM/`, cycle `MM` of slice
-01. With no approved
-grader covering the slice it refuses: "score refused: no approved sealed grader". The grader
-of slice 01, `v2/graders/grade_specification.exs`, was authored from the spec alone,
-calibrated by `v2/graders/calibration/calibrate.sh` (a reference stub passes all 15 items,
-each mutant fails the item it breaks), and sealed; `v2/graders.pending.json` asks the
-operator to approve its digest. The grader of slice 02, `v2/graders/grade_measurement.exs`,
-was written the same way: it hands the consumed handoffs in through their seam methods,
-offers its own reading of its fixture spec files to `measurement/derive-checklist`, and is
-calibrated by `v2/graders/calibration-measurement/calibrate.sh` (a reference stub passes
-all 24 items, each mutant fails the item it breaks); `v2/graders.pending.json` asks for its
-digest too. The grader of slice 03, `v2/graders/grade_grader_lifecycle.exs`, hands its
-candidate the current scenario digests in the `LOYLY_SCENARIO_DIGESTS` file after the
-candidate first answers, and is calibrated by `v2/graders/calibration-grader-lifecycle/calibrate.sh`
-(a reference stub passes all 4 items, each mutant fails the item it breaks);
-`v2/graders.pending.json` asks for its digest as well. The grader of slice 04,
-`v2/graders/grade_regeneration_cycle.exs`, plays ORC runtime: it offers the self-check run's,
-the fence probe's and the gate room's results as command params, hands the pinned cut and the
-goldens in through their handoff methods, sets `LOYLY_SCORING_TOOL_PATHS` only where the Given
-names the scoring tools, and is calibrated by `v2/graders/calibration-regeneration-cycle/calibrate.sh`
-(a reference stub passes all 27 items, each mutant fails the item it breaks);
-`v2/graders.pending.json` asks for its digest too. Until the operator approves a slice's
-grader, its cycle ends at the gate.
+After the gate, `harness/v2/score.sh NN ROOM` scores the cycle the legacy way (the legacy
+README's step 5: grade however you grade, then file): it runs the slice's grader from
+`v2/graders/` against `ROOM/harness-impl/NN-<context>/start.sh`, records the grader's sha256 in
+the cycle (`graders.txt`) as provenance, and the legacy `score.clj` and `scoreboard.clj` file
+and report into `v2/cycles/NN/MM/`. Nobody approves a grader and nothing is sealed (decided
+2026-11-07, b4e984a). Each grader was authored from the spec alone and calibrated by its
+`v2/graders/calibration*/calibrate.sh` (a reference stub passes every item, each mutant fails
+the item it breaks); `v2/graders.json` records each one's digest, items and calibration. The
+slice-02 grader hands the consumed handoffs in through their seam methods and offers its own
+reading of its fixture spec files; the slice-03 grader hands its candidate the scenario digests
+in `LOYLY_SCENARIO_DIGESTS`; the slice-04 grader plays ORC runtime, offering the self-check,
+fence-probe and gate-room results as command params and setting `LOYLY_SCORING_TOOL_PATHS`
+where the Given names the scoring tools.
 
 **Where a spec-v2 cycle is filed (2026-11-07).** Each slice numbers its own cycles under
 `v2/cycles/NN/` (`01`, `02`, ...), never under `harness/cycles/`. `oracle.sh`, a shared module
