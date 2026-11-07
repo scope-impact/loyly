@@ -20,6 +20,7 @@ MUTANTS="
 digest-constant        02-001
 sort-items             02-002
 rule-empty             02-002
+rule-null              02-002
 drop-skipped           02-003
 first-unstamped-only   02-004
 allow-empty            02-005

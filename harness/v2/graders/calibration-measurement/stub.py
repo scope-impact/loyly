@@ -98,6 +98,8 @@ def derive(p):
         items.sort(key=lambda i: i["item-id"])
     if MUTANT == "rule-empty":
         items = [dict(i, rule=i["rule"] if i["rule"] is not None else "") for i in items]
+    if MUTANT == "rule-null":
+        items = [dict(i, rule=None) for i in items]
     skipped = [] if MUTANT == "drop-skipped" else p["skipped-slices"]
     c = {"cut-id": cut, "selection-id": p["selection-id"], "checklist-digest": digest(items),
          "total": len(items), "items": items}

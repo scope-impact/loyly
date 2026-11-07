@@ -540,38 +540,40 @@ defmodule Items do
   end
 
   def i002(w) do
-    example(w, "under-a-rule", fn w ->
+    # The file the Given describes (spec round 1, decisions.md): 03-002 under no Rule first,
+    # then the Rule "Stamping", under which 03-001 sits on line 6 with a padded title. Under
+    # the one reading a Rule runs to the end of its file, so this order is the readable one.
+    example(w, "only", fn w ->
       src =
         spec_file(w, "03-stamping",
-          ["Feature: stamping", "", "  Rule: Stamping", "", "    @item-03-002", "    Scenario:  a padded title  "] ++ @steps ++
-            ["", "    @item-03-001", "    Scenario: a second scenario"] ++ @steps)
+          ["Feature: stamping", "  @item-03-002", "  Scenario: an earlier scenario", "  Rule: Stamping",
+           "    @item-03-001", "    Scenario:  a padded title  "] ++ @steps)
 
       at!(src, 6, "    Scenario:  a padded title  ")
       pinned("K-3")
       stamped(["03-001", "03-002"])
       offer = Reading.offer(w)
-      e = derived!(derive("K-3", offer, "K-3 offering the reading of slice 03"), "K-3", offer)
-      [first, second] = e["items"]
-      eq!({first["item-id"], first["rule"], first["title"]}, {"03-002", "Stamping", "a padded title"}, "the first item (id, rule, title)")
-      if not String.ends_with?(first["source"], ":6"), do: fail!("the first item's source #{first["source"]} is not line 6")
-      Ev.note("observed: the first item's source is #{first["source"]}")
-      eq!(second["item-id"], "03-001", "the second item")
-    end)
 
-    # Under the one reading a Rule reaches to the end of its file, so a scenario under no Rule
-    # cannot follow one in the same file: the second item's null rule is its own example.
-    example(w, "under-no-rule", fn w ->
-      spec_file(w, "03-stamping", ["Feature: stamping", "", "  @item-03-002", "  Scenario:  a padded title  "] ++ @steps ++
-        ["", "  @item-03-001", "  Scenario: a second scenario"] ++ @steps)
+      read = for i <- offer["items"], do: {i["item-id"], i["rule"], i["source"], i["title"]}
 
-      pinned("K-3")
-      stamped(["03-001", "03-002"])
-      offer = Reading.offer(w)
+      if read != [{"03-002", nil, "plan/03-stamping/spec.feature:3", "an earlier scenario"},
+                  {"03-001", "Stamping", "plan/03-stamping/spec.feature:6", "a padded title"}],
+         do: raise("grader fixture: read #{inspect(read)}")
+
       e = derived!(derive("K-3", offer, "K-3 offering the reading of slice 03"), "K-3", offer)
-      [_, second] = e["items"]
-      eq!(second["item-id"], "03-001", "the second item")
-      if not (Map.has_key?(second, "rule") and second["rule"] == nil), do: fail!("the second item's rule is #{inspect(Map.get(second, "rule", :absent))}, not null")
-      Ev.note("observed: 03-001 has no Rule (null)")
+
+      [first, second] =
+        case e["items"] do
+          [_, _] = l -> l
+          l -> fail!("the checklist holds #{Ev.short(l)}, not two stamped items")
+        end
+
+      eq!(first["item-id"], "03-002", "the first item")
+      if not (Map.has_key?(first, "rule") and first["rule"] == nil), do: fail!("the first item's rule is #{inspect(Map.get(first, "rule", :absent))}, not null")
+      Ev.note("observed: 03-002 has no Rule (null)")
+      eq!({second["item-id"], second["rule"], second["title"]}, {"03-001", "Stamping", "a padded title"}, "the second item (id, rule, title)")
+      if not (is_binary(second["source"]) and String.ends_with?(second["source"], ":6")), do: fail!("the second item's source #{inspect(second["source"])} is not line 6")
+      Ev.note("observed: the second item's source is #{second["source"]}")
       c = checklist("K-3")
       ids = for i <- c["items"], do: i["item-id"]
       eq!(ids, ["03-002", "03-001"], "the checklist's order (never sorted by item identity)")
@@ -770,6 +772,10 @@ defmodule Items do
     end)
   end
 
+  # Its Thens: the policy reported the scoreboard (the query answers it, and C-7 is no longer
+  # on the policy's to-do list), 2 passes of 3 at "66.7%", no previous cycle. Spec round 1
+  # dropped the step "no command of the build loop reads it" (a property of the build loop,
+  # guarantee ToAPersonNeverIntoTheLoop, not an outcome of this report): it is not graded.
   def i018(w) do
     example(w, "only", fn _ ->
       given_checklist("K-3", ["03-001", "03-002", "03-003"])

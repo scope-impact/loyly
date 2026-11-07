@@ -1,5 +1,5 @@
 {
- "grader_digest": "sha256:3efb14e2951bd5fddf6db0e55a687f66daf2c92cfb2ea29e34473967219ccf9a",
+ "grader_digest": "sha256:29a21329dcd5300bbaab26de8b5daac07861bbf7e1873035e20d95e2f5a34d1d",
  "entry": "grade_measurement.exs",
  "items": [
   "02-001",
@@ -35,6 +35,7 @@
   "digest-constant        targets 02-001: fails; failing 1/24: 02-001",
   "sort-items             targets 02-002: fails; failing 1/24: 02-002",
   "rule-empty             targets 02-002: fails; failing 3/24: 02-001,02-002,02-003",
+  "rule-null              targets 02-002: fails; failing 1/24: 02-002",
   "drop-skipped           targets 02-003: fails; failing 1/24: 02-003",
   "first-unstamped-only   targets 02-004: fails; failing 1/24: 02-004",
   "allow-empty            targets 02-005: fails; failing 1/24: 02-005",
@@ -223,6 +224,12 @@
    "item": "02-002",
    "role": "uncarried",
    "fixture": "rule-empty",
+   "verdict": "fail"
+  },
+  {
+   "item": "02-002",
+   "role": "uncarried",
+   "fixture": "rule-null",
    "verdict": "fail"
   },
   {
