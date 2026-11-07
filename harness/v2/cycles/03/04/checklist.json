@@ -1,0 +1,55 @@
+{
+ "items": [
+  {
+   "id": "03-001",
+   "name": "The instrument maintainer moves a golden for a recorded reason",
+   "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:12"
+  },
+  {
+   "id": "03-002",
+   "name": "\"Spec grew\" over a diff that is not additions only is refused",
+   "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:22"
+  },
+  {
+   "id": "03-003",
+   "name": "A move without a note is refused",
+   "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:33"
+  },
+  {
+   "id": "03-004",
+   "name": "A golden is never moved for a reason outside the three",
+   "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:43"
+  },
+  {
+   "id": "03-005",
+   "name": "A golden whose scenario digest is not its scenario's is refused",
+   "rule": "An instrument golden is written from its scenario and carries that scenario's digest",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:54"
+  },
+  {
+   "id": "03-006",
+   "name": "A move to the same digest is refused",
+   "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:65"
+  },
+  {
+   "id": "03-007",
+   "name": "A move that names a stale scenario digest is refused",
+   "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:74"
+  },
+  {
+   "id": "03-008",
+   "name": "The instrument maintainer writes a golden from its scenario",
+   "rule": "An instrument golden is written from its scenario and carries that scenario's digest",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:85"
+  }
+ ],
+ "counts": {
+  "total": 8
+ }
+}

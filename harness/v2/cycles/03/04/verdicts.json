@@ -1,0 +1,10 @@
+[
+{"id":"03-001","verdict":"pass","evidence":"After write g-40/s-12, move to g-41 for instrument-behavior-changed with the note and s-12 returned instrument-golden-moved {from g-40, to g-41, reason, note, scenario-digest s-12}; instrument-goldens shows digest g-41, scenario-digest s-12, moves [{g-40->g-41, instrument-behavior-changed, note}]; persists across restart on the same store."},
+{"id":"03-002","verdict":"pass","evidence":"G-checklist at g-50; move to g-51 for spec-grew with additions-only false -> -32000 spec-grew-not-additions-only; goldens still g-50, no moves. Control: same move with additions-only true succeeds. Ordering held (requires 3 before empty-note 4)."},
+{"id":"03-003","verdict":"pass","evidence":"Move g-40->g-41 instrument-behavior-changed with note \"\" -> -32000 empty-note (not -32602); goldens still g-40, no moves."},
+{"id":"03-004","verdict":"pass","evidence":"reason \"make the self-check green\" (and hyphenated form) -> -32602 naming reason's enum of the three; goldens still g-40, no moves."},
+{"id":"03-005","verdict":"pass","evidence":"Digests file {scenario: s-12}; write G-score-unknown with s-11 -> -32000 scenario-digest-mismatch; instrument-goldens []. Also refused for an unnamed scenario and with no digests file."},
+{"id":"03-006","verdict":"pass","evidence":"Move g-40->g-40 wording-replaced 'no change' -> -32000 same-digest; golden moves []. same-digest wins over later requires when several fail."},
+{"id":"03-007","verdict":"pass","evidence":"Written g-40/s-12, then digests file rewritten to s-13 (no restart); move wording-replaced 'reworded' with s-12 -> -32000 stale-scenario-digest; golden still g-40 / s-12, no moves. Control: same move with s-13 succeeds and golden scenario-digest becomes s-13."},
+{"id":"03-008","verdict":"pass","evidence":"Write G-score-unknown s-12/g-40 -> instrument-golden-written {golden-id, scenario, scenario-digest s-12, path, digest g-40, written-at}; instrument-goldens shows G-score-unknown g-40 / s-12, moves []. Duplicate write refused golden-exists."}
+]

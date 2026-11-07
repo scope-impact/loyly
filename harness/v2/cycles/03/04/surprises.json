@@ -1,0 +1,4 @@
+[
+"The read model's move entries carry from-digest, to-digest, reason and note only (per its schema); a move's scenario digest and additions-only are visible through the seam only in the command's event result and as the golden's current scenario-digest, so @item-03-001's 'move ... recorded with ... the scenario digest' is observable only that way.",
+"With LOYLY_SCENARIO_DIGESTS unset/absent, every write is refused scenario-digest-mismatch: no golden can be written at all without the digests file (consistent with seam.md, but means the context is inert without it)."
+]
