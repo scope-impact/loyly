@@ -1,0 +1,31 @@
+{
+ "items": [
+  {
+   "id": "03-001",
+   "name": "The instrument maintainer moves a golden for a recorded reason",
+   "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:12"
+  },
+  {
+   "id": "03-002",
+   "name": "\"Spec grew\" over a diff that is not additions only is refused",
+   "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:22"
+  },
+  {
+   "id": "03-003",
+   "name": "A move without a note is refused",
+   "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:33"
+  },
+  {
+   "id": "03-004",
+   "name": "A golden is never moved for a reason outside the three",
+   "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:43"
+  }
+ ],
+ "counts": {
+  "total": 4
+ }
+}

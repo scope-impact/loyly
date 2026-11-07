@@ -1,0 +1,97 @@
+{
+ "items": [
+  {
+   "id": "01-001",
+   "name": "The first stamping of a slice hands out its identities in file order",
+   "rule": "A slice's first stamping hands out its item identities from 1, in file order",
+   "source": ".pi/plan/01-specification/spec.feature:12"
+  },
+  {
+   "id": "01-002",
+   "name": "The slice is the directory name up to its first dash, verbatim",
+   "rule": "A slice's first stamping hands out its item identities from 1, in file order",
+   "source": ".pi/plan/01-specification/spec.feature:23"
+  },
+  {
+   "id": "01-003",
+   "name": "A deleted scenario's number is never handed out again",
+   "rule": "Stamping again continues the slice's numbering and never reuses a number",
+   "source": ".pi/plan/01-specification/spec.feature:35"
+  },
+  {
+   "id": "01-004",
+   "name": "Stamping twice changes nothing",
+   "rule": "Stamping again continues the slice's numbering and never reuses a number",
+   "source": ".pi/plan/01-specification/spec.feature:48"
+  },
+  {
+   "id": "01-005",
+   "name": "Rewording a scenario keeps its item identity",
+   "rule": "Stamping again continues the slice's numbering and never reuses a number",
+   "source": ".pi/plan/01-specification/spec.feature:59"
+  },
+  {
+   "id": "01-006",
+   "name": "No spec found for a slice never stamped",
+   "rule": "Stamping refuses a spec it cannot read as the slice's own",
+   "source": ".pi/plan/01-specification/spec.feature:72"
+  },
+  {
+   "id": "01-007",
+   "name": "A spec that went missing is \"no spec found\", never \"fully stamped\"",
+   "rule": "Stamping refuses a spec it cannot read as the slice's own",
+   "source": ".pi/plan/01-specification/spec.feature:83"
+  },
+  {
+   "id": "01-008",
+   "name": "Only the file's unstamped scenarios, in file order, are stamped",
+   "rule": "Stamping refuses a spec it cannot read as the slice's own",
+   "source": ".pi/plan/01-specification/spec.feature:95"
+  },
+  {
+   "id": "01-009",
+   "name": "A Scenario heading with nothing after the colon is reported, not stamped",
+   "rule": "An empty-title heading is not an item, and the stamper says so out loud",
+   "source": ".pi/plan/01-specification/spec.feature:113"
+  },
+  {
+   "id": "01-010",
+   "name": "A stamping that hides an empty-title heading is refused",
+   "rule": "An empty-title heading is not an item, and the stamper says so out loud",
+   "source": ".pi/plan/01-specification/spec.feature:125"
+  },
+  {
+   "id": "01-011",
+   "name": "A Scenario Outline is stamped and a Scenario Template is not",
+   "rule": "One reading of Gherkin decides what is a scenario and what stamps it",
+   "source": ".pi/plan/01-specification/spec.feature:143"
+  },
+  {
+   "id": "01-012",
+   "name": "A heading whose title is only whitespace is a scenario",
+   "rule": "One reading of Gherkin decides what is a scenario and what stamps it",
+   "source": ".pi/plan/01-specification/spec.feature:154"
+  },
+  {
+   "id": "01-013",
+   "name": "A stamped item's title is the heading's title with surrounding whitespace stripped",
+   "rule": "One reading of Gherkin decides what is a scenario and what stamps it",
+   "source": ".pi/plan/01-specification/spec.feature:164"
+  },
+  {
+   "id": "01-014",
+   "name": "An item tag separated from its heading by a blank line does not stamp it",
+   "rule": "One reading of Gherkin decides what is a scenario and what stamps it",
+   "source": ".pi/plan/01-specification/spec.feature:174"
+  },
+  {
+   "id": "01-015",
+   "name": "Tags that are not item tags do not make a scenario stamped",
+   "rule": "One reading of Gherkin decides what is a scenario and what stamps it",
+   "source": ".pi/plan/01-specification/spec.feature:184"
+  }
+ ],
+ "counts": {
+  "total": 15
+ }
+}
