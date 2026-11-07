@@ -45,7 +45,7 @@
              [:refusal [:enum "not-the-gated-candidate" "no-checklist" "zero-verdicts" "bad-verdict-value" "unknown-item"
                         "grader-not-approved" "bad-verdict-reason"]]
              [:detail :string]]
-    :reads #{:measurement/cycle-measurements}
+    :reads #{:measurement/gated-cycles :measurement/cycle-measurements}
     :produces #{:measurement/score-stage-failed}}}
   :events
   {:measurement/item-verdicts-filed

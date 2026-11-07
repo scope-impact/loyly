@@ -296,3 +296,77 @@ Grader 02 (`sha256:3efb14e2…`) must be replaced, reason "wording replaced", fo
 `02-018`; the derived checklist of slice 02 keeps its 24 items, ids, titles and Rules (only the
 source lines of `02-019` to `02-024` move up one). Slice 04's grader is unaffected (no scenario
 changed), but slice 04 must be rebuilt from the changed read model.
+
+## Spec round 2 (decided 2026-11-07)
+
+The operator accepted the new minimum drafts of slices 02, 03 and 04 (tier minimum, no
+`# Legacy:` line: measurement 8, grader-lifecycle 4, regeneration-cycle 12), and one model fix.
+A spec round: no builder ran, no existing item identity, title or Rule changed.
+
+1. **Accepted: 21 of the 24.** Each moved from `drafts.feature` into `spec.feature` under its
+   Rule, unworded, `@draft` → `@minimum`, the `# Suggested tier` line dropped, its `@allium-*`
+   tags kept, and stamped by `tools/spec/v2/stamp.clj`:
+   - measurement 7, `@item-02-025` to `@item-02-031`: 02-025 to 02-028 under "The approved sealed
+     grader files ...", 02-029 and 02-030 under "The score files one measurement ...", 02-031
+     under the new Rule "A refused score fails the score stage, once, ...";
+   - grader-lifecycle 3, `@item-03-005` to `@item-03-007`: 03-005 under the new Rule "An
+     instrument golden is written from its scenario ...", 03-006 and 03-007 under "A golden
+     moves only with one recorded reason ...";
+   - regeneration-cycle 11, `@item-04-028` to `@item-04-038`: 04-028 under "No clean room is
+     built over an unchecked instrument ...", 04-029 and 04-030 under the new Rule "The gate
+     installs the regenerated candidate in a fresh gate room ORC chose", 04-031 and 04-032 under
+     "The gate records one verdict ...", 04-033 to 04-035 under "A candidate is regenerated
+     ...", 04-036 and 04-037 under "A cycle concludes once ...", 04-038 under the new Rule "The
+     instrument's facts only conclude the cycle, ...", whose draft Rule, now empty, left
+     `drafts.feature`. 04-035 is a Scenario Outline; its `Examples:` table (3 rows) moved with
+     it.
+   Where they sit in the file is item 6.
+2. **Refused: 3, left in `drafts.feature`.** Each has a step that is not gradeable through its
+   own context's seam: it states what another context or the room policy does, as
+   `@item-02-018`'s dropped step did (Spec round 1, 2). Not reworded here; a later round may
+   drop the step and accept the rest.
+   - measurement "Score evidence never reaches a builder, and a failed score stage is not
+     retaken": "no builder room of C-7 mounts the item verdicts or the score evidence".
+     Measurement has no builder room; the Regeneration cycle refuses such a mount
+     (`RecordRegeneratedCandidate` 9, `@item-04-035`).
+   - grader-lifecycle "The instrument maintainer writes a golden from its scenario": "the
+     harness self-check of the next cycle must reproduce it". The self-check is the
+     Regeneration cycle's; grader lifecycle's seam cannot observe it.
+   - regeneration-cycle "A failed attempt leaves gate evidence a repair builder may read, and
+     never score evidence": "E-1 holds no item verdict and no score evidence" is the content of
+     an evidence root, which no command records (`gate-attempt-failed` carries only the root,
+     `candidate-regenerated` no mount), and its When ("the repair builder's room ... mounts its
+     evidence") is no command of the seam. What is gradeable of it, only this cycle's gate
+     evidence mounted, is `@item-04-035`.
+3. **Readings of the accepted scenarios** (no seam change; a grader reads them so):
+   `@item-04-030`'s gate attempt 4 is outside `attempt`'s `[:int {:min 1 :max 3}]`, so it is
+   heard as `-32602` and records nothing, as in "Slice 04" 7. "Spent" (`@item-04-031`,
+   `@item-04-032`) is an attempt with a recorded verdict, not the progress view's
+   `gate-attempts` (candidates regenerated). `@item-04-033`'s builder report has no param, so
+   nothing of it is recorded, and "a gate room the builder does not control", like
+   `@item-04-029`'s "read-only", is the installation `install-candidate-in-gate-room` records
+   ("Slice 04" 4). `@item-04-036`'s "no score is retaken" is the cycle's `failed` status
+   ("Slice 04" 9). `@item-03-007`'s golden was written with the digest "g-40", the grader's
+   fixture.
+4. **`measurement/fail-score-stage` reads `measurement/gated-cycles`.** `FailScoreStage`
+   requires 1 refuses a cycle that is not gated, which only `gated-cycles` (folding
+   `regeneration-cycle/gate-attempt-passed`) knows; its `:reads` named only
+   `cycle-measurements`. Now `#{:measurement/gated-cycles :measurement/cycle-measurements}`,
+   as `file-item-verdicts` and `file-score` read. No event schema, flow or scenario changed.
+5. **No seam changed.** Every accepted scenario is driven by methods and inputs `seam.md`
+   already names.
+6. **Appended at the end of each file, so the spec grew by additions only.** The legacy rule
+   for "spec grew" (`archive/legacy-harness/README.md`, "The goldens, and the three reasons one
+   can change") lets no existing item's id, name, rule or source line move. So the new
+   scenarios are appended after each `spec.feature`'s last existing scenario, in id order, each
+   group under a Rule header with the exact text of its Rule; where that Rule already sits
+   higher in the file, its header is repeated at the end (consecutive scenarios of one Rule
+   share one repeated header). `ScenarioReading` and the legacy `gen_checklist` take a
+   scenario's Rule from the last `Rule:` line above it, so a repeated header gives each new
+   item its own Rule and changes no existing item's. The checklist golden (not recorded here)
+   grows 70 → 91: the 70 existing items byte-identical, 21 added, and the only removed line
+   the old `total`.
+
+Graders 02, 03 and 04 must grow by the new items, reason "spec grew" (additions only: no
+existing scenario's wording changed), and slices 02 to 04 must be rebuilt (slice 02 also from
+the changed `:reads`). The 21 new items are the next cycle's untuned holdout.

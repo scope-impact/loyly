@@ -281,3 +281,76 @@ Feature: Measurement
       When the measurement of cycle C-7 of the whole-plan selection is filed with only 04-001
       Then the scoreboard of C-7 shows the shared items' rates as "n/a"
       And computes no percentage over zero shared items
+
+  Rule: The approved sealed grader files the item verdicts it returned for the gated candidate only
+
+    # cycle-measurement.allium, rules OpenMeasurement and FileItemVerdicts; guarantee ApprovedDigestOnly
+    @minimum @allium-rule-success.OpenMeasurement @allium-rule-success.FileItemVerdicts @allium-guarantee.ApprovedDigestOnly
+    @item-02-025
+    Scenario: The approved grader files its item verdicts for the candidate the gate ratified
+      Given source cut K-3 was pinned and its checklist holds 03-001 and 03-002
+      And gate attempt 1 of cycle C-7 passed for candidate D-1 at K-3
+      When the grader with approved digest G-1 files the verdicts pass for 03-001 and fail for 03-002 for candidate D-1 of C-7
+      Then the item verdicts of G-1 for D-1 are filed for C-7, as returned
+
+    # cycle-measurement.allium, rule FileItemVerdicts (requires 2); invariant FilingsBindTheGatedCandidate
+    @minimum @allium-rule-failure.FileItemVerdicts.2 @allium-invariant.FilingsBindTheGatedCandidate
+    @item-02-026
+    Scenario: Item verdicts for another candidate than the gated one are refused
+      Given gate attempt 2 of cycle C-7 passed for candidate D-2
+      When the grader with approved digest G-1 files item verdicts for candidate D-1 of C-7
+      Then filing the item verdicts is refused as not the gated candidate
+      And C-7's measurement has no item verdicts filed
+
+    # cycle-measurement.allium, rule FileItemVerdicts (requires 9)
+    @minimum @allium-rule-failure.FileItemVerdicts.9
+    @item-02-027
+    Scenario: Item verdicts from a grader digest that is not approved are refused
+      Given gate attempt 1 of cycle C-7 passed for candidate D-1
+      And the approved grader digests are G-1
+      When the grader with digest G-9 files item verdicts for D-1 of C-7
+      Then filing the item verdicts is refused as grader not approved
+      And C-7's measurement has no item verdicts filed
+
+    # cycle-measurement.allium, rule FileItemVerdicts (requires 10)
+    @minimum @allium-rule-failure.FileItemVerdicts.10
+    @item-02-028
+    Scenario: A reason beside a pass, or the reason unreached, from the grader is refused
+      Given gate attempt 1 of cycle C-7 passed for candidate D-1 and the checklist of its source cut holds 03-001 and 03-002
+      When the grader with approved digest G-1 files pass with the reason "outage" for 03-001 and fail with the reason "unreached" for 03-002
+      Then filing the item verdicts is refused as a bad verdict reason
+      And C-7's measurement has no item verdicts filed
+
+  Rule: The score files one measurement of every checklist item; an unreached item fails and stays counted
+
+    # cycle-measurement.allium, rule FileScore (requires 3); invariant OneMeasurementPerCycle; surface ScoreStage, guarantee AFalseRecordCannotBeUntaken
+    @minimum @allium-rule-failure.FileScore.3 @allium-invariant.OneMeasurementPerCycle @allium-guarantee.AFalseRecordCannotBeUntaken
+    @item-02-029
+    Scenario: A filed measurement is never filed again
+      Given gate attempt 1 of cycle C-7 passed for candidate D-1
+      And the measurement of C-7 was filed with 2 passes of 3
+      When ORC runtime files the score of C-7 again
+      Then filing the score is refused
+      And C-7 has one measurement, still with 2 passes of 3
+
+    # cycle-measurement.allium, rule FileScore (requires 5)
+    @minimum @allium-rule-failure.FileScore.5
+    @item-02-030
+    Scenario: A score whose grader digest is no longer approved when it is filed is refused
+      Given gate attempt 1 of cycle C-7 passed for candidate D-1
+      And the grader with digest G-1 filed item verdicts for D-1 while G-1 was approved
+      When ORC runtime files the score of C-7 with the approved grader digests G-2
+      Then filing the score is refused as grader not approved
+      And C-7's measurement is still awaiting its score
+
+  Rule: A refused score fails the score stage, once, and the score is never retaken within the cycle
+
+    # cycle-measurement.allium, rule FailScoreStage
+    @minimum @allium-rule-success.FailScoreStage
+    @item-02-031
+    Scenario: ORC runtime records the score stage failed after a refused score
+      Given gate attempt 1 of cycle C-7 passed for candidate D-1
+      And the grader's item verdicts for C-7 were refused as an unknown item
+      When ORC runtime records the score stage of C-7 failed for the refusal unknown item
+      Then the score stage of C-7 is failed, naming the refusal unknown item
+      And the measurement receipt of C-7 shows the refusal and no score

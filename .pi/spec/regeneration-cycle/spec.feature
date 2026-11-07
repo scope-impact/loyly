@@ -321,3 +321,133 @@ Feature: Regeneration cycle
       When ORC runtime fails cycle C-7 at the fence stage with reason fence refused, naming that refusal
       Then cycle C-7 is recorded failed at the fence stage with reason fence refused and that detail
       And the cycle progress view shows cycle C-7 as "no score"
+
+  Rule: No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence
+
+    # harness-self-check.allium, rule RecordHarnessSelfCheck (requires 9); contract HarnessSelfCheckRun, invariant RewordedScenarioFailsItsGolden
+    @minimum @allium-rule-failure.RecordHarnessSelfCheck.9 @allium-boundary.RewordedScenarioFailsItsGolden
+    @item-04-028
+    Scenario: A golden whose scenario was reworded since it was written fails the harness self-check
+      Given source cut K-3 was pinned
+      And the instrument golden "checklist" was written from its scenario at scenario digest S-1
+      And that scenario was reworded, so its scenario digest is now S-2
+      When ORC runtime records the harness self-check of cycle C-7 before the fence, outcome passed, with reworded golden "checklist"
+      Then the harness self-check is refused
+      And no regeneration cycle C-7 exists
+
+  Rule: The gate installs the regenerated candidate in a fresh gate room ORC chose
+
+    # gate-attempt.allium, rule InstallCandidateInGateRoom
+    @minimum @allium-rule-success.InstallCandidateInGateRoom
+    @item-04-029
+    Scenario: The candidate of an attempt is installed in a fresh gate room
+      Given the clean room of regeneration cycle C-7 was proved
+      And candidate D-1 was regenerated for gate attempt 1 by fresh generation
+      When ORC runtime records candidate D-1 installed in gate room G-1 for gate attempt 1
+      Then candidate D-1 is installed, read-only, in gate room G-1 for gate attempt 1
+      And gate attempt 1 of C-7 awaits its verdict
+
+    # gate-attempt.allium, invariant AtMostThreeAttempts
+    @minimum @allium-invariant.AtMostThreeAttempts
+    @item-04-030
+    Scenario: A cycle never has a fourth gate attempt
+      Given gate attempts 1, 2 and 3 of regeneration cycle C-7 failed with reason suite-red
+      When ORC runtime records candidate D-4 installed in gate room G-4 for gate attempt 4
+      Then the installation is refused
+      And C-7 has three gate attempts
+
+  Rule: The gate records one verdict per attempt, with the boot budget and its margin
+
+    # gate-attempt.allium, rule RecordGateAttempt (requires 2); invariant OneVerdictPerAttempt
+    @minimum @allium-rule-failure.RecordGateAttempt.2 @allium-invariant.OneVerdictPerAttempt
+    @item-04-031
+    Scenario: A replayed verdict records nothing and spends no attempt
+      Given gate attempt 1 of regeneration cycle C-7 failed with reason suite-red
+      When ORC runtime records gate attempt 1 failed with reason suite-red again
+      Then the verdict is refused
+      And gate attempt 1 has one verdict, failed
+      And C-7 has spent one gate attempt
+
+    # gate-attempt.allium, rule RecordGateAttempt (requires 10); contract GateRoom, invariant SeamCheckedBeforeBoot;
+    # surface Gate, guarantee ARefusalSpendsNoAttempt
+    @minimum @allium-rule-failure.RecordGateAttempt.10 @allium-boundary.SeamCheckedBeforeBoot @allium-guarantee.ARefusalSpendsNoAttempt
+    @item-04-032
+    Scenario: A seam that already responded before boot is not graded and spends no attempt
+      Given candidate D-1 was installed in gate room G-1 for gate attempt 1 of regeneration cycle C-7
+      And the harness self-check before gate attempt 1 passed
+      And an orphan of an earlier run already responds on the public seam of gate room G-1
+      When ORC runtime records gate attempt 1 passed with the seam responding before boot
+      Then the verdict is refused
+      And gate attempt 1 still awaits its verdict
+      And C-7 has spent no gate attempt
+
+  Rule: A candidate is regenerated for the next gate attempt, within the budget
+
+    # regeneration-cycle.allium, rule RecordRegeneratedCandidate; surface BuilderRoomBoundary, guarantee DoneIsTheGatesVerdict
+    @minimum @allium-rule-success.RecordRegeneratedCandidate @allium-guarantee.DoneIsTheGatesVerdict
+    @item-04-033
+    Scenario: The first candidate is a fresh generation for gate attempt 1, and a claim, not done
+      Given the clean room of cycle C-7 was proved
+      When ORC runtime records the candidate D-1 regenerated for cycle C-7, attempt 1, by fresh generation, mounting no evidence, its builder session reporting the slice done
+      Then a candidate regenerated for attempt 1 is recorded with digest D-1
+      And the cycle progress view shows cycle C-7 running at the gate stage with 1 attempt and candidate D-1, not passed
+      And cycle C-7 concludes only after a gate attempt is recorded in a gate room the builder does not control
+
+    # regeneration-cycle.allium, rule RecordRegeneratedCandidate (requires 4); invariant AttemptsWithinBudget
+    @minimum @allium-rule-failure.RecordRegeneratedCandidate.4 @allium-invariant.AttemptsWithinBudget
+    @item-04-034
+    Scenario: No candidate is regenerated beyond the budget's gate-attempt limit
+      Given cycle C-7 has a budget of 2 gate attempts
+      And gate attempts 1 and 2 of cycle C-7 failed
+      When ORC runtime records a candidate regenerated for cycle C-7, attempt 3, by verification repair
+      Then the regenerated candidate is refused
+      And the cycle progress view shows cycle C-7 with 2 attempts, never more than its budget allows
+
+    # regeneration-cycle.allium, rule RecordRegeneratedCandidate (requires 9);
+    # surface BuilderRoomBoundary, guarantee NoScoreEvidenceInABuilderRoom
+    @minimum @allium-rule-failure.RecordRegeneratedCandidate.9 @allium-guarantee.NoScoreEvidenceInABuilderRoom
+    @item-04-035
+    Scenario Outline: Only a repair room mounts evidence, and only this cycle's gate evidence
+      Given <given>
+      When ORC runtime records a candidate regenerated for cycle C-7, attempt <attempt>, by <purpose>, its room mounting <mounted>
+      Then the regenerated candidate is refused
+      And the cycle progress view shows cycle C-7 with <attempts> attempts, unchanged
+
+      Examples:
+        | given                                                          | attempt | purpose             | mounted                             | attempts |
+        | the clean room of cycle C-7 was proved                         | 1       | fresh generation    | gate evidence root E-0              | 0        |
+        | gate attempt 1 of cycle C-7 failed with gate evidence root E-1 | 2       | verification repair | the score evidence of cycle C-6     | 1        |
+        | gate attempt 1 of cycle C-7 failed with gate evidence root E-1 | 2       | verification repair | gate evidence root E-5 of cycle C-6 | 1        |
+
+  Rule: A cycle concludes once, passed after its scoreboard or failed at a named stage for a named reason
+
+    # regeneration-cycle.allium, rules NoteScoreStageFailed and ConcludeOnFailedScoreStage
+    @minimum @allium-rule-success.NoteScoreStageFailed @allium-rule-success.ConcludeOnFailedScoreStage
+    @item-04-036
+    Scenario: A failed score stage fails the cycle at the score
+      Given gate attempt 1 of cycle C-7 passed
+      When the measurement records the score stage of cycle C-7 failed, its score refused for zero verdicts
+      Then the conclude-cycle policy fails cycle C-7 at the score stage with reason score stage failed
+      And no score is retaken for cycle C-7
+
+    # regeneration-cycle.allium, rules NoteScoreboardReported, ConcludeOnReportedScoreboard and PassCycle;
+    # invariant PassedOnlyMeasuredAndReported
+    @minimum @allium-rule-success.NoteScoreboardReported @allium-rule-success.ConcludeOnReportedScoreboard @allium-rule-success.PassCycle @allium-invariant.PassedOnlyMeasuredAndReported
+    @item-04-037
+    Scenario: A cycle passes once its scoreboard is reported
+      Given candidate D-1 of cycle C-7 passed gate attempt 1
+      And the measurement of cycle C-7 was filed
+      When the measurement reports the scoreboard of cycle C-7
+      Then the conclude-cycle policy passes cycle C-7 with candidate D-1
+      And the cycle progress view shows cycle C-7 passed at the result stage
+
+  Rule: The instrument's facts only conclude the cycle, and never feed the build loop
+
+    # regeneration-cycle.allium, rule NoteMeasurementFiled; surface MeasurementHandoffs, guarantee ConcludeOnly
+    @minimum @allium-rule-success.NoteMeasurementFiled @allium-guarantee.ConcludeOnly
+    @item-04-038
+    Scenario: A filed measurement moves the cycle to the scoreboard and nothing else
+      Given candidate D-1 of cycle C-7 passed gate attempt 1
+      When the measurement of cycle C-7 is filed
+      Then the cycle progress view shows cycle C-7 running at the scoreboard stage with 1 attempt
+      And no candidate is regenerated and no gate attempt is recorded for cycle C-7

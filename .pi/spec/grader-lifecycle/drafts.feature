@@ -17,15 +17,6 @@ Feature: Grader lifecycle, draft scenarios
       Then instrument golden G-score-unknown is written with the digest "g-40" and the scenario digest "s-12"
       And the harness self-check of the next cycle must reproduce it
 
-    # instrument-golden.allium, rule WriteInstrumentGolden (requires 2)
-    # Suggested tier: minimum
-    @draft @allium-rule-failure.WriteInstrumentGolden.2
-    Scenario: A golden whose scenario digest is not its scenario's is refused
-      Given the instrument scenario "a refused score names the unknown item" has the scenario digest "s-12"
-      When the instrument maintainer writes instrument golden G-score-unknown from that scenario with the scenario digest "s-11"
-      Then the writing is refused
-      And there is no instrument golden G-score-unknown
-
     # instrument-golden.allium, invariant OneGoldenPerIdentity
     # Suggested tier: balance
     @draft @allium-invariant.OneGoldenPerIdentity
@@ -45,24 +36,6 @@ Feature: Grader lifecycle, draft scenarios
       When the instrument maintainer moves G-unknown to the digest "g-41" for "spec grew"
       Then the move is refused
       And there is no instrument golden G-unknown
-
-    # instrument-golden.allium, rule MoveInstrumentGolden (requires 2); invariant AMoveMovesSomething
-    # Suggested tier: minimum
-    @draft @allium-rule-failure.MoveInstrumentGolden.2 @allium-invariant.AMoveMovesSomething
-    Scenario: A move to the same digest is refused
-      Given instrument golden G-score-unknown has the digest "g-40"
-      When the instrument maintainer moves G-score-unknown to the digest "g-40" for "wording replaced" with the note "no change"
-      Then the move is refused
-      And G-score-unknown records no move
-
-    # instrument-golden.allium, rule MoveInstrumentGolden (requires 5)
-    # Suggested tier: minimum
-    @draft @allium-rule-failure.MoveInstrumentGolden.5
-    Scenario: A move that names a stale scenario digest is refused
-      Given instrument golden G-score-unknown was written from a scenario whose scenario digest is now "s-13"
-      When the instrument maintainer moves G-score-unknown to the digest "g-41" for "wording replaced" with the note "reworded" and the scenario digest "s-12"
-      Then the move is refused
-      And G-score-unknown still has the digest "g-40" and the scenario digest it was written with
 
     # grader-lifecycle/allium/context.allium, contract ScenarioDigests, invariant DigestChangesWithTheBehaviour
     # Suggested tier: balance
