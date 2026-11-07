@@ -1,0 +1,213 @@
+;; .pi/spec/cycle-runner/event-model/cycle-run.edn: aggregate CycleRun, in the runner's own
+;; event store (one per run). DRAFT (decisions.md, "Slice 06 (draft)"). The runner performs a
+;; cycle's effects in the real world and records each effect's result into the context that
+;; owns it, through that context's seam; its own facts are which effect it performed and what
+;; the context answered, which handoff it relayed and how the consumer took it, the verdicts
+;; handed in, and how the run ended. It owns no rule of the five contexts.
+;; Legacy: the operator's hands between fence.sh, a builder session, verify.sh, a grading
+;; subagent's verdicts file, score.clj and scoreboard.clj; harness/v2/assemble.clj (the relay).
+;; Allium: ../allium/cycle-run.allium.
+{:cycle-runner
+ {:commands
+  {:cycle-runner/start-run
+   {:description "Start a run of one cycle: the cut's commit, the selection, the budget and the approved grader digests. The five contexts' candidates are started for it, each on a fresh store, and the run performs its effects up to the gate's verdict before the method responds. Issued by: operator."
+    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "StartRun"}]
+    :schema [:map
+             [:run-id :string]
+             [:cycle-id :string]
+             [:cut-id :string]
+             [:commit [:re "^[0-9a-f]{40,64}$"]]
+             [:selection-id :string]
+             [:budget [:map
+                       [:gate-attempt-limit [:int {:min 1 :max 3}]]
+                       [:max-outer-cycles pos-int?]
+                       [:max-continuations [:int {:min 0 :max 3}]]
+                       [:stage-timeouts-seconds [:map [:fence pos-int?] [:regenerate pos-int?] [:gate pos-int?] [:score pos-int?]]]]]
+             [:grader-digests [:vector {:min 1} :string]]]
+    :reads #{:cycle-runner/runs}
+    :produces #{:cycle-runner/run-started}}
+   :cycle-runner/record-effect
+   {:description "Record one effect's result: the effect a node performed, the context method it was recorded through, and what the context replied (recorded, with the events it replied, verbatim, or refused, with its refusal code as heard). Issued by: the advance-run processor, after it performed the effect."
+    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "RecordEffect"}
+                   {:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "RecordEffectAfterTheVerdicts"}]
+    :schema [:map
+             [:run-id :string]
+             [:effect [:enum "stamp" "pin" "checklist" "self-check" "fence" "fail-cycle" "regenerate" "install"
+                       "gate" "gate-refusal" "repair" "file-verdicts" "file-score" "fail-score-stage"]]
+             [:attempt [:int {:min 0 :max 3}]]
+             [:context [:enum "specification" "cycle-preparation" "grader-lifecycle" "regeneration-cycle" "measurement"]]
+             [:method :string]
+             [:outcome [:enum "recorded" "refused"]]
+             [:refusal {:optional true} :string]
+             [:events [:vector :map]]
+             [:detail :string]]
+    :reads #{:cycle-runner/runs}
+    :produces #{:cycle-runner/effect-recorded}}
+   :cycle-runner/relay-handoff
+   {:description "Hand one producer's handoff, taken from the producer's own store, in store order, in to one consumer unchanged, and record how the consumer took it. Issued by: the advance-run processor, after every recording."
+    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "RelayHandoff"}]
+    :schema [:map
+             [:run-id :string]
+             [:handoff-type :string]
+             [:producer :string]
+             [:position pos-int?]
+             [:consumer :string]
+             [:outcome [:enum "accepted" "refused"]]]
+    :reads #{:cycle-runner/runs :cycle-runner/relayed-handoffs}
+    :produces #{:cycle-runner/handoff-relayed}}
+   :cycle-runner/hand-in-verdicts
+   {:description "Hand in the verdicts file of the gated candidate: one verdict per checklist item, written by the grading subagent, and by the main session for an item it judges. The run then files them and the score with Measurement, relays, and concludes before the method responds. Issued by: operator."
+    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "HandInVerdicts"}]
+    :schema [:map
+             [:run-id :string]
+             [:verdicts-path :string]
+             [:grader-digest :string]]
+    :reads #{:cycle-runner/runs}
+    :produces #{:cycle-runner/verdicts-handed-in}}
+   :cycle-runner/conclude-run
+   {:description "Conclude the run as its cycle concluded in the Regeneration cycle: passed or failed, with the cycle's progress as read. Issued by: the advance-run processor, when the cycle's progress shows it concluded."
+    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "ConcludeRunPassed"}
+                   {:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "ConcludeRunFailed"}]
+    :schema [:map
+             [:run-id :string]
+             [:cycle-status [:enum "passed" "failed"]]
+             [:cycle :map]]
+    :reads #{:cycle-runner/runs}
+    :produces #{:cycle-runner/run-concluded}}
+   :cycle-runner/halt-run
+   {:description "Halt the run: an effect could not be performed at all (a context did not respond, a handed-in command could not be started), so nothing was recorded for it; or the stamp, the pin or the checklist was refused before the cycle opened, so there is no cycle to fail. A halt is the runner's fact, never the cycle's conclusion. Issued by: the advance-run processor."
+    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "HaltRun"}]
+    :schema [:map
+             [:run-id :string]
+             [:effect :string]
+             [:reason [:enum "context-did-not-respond" "effect-could-not-run" "refused-before-the-cycle"]]
+             [:detail :string]]
+    :reads #{:cycle-runner/runs}
+    :produces #{:cycle-runner/run-halted}}}
+  :events
+  {:cycle-runner/run-started
+   {:description "A run of one cycle started: its cut, commit, selection, budget and approved grader digests, and the five contexts started for it."
+    :schema [:map
+             [:run-id :string]
+             [:cycle-id :string]
+             [:cut-id :string]
+             [:commit :string]
+             [:selection-id :string]
+             [:budget :map]
+             [:grader-digests [:vector :string]]
+             [:started-at inst?]]}
+   :cycle-runner/effect-recorded
+   {:description "An effect was performed and its result recorded into a context: the method, and the context's reply as heard."
+    :schema [:map
+             [:run-id :string]
+             [:position pos-int?]
+             [:effect :string]
+             [:attempt :int]
+             [:context :string]
+             [:method :string]
+             [:outcome [:enum "recorded" "refused"]]
+             [:refusal {:optional true} :string]
+             [:events [:vector :map]]
+             [:detail :string]
+             [:performed-at inst?]]}
+   :cycle-runner/handoff-relayed
+   {:description "A producer's handoff was handed in to one consumer, unchanged, and the consumer accepted or refused it."
+    :schema [:map
+             [:run-id :string]
+             [:handoff-type :string]
+             [:producer :string]
+             [:position pos-int?]
+             [:consumer :string]
+             [:outcome [:enum "accepted" "refused"]]
+             [:relayed-at inst?]]}
+   :cycle-runner/verdicts-handed-in
+   {:description "The verdicts file of the gated candidate was handed in: its path, its digest, the grader digest and the number of verdicts it holds."
+    :schema [:map
+             [:run-id :string]
+             [:verdicts-path :string]
+             [:verdicts-digest :string]
+             [:grader-digest :string]
+             [:verdicts :int]
+             [:handed-in-at inst?]]}
+   :cycle-runner/run-concluded
+   {:description "The run concluded as its cycle did: passed, or failed at the cycle's stage for the cycle's reason. cycle is the Regeneration cycle's progress of the cycle as read at the conclusion, verbatim."
+    :schema [:map
+             [:run-id :string]
+             [:cycle-id :string]
+             [:cycle-status [:enum "passed" "failed"]]
+             [:cycle :map]
+             [:concluded-at inst?]]}
+   :cycle-runner/run-halted
+   {:description "The run halted: an effect could not be performed, so nothing was recorded for it. Loud, and never the cycle's conclusion."
+    :schema [:map
+             [:run-id :string]
+             [:effect :string]
+             [:reason [:enum "context-did-not-respond" "effect-could-not-run" "refused-before-the-cycle"]]
+             [:detail :string]
+             [:halted-at inst?]]}}
+  :read-models
+  {:cycle-runner/runs
+   {:description "Each run: its cycle, cut and commit, its status (running, awaiting-verdicts, grading, passed, failed, halted), the effects recorded, the candidates regenerated, the verdicts digest, and how it ended."
+    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :entity :name "CycleRun"}]
+    :consumes #{:cycle-runner/run-started :cycle-runner/effect-recorded :cycle-runner/verdicts-handed-in
+                :cycle-runner/run-concluded :cycle-runner/run-halted}
+    :schema [:map
+             [:run-id :string]
+             [:cycle-id :string]
+             [:cut-id :string]
+             [:commit :string]
+             [:status [:enum "running" "awaiting-verdicts" "grading" "passed" "failed" "halted"]]
+             [:effects :int]
+             [:attempts :int]
+             [:candidate-digest {:optional true} :string]
+             [:verdicts-digest {:optional true} :string]
+             [:cycle {:optional true} :map]
+             [:halt {:optional true} [:map [:effect :string] [:reason :string] [:detail :string]]]]}
+   :cycle-runner/effect-results
+   {:description "Each run's effect results, in the order performed: effect, attempt, context, method, outcome, refusal, events, detail."
+    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :entity :name "EffectResult"}]
+    :consumes #{:cycle-runner/effect-recorded}
+    :schema [:map
+             [:run-id :string]
+             [:position :int]
+             [:effect :string]
+             [:attempt :int]
+             [:context :string]
+             [:method :string]
+             [:outcome :string]
+             [:refusal {:optional true} :string]
+             [:events [:vector :map]]
+             [:detail :string]]}
+   :cycle-runner/relayed-handoffs
+   {:description "Each run's relayed handoffs, in the order relayed: type, producer, position in the producer's store, consumer, outcome."
+    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :entity :name "RelayedHandoff"}]
+    :consumes #{:cycle-runner/handoff-relayed}
+    :schema [:map
+             [:run-id :string]
+             [:handoff-type :string]
+             [:producer :string]
+             [:position :int]
+             [:consumer :string]
+             [:outcome :string]]}
+   :cycle-runner/runs-to-advance
+   {:description "The advance-run processor's to-do list: runs running or grading whose next effect, relay or conclusion is due; a run that awaits its verdicts, concluded or halted leaves it."
+    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :entity :name "CycleRun"}]
+    :consumes #{:cycle-runner/run-started :cycle-runner/effect-recorded :cycle-runner/handoff-relayed
+                :cycle-runner/verdicts-handed-in :cycle-runner/run-concluded :cycle-runner/run-halted}}}
+  :queries
+  {:cycle-runner/run-progress
+   {:description "One run's status, effect results and relayed handoffs, or every run's. A view, never an authority."
+    :schema [:map [:run-id {:optional true} :string]]
+    :reads #{:cycle-runner/runs :cycle-runner/effect-results :cycle-runner/relayed-handoffs}}
+   :cycle-runner/runs-to-advance
+   {:description "The advance-run processor's to-do list."
+    :schema [:map]
+    :reads #{:cycle-runner/runs-to-advance}}}
+  :todo-processors
+  {:cycle-runner/advance-run
+   {:description "Whenever a run started, an effect was recorded, a handoff relayed or the verdicts handed in: relay the producer's new handoffs; then, if the cycle concluded, conclude the run; else perform the run's next effect in the real world and record its result into its context; if the effect could not be performed at all, halt the run. Stops when the run awaits its verdicts, concluded or halted."
+    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "ConcludeWithTheCycle"}]
+    :subscribes #{:cycle-runner/run-started :cycle-runner/effect-recorded :cycle-runner/handoff-relayed
+                  :cycle-runner/verdicts-handed-in}
+    :reads #{:cycle-runner/runs-to-advance}
+    :produces #{:cycle-runner/record-effect :cycle-runner/relay-handoff :cycle-runner/conclude-run :cycle-runner/halt-run}}}}}

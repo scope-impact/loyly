@@ -690,3 +690,41 @@ Graders 02, 03 and 04 must grow by the new items, reason "spec grew" (additions 
 existing scenario's wording changed), and slices 02 to 04 must be rebuilt for them; slices 01
 and 05 are unchanged. The checklist golden grows 99 → 149. The 50 new items are the next
 cycle's untuned holdout.
+
+## Slice 06 (draft): cycle-runner (spec round 7a, 2026-11-07)
+
+Stage 1 of the switch: a sixth context, `cycle-runner`, the ORC workflow that performs a cycle's
+effects in the real world and records each result into the context that owns it, through that
+context's seam. Drafts only, for the product owner's review: no `spec.feature`, nothing stamped,
+no `.pi/plan/06-*` link, no existing context changed. Decided by the product owner before drafting:
+
+1. **The benchmark is the full Löyly app as planned** (the main working copy's `docs/plan`, unchanged;
+   today 01-booking-core, 11 items), with the legacy settings of
+   `archive/legacy-harness/config.sh` (`PORT=8901`, `PLAN_DIR=docs/plan`, `APP_MARKER=sauna`,
+   `APP_PROBE=harness/probe.sh`, `FENCED_PATHS="impl harness/cycles"`), the probe kept as-is (a
+   name check, for parity), the gate on the host for stage 1.
+2. **One builder per run**: the runner launches pi with its Gondolin backend and waits for it.
+3. **The verdicts are handed in.** One legacy-step-5 grading subagent per candidate writes one
+   verdicts file, handed to the runner (and to legacy `score.clj` in a shadow run); the main
+   session judges `@item-01-011` of the Löyly app and hands that verdict in like the others. The
+   sealed Löyly grader comes after the switch (OG1 = no stands for the product).
+4. **No legacy reference cycle**: shadow runs compare live; the main session is the final judge
+   of every comparison, subagents produce evidence packs, legacy is the reference.
+5. **No shared store** (A1 stays deferred, Spec round 5): the runner is the relay, as
+   `harness/v2/assemble.clj` is.
+
+The draft (`cycle-runner/`): one aggregate `CycleRun`; the operator's `start-run` and
+`hand-in-verdicts` are the only command methods, the processor `advance-run` issues
+`record-effect`, `relay-handoff`, `conclude-run` and `halt-run` after it performed each effect;
+the effects E1 to E8 of the triage are listed in `cycle-runner/seam.md` with the context method
+each is recorded through; everything the runner acts on is handed in (`LOYLY_PROJECT_REPO`,
+`LOYLY_HARNESS_CONFIG`, `LOYLY_CONTEXTS`, `LOYLY_SELF_CHECK_CMD`, `LOYLY_BUILDER_CMD`,
+`LOYLY_BUILDER_INSTRUCTION`, `LOYLY_RUNS_DIR`), so a grader drives it black-box with fixtures, a
+stub builder and the five gated candidates. 34 drafts cover its 40 must-cover obligations.
+
+Open, for the product owner (`cycle-runner/domain-design.md`): Q1 the already-stamped Löyly plan
+against a fresh Specification ledger (Measurement refuses the checklist `unknown-item` as things
+stand); Q2 `harness/cycles` does not exist at today's cut, so the legacy fence refuses
+`fenced-path-matched-nothing`; Q3 the harness digest; Q4 synchronous methods against a builder
+that takes hours; Q5 what the Löyly clean room holds beyond `docs/plan`; Q6 the scenario digest
+formula.

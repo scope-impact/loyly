@@ -16,6 +16,7 @@ A from-scratch specification of the Pi harness, built in rounds.
 | Slice 03 | Grader lifecycle alone: its seam, its flow cut to its own context, the scenario digests handed in (`LOYLY_SCENARIO_DIGESTS`), a reason outside the three heard as a schema mismatch | `decisions.md` ("Slice 03"), `grader-lifecycle/seam.md` |
 | Slice 04 | Regeneration cycle alone: its seam, its flows cut to its own context with Measurement's facts as consumed handoffs, the real world's results handed in as command params (it records, it does not act), the goldens digest by a stated formula, the scoring tools handed in (`LOYLY_SCORING_TOOL_PATHS`), the policy and the stage clock through the seam | `decisions.md` ("Slice 04"), `regeneration-cycle/seam.md` |
 | Slice 05 | Cycle preparation alone: its seam, its flow cut to its own context, the repository's commits and tree digests handed in (`LOYLY_PROJECT_COMMITS`), full 40-hex commits in its scenarios | `decisions.md` ("Slice 05"), `cycle-preparation/seam.md` |
+| Slice 06 (draft) | Cycle runner, spec round 7a, drafts for review: the ORC workflow that performs a cycle's effects (E1 to E8: stamp, pin, checklist, self-check, fence, regenerate, gate on the host, repair, file the handed-in verdicts) and records each into its context through its seam, relaying every handoff from its producer's store; 34 drafts, no `spec.feature`, no `.pi/plan/06-*` yet | `decisions.md` ("Slice 06 (draft)"), `cycle-runner/` |
 | | Decisions of the product owner after R1 and R2 | `decisions.md` |
 
 ## Contexts in R1

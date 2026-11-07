@@ -1,0 +1,152 @@
+-- allium: 3
+-- .pi/spec/cycle-runner/allium/context.allium
+--
+-- Scope: the shared language of the Cycle runner (DRAFT, slice 06, spec round 7a): the ORC
+--        workflow that performs a cycle's effects in the real world and records each
+--        effect's result into the context that owns it, through that context's seam. It
+--        owns no rule of the five contexts: every refusal it shows is a context's, as
+--        heard, and a run ends as its cycle ends.
+--
+-- One run in the legacy shape (archive/legacy-harness/README.md), the effects E1 to E8 of
+-- the stage-1 triage (decisions.md, "Slice 06 (draft)"):
+--     stamp, pin, checklist -> self-check -> fence -> regenerate -> install, self-check,
+--     gate (repair, at most three attempts) -> the verdicts handed in -> file the verdicts,
+--     file the score -> the cycle concludes
+-- After every recording the runner relays the producer's new handoffs, from the producer's
+-- own store, to every consumer, in the producer's order (decisions.md, "Spec round 5").
+--
+-- Aggregates (one file; .pi/spec/cycle-runner/event-model/):
+--   CycleRun  cycle-run.allium  one per run; its effect results and relayed handoffs
+--
+-- Handoffs: none consumed and none produced. The five contexts' events never enter the
+-- runner's store: it reads them from each producer's store and hands them in through the
+-- consumers' seams.
+
+------------------------------------------------------------
+-- Value Types
+------------------------------------------------------------
+
+-- The budget a run carries, handed to the Regeneration cycle with its first self-check,
+-- unchanged (regeneration-cycle Budget; decisions.md H5).
+value RunBudget {
+    gate_attempt_limit: Integer
+    max_outer_cycles: Integer
+    max_continuations: Integer
+    fence_timeout: Duration
+    regenerate_timeout: Duration
+    gate_timeout: Duration
+    score_timeout: Duration
+}
+
+------------------------------------------------------------
+-- Contracts
+------------------------------------------------------------
+
+-- The five contexts' candidates, started for one run, each reached over its public seam
+-- (JSON-RPC 2.0 over stdio, each context's seam.md) and each on its own store.
+contract ContextSeams {
+    contexts_respond: (run_id: String) -> Boolean
+    cycle_status_of: (cycle_id: String) -> String
+    gate_attempt_passed: (cycle_id: String, attempt: Integer) -> Boolean
+
+    @invariant OnlyThroughTheSeams
+        -- The runner records into a context only by calling a method of its seam, and
+        -- reads a context only through its queries and, for the relay, the handoff
+        -- events of its own store. It never reads a context's source and never writes
+        -- into a context's store.
+
+    @invariant RefusalsAreTheContexts
+        -- Every refusal of a recording is the context's reply, recorded as heard: the
+        -- refusal code of its seam, never re-derived. The runner does not decide what a
+        -- context would refuse, and does not skip a recording because it expects one.
+}
+
+-- The project repository of the benchmark: the cut's commit and its tree.
+contract ProjectRepository {
+    is_commit: (commit: String) -> Boolean
+    tree_of: (commit: String) -> String
+}
+
+-- The builder: one pi session with its Gondolin backend, launched by the runner, which
+-- waits for it to end (decisions.md, "Slice 06 (draft)").
+contract BuilderLaunch {
+    @invariant OneFreshBuilderPerRegenerate
+        -- Each regenerate and each repair launches one fresh builder session and waits
+        -- for it; no builder session continues another, and one run has one builder at
+        -- a time.
+
+    @invariant TheBuilderSeesOnlyItsMounts
+        -- A fresh builder is handed the clean room and an empty candidate scope; a repair
+        -- builder also the previous candidate and this cycle's gate evidence, read-only.
+        -- Neither is handed the verdicts file, an item verdict, a score or a scoreboard
+        -- (decisions.md H6).
+
+    @invariant TheBuilderExitIsNoVerdict
+        -- How a builder session ends is not evidence: the runner records the candidate
+        -- the builder left in its candidate scope, and the gate decides whether it is
+        -- done. A builder that leaves nothing in its candidate scope regenerated nothing.
+}
+
+-- The gate, run on the host for stage 1, in the order of legacy verify.sh: the contract's
+-- two entry points, the identity probe, the port free, the suite, the boot within its
+-- budget, the marker, the identity probe's reply.
+contract GateOnTheHost {
+    @invariant TheGateGradesACopy
+        -- The gate grades a copy of the candidate taken when its builder session ended, in
+        -- a gate room the builder never had: what the builder does after it ends does not
+        -- reach what the gate grades.
+
+    @invariant TheLegacyGateOrder
+        -- The first guard that does not hold is the gate's reply, in legacy verify.sh's
+        -- order; the port already answering is a refusal to grade, not a failed attempt
+        -- (decisions.md b).
+}
+
+------------------------------------------------------------
+-- Enumerations
+------------------------------------------------------------
+
+-- The effect a node of the run performed, each recorded into one context's method
+-- (seam.md, "The effects").
+enum Effect {
+    stamp | pin | checklist | self_check | fence | fail_cycle | regenerate | install
+    | gate | gate_refusal | repair | file_verdicts | file_score | fail_score_stage
+}
+
+enum EffectOutcome { recorded | refused }
+
+enum RelayOutcome { accepted | refused }
+
+-- Why a run halted: an effect that could not be performed at all, so nothing was
+-- recorded for it; or a recording refused before the cycle opened (the stamp, the pin or
+-- the checklist), where there is no cycle to fail (AGENTS.md: an unstamped scenario or an
+-- empty selection stops the cycle).
+enum HaltReason { context_did_not_respond | effect_could_not_run | refused_before_the_cycle }
+
+------------------------------------------------------------
+-- Config
+------------------------------------------------------------
+
+-- The project's harness configuration, legacy config.sh as-is (seam.md, "Handed in").
+config {
+    app_dir: String
+    port: Integer
+    plan_dir: String
+    app_marker: String
+    app_probe: String
+    fenced_paths: Set<String>
+    -- Legacy verify.sh: ten seconds, twenty polls at half a second.
+    boot_budget_seconds: Integer = 10
+    boot_polls: Integer = 20
+}
+
+------------------------------------------------------------
+-- Open Questions
+------------------------------------------------------------
+
+open question "Q1: the benchmark's plan is already stamped (@item-01-001 to 011), and Specification's ledger starts empty in every run, so no scenario-stamped event names those items and Measurement refuses the checklist (unknown-item). Draft reading: the runner stamps a copy of each spec file with its item tags removed and requires the ledger's identities to equal the plan's; else a persistent Specification store, or an import command in Specification."
+open question "Q2: legacy FENCED_PATHS is \"impl harness/cycles\"; the main working copy has no harness/cycles, so the fence of today's cut refuses fenced-path-matched-nothing. Keep the legacy value (the run fails at the fence) or declare the benchmark's own?"
+open question "Q3: the harness digest of a self-check: draft reading, the SHA-256 of the configuration file, the self-check command and the identity probe, in that order. Confirm."
+open question "Q4: a run is synchronous (start-run responds when the run awaits its verdicts or concluded); a live builder takes hours, and nothing can be read through the seam meanwhile. Keep, or respond at once and advance in the background?"
+open question "Q5: the clean room of the Löyly cut holds this repository's .pi/, harness/ and harness-impl/ as well as docs/plan; legacy fenced only impl and harness/cycles. Is that the room the builder should see, for parity?"
+open question "Q6: the scenario digest formula (seam.md) is the runner's reading; Specification's ScenarioReading names none. Confirm, or name it in Specification."
