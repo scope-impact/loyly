@@ -1,10 +1,10 @@
 # grade_grader_lifecycle.exs START_SH: the sealed grader of spec v2 slice 03, the
 # grader-lifecycle context (.pi/spec/grader-lifecycle/spec.feature, @item-03-001 to
-# @item-03-004).
+# @item-03-007; 03-005 to 03-007 added for the recorded reason "spec grew", spec round 2).
 #
 # Authored from the selected Gherkin, the public seam (.pi/spec/grader-lifecycle/seam.md, with
 # the slice's event model and Allium for its params, results and refusals), .pi/spec/
-# decisions.md "Slice 03" and the public calibration protocol (AGENTS.md, "The instrument")
+# decisions.md "Slice 03" and "Spec round 2" and the public calibration protocol (AGENTS.md, "The instrument")
 # only. Its author read no candidate, transcript, prior verdict or host credential.
 #
 # For each item it builds fresh state in a temporary directory (a fresh LOYLY_GRAIN_STORE file
@@ -296,6 +296,14 @@ defmodule Op do
     eq!(g["moves"], [], "#{golden}'s moves")
   end
 
+  # Then "there is no instrument golden G": the query shows no golden G.
+  def absent!(golden) do
+    l = goldens()
+    n = Enum.count(l, &(is_map(&1) and &1["golden-id"] == golden))
+    if n != 0, do: fail!("the instrument-goldens query shows #{n} goldens #{golden}: #{Ev.short(l)}")
+    Ev.note("observed: the instrument-goldens query shows no golden #{golden}")
+  end
+
   def moved, do: @moved
 end
 
@@ -385,10 +393,53 @@ defmodule Items do
       unmoved!("G-score-unknown", "g-40")
     end)
   end
+
+  # A golden whose scenario digest is not its scenario's is refused (WriteInstrumentGolden
+  # requires 2). The issuer hands in "s-12" as the scenario's current digest and offers "s-11".
+  def i005(w) do
+    example(w, "only", fn _ ->
+      case goldens() do
+        [] -> Ev.note("given: the fresh store holds no golden")
+        l -> fail!("the Given could not be established: the fresh store holds goldens #{Ev.short(l)}")
+      end
+
+      digests(%{@scenario => "s-12"})
+      Ev.note("given: the instrument scenario #{inspect(@scenario)} has the scenario digest s-12")
+      {_, resp} = write("G-score-unknown", @scenario, "s-11", "g-40")
+      refused!(resp, "scenario-digest-mismatch", "the writing of G-score-unknown with the scenario digest s-11")
+      absent!("G-score-unknown")
+    end)
+  end
+
+  # A move to the same digest is refused (MoveInstrumentGolden requires 2; AMoveMovesSomething).
+  def i006(w) do
+    example(w, "only", fn _ ->
+      given_golden("G-score-unknown", @scenario, "s-12", "g-40")
+      resp = move("G-score-unknown", "g-40", "wording-replaced", false, "no change", "s-12")
+      refused!(resp, "same-digest", "the move of G-score-unknown to its own digest g-40")
+      unmoved!("G-score-unknown", "g-40")
+    end)
+  end
+
+  # A move that names a stale scenario digest is refused (MoveInstrumentGolden requires 5).
+  # G-score-unknown was written with the digest "g-40" (decisions.md "Spec round 2" 3) from its
+  # scenario at "s-12"; the scenario has since been reworded, so the issuer now hands in "s-13"
+  # as its current digest, and the move names the stale "s-12".
+  def i007(w) do
+    example(w, "only", fn _ ->
+      given_golden("G-score-unknown", @scenario, "s-12", "g-40")
+      digests(%{@scenario => "s-13"})
+      Ev.note("given: G-score-unknown's scenario has been reworded; its scenario digest is now s-13")
+      resp = move("G-score-unknown", "g-41", "wording-replaced", false, "reworded", "s-12")
+      refused!(resp, "stale-scenario-digest", "the move of G-score-unknown naming the stale scenario digest s-12")
+      unmoved!("G-score-unknown", "g-40")
+      eq!(golden!("G-score-unknown")["scenario-digest"], "s-12", "G-score-unknown's scenario digest (the one it was written with)")
+    end)
+  end
 end
 
 defmodule Main do
-  @items for n <- 1..4, do: String.pad_leading("#{n}", 3, "0")
+  @items for n <- 1..7, do: String.pad_leading("#{n}", 3, "0")
 
   defp realdir(dir), do: dir |> then(&System.cmd("pwd", ["-P"], cd: &1)) |> elem(0) |> String.trim()
 

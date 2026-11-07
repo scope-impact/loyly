@@ -70,7 +70,11 @@ def write(p):
     db = load()
     if find(db, p["golden-id"]):
         return refusal("golden-exists")
-    if p["scenario-digest"] != digest_of_scenario(p["scenario"]):
+    if p["scenario-digest"] != digest_of_scenario(p["scenario"]) and MUTANT != "write-any-sdigest":
+        if MUTANT == "mismatch-but-record":
+            db["goldens"].append({"golden-id": p["golden-id"], "scenario": p["scenario"], "path": p["path"],
+                                  "digest": p["digest"], "scenario-digest": p["scenario-digest"], "moves": []})
+            save(db)
         return refusal("scenario-digest-mismatch")
     db["goldens"].append({"golden-id": p["golden-id"], "scenario": p["scenario"], "path": p["path"],
                           "digest": p["digest"], "scenario-digest": p["scenario-digest"], "moves": []})
@@ -91,13 +95,14 @@ def move(p):
     if not g:
         return refusal("no-such-golden")
     refused = None
-    if p["digest"] == g["digest"]:
+    current = g["scenario-digest"] if MUTANT == "stale-against-recorded" else digest_of_scenario(g["scenario"])
+    if p["digest"] == g["digest"] and MUTANT != "accept-same-digest":
         refused = "same-digest"
     elif p["reason"] == "spec-grew" and not p["additions-only"] and MUTANT != "spec-grew-any-diff":
         refused = "spec-grew-not-additions-only"
     elif p["note"] == "" and MUTANT != "accept-empty-note":
         refused = "empty-note"
-    elif p["scenario-digest"] != digest_of_scenario(g["scenario"]):
+    elif p["scenario-digest"] != current and MUTANT != "accept-stale-digest":
         refused = "stale-scenario-digest"
     if refused:
         if MUTANT == "refuse-but-record":
