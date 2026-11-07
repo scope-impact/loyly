@@ -1,0 +1,8 @@
+[
+"03-010's When names no note or scenario digest; the schema requires both (note min 1), so a grader must supply them. The candidate refuses no-such-golden first even with an empty note, consistent with the requires order.",
+"03-011's When gives no note, though a note is required (empty-note); a grader must supply one.",
+"03-002 'a diff that is not additions only' is only the issuer's boolean additions-only=false; the candidate cannot check the diff itself (seam.md says so).",
+"A golden written while a digests file existed can no longer be moved after the file is removed (stale-scenario-digest): the context is inert for moves as well as writes without the file.",
+"-32602 error data is an EDN-like string of malli errors, not structured JSON; seam.md does not fix its shape.",
+"Move events list fields in a different key order than write events; harmless for JSON but shows the result is a map, not ordered per schema."
+]

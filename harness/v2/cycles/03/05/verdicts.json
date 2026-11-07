@@ -1,0 +1,13 @@
+[
+{"id":"03-001","verdict":"pass","evidence":"Golden written g-40/s-12; move to g-41 instrument-behavior-changed with note returned instrument-golden-moved {from g-40, to g-41, reason, note, scenario-digest s-12}; goldens shows digest g-41, scenario-digest s-12, one move with reason and note. A second move appended in order."},
+{"id":"03-002","verdict":"pass","evidence":"G-checklist g-50; spec-grew with additions-only false -> -32000 spec-grew-not-additions-only; goldens still g-50, no moves. Same with empty note also gives requires-3 refusal first; additions-only true then moves to g-51."},
+{"id":"03-003","verdict":"pass","evidence":"Move with note \"\" -> -32000 empty-note (not -32602); goldens still g-40, no moves."},
+{"id":"03-004","verdict":"pass","evidence":"reason 'make-the-self-check-green' and 'make the self-check green' -> -32602 naming the three enum values; goldens still g-40, no moves."},
+{"id":"03-005","verdict":"pass","evidence":"Digests file {scenario: s-12}; write with s-11 -> -32000 scenario-digest-mismatch; goldens []. Unnamed scenario also refused; correct s-12 write then succeeds."},
+{"id":"03-006","verdict":"pass","evidence":"Move g-40 -> g-40 wording-replaced -> -32000 same-digest; goldens show moves []."},
+{"id":"03-007","verdict":"pass","evidence":"Written g-40 with s-12; digests file changed to s-13 while running; move with s-12 -> -32000 stale-scenario-digest; goldens still g-40, scenario-digest s-12, no moves."},
+{"id":"03-008","verdict":"pass","evidence":"Write G-score-unknown s-12 g-40 -> instrument-golden-written with all schema fields + written-at; goldens show digest g-40, scenario-digest s-12, moves []."},
+{"id":"03-009","verdict":"pass","evidence":"Second write g-41 -> -32000 golden-exists; goldens list exactly one G-score-unknown at g-40 (also after process restart on same store)."},
+{"id":"03-010","verdict":"pass","evidence":"Move G-unknown spec-grew -> -32000 no-such-golden (also first even with empty note/bad digest); goldens contain no G-unknown."},
+{"id":"03-011","verdict":"pass","evidence":"Written from '@item-03-004' s-12; file reworded to s-13 (read live, no restart); move g-41 wording-replaced with s-13 succeeds; goldens show g-41, scenario-digest s-13. New write with old s-12 then refused."}
+]
