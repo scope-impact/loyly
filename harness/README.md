@@ -55,27 +55,23 @@ paths, `LOYLY_SCORING_TOOL_PATHS` (`.pi/spec/decisions.md`, "Slice 04"). Its pro
 digest `seam.md` defines, has a fence whose path matched nothing refused, proves the clean room
 and reads the cycle back.
 
-After the gate, `harness/v2/score.sh NN ROOM` scores the cycle the legacy way (the legacy
-README's step 5: grade each checklist item against the running app, however you grade, then
-file). The grader is an agent: `LOYLY_GRADER_CMD` (by default `claude -p --permission-mode
-bypassPermissions`), handed the pinned, open-ended prompt `v2/grading/prompt.md` on stdin. The
-prompt names the slice's items, points at the context's spec, Allium, event model,
-`domain-design.md` and `seam.md`, says to start `ROOM/harness-impl/NN-<context>/start.sh` with a
-fresh `LOYLY_GRAIN_STORE` and drive it only over its seam, and asks for one `verdicts.json`,
-`[{"id", "verdict": "pass"|"fail", "evidence"}]`, and optionally a `surprises.json` that never
-changes a verdict. It forbids reading the candidate's source, the room, prior verdicts, cycles,
-graders, transcripts and credentials. The grading runs as an ORC workflow (`v2/grading/`, on a
-Grain store kept in the cycle as `grading.sqlite`, not committed): it renders the prompt and
-records its sha256, runs the command in a fresh scratch directory for at most
-`LOYLY_GRADER_TIMEOUT` seconds (1800), and validates the verdicts. An entry that is not shaped
-right, an id not on the checklist and an id filed twice are dropped with a note; an item without
-a verdict is unreached, and `score.clj` fails it and keeps it in the denominator; no file is
-zero verdicts, and `score.clj` refuses to file. The prompt's sha256 and the command are recorded
-in the cycle (`graders.txt`) as provenance; `SCORE_WHICH=1` prints them. Nobody approves the
-prompt; nothing is calibrated or sealed (decided 2026-11-07). The cycle `v2/cycles/NN/MM/` keeps
-the rendered prompt, `verdicts.json`, `surprises.json`, the grader's stdout and stderr and the
-workflow's log, and the legacy `score.clj` and `scoreboard.clj` file and report into it. The
-Elixir graders that scored cycles 01 to 03 of each slice are retired; git history keeps them.
+After the gate, `harness/v2/score.sh NN ROOM --verdicts FILE [--by "who/how graded"]` scores
+the cycle the legacy way, the legacy README's step 5: grade each checklist item against the
+running app, however you grade, then file. The grading happens before `score.sh` and outside
+it: an agent drives the candidate `ROOM/harness-impl/NN-<context>/start.sh` only over its public
+seam, as the context's `seam.md` describes it, grades each item of the slice's spec however it
+judges best, and writes `FILE`, `[{"id", "verdict": "pass"|"fail", "evidence"}]`. `score.sh`
+derives the checklist from the slice's spec alone, copies `FILE` into the cycle as its
+`verdicts.json`, records `verdicts: sha256:<hex> <basename>` and `by: <text>` (default
+`unspecified`) in the cycle's `graders.txt` as provenance, and the legacy `score.clj` and
+`scoreboard.clj` file and report into `v2/cycles/NN/MM/`: an item without a verdict is
+unreached, fails and stays in the denominator; zero verdicts are refused. A missing or
+unreadable `FILE` is refused before a cycle is claimed; `SCORE_WHICH=1` prints what would be
+recorded. Nobody approves a grading and nothing is calibrated or sealed (decided 2026-11-07).
+The Elixir graders that scored cycles 01 to 03 of each slice are retired; git history keeps
+them. An open grader run by ORC is a new-harness feature, drafted in the spec
+(`.pi/spec/grader-lifecycle/drafts.feature`, `.pi/spec/measurement/drafts.feature`), not part
+of this tool.
 
 **Where a spec-v2 cycle is filed (2026-11-07).** Each slice numbers its own cycles under
 `v2/cycles/NN/` (`01`, `02`, ...), never under `harness/cycles/`. `oracle.sh`, a shared module
