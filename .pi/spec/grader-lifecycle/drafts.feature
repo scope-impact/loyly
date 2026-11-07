@@ -8,15 +8,6 @@ Feature: Grader lifecycle, draft scenarios
 
   Rule: An instrument golden is written from its scenario and carries that scenario's digest
 
-    # instrument-golden.allium, rule WriteInstrumentGolden; surface InstrumentGoldenDesk, guarantee WrittenFromTheScenarioNeverFromARun
-    # Suggested tier: minimum
-    @draft @allium-rule-success.WriteInstrumentGolden @allium-guarantee.WrittenFromTheScenarioNeverFromARun
-    Scenario: The instrument maintainer writes a golden from its scenario
-      Given the instrument scenario "a refused score names the unknown item" has the scenario digest "s-12"
-      When the instrument maintainer writes instrument golden G-score-unknown from that scenario, with the scenario digest "s-12" and the digest "g-40"
-      Then instrument golden G-score-unknown is written with the digest "g-40" and the scenario digest "s-12"
-      And the harness self-check of the next cycle must reproduce it
-
     # instrument-golden.allium, invariant OneGoldenPerIdentity
     # Suggested tier: balance
     @draft @allium-invariant.OneGoldenPerIdentity

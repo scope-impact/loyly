@@ -31,7 +31,7 @@
     :produces #{:grader-lifecycle/instrument-golden-moved}}}
   :read-models
   {:grader-lifecycle/instrument-goldens
-   {:description "Each instrument golden: its scenario, path, current digest and the history of its moves with their reasons."
+   {:description "Each instrument golden: its path, its current digest, the digest of the scenario it was written from, and the history of its moves with their reasons. A row carries the scenario digest, never the scenario (surface InstrumentGoldenDesk)."
     :grain/allium [{:spec ".pi/spec/grader-lifecycle/allium/instrument-golden.allium" :kind :entity :name "InstrumentGolden"}]
     :consumes #{:grader-lifecycle/instrument-golden-written :grader-lifecycle/instrument-golden-moved}
     :schema [:map

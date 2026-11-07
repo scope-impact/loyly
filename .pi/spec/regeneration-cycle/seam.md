@@ -115,7 +115,7 @@ params exactly the event's contract `:schema`.
 | `cycle-preparation/source-cut-pinned` | `../cycle-preparation/event-model/handoffs.edn` | `:regeneration-cycle/pinned-cuts` |
 | `grader-lifecycle/instrument-golden-written` | `../grader-lifecycle/event-model/handoffs.edn` | `:regeneration-cycle/instrument-goldens` |
 | `grader-lifecycle/instrument-golden-moved` | `../grader-lifecycle/event-model/handoffs.edn` | `:regeneration-cycle/instrument-goldens` |
-| `measurement/measurement-filed` | `../measurement/event-model/handoffs.edn` | `:regeneration-cycle/regeneration-cycles` |
+| `measurement/measurement-filed` | `../measurement/event-model/handoffs.edn` | `:regeneration-cycle/regeneration-cycles`, `:regeneration-cycle/cycles-to-conclude` |
 | `measurement/score-stage-failed` | `../measurement/event-model/handoffs.edn` | `:regeneration-cycle/regeneration-cycles`, `:regeneration-cycle/cycles-to-conclude` |
 | `measurement/scoreboard-reported` | `../measurement/event-model/handoffs.edn` | `:regeneration-cycle/regeneration-cycles`, `:regeneration-cycle/cycles-to-conclude` |
 
@@ -126,7 +126,12 @@ that do not match the contract are `-32602` and append nothing; nothing else ref
 handed-in event. A fold ignores an event its rule does not take (`NotePinnedCut` and
 `NoteGoldenWritten`, requires 1: one already held; `NoteGoldenMoved`, requires 1: a golden never
 written; `NoteMeasurementFiled`, `NoteScoreStageFailed`, `NoteScoreboardReported`, requires 1: a
-cycle that does not exist). A handed-in `measurement/score-stage-failed` or
+cycle that does not exist; `NoteMeasurementFiled` and `NoteScoreStageFailed`, requires 2: a
+cycle not running at the score stage, so a measurement filed after the cycle failed leaves it
+where it failed; `NoteScoreboardReported`, requires 2: a cycle not running or with no
+measurement filed, so a scoreboard with no measurement filed passes nothing). A cycle is due
+to pass only with its measurement filed and its scoreboard reported (`awaits_passing`). A
+handed-in `measurement/score-stage-failed` or
 `measurement/scoreboard-reported` may make a cycle due to conclude: the policy then runs before
 the method responds (below). These methods stand in for the producers until a gate assembles
 the contexts (`../decisions.md`, "First light" 5); they are the only way another context's event
@@ -183,6 +188,11 @@ as it heard it.
   or a stage outside its enumeration among them, is `-32602` too.
 - **"The stage the cycle reached"** (`FailCycle`, requires 3) is the `stage` of the cycle's
   progress.
+
+"Records nothing" means no event of `event-model/` is appended; ORC's and Grain's own run
+events (a workflow run and its steps) may still be written. A `null` for a field that is
+not `[:maybe ...]` is `-32602`, as any other param that does not match its schema
+(`../decisions.md`, "Spec round 3").
 
 ## The event store
 

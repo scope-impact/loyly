@@ -97,16 +97,6 @@ Feature: Measurement, draft scenarios
       Then recording the failed score stage is refused
       And the measurement of C-7 is still filed with 2 passes of 3
 
-    # cycle-measurement.allium, rule FileItemVerdicts (requires 8, unit-level) and FileScore (requires 4, unit-level); surface ScoreStage, guarantee NeverIntoTheLoop
-    # Suggested tier: minimum
-    @draft @allium-guarantee.NeverIntoTheLoop
-    Scenario: Score evidence never reaches a builder, and a failed score stage is not retaken
-      Given gate attempt 1 of cycle C-7 passed for candidate D-1
-      And the score stage of C-7 failed for the refusal unknown item
-      When the grader with approved digest G-1 files item verdicts for D-1 of C-7 again
-      Then filing the item verdicts is refused
-      And no builder room of C-7 mounts the item verdicts or the score evidence
-
   Rule: The operator reads a cycle's measurement receipt
 
     # checklist.allium, surface InstrumentDesk, guarantee MeasurementReceiptOnRequest

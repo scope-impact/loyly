@@ -54,6 +54,13 @@ exactly the fields of that event's `:schema`.
   `measurement/report-scoreboard` for that cycle again is refused (already reported).
 - **The previous cycle** of a scoreboard is the last cycle whose measurement was filed before
   this one's, with the same `selection-id`; a cycle with no filed measurement is never one.
+- **Evidence defaults empty.** A verdict offered to `measurement/file-item-verdicts` without
+  `evidence` is filed with `evidence` `""` in `measurement/item-verdicts-filed`, and so in the
+  measurement's `items` (invariant `EvidenceDefaultsEmpty`).
+- **A query row carries at least the read-model fields.** A query's row holds every field of
+  its read model's `:schema` that has a value; it may carry more (the measurement receipt's
+  surface `MeasurementReceipt` also exposes `superseded`, which `:measurement/cycle-measurements`
+  does not hold), and a grader reads no others (`../decisions.md`, "Spec round 3").
 
 ## The consumed handoffs, handed in
 
@@ -98,6 +105,11 @@ The requires are checked in their Allium order and the first that fails is the r
 verdict neither pass nor fail is refused before an unknown item. The refusal codes of
 `file-item-verdicts` and `file-score` that `measurement/score-stage-failed` enumerates are the
 same text, so ORC runtime can record a refused score's code as it heard it.
+
+"Records nothing" means no event of `event-model/` is appended; ORC's and Grain's own run
+events (a workflow run and its steps) may still be written. A `null` for a field that is
+not `[:maybe ...]` is `-32602`, as any other param that does not match its schema
+(`../decisions.md`, "Spec round 3").
 
 ## The event store
 

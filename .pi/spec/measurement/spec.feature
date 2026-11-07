@@ -354,3 +354,12 @@ Feature: Measurement
       When ORC runtime records the score stage of C-7 failed for the refusal unknown item
       Then the score stage of C-7 is failed, naming the refusal unknown item
       And the measurement receipt of C-7 shows the refusal and no score
+
+    # cycle-measurement.allium, rule FileItemVerdicts (requires 8)
+    @minimum @allium-rule-failure.FileItemVerdicts.8
+    @item-02-032
+    Scenario: Item verdicts after a failed score stage are refused
+      Given gate attempt 1 of cycle C-7 passed for candidate D-1
+      And the score stage of C-7 failed for the refusal unknown item
+      When the grader with approved digest G-1 files item verdicts for D-1 of C-7 again
+      Then filing the item verdicts is refused

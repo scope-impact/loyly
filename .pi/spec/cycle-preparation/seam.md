@@ -63,6 +63,11 @@ checked in that order and the first that fails is the refusal.
 `cut-already-pinned` refuses a second pin of a cut identity with the same content as well as
 with another: a cut is immutable, and pinning it again records nothing.
 
+"Records nothing" means no event of `event-model/` is appended; ORC's and Grain's own run
+events (a workflow run and its steps) may still be written. A `null` for a field that is
+not `[:maybe ...]` is `-32602`, as any other param that does not match its schema
+(`../decisions.md`, "Spec round 3").
+
 ## The event store
 
 The candidate records its facts in Grain's event store, the SQLite backend of Grain's

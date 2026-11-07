@@ -139,12 +139,16 @@ Settled by `../decisions.md`: H7 (the field), H13, H26, g. Still open (also as
 - **H16** (can wait): a partial outage still files, with the unreached items failed; an
   `outage` reason is recordable but nothing requires it.
 - **H21** (can wait): should the scoreboard also report graded coverage?
-- **R3.1**: `PublicSeamOnly` waits for the planned `room-policy` check.
+- **R3.1**: `PublicSeamOnly` waits for the planned `room-policy` check; since spec round 3,
+  `NeverIntoTheLoop` too (the mount itself is the Regeneration cycle's
+  `RecordRegeneratedCandidate` requires 9, `@item-04-035`).
 - **OG1 to OG3** (the open grader drafts, 2026-11-07; `../grader-lifecycle/domain-design.md`,
   "Open questions"): the accepted Rule "The approved sealed grader files the item verdicts it
   returned for the gated candidate only", `FileItemVerdicts` refusal 9, `FileScore` refusal 5
   and guarantee `ApprovedDigestOnly` bind an approved grader digest. What digest does an open
   grader's filing carry (its instruction, its model), and who approves it, if anyone?
+  **Decided (round 3): OG1 is no**, OG2 and OG3 moot; the open grader drafts stay parked
+  (`../decisions.md`, "Spec round 3").
 
 Settled in R2.1 (`../decisions.md`, "Questions raised by R2", 7): **the same selection** is
 the same selected slices, by name, across cuts; whole-plan cycles compare with the last

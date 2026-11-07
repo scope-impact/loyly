@@ -76,3 +76,14 @@ Feature: Grader lifecycle
       When the instrument maintainer moves G-score-unknown to the digest "g-41" for "wording replaced" with the note "reworded" and the scenario digest "s-12"
       Then the move is refused
       And G-score-unknown still has the digest "g-40" and the scenario digest it was written with
+
+  Rule: An instrument golden is written from its scenario and carries that scenario's digest
+
+    # instrument-golden.allium, rule WriteInstrumentGolden; surface InstrumentGoldenDesk, guarantee WrittenFromTheScenarioNeverFromARun
+    @minimum @allium-rule-success.WriteInstrumentGolden @allium-guarantee.WrittenFromTheScenarioNeverFromARun
+    @item-03-008
+    Scenario: The instrument maintainer writes a golden from its scenario
+      Given the instrument scenario "a refused score names the unknown item" has the scenario digest "s-12"
+      When the instrument maintainer writes instrument golden G-score-unknown from that scenario, with the scenario digest "s-12" and the digest "g-40"
+      Then instrument golden G-score-unknown is written with the digest "g-40" and the scenario digest "s-12"
+      And the instrument goldens show G-score-unknown with the digest "g-40" and the scenario digest "s-12"

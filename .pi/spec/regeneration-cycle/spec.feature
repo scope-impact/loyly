@@ -451,3 +451,23 @@ Feature: Regeneration cycle
       When the measurement of cycle C-7 is filed
       Then the cycle progress view shows cycle C-7 running at the scoreboard stage with 1 attempt
       And no candidate is regenerated and no gate attempt is recorded for cycle C-7
+
+  Rule: A cycle concludes once, passed after its scoreboard or failed at a named stage for a named reason
+
+    # regeneration-cycle.allium, rule NoteScoreboardReported (requires 2); invariant PassedOnlyMeasuredAndReported
+    @minimum @allium-rule-failure.NoteScoreboardReported.2 @allium-invariant.PassedOnlyMeasuredAndReported
+    @item-04-039
+    Scenario: A scoreboard reported with no measurement filed does not pass the cycle
+      Given candidate D-1 of cycle C-7 passed gate attempt 1
+      When the measurement reports the scoreboard of cycle C-7, with no measurement of cycle C-7 filed
+      Then the cycle progress view shows cycle C-7 running at the score stage
+      And cycles-to-conclude does not list cycle C-7
+
+    # regeneration-cycle.allium, rule NoteMeasurementFiled (requires 2)
+    @minimum @allium-rule-failure.NoteMeasurementFiled.2
+    @item-04-040
+    Scenario: A measurement filed after the cycle failed leaves it where it failed
+      Given candidate D-1 of cycle C-7 passed gate attempt 1
+      And ORC runtime failed cycle C-7 at the score stage with reason budget
+      When the measurement of cycle C-7 is filed
+      Then the cycle progress view shows cycle C-7 failed at the score stage with reason budget, its stage still score

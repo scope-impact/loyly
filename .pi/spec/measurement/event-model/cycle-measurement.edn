@@ -49,7 +49,7 @@
     :produces #{:measurement/score-stage-failed}}}
   :events
   {:measurement/item-verdicts-filed
-   {:description "One grader's verdicts for a cycle's gated candidate were filed, as returned: pass or fail per item, duplicates included."
+   {:description "One grader's verdicts for a cycle's gated candidate were filed, as returned: pass or fail per item, duplicates included. A verdict offered without evidence is filed with empty evidence, \"\" (invariant EvidenceDefaultsEmpty)."
     :schema [:map
              [:cycle-id :string]
              [:candidate-digest :string]

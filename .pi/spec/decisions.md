@@ -406,3 +406,84 @@ while preparing its cycle; each is a reading of the spec, not a change of behavi
    digest, re-read at every command; a commit it does not name is not a commit; tree digests
    are opaque text ("t-81"), never computed (`seam.md`). Rejected: the candidate running `git`
    (the scenarios' repository is a fixture a grader states, not a repository in the room).
+
+## Spec round 3 (decided 2026-11-07)
+
+The operator accepted the triage package of the slice 01 to 05 cycles (OG1 = no): one spec gap
+closed, three refused drafts of round 2 settled, readings recorded, and seam wording made
+explicit. A spec round: no builder ran, no existing item identity, title or Rule changed.
+
+1. **The Regeneration cycle's gap: a measurement fact is folded only where the cycle can take
+   it.** The folds of Measurement's handoffs took any event for an existing cycle, so a
+   scoreboard handed in with no measurement filed made a cycle due to pass, and a measurement
+   filed after the cycle failed moved its stage to the scoreboard. Now
+   (`regeneration-cycle.allium`): `NoteMeasurementFiled` and `NoteScoreStageFailed` requires 2,
+   `cycle.status = running and cycle.stage = score`; `NoteScoreboardReported` requires 2,
+   `cycle.status = running and cycle.measurement_filed`; `awaits_passing` is `status = running
+   and measurement_filed and scoreboard_reported`; `PassCycle` requires 2 reads both flags.
+   `cycles-to-conclude` now consumes `measurement/measurement-filed` (it needs the flag to know
+   a cycle is due to pass); the read models' and the policy's descriptions and `seam.md`'s list
+   of what a fold ignores say the same. No event schema, command or flow changed.
+2. **Accepted: 4, appended at the end of each `spec.feature`** (Spec round 2, 6: additions
+   only, a repeated Rule header where the Rule sits higher), tier minimum, stamped by
+   `tools/spec/v2/stamp.clj`:
+   - regeneration-cycle 2, under a repeated "A cycle concludes once, passed after its
+     scoreboard or failed at a named stage for a named reason": `@item-04-039` "A scoreboard
+     reported with no measurement filed does not pass the cycle" (`NoteScoreboardReported.2`,
+     invariant `PassedOnlyMeasuredAndReported`) and `@item-04-040` "A measurement filed after
+     the cycle failed leaves it where it failed" (`NoteMeasurementFiled.2`). The third new
+     `requires`, `NoteScoreStageFailed.2`, is drafted (balance) in `drafts.feature`.
+   - measurement 1, `@item-02-032` "Item verdicts after a failed score stage are refused"
+     (`FileItemVerdicts.8`), round 2's refused "Score evidence never reaches a builder, and a
+     failed score stage is not retaken" with its step "no builder room of C-7 mounts the item
+     verdicts or the score evidence" dropped, under its Rule "A refused score fails the score
+     stage, once, ...", already the file's last.
+   - grader-lifecycle 1, `@item-03-008` "The instrument maintainer writes a golden from its
+     scenario" (`WriteInstrumentGolden`, guarantee `WrittenFromTheScenarioNeverFromARun`), its
+     step "the harness self-check of the next cycle must reproduce it" replaced by "the
+     instrument goldens show G-score-unknown with the digest "g-40" and the scenario digest
+     "s-12"" (the values of `@item-03-001`), under a repeated "An instrument golden is written
+     from its scenario and carries that scenario's digest".
+3. **Refused for good: the regeneration-cycle draft "A failed attempt leaves gate evidence a
+   repair builder may read, and never score evidence"** (Spec round 2, 2), deleted. Its
+   guarantee `GateEvidenceOnly` now says "Verified by: gate room-policy (planned)", and so does
+   measurement's `NeverIntoTheLoop`; both name `RecordRegeneratedCandidate` requires 9
+   (`@item-04-035`) as what the spec verifies of them, the mount. The planned `room-policy`
+   check lists both (`regeneration-cycle/domain-design.md`, "Checks").
+4. **OG1 is no.** The product Grader stays sealed, calibrated and approved (AGENTS.md, "The
+   instrument"); legacy-style subagent grading is harness practice outside the spec. The 12
+   open-grader drafts stay in `drafts.feature`, parked; OG2 and OG3 are moot while OG1 is no
+   (`grader-lifecycle/domain-design.md`, `measurement/domain-design.md`).
+5. **Readings of accepted scenarios** (no seam change; a grader reads them so):
+   - `@item-02-026`'s "gate attempt 2 of cycle C-7 passed" implies gate attempt 1 failed.
+   - `@item-02-027`'s cut's checklist holds the items the grader files, so requires 6
+     (`unknown-item`) holds and requires 9 (`grader-not-approved`) is the refusal.
+   - `@item-02-028`'s two bad reasons in one call are refused whole: one refusal
+     `bad-verdict-reason`, its `data.item-ids` naming both 03-001 and 03-002.
+   - `@item-03-007`'s "the scenario digest it was written with" is "s-12".
+   - "C-7's measurement has no item verdicts filed" (`@item-02-026` to `@item-02-028`) is
+     observed as `measurement/file-score` of C-7 refused `zero-verdicts` and
+     `measurement/cycle-measurement` of C-7 returning `null`.
+   - "A refusal records nothing" means no event of `event-model/` is appended; ORC's and
+     Grain's own run events may still be written. Each context's `seam.md` says so, and that a
+     `null` for a field that is not `[:maybe ...]` is `-32602`.
+   - `@item-04-030` and `@item-04-032` require nothing of a gate attempt's `last-refusal`: their
+     refusals are refused commands (`-32602`, Spec round 2, 3; `RecordGateAttempt` requires
+     10), not a gate refusal; `last_refusal` is set only by `RecordGateRefusal`
+     (`gate-attempt.allium`).
+   - Slice 05: the commits file is re-read at every pin, and a re-pin with the same content is
+     `cut-already-pinned`; both already specified (`cycle-preparation/seam.md`).
+6. **Measurement wording.** `item-verdicts-filed`'s description and `seam.md`: a verdict offered
+   without evidence is filed with empty evidence (`EvidenceDefaultsEmpty`). The surface
+   `MeasurementReceipt` exposes `candidate_digest` only when filed. The surface also exposes
+   `superseded`, which the read model `:measurement/cycle-measurements` does not hold; the read
+   model is unchanged (slice 02 keeps its schema), and `seam.md` says a query row carries at
+   least the read model's fields and a grader reads no others.
+7. **Grader lifecycle wording.** The read model `instrument-goldens` described rows carrying
+   "its scenario"; the surface `InstrumentGoldenDesk` exposes only the scenario digest, and so
+   does the description now.
+
+Graders 02, 03 and 04 must grow by the new items, reason "spec grew" (additions only). Slice 04
+must be rebuilt from the changed folds and read model; slices 02 and 03 gain one item each
+(their seams changed only in wording); slices 01 and 05 changed only in `seam.md` wording. The
+checklist golden grows 95 → 99. The 4 new items are the next cycle's untuned holdout.

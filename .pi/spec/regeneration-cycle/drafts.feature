@@ -142,15 +142,6 @@ Feature: Regeneration cycle, draft scenarios
 
   Rule: The gate records one verdict per attempt, with the boot budget and its margin
 
-    # gate-attempt.allium, surface Gate, guarantee GateEvidenceOnly
-    # Suggested tier: minimum
-    @draft @allium-guarantee.GateEvidenceOnly
-    Scenario: A failed attempt leaves gate evidence a repair builder may read, and never score evidence
-      Given gate attempt 1 of regeneration cycle C-7 failed with reason suite-red and evidence root E-1
-      When the repair builder's room for gate attempt 2 mounts its evidence
-      Then it mounts gate evidence E-1, the suite's output of attempt 1
-      And E-1 holds no item verdict and no score evidence
-
     # gate-attempt.allium, rule RecordGateAttempt (requires 1)
     # Suggested tier: balance
     @draft @allium-rule-failure.RecordGateAttempt.1
@@ -454,6 +445,15 @@ Feature: Regeneration cycle, draft scenarios
       And the clean room of cycle C-7 was proved at 10:00
       When time passes to 10:20 with no candidate recorded by ORC runtime
       Then the cycle progress view shows cycle C-7 running at the regenerate stage with 0 attempts and no candidate
+
+    # regeneration-cycle.allium, rule NoteScoreStageFailed (requires 2)
+    # Suggested tier: balance
+    @draft @allium-rule-failure.NoteScoreStageFailed.2
+    Scenario: A score stage failed before the gate passed is not the cycle's
+      Given candidate D-1 was installed in gate room G-1 for gate attempt 1 of regeneration cycle C-7
+      And the measurement recorded the score stage of cycle C-7 failed, its score refused for zero verdicts
+      When ORC runtime records gate attempt 1 passed
+      Then the cycle progress view shows cycle C-7 running at the score stage
 
   Rule: The operator observes a cycle, and observing changes nothing
 

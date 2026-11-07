@@ -225,5 +225,8 @@ surface Gate {
 
     @guarantee GateEvidenceOnly
         -- The evidence root of a verdict is gate evidence, which a repair room may mount;
-        -- it never holds score evidence (decisions.md H6).
+        -- it never holds score evidence (decisions.md H6). What an evidence root holds is
+        -- no command's fact; what a repair room may mount is RecordRegeneratedCandidate
+        -- requires 9 (@item-04-035). Verified by: gate room-policy (planned;
+        -- domain-design.md, "Checks"; decisions.md, "Spec round 3").
 }

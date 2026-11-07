@@ -83,12 +83,17 @@ before any of them is accepted:
   it judges, and the legacy-style scoring decision (2026-11-07) dropped calibration and approval
   for our own cycles. Either the glossary and AGENTS.md change, or the open grader is not a
   grader. The glossary also avoids "per-cycle judge" and "LLM judge" for Grader.
+  **Decided (round 3): no** — the product Grader stays sealed, calibrated and approved;
+  legacy-style subagent grading is harness practice outside the spec; the 12 drafts are
+  parked in `drafts.feature` (`../decisions.md`, "Spec round 3").
 - **OG2**: AGENTS.md says graders share no code or runtime with what they measure, in a
   functional language other than the product's Clojure. The open grader runs as an ORC child
-  workflow, on the harness's own ORC and Grain. Is that independence kept?
+  workflow, on the harness's own ORC and Grain. Is that independence kept? **Moot while OG1
+  is no** (`../decisions.md`, "Spec round 3").
 - **OG3**: the explore session has all its tools; the black box around it is an audit after the
   run, not a room. "The fence is physical, never an instruction": does an explore session need
-  its own room, or is a named breach enough?
+  its own room, or is a named breach enough? **Moot while OG1 is no** (`../decisions.md`,
+  "Spec round 3").
 
 - **H19** (can wait): who checks a recorded reason is true? Only `spec_grew` has an
   enforceable test.

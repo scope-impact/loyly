@@ -58,6 +58,11 @@ A refusal records nothing and is the error `-32000` with `data.refusal`, one of:
 Requires 3 of each rule only chooses between the two rules (a ledger exists or not); no
 caller hears it.
 
+"Records nothing" means no event of `event-model/` is appended; ORC's and Grain's own run
+events (a workflow run and its steps) may still be written. A `null` for a field that is
+not `[:maybe ...]` is `-32602`, as any other param that does not match its schema
+(`../decisions.md`, "Spec round 3").
+
 ## The event store
 
 The candidate records its facts in Grain's event store, the SQLite backend of Grain's

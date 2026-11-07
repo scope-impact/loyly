@@ -257,7 +257,11 @@ surface ScoreStage {
         -- failure is recorded, and the score is never retaken within the cycle.
 
     @guarantee NeverIntoTheLoop
-        -- Score evidence and verdicts never become builder input (AGENTS.md).
+        -- Score evidence and verdicts never become builder input (AGENTS.md). No command
+        -- of this context has a builder room; the Regeneration cycle refuses any mount but
+        -- this cycle's gate evidence (RecordRegeneratedCandidate requires 9, @item-04-035).
+        -- Verified by: gate room-policy (planned; ../regeneration-cycle/domain-design.md,
+        -- "Checks"; ../decisions.md, "Spec round 3").
 }
 
 -- What the operator reads of a cycle's measurement (the measurement receipt).
@@ -268,7 +272,7 @@ surface MeasurementReceipt {
     exposes:
         measurement.cycle_id
         measurement.status
-        measurement.candidate_digest
+        measurement.candidate_digest when measurement.status = filed
         measurement.total when measurement.status = filed
         measurement.passes when measurement.status = filed
         measurement.unreached when measurement.status = filed

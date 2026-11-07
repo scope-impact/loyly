@@ -76,6 +76,11 @@ An empty `note` is the refusal `empty-note` (requires 4), not `-32602`, although
 `[:string {:min 1}]` says the same: the Allium names it a refusal, and its place in the order
 is the Allium's. Every other param that does not match the schema is `-32602`.
 
+"Records nothing" means no event of `event-model/` is appended; ORC's and Grain's own run
+events (a workflow run and its steps) may still be written. A `null` for a field that is
+not `[:maybe ...]` is `-32602`, as any other param that does not match its schema
+(`../decisions.md`, "Spec round 3").
+
 ## The event store
 
 The candidate records its facts in Grain's event store, the SQLite backend of Grain's

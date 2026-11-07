@@ -63,7 +63,7 @@
              [:concluded-at inst?]]}}
  :read-models
   {:regeneration-cycle/regeneration-cycles
-   {:description "Each cycle: its cut, status and stage, its harness digest, clean room, current candidate and gate attempts, and its conclusion. Folded from its stage facts and the measurement's handoffs."
+   {:description "Each cycle: its cut, status and stage, its harness digest, clean room, current candidate and gate attempts, and its conclusion. Folded from its stage facts and the measurement's handoffs; a measurement filed or a score stage failed is folded only into a cycle running at the score stage, a scoreboard reported only into a running cycle whose measurement is filed (spec round 3)."
     :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :entity :name "RegenerationCycle"}]
     :consumes #{:regeneration-cycle/harness-self-check-passed :regeneration-cycle/harness-self-check-failed
                 :regeneration-cycle/clean-room-proved :regeneration-cycle/candidate-regenerated
@@ -86,11 +86,11 @@
              [:gate-attempts :int]
              [:failure {:optional true} [:map [:stage :string] [:reason :string] [:detail :string]]]]}
    :regeneration-cycle/cycles-to-conclude
-   {:description "The conclude-cycle policy's to-do list: running cycles whose self-check failed, whose third gate attempt failed, whose gate refused three times in a row, whose score stage failed, or whose scoreboard is reported; a concluded cycle leaves it."
+   {:description "The conclude-cycle policy's to-do list: running cycles whose self-check failed, whose third gate attempt failed, whose gate refused three times in a row, whose score stage failed, or whose measurement is filed and scoreboard reported; a concluded cycle leaves it. A measurement filed or a score stage failed counts only for a cycle running at the score stage, and a scoreboard reported only for a running cycle whose measurement is filed (spec round 3)."
     :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :entity :name "RegenerationCycle"}]
     :consumes #{:regeneration-cycle/harness-self-check-passed :regeneration-cycle/harness-self-check-failed
                 :regeneration-cycle/gate-attempt-failed :regeneration-cycle/gate-attempt-refused :regeneration-cycle/gate-attempt-passed
-                :measurement/score-stage-failed :measurement/scoreboard-reported
+                :measurement/measurement-filed :measurement/score-stage-failed :measurement/scoreboard-reported
                 :regeneration-cycle/cycle-passed :regeneration-cycle/cycle-failed}}}
   :queries
   {:regeneration-cycle/cycle-progress
@@ -103,7 +103,7 @@
     :reads #{:regeneration-cycle/cycles-to-conclude}}}
   :todo-processors
   {:regeneration-cycle/conclude-cycle
-   {:description "Whenever the scoreboard is reported, conclude the cycle passed; whenever a self-check failed (before the fence or before a gate attempt), the last gate attempt its budget allows failed, the gate refused three times in a row for infrastructure (R2 question 2), or its score stage failed, conclude it failed. Once per cycle."
+   {:description "Whenever the scoreboard is reported after the measurement was filed, conclude the cycle passed; whenever a self-check failed (before the fence or before a gate attempt), the last gate attempt its budget allows failed, the gate refused three times in a row for infrastructure (R2 question 2), or its score stage failed, conclude it failed. Once per cycle."
     :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :rule :name "ConcludeOnFailedSelfCheck"}
                    {:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :rule :name "ConcludeOnExhaustedGateAttempts"}
                    {:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :rule :name "ConcludeOnRepeatedGateRefusals"}
