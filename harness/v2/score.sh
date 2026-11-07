@@ -4,10 +4,12 @@
 # builder left in ROOM, after harness/v2/gate.sh passed. The instrument: it reports to a
 # person and never into the build loop. In order:
 #
-#   1. the sealed graders the operator approved for spec v2 (harness/v2/graders.approved.json;
-#      spec v1's harness/graders.approved.json names v1 items and is never read here) that
-#      cover slice NN; none is "score refused: no approved sealed grader". Each must be sealed
-#      under STATE/graders/sealed/<hex>/ with its entry's sha256 equal to its approved digest.
+#   1. the grader of slice NN: whatever harness/v2/graders/ holds for it (the table below),
+#      run as is. Scoring is legacy-style (archive/legacy-harness/README.md, step 5): its
+#      sha256 is recorded in the cycle (graders.txt) and on stderr as provenance, and nobody
+#      approves it; no seal and no approval list is read. harness/v2/graders.json records
+#      each grader's digest, items and calibration. SCORE_WHICH=1 prints the selection and
+#      stops before anything is claimed or run.
 #   2. the slice's next cycle number MM, claimed atomically as harness/v2/cycles/NN/MM (as
 #      harness/regen.clj claims harness/cycles/MM). Spec-v2 cycles never go under
 #      harness/cycles: harness/oracle.sh (a shared module file) reads harness/cycles/01 as spec
@@ -17,7 +19,7 @@
 #      cycle of the same selection, the slice (decisions.md g). harness/README.md, "Spec v2".
 #   3. the slice's checklist, derived by the legacy harness/gen_checklist.clj from slice NN's
 #      spec alone (a scratch root holding only .pi/plan/NN-context), into the cycle
-#   4. each approved grader, run with elixir from its sealed directory against
+#   4. the grader, run with elixir from harness/v2/graders/ against
 #      ROOM/harness-impl/NN-context/start.sh; its stderr is kept in the cycle; one item filed
 #      by two graders is refused
 #   5. the legacy harness/score.clj files the verdicts (an unreached item fails and stays in
@@ -26,39 +28,28 @@
 #      unchanged copies in the scratch root, whose harness/cycles is a link to the slice's
 #      harness/v2/cycles/NN; "harness/cycles/MM" in their output means that directory.
 #
-# STATE is PI_HARNESS_STATE_ROOT, or .pi/harness/.state of the repository's main checkout.
 set -uo pipefail
 SLICE="${1:-}"; ROOM="${2:-}"
 die() { echo "score.sh: $*" >&2; exit 1; }
 [[ "$SLICE" =~ ^[0-9]+$ && -n "$ROOM" ]] || die "usage: harness/v2/score.sh NN ROOM"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-if [[ -n "${PI_HARNESS_STATE_ROOT:-}" ]]; then STATE="$PI_HARNESS_STATE_ROOT"
-else
-  common="$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" \
-    || die "not a git checkout, and PI_HARNESS_STATE_ROOT is not set"
-  STATE="$(dirname "$common")/.pi/harness/.state"
-fi
 
 link="$(cd "$ROOT" && ls -d ".pi/plan/$SLICE"-* 2>/dev/null | head -1)"
 [[ -n "$link" ]] || die "slice $SLICE names no context: no .pi/plan/$SLICE-* in $ROOT"
 CONTEXT="$(basename "$link")"
 
-# ---- 1. the approved sealed graders covering the slice
-graders="$(bb -e '
-(let [[file slice] *command-line-args*
-      gs (:graders (cheshire.core/parse-string (slurp file) true))]
-  (doseq [{:keys [digest entry items]} gs
-          :when (some #(clojure.string/starts-with? % (str slice "-")) items)]
-    (println digest entry)))' "$ROOT/harness/v2/graders.approved.json" "$SLICE")" \
-  || die "score refused: harness/v2/graders.approved.json could not be read"
-[[ -n "$graders" ]] || die "score refused: no approved sealed grader covers slice $SLICE (harness/v2/graders.approved.json)"
-while read -r digest entry; do
-  hex="${digest#sha256:}"; dir="$STATE/graders/sealed/$hex"
-  [[ "$entry" == *.exs ]] || die "score refused: no runner for grader entry $entry (spec-v2 graders are Elixir)"
-  [[ -f "$dir/$entry" ]] || die "score refused: approved grader $digest is not sealed at $dir"
-  [[ "$(shasum -a 256 "$dir/$entry" | cut -d' ' -f1)" == "$hex" ]] \
-    || die "score refused: the sealed $dir/$entry does not match its approved digest $digest"
-done <<<"$graders"
+# ---- 1. the slice's grader, from harness/v2/graders/, its digest recorded, never refused on
+GRADERS="$ROOT/harness/v2/graders"
+case "$SLICE" in
+  01) entry=grade_specification.exs ;;
+  02) entry=grade_measurement.exs ;;
+  03) entry=grade_grader_lifecycle.exs ;;
+  04) entry=grade_regeneration_cycle.exs ;;
+  *)  die "score refused: no grader for slice $SLICE in harness/v2/score.sh's table" ;;
+esac
+[[ -f "$GRADERS/$entry" ]] || die "score refused: no grader at $GRADERS/$entry"
+graders="sha256:$(shasum -a 256 "$GRADERS/$entry" | cut -d' ' -f1) $entry"
+if [[ -n "${SCORE_WHICH:-}" ]]; then echo "slice $SLICE ($CONTEXT): $graders"; exit 0; fi
 
 START="$(cd "$ROOM" 2>/dev/null && pwd -P)/harness-impl/$CONTEXT/start.sh"
 [[ -d "$ROOM" && -f "$START" ]] || die "score refused: no candidate at $ROOM/harness-impl/$CONTEXT/start.sh"
@@ -81,11 +72,12 @@ for f in spec.feature plan.md; do [[ -e "$ROOT/$link/$f" ]] && cp -L "$ROOT/$lin
 bb "$scratch/harness/gen_checklist.clj" --out "$CYC/checklist.json" 2>"$CYC/checklist.log" \
   || die "score refused: the checklist could not be derived: $(tail -c 400 "$CYC/checklist.log")"
 
-# ---- 4. the graders, each from its sealed directory
+# ---- 4. the grader, from harness/v2/graders/
 commit="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
+echo "$graders" >"$CYC/graders.txt"
 outs=()
 while read -r digest entry; do
-  hex="${digest#sha256:}"; dir="$STATE/graders/sealed/$hex"
+  hex="${digest#sha256:}"; dir="$GRADERS"
   out="$CYC/verdicts-${hex:0:12}.json"; log="$CYC/grade-${hex:0:12}.log"
   echo "grading with $digest" >&2
   (cd "$dir" && PI_HARNESS_PROJECT_ROOT="$ROOT" GRADE_SOURCE_COMMIT="$commit" elixir "$dir/$entry" "$START") >"$out" 2>"$log" \

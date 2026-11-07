@@ -1,5 +1,5 @@
 {
-  "note": "A REQUEST for approval, not an approval. The operator approves by copying the grader object below into harness/v2/graders.approved.json's graders list with approvedBy and approvedAt added, after checking the digest of the sealed file. Nobody else approves.",
+  "note": "The record of each spec-v2 grader: its digest, its items and its calibration, not an approval request. Scoring is legacy-style: harness/v2/score.sh runs whatever harness/v2/graders/ holds for the slice and records its sha256 in the cycle; nobody approves it. Update an entry's digest when its grader changes; replaces and replacementReason keep the history.",
   "graders": [
     {
       "digest": "sha256:07b12c14a8dca43a520afb583c8c5763ff6a6a61b996746beb4dfccdfbde4af9",
