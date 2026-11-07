@@ -1,23 +1,26 @@
-;; harness/v2/assemble.clj ROOT ROOM01 ROOM02 ROOM03 ROOM04 ROOM05: the first assembly gate of
-;; spec v2 (.pi/spec/decisions.md, "First light" 5; "Spec round 4" 3), run by
+;; harness/v2/assemble.clj ROOT ROOM01 ROOM02 ROOM03 ROOM04 ROOM05: the assembly gate of spec
+;; v2 (.pi/spec/decisions.md, "First light" 5; "Spec round 4" 3; "Spec round 5"), run by
 ;; harness/v2/assemble.sh. It drives the five gated candidates ONLY through their public seams
-;; (ROOM/harness-impl/NN-<context>/start.sh, JSON-RPC 2.0 over stdio, each context's seam.md)
-;; and never reads a candidate's source.
+;; (ROOM/harness-impl/NN-<context>/start.sh, JSON-RPC 2.0 over stdio, each context's seam.md),
+;; reads their Grain stores directly (harness/v2/store_reader.clj, Grain's own reader) and
+;; never reads a candidate's source.
 ;;
 ;;   1. The shared-store experiment: producers and consumers run on ONE LOYLY_GRAIN_STORE,
 ;;      first one after the other, then concurrently; does the consumer see the producer's
-;;      events without a hand-in? Recorded as evidence, never worked around.
-;;   2. The relay assembly: each candidate on its own fresh store. One end-to-end story; every
-;;      handoff a producer emits (taken from its command result's `events`, in order) is handed
-;;      in UNCHANGED (its `type` the method, its other fields the params) to every consumer the
-;;      event models name (a read model's :consumes or a processor's :subscribes of a foreign
-;;      event). Measurement's scoreboard-reported is issued by its policy and is in no command
-;;      result (measurement/seam.md, "The policy runs first"), so it is read through
-;;      measurement/scoreboard, the fields of that event.
-;;   3. Checks, PASS/FAIL with evidence; then the round-4 open question: a cycle the stage clock
-;;      fails at the score stage, measured anyway. Reported as a finding, not a check.
+;;      events without a hand-in? Reported, not a check: the shared store is the deferred end
+;;      state ("Spec round 5" 1).
+;;   2. The relay assembly ("Spec round 5" 1 and 2): each candidate on its own fresh store. One
+;;      end-to-end story; after each command, every handoff is taken from the PRODUCER'S STORE
+;;      FILE (the events of its handoff types, event-model/handoffs.edn, within its tenant, in
+;;      store order), not from command results, so a handoff a policy issues (Measurement's
+;;      scoreboard-reported) travels like any other, and handed in UNCHANGED (its `type` the
+;;      method, its other fields the params) to every consumer the event models name (a read
+;;      model's :consumes or a processor's :subscribes of a foreign event).
+;;   3. Checks, PASS/FAIL with evidence; among them a reading: a cycle the stage clock fails at
+;;      the score stage, measured anyway, stays failed, and Measurement holds its measurement
+;;      filed ("Spec round 5" 3, option c).
 ;;
-;; Exit 1 when a contract check or the happy path fails. Every process it starts is stopped.
+;; Exit 1 when a check fails. Every process it starts is stopped.
 (ns assemble
   (:require [babashka.fs :as fs]
             [babashka.process :as p]
@@ -117,6 +120,32 @@
       (throw (ex-info (str method " refused by " (:ctx c) ": " (clip (get m "error") 300)) {:error (get m "error")})))
     (get m "result")))
 
+;; ---------------------------------------------------------------- the store reader
+(def reader (delay
+              (let [pr (p/process {:dir (str (fs/path root "harness" "v2"))
+                                   :err :write :err-file (io/file work "store-reader.stderr.log")}
+                                  "clojure" "-J--enable-native-access=ALL-UNNAMED" "-M" "store_reader.clj")
+                    c {:proc pr :ctx "store reader" :dir work :r (io/reader (:out pr)) :w (io/writer (:in pr))}]
+                (swap! procs conj c)
+                c)))
+
+(defn store-handoffs
+  "The handoffs PRODUCER wrote to STORE, read from the file: [{:tenant t :event <JSON map>}],
+  each event as the seams carry it, `type` included, in store order within each tenant."
+  [store producer]
+  (let [{:keys [r w]} @reader
+        types (vec (for [[t {p :producer}] handoffs :when (= p producer)] (keyword t)))]
+    (.write ^java.io.Writer w (str (pr-str {:store store :types types}) "\n"))
+    (.flush ^java.io.Writer w)
+    (let [line (deref (future (.readLine ^java.io.BufferedReader r)) call-timeout-ms ::timeout)
+          ans (when (string? line) (edn/read-string line))]
+      (when-not (contains? ans :events)
+        (throw (ex-info (str "the store reader did not read " store ": "
+                             (if (map? ans) (:error ans) line) " (stderr: " work "/store-reader.stderr.log)") {})))
+      (vec (for [{:keys [tenant type event]} (:events ans)]
+             {:tenant tenant
+              :event (json/parse-string (json/generate-string (assoc event :type (subs (str type) 1))))})))))
+
 ;; ---------------------------------------------------------------- the fixtures
 (def commit "4f2a9c1e0b7d3a5f9c2e8b1d4a6f0c3e7b9d2a51")
 (def tree "t-assembly")
@@ -156,60 +185,74 @@
    "missing-goldens" [] "reworded-goldens" [] "grader-digests" ["r-1"] "budget" (budget score-timeout)})
 
 ;; ---------------------------------------------------------------- the relay
-(def emitted (atom []))      ; [{:type :event :by producer}] in emission order
+(def emitted (atom []))      ; [{:type :event :by producer}] in store order, producer by producer
 (def handed (atom []))       ; [{:type :to ctx :event :echo :error}]
+(def tenants-seen (atom {})) ; producer -> #{tenant}, of its handoffs in its store
+(def in-results (atom []))   ; [{:by producer :event :in-store? bool}]: a command result's handoffs
 
-(defn relay! [cs producer events]
-  (doseq [e events
-          :let [t (get e "type")]
-          :when (contains? handoffs t)]
-    (let [{:keys [required all]} (handoffs t)
-          ks (set (remove #{"type"} (keys e)))]
+(defn relay!
+  "Take PRODUCER's handoffs not yet relayed from its store file (slice SLICE), in store order,
+  and hand each in unchanged to every consumer. Returns the events relayed."
+  [cs stores slice]
+  (let [producer (contexts slice)
+        all (store-handoffs (stores slice) producer)
+        ts (set (map :tenant all))
+        _ (swap! tenants-seen update producer (fnil into #{}) ts)
+        tenant (first (sort ts))
+        mine (mapv :event (filter #(= tenant (:tenant %)) all))
+        done (count (filter #(= producer (:by %)) @emitted))
+        fresh (subvec mine (min done (count mine)))]
+    (doseq [e fresh
+            :let [t (get e "type")
+                  {:keys [required all]} (handoffs t)
+                  ks (set (remove #{"type"} (keys e)))]]
       (check! :contract (str "produced " t " fits its contract")
-              (and (= producer (:producer (handoffs t))) (every? ks required) (every? all ks))
+              (and (every? ks required) (every? all ks))
               (str "fields " (sort ks)))
       (swap! emitted conj {:type t :event e :by producer})
       (doseq [ctx (consumers t)]
         (let [m (call (cs (ctx->slice ctx)) t (dissoc e "type"))]
           (swap! handed conj {:type t :to ctx :event e
-                              :echo (first (get-in m ["result" "events"])) :error (get m "error")})))))
-  events)
+                              :echo (first (get-in m ["result" "events"])) :error (get m "error")}))))
+    (when (seq fresh)
+      (note "  (relayed from " producer "'s store, tenant " tenant ": "
+            (str/join ", " (map #(get % "type") fresh)) ")"))
+    fresh))
 
-(defn cmd! [cs slice method params]
-  (let [evs (get (result (cs slice) method params) "events")]
-    (relay! cs (contexts slice) evs)))
-
-(defn scoreboard-handoff [cs cycle]
-  (let [sb (get (result (cs "02") "measurement/scoreboard" {"cycle-id" cycle}) "scoreboard")]
-    (when sb (assoc (dissoc sb "restatement") "type" "measurement/scoreboard-reported"))))
+(defn cmd! [cs stores slice method params]
+  (let [evs (get (result (cs slice) method params) "events")
+        fresh (relay! cs stores slice)]
+    (doseq [e evs :when (contains? handoffs (get e "type"))]
+      (swap! in-results conj {:by (contexts slice) :event e :in-store? (boolean (some #{e} fresh))}))
+    evs))
 
 (defn progress [cs cycle] (get (result (cs "04") "regeneration-cycle/cycle-progress" {"cycle-id" cycle}) "cycle"))
 
-(defn gate-cycle! [cs cycle cut gdigest cand score-timeout]
-  (cmd! cs "04" "regeneration-cycle/record-harness-self-check" (self-check cycle cut "before-fence" 0 gdigest score-timeout))
-  (cmd! cs "04" "regeneration-cycle/prove-clean-room"
+(defn gate-cycle! [cs stores cycle cut gdigest cand score-timeout]
+  (cmd! cs stores "04" "regeneration-cycle/record-harness-self-check" (self-check cycle cut "before-fence" 0 gdigest score-timeout))
+  (cmd! cs stores "04" "regeneration-cycle/prove-clean-room"
         {"cycle-id" cycle "cut-id" cut "clean-room-commit" (str "c-" cycle) "fenced-paths" ["harness-impl"]
          "root-commits" 1 "commits" 1 "unmatched-paths" [] "paths-left-in-tree" [] "paths-reachable-in-object-graph" []})
-  (cmd! cs "04" "regeneration-cycle/record-regenerated-candidate"
+  (cmd! cs stores "04" "regeneration-cycle/record-regenerated-candidate"
         {"cycle-id" cycle "attempt" 1 "purpose" "fresh-generation" "candidate-digest" cand "mounted-evidence" []})
-  (cmd! cs "04" "regeneration-cycle/install-candidate-in-gate-room"
+  (cmd! cs stores "04" "regeneration-cycle/install-candidate-in-gate-room"
         {"cycle-id" cycle "attempt" 1 "candidate-digest" cand "purpose" "fresh-generation" "gate-room" (str "gate-room-" cycle)})
-  (cmd! cs "04" "regeneration-cycle/record-harness-self-check" (self-check cycle cut "before-gate" 1 gdigest score-timeout))
-  (cmd! cs "04" "regeneration-cycle/record-gate-attempt"
+  (cmd! cs stores "04" "regeneration-cycle/record-harness-self-check" (self-check cycle cut "before-gate" 1 gdigest score-timeout))
+  (cmd! cs stores "04" "regeneration-cycle/record-gate-attempt"
         {"cycle-id" cycle "attempt" 1 "candidate-digest" cand "harness-digest" "h-1" "outcome" "passed"
          "identity-probe-present" true "identity-probe-digest" "p-1" "seam-answered-before-boot" false
          "boot-budget-seconds" 30 "boot-polls" 30 "answered-on-poll" 5 "identity-probe-result" "proved"
          "evidence-root" (str "/evidence/" cycle "/1") "detail" "" "grader-digests" ["r-1"]}))
 
-(defn measure! [cs cycle cand item-ids]
-  (cmd! cs "02" "measurement/file-item-verdicts"
+(defn measure! [cs stores cycle cand item-ids]
+  (cmd! cs stores "02" "measurement/file-item-verdicts"
         {"cycle-id" cycle "candidate-digest" cand "grader-digest" "r-1" "approved-grader-digests" ["r-1"]
          "verdicts" (vec (for [i item-ids] {"item-id" i "verdict" "pass" "evidence" (str "assembly " i)}))})
-  (let [evs (cmd! cs "02" "measurement/file-score" {"cycle-id" cycle "approved-grader-digests" ["r-1"]})
-        sb (scoreboard-handoff cs cycle)]
-    (note "  (scoreboard-reported of " cycle " read through measurement/scoreboard: the policy's event is in no command result)")
-    (when sb (relay! cs "measurement" [sb]))
-    {:filed (first (filter #(= "measurement/measurement-filed" (get % "type")) evs)) :scoreboard sb}))
+  (cmd! cs stores "02" "measurement/file-score" {"cycle-id" cycle "approved-grader-digests" ["r-1"]})
+  (let [of (fn [t] (last (for [{:keys [event]} @emitted
+                               :when (and (= t (get event "type")) (= cycle (get event "cycle-id")))]
+                           event)))]
+    {:filed (of "measurement/measurement-filed") :scoreboard (of "measurement/scoreboard-reported")}))
 
 ;; ---------------------------------------------------------------- 1. the shared-store experiment
 (defn experiment! []
@@ -280,20 +323,21 @@
   (let [dir (str (fs/create-dirs (fs/path work "relay")))
         env (fixtures-env dir)
         source (spec-file! dir)
+        stores (into {} (for [s (sort (keys contexts))] [s (str (fs/path dir (str s "-events.sqlite")))]))
         cs (into {} (for [s (sort (keys contexts))]
-                      [s (start! s (str (fs/path dir (str s "-events.sqlite"))) "relay" :env env :dir dir)]))
+                      [s (start! s (stores s) "relay" :env env :dir dir)]))
         out (atom {})]
     (try
       ;; Specification stamps; Cycle preparation pins; Grader lifecycle writes and moves a golden
-      (let [stamped (cmd! cs "01" "specification/stamp-slice"
+      (let [stamped (cmd! cs stores "01" "specification/stamp-slice"
                           {"slice" "09" "source" source "unstamped" unstamped "empty-title-lines" []})
             stamped (filterv #(= "specification/scenario-stamped" (get % "type")) stamped)
             item-ids (mapv #(get % "item-id") stamped)
-            _ (cmd! cs "05" "cycle-preparation/pin-source-cut" {"cut-id" "K-1" "commit" commit "tree-digest" tree})
-            _ (cmd! cs "03" "grader-lifecycle/write-instrument-golden"
+            _ (cmd! cs stores "05" "cycle-preparation/pin-source-cut" {"cut-id" "K-1" "commit" commit "tree-digest" tree})
+            _ (cmd! cs stores "03" "grader-lifecycle/write-instrument-golden"
                     {"golden-id" "checklist" "scenario" "@item-09-001" "scenario-digest" "s-1"
                      "path" "harness/oracle/checklist.golden.json" "digest" "g-1"})
-            _ (cmd! cs "03" "grader-lifecycle/move-instrument-golden"
+            _ (cmd! cs stores "03" "grader-lifecycle/move-instrument-golden"
                     {"golden-id" "checklist" "digest" "g-2" "reason" "instrument-behavior-changed"
                      "additions-only" false "note" "the assembly gate's move" "scenario-digest" "s-1"})
             goldens (get (result (cs "03") "grader-lifecycle/instrument-goldens" {}) "goldens")
@@ -302,13 +346,13 @@
             items (vec (for [e stamped]
                          {"item-id" (get e "item-id") "scenario-digest" (str "s-" (get e "item-id")) "rule" nil
                           "source" (str (get e "source") ":" (get e "line")) "title" (get e "title")}))
-            checklist (first (cmd! cs "02" "measurement/derive-checklist"
+            checklist (first (cmd! cs stores "02" "measurement/derive-checklist"
                                    {"cut-id" "K-1" "selection-id" "whole-plan" "items" items "unstamped" [] "skipped-slices" []}))
             ;; the Regeneration cycle: self-check, clean room, candidate, gate attempt passed
-            _ (gate-cycle! cs "C-1" "K-1" gdigest "sha256:cand-1" day)
+            _ (gate-cycle! cs stores "C-1" "K-1" gdigest "sha256:cand-1" day)
             gated (progress cs "C-1")
             ;; Measurement: verdicts, score, scoreboard; handed back to the Regeneration cycle
-            {:keys [filed scoreboard]} (measure! cs "C-1" "sha256:cand-1" item-ids)
+            {:keys [filed scoreboard]} (measure! cs stores "C-1" "sha256:cand-1" item-ids)
             concluded (progress cs "C-1")
             to-conclude (get (result (cs "04") "regeneration-cycle/cycles-to-conclude" {}) "cycle-ids")
             pinned (first (get (result (cs "05") "cycle-preparation/source-cuts" {}) "cuts"))
@@ -323,11 +367,11 @@
         (note "STORY STOPPED: " (ex-message ex))))
     ;; 3b. the round-4 open question: the stage clock fails C-2 at the score stage, then Measurement files anyway
     (when-not (:happy-error @out)
-      (note "\n=== 3b. the round-4 open question: C-2 failed at the score stage by the stage clock, measured anyway")
+      (note "\n=== 2b. a cycle failed at the score stage by the stage clock, measured anyway (\"Spec round 5\" 3)")
       (try
         (let [gdigest (get-in @out [:happy :gdigest])
               item-ids (get-in @out [:happy :item-ids])
-              _ (gate-cycle! cs "C-2" "K-1" gdigest "sha256:cand-2" 1)
+              _ (gate-cycle! cs stores "C-2" "K-1" gdigest "sha256:cand-2" 1)
               _ (note "  waiting for the stage clock (every 30 s) to time out C-2's 1-second score stage ...")
               failed (loop [n 0]
                        (let [c (progress cs "C-2")]
@@ -340,14 +384,14 @@
                           "the fail-cycle method"))
               failed (progress cs "C-2")
               n-before (count @handed)
-              {:keys [filed scoreboard]} (measure! cs "C-2" "sha256:cand-2" item-ids)
+              {:keys [filed scoreboard]} (measure! cs stores "C-2" "sha256:cand-2" item-ids)
               after (progress cs "C-2")
               m2 (get (result (cs "02") "measurement/cycle-measurement" {"cycle-id" "C-2"}) "measurement")]
           (swap! out assoc :open {:how how :failed failed :after after :filed filed :scoreboard scoreboard
                                   :m2 m2 :handins (subvec @handed n-before)}))
         (catch Exception ex
           (swap! out assoc :open-error (ex-message ex))
-          (note "OPEN QUESTION PROBE STOPPED: " (ex-message ex)))))
+          (note "C-2 STOPPED: " (ex-message ex)))))
     (stop-all!)
     @out))
 
@@ -358,6 +402,17 @@
   (check! :contract "every handoff of every producer has a consumer in the event models"
           (and (seq handoffs) (every? consumers (keys handoffs)))
           (str (count handoffs) " handoffs; without a consumer: " (vec (sort (remove consumers (keys handoffs))))))
+  (check! :contract "each producer's handoffs lie in one tenant of its own store"
+          (and (seq @tenants-seen) (every? #(= 1 (count %)) (vals @tenants-seen)))
+          (str/join ", " (for [[p ts] (sort @tenants-seen)] (str p " " (str/join "+" (sort ts))))))
+  (let [missing (remove :in-store? @in-results)]
+    (check! :contract "every handoff a command result carries is in its producer's store, as given"
+            (and (seq @in-results) (empty? missing))
+            (if (seq missing)
+              (str/join "; " (for [m missing] (str (:by m) " " (clip (:event m) 200))))
+              (str (count @in-results) " handoffs in command results, each read back from the store; "
+                   (- (count @emitted) (count @in-results)) " more only in the store (issued by a policy): "
+                   (str/join ", " (distinct (map :type (remove (fn [e] (some #(= (:event e) (:event %)) @in-results)) @emitted))))))))
   (let [refused (filter :error @handed)
         echo-bad (remove #(or (:error %) (= (:echo %) (:event %))) @handed)]
     (check! :contract "every produced handoff is accepted by every consumer (no -32602)"
@@ -404,20 +459,20 @@
               (and (= item-ids stamped-q cl-ids filed-ids) (= 2 (count item-ids)) (= (count item-ids) (get scoreboard "total")))
               (str "01 " item-ids " (query " stamped-q "), checklist " cl-ids ", measurement-filed " filed-ids
                    ", scoreboard total " (get scoreboard "total")))))
-  (note "\n=== findings")
-  (doseq [[mode a] exp] (note "EXPERIMENT " mode ": " (json/generate-string a)))
   (cond
-    open-error (note "OPEN QUESTION: probe stopped: " open-error)
+    happy-error nil
+    open-error (check! :reading "a cycle failed at the score stage stays failed; Measurement keeps its measurement filed (round 5, option c)"
+                       false (str "C-2 stopped: " open-error))
     open (let [{:keys [how failed after filed scoreboard m2 handins]} open]
-           (note "OPEN QUESTION (round 4 §3), C-2 failed at the score stage by " how ":")
-           (note "  regeneration-cycle: " (get after "status") " at " (get after "stage") ", failure "
-                 (json/generate-string (get after "failure")) " (unchanged by the hand-ins: " (= failed after) ")")
-           (note "  measurement: cycle-measurement status " (get m2 "status") ", " (get filed "passes") "/" (get filed "total")
-                 " filed; scoreboard rate " (get scoreboard "rate") ", previous cycle " (get scoreboard "previous-cycle-id"))
-           (note "  hand-ins to regeneration-cycle: " (str/join ", " (for [h handins] (str (:type h) (if (:error h) " REFUSED" " accepted, ignored by the fold")))))
-           (note "  => " (if (and (= "failed" (get after "status")) (= "filed" (get m2 "status")))
-                            "they disagree: the Regeneration cycle says C-2 failed with no score; Measurement holds a filed, reported measurement of C-2 (a baseline for the next cycle)"
-                            "they do not disagree as expected; see above")))))
+           (check! :reading "a cycle failed at the score stage stays failed; Measurement keeps its measurement filed (round 5, option c)"
+                   (and (= "failed" (get after "status")) (= "score" (get after "stage")) (= failed after)
+                        (= "filed" (get m2 "status")) (some? filed) (not-any? :error handins))
+                   (str "C-2 failed at " (get after "stage") " by " how ", failure " (json/generate-string (get after "failure"))
+                        ", unchanged by the hand-ins (" (str/join ", " (for [h handins] (str (last (str/split (:type h) #"/")) (if (:error h) " REFUSED" " accepted"))))
+                        "); measurement " (get m2 "status") " " (get filed "passes") "/" (get filed "total")
+                        ", scoreboard " (get scoreboard "rate") " against " (get scoreboard "previous-cycle-id")))))
+  (note "\n=== report: the shared-store experiment (the deferred end state, \"Spec round 5\" 1; not a check)")
+  (doseq [[mode a] exp] (note "REPORT shared store, " mode ": " (json/generate-string a))))
 
 (defn -main []
   (note "assembly gate: work " work)

@@ -74,22 +74,29 @@ them. An open grader run by ORC is a new-harness feature, drafted in the spec
 of this tool.
 
 **Assembly gate (2026-11-07).** `harness/v2/assemble.sh ROOM01 ROOM02 ROOM03 ROOM04 ROOM05`
-(with `v2/assemble.clj`) wires the five gated candidates together through their handoffs
-(`.pi/spec/decisions.md`, "First light" 5), driving each only through its `start.sh` seam. It
-first tries one shared `LOYLY_GRAIN_STORE` for producers and consumers, one after the other and
-concurrently, and records whether a consumer sees a producer's facts with nothing handed in
-(it did not: each candidate writes its own Grain tenant). Then each candidate runs on its own
-fresh store and one story runs end to end: stamp, pin a cut, write and move a golden, derive
-the checklist, a regeneration cycle to a passed gate attempt, item verdicts, the score, the
-scoreboard, the cycle passed. Every handoff a producer's command result carries is handed in
-unchanged, in the producer's order, to every consumer the event models name (a read model's
-`:consumes` or a processor's `:subscribes` of a foreign event); `scoreboard-reported`, which
-Measurement's policy issues inside `file-score`, is read through `measurement/scoreboard`. It
-checks the contracts fit (no hand-in refused, each echoed as given, the order kept), the cycle
-passed measured and reported, and the cut id, candidate digest, goldens digest and item ids
-agree across contexts; then it reports, as a finding, what each context shows of a cycle the
-stage clock failed at the score stage and Measurement measured anyway ("Spec round 4" 3).
-Exit 0 only when every check passes; it stops every process it starts.
+(with `v2/assemble.clj` and `v2/store_reader.clj`) wires the five gated candidates together
+through their handoffs (`.pi/spec/decisions.md`, "First light" 5 and "Spec round 5"), driving
+each only through its `start.sh` seam. It first tries one shared `LOYLY_GRAIN_STORE` for
+producers and consumers, one after the other and concurrently, and reports, not as a check,
+whether a consumer sees a producer's facts with nothing handed in (it did not: each candidate
+writes its own Grain tenant; the shared store is the deferred end state, "Spec round 5" 1). The
+assembly is the relay, as in the legacy harness, whose tools pass files: each candidate runs
+on its own fresh store and one story runs end to end: stamp, pin a cut, write and move a
+golden, derive the checklist, a regeneration cycle to a passed gate attempt, item verdicts, the
+score, the scoreboard, the cycle passed. After each command the relay reads the producer's
+store file directly, with Grain's own reader on a copy (as `v2/event_store_check.clj` does),
+takes the events of the producer's handoff types (its `event-model/handoffs.edn`) within its
+tenant, in store order, not from command results ("Spec round 5" 2), and hands each new one in
+unchanged, in that order, to every consumer the event models name (a read model's `:consumes`
+or a processor's `:subscribes` of a foreign event); so `scoreboard-reported`, which
+Measurement's policy issues inside `file-score`, travels like any other handoff. It checks the
+contracts fit, each producer's handoffs lie in one tenant, every handoff a command result
+carries is in the producer's store as given, no hand-in is refused, each is echoed as given,
+the order is kept, the cycle passed measured and reported, and the cut id, candidate digest,
+goldens digest and item ids agree across contexts. Last, a reading ("Spec round 5" 3, option
+c): a cycle the stage clock failed at the score stage and Measurement measured anyway stays
+failed in the Regeneration cycle while Measurement keeps its measurement filed. Exit 0 only
+when every check passes; it stops every process it starts.
 
 **Where a spec-v2 cycle is filed (2026-11-07).** Each slice numbers its own cycles under
 `v2/cycles/NN/` (`01`, `02`, ...), never under `harness/cycles/`. `oracle.sh`, a shared module
