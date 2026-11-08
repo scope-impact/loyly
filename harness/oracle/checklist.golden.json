@@ -1109,9 +1109,21 @@
    "name": "The identity probe is handed the served URL, and passes a candidate that serves the marker",
    "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
    "source": ".pi/plan/06-cycle-runner/spec.feature:387"
+  },
+  {
+   "id": "06-037",
+   "name": "A candidate whose suite writes inside its own directory passes the gate",
+   "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:398"
+  },
+  {
+   "id": "06-038",
+   "name": "A skipped check is recorded with the whole text after SKIP",
+   "rule": "No clean room is built over a failed harness self-check",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:410"
   }
  ],
  "counts": {
-  "total": 185
+  "total": 187
  }
 }

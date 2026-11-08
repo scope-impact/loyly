@@ -277,3 +277,15 @@ and that one. The spec grew (additions only), so the golden was re-recorded with
 slice-06 grader grows by that item for the recorded reason "spec grew"; no other approved
 grader's scenarios changed. `probe-06.sh` and `prompt.clj` state no probe call, so neither
 changed.
+
+**2026-11-08: the spec grew: spec round 7d.** Shadow run 2 found the runner's gate failing a
+candidate's own suite (`EACCES` inside its directory) because the gate room was read-only, where
+legacy `verify.sh` runs the candidate in a writable tree, and the runner reading a `SKIP` line of
+legacy `check.sh` by its first word. The product owner's spec round 7d (`.pi/spec/decisions.md`,
+"Spec round 7d") made the gate room writable by the candidate's own run (the install digest the
+copy's as taken) and the skipped check the whole rest of the line, and appended two stamped
+minimum items at the end of slice 06's `spec.feature`: `06-037` and `06-038`; the derived
+checklist is the 185 and those two. The spec grew (additions only), so the golden was
+re-recorded with `harness/oracle.sh record`; its diff is additions plus the one `total` line
+(185 → 187). The slice-06 grader grows by those items for the recorded reason "spec grew"; no
+other approved grader's scenarios changed.
