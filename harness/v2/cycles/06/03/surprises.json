@@ -1,0 +1,30 @@
+[
+ {
+  "item": "06-025/06-026",
+  "note": "grader-side bug: first check read measurement-filed field 'passed'; the schema field is 'passes'. Re-read from saved run.json; verdicts corrected. Not a candidate issue."
+ },
+ {
+  "item": "06-013",
+  "note": "grader-side parse bug on an empty impl section; re-read from the builder's own record."
+ },
+ {
+  "item": "06-023",
+  "note": "candidate-regenerated event carries no evidence field (schema has none); the evidence mount is stated only in the effect's detail text."
+ },
+ {
+  "item": "06-017",
+  "note": "start-run responded ~44 s after the call although the regenerate timeout was 2 s; builder was stopped after 2 ticks (contexts boot dominate)."
+ },
+ {
+  "item": "06-033",
+  "note": "before derive-checklist the runner queried measurement/measurements-to-report as its liveness probe, then relayed handoffs to measurement; the halt came on derive-checklist as specified."
+ },
+ {
+  "item": "06-022",
+  "note": "poisoner started writing 0.3 s after the builder exited (overwriting impl/test.sh and adding POISON); copy was taken before; regenerate=install=fixture digest."
+ },
+ {
+  "item": "general",
+  "note": "each run starts five JVM contexts; runs took ~20-45 s; gate room cwd is gate-rooms/attempt-N with candidate under impl/."
+ }
+]
