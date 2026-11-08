@@ -984,6 +984,20 @@ the switch and of what it leaves open.
      `cycles/06/0{1,2,3}`; `record-gate-attempt`'s undeclared read of `instrument-goldens`;
      `@item-03-010` and `@item-03-011`, whose Whens omit a note the schema requires; the
      runner's self-check after a refusal against regeneration-cycle's one-per-attempt rule.
+   - *Self-hosting* (2026-11-08): the cycle-runner's gate (`cycle-runner/seam.md` E5) is legacy
+     `verify.sh`'s HTTP contract: `APP_DIR/test.sh`, `APP_DIR/start.sh PORT`,
+     `http://127.0.0.1:PORT` answering an HTTP GET, the page carrying `APP_MARKER`, and the
+     identity probe run as `APP_PROBE URL`. So the new harness regenerates HTTP apps that keep
+     that contract, the Löyly app, and was proved on them (shadow runs 4 and 5). It cannot yet
+     gate a context of its own spec: the six spec-v2 contexts are JSON-RPC services over stdio,
+     gated by `harness/v2/gate.sh`: `harness/verify.sh` (the instrument, the whole suite, a
+     fresh boot and the slice's stdio identity probe `harness/v2/probe-NN.sh`), then a direct
+     read of the Grain store (`harness/v2/event-store-check.sh`): each event one of the slice's
+     event model or a handoff it consumes, with exactly its fields; each command's events
+     inside a completed run of its ORC workflow; one terminal completion per tick; processors
+     checkpointed. Until the runner gains that second contract (a spec round on cycle-runner
+     E5), rebuilding the harness's own contexts still uses `harness/v2/gate.sh` and
+     `harness/v2/score.sh`. The coupling to Löyly beyond that is cosmetic: the `LOYLY_*` names.
 
 ### The builder command the shadow runs used
 
