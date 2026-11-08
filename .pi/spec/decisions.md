@@ -845,7 +845,8 @@ checklist golden grows 149 → 184. The 35 new items are the next cycle's untune
 A spec round: no builder ran; no other context's `spec.feature`, Allium `requires` or
 event-model schema changed; no existing scenario's text changed.
 
-1. **The finding: shadow run 1.** On the same candidate (one digest, three copies) legacy
+1. **The finding: shadow run 1** (its evidence kept at `.pi/harness/.state/shadow/run-01`).
+   On the same candidate (one digest, three copies) legacy
    `verify.sh` passed and the runner's gate failed attempt 1 for `identity-probe-failed`, so the
    cycle failed at the gate (`gate-attempts-exhausted`, limit 1). Every earlier step agreed. The
    runner ran the identity probe as `harness/probe.sh 8901`; legacy `verify.sh` runs
@@ -883,8 +884,8 @@ grows 184 → 185. `@item-06-036` is the next cycle's untuned holdout.
 A spec round: no builder ran; no other context's `spec.feature`, Allium `requires` or
 event-model schema changed; no existing scenario's text changed.
 
-1. **The findings: shadow run 2.** The fence and the checklist agreed with legacy, as in shadow
-   run 1. Two gaps remained in slice 06:
+1. **The findings: shadow run 2** (its evidence kept at `.pi/harness/.state/shadow/run-02`).
+   The fence and the checklist agreed with legacy, as in shadow run 1. Two gaps remained in slice 06:
    - *The gate room was read-only.* On the same candidate legacy `verify.sh` passed (suite 16/16)
      and the runner's gate failed attempt 1 for `suite-red` (0/16): the candidate's own suite
      failed with `EACCES` on `mkdtemp` inside its directory, because `cycle-runner/seam.md` E5
@@ -934,7 +935,8 @@ the switch and of what it leaves open.
    the five contexts of slices 01-05; the builder on both sides is the same `pi` command with
    its Gondolin backend on the existing Codex login, and one builder run per shadow run gives
    the one candidate both gates judge.
-3. **The five shadow runs.**
+3. **The five shadow runs.** Each run's evidence is kept, not committed, at
+   `.pi/harness/.state/shadow/run-0N` (N the run).
 
    | Run | Fence | Checklist | Gate | Verdicts and score | Scoreboard | Outcome |
    |---|---|---|---|---|---|---|
@@ -1001,8 +1003,8 @@ the switch and of what it leaves open.
 
 ### The builder command the shadow runs used
 
-Recorded 2026-11-08 from the shadow runs' evidence (`run-01` to `run-05`, `evidence/inputs.txt`
-and `bin/builder.sh`); the same in all five runs. `LOYLY_BUILDER_CMD <builder-room>
+Recorded 2026-11-08 from the shadow runs' evidence (`.pi/harness/.state/shadow/run-01` to
+`run-05`, `evidence/inputs.txt` and `bin/builder.sh`); the same in all five runs. `LOYLY_BUILDER_CMD <builder-room>
 <instruction-file>` ran `pi` 1.4.0 with its Gondolin extension, on the existing Codex login: the
 `openai-codex` model at high thinking, skills and templates off, its session in the run's
 builder session directory, the instruction file attached, and the builder room as its working

@@ -27,7 +27,11 @@ export SLICE CANDIDATE_ROOM="$(cd "$ROOM" && pwd -P)"
 [[ "$APP_PROBE" == "harness/v2/probe-$SLICE.sh" ]] || {
   echo "FATAL: SLICE=$SLICE names no context: no .pi/plan/$SLICE-* link in $ROOT"; exit 1; }
 
-EVIDENCE="$(mktemp -d "${TMPDIR:-/tmp}/gate-$SLICE.XXXXXX")"
+# The gate's work directory, kept as run state (harness/README.md, "Where a spec-v2 cycle's run
+# state goes"): PI_HARNESS_STATE_ROOT, by default this checkout's .pi/harness/.state.
+STATE="${PI_HARNESS_STATE_ROOT:-$ROOT/.pi/harness/.state}"
+mkdir -p "$STATE/gate" || { echo "FATAL: cannot make $STATE/gate"; exit 1; }
+EVIDENCE="$(mktemp -d "$STATE/gate/$SLICE.XXXXXX")"
 export GATE_STORE="$EVIDENCE/events.sqlite"
 unset LOYLY_GRAIN_STORE   # the suite never writes into the store the gate will read
 echo "=== the gate of slice $SLICE: candidate $CANDIDATE_ROOM/harness-impl/$(basename "$APP_DIR")"

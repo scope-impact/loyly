@@ -2,3 +2,7 @@ __pycache__/
 *.pyc
 server.log
 *.db
+
+# editor caches
+.clj-kondo/
+.lsp/

@@ -34,13 +34,16 @@ in the environment switches `config.sh` to that context: `APP_DIR` is `harness-i
 `APP_PROBE` is `v2/probe-NN.sh`, and `FENCED_PATHS` also hides spec v1, every other context, the
 legacy driver itself (the earlier answer of every context), `v2/`, and all of `harness-impl/`
 (the promoted build, `../harness-impl/README.md`, so the room's candidate scope starts empty). The shared module files
-are unchanged. One cycle, by hand:
+are unchanged. One cycle, by hand (cycle MM of slice 01, its room and prompt under the run
+state, "Where a spec-v2 cycle's run state goes", below):
 
 ```bash
-SLICE=01 harness/fence.sh ROOM                  # the room, proved
-bb harness/v2/prompt.clj 01 OUT                 # OUT/system.md and OUT/prompt.md, outside the room
-(cd ROOM && pi --append-system-prompt OUT/system.md @OUT/prompt.md)   # a person runs the builder
-harness/v2/gate.sh 01 ROOM                      # the gate, from this checkout
+STATE=${PI_HARNESS_STATE_ROOT:-.pi/harness/.state}; mkdir -p $STATE/rooms $STATE/logs
+ROOM=$STATE/rooms/01-cMM; OUT=$STATE/prompts/01-cMM
+SLICE=01 harness/fence.sh $ROOM > $ROOM.fence.log 2>&1   # the room, proved
+bb harness/v2/prompt.clj 01 $OUT                # OUT/system.md and OUT/prompt.md, outside the room
+(cd $ROOM && pi --append-system-prompt $OUT/system.md @$OUT/prompt.md)   # a person runs the builder
+harness/v2/gate.sh 01 $ROOM 2>&1 | tee $STATE/logs/gate-cMM-slice01.log  # the gate, from this checkout
 ```
 
 The room holds no instrument, so the gate runs here: `CANDIDATE_ROOM=ROOM` points `APP_DIR` at
@@ -142,6 +145,26 @@ and no golden moved. One root per slice also makes the legacy scoreboard's "prev
 (the number minus one) the last cycle of the same selection, the slice, as
 `.pi/spec/decisions.md` g asks.
 
+### Where a spec-v2 cycle's run state goes (2026-11-08)
+
+The scores go into `v2/cycles/` and are committed; the run state behind them never is. It lives
+under `PI_HARNESS_STATE_ROOT`, by default `.pi/harness/.state/` of this checkout (ignored by
+`.pi/harness/.gitignore`), where `regen.clj` keeps its own:
+
+| Under the state root | What it holds |
+|---|---|
+| `rooms/NN-cMM/`, `rooms/NN-cMM.fence.log` | slice NN's clean room in cycle MM (a git repository, the candidate inside) and its fence's output |
+| `prompts/NN-cMM/` | the `system.md` and `prompt.md` that `v2/prompt.clj` rendered for that room's builder |
+| `grading/NN-cMM/` | the grading session's working files and the verdicts file handed to `v2/score.sh` |
+| `logs/` | `gate-cMM-sliceNN.log`, `score-cMM-sliceNN.log`, `assemble-NN.log` |
+| `gate/`, `assemble/` | the work directories `v2/gate.sh` (the candidate's Grain store) and `v2/assemble.clj` make, one per run |
+| `runs/` | the cycle runner's runs directory, `LOYLY_RUNS_DIR`: each run's stores, clean room, builder and gate rooms, gate evidence |
+| `shadow/run-0N/` | the five shadow runs of the switch: `evidence/`, `runner-store.sqlite`, `runs/`, both sides' rooms |
+| `audit/` | the grading audits of slices 02 to 04: each explorer's verdicts and the stores it drove |
+| `assets/`, `runtime-images/` | the Gondolin VM images `harness/Makefile` builds; in a worktree, a link to the main checkout's |
+
+`MAP.md` at the state root records where each tree written before 2026-11-08 was first kept.
+
 ## The switch to the new harness (2026-11-08)
 
 The new harness, the slice-06 cycle-runner (the cycle 03 candidate) driving the five contexts
@@ -149,7 +172,8 @@ of slices 01-05 with `pi` and its Gondolin backend as the builder, now runs the 
 cycles. It did what this harness did on the full Löyly app (11 items) at every stage, fence to
 scoreboard, in shadow runs 4 and 5, and the user confirmed the switch. These tools stay as the
 reference and are never deleted. The rule, the five runs, and what stays open:
-`.pi/spec/decisions.md`, "The switch to the new harness".
+`.pi/spec/decisions.md`, "The switch to the new harness". Each run's evidence is kept, not
+committed, at `.pi/harness/.state/shadow/run-01` to `run-05`.
 
 ## Differences from the archive, each with its reason
 

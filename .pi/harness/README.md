@@ -16,7 +16,7 @@ legacy harness in [`../../harness/`](../../harness/README.md) stays as the refer
 |---|---|
 | `config/`, `fixtures/platforms/`, `scripts/verify-platforms.mjs` | The Gondolin builder and grader VM configuration that `harness/Makefile` builds (into `.state/assets/`) and verifies, and the platform probes it runs in the grader VM. |
 | `builder-host/` | **Not built.** The durable Pi builder host (`@earendil-works/pi-durable`) that ORC would launch once per builder tick, forwarding tool calls into the Gondolin room ORC chose (spec v1, `.pi/model` 02-018, 02-019). The cycle runner does not need it: it launches `pi` directly. It remains an option for a run that resumes after a restart, which the switch leaves open. `harness/regen.clj`, the spec-v1 driver that generated from [`../model/`](../model/README.md), still refuses to regenerate without it. |
-| `.state/` | Run state: clean rooms, builder sessions, candidates, VM assets, sealed graders. Ignored by git. |
+| `.state/` | Run state, ignored by git; the root `PI_HARNESS_STATE_ROOT` overrides. Spec v1 (`harness/regen.clj`): `rooms/<run-id>`, `outputs/`, `builder-sessions/`, `graders/sealed/`, `cycles/`. Spec v2: `rooms/NN-cMM/` and `NN-cMM.fence.log` (each slice's clean room and candidate), `prompts/NN-cMM/`, `grading/NN-cMM/`, `logs/` (gate, score, assembly), `gate/` and `assemble/` (their work directories), `runs/` (the cycle runner's `LOYLY_RUNS_DIR`), `shadow/run-0N/` (the switch's shadow runs), `audit/`; `assets/` and `runtime-images/` (the VM images), in a worktree a link to the main checkout's. `MAP.md` records where each tree first lived. The layout: `../../harness/README.md`, "Where a spec-v2 cycle's run state goes". |
 
 The sealed graders under `.state/graders/sealed/`, approved by digest in
 [`../../harness/graders.approved.json`](../../harness/graders.approved.json), were written for
@@ -31,12 +31,14 @@ make -C ../../harness bootstrap   # Gondolin builder and grader VM images
 
 ## The builder command
 
-Recorded 2026-11-08 from the shadow runs' evidence (`run-01` to `run-05`, `evidence/inputs.txt`
-and `bin/builder.sh`; `../spec/decisions.md`, "The builder command the shadow runs used"); the
-same in all five runs. `LOYLY_BUILDER_CMD <builder-room> <instruction-file>` ran, with the
-builder room as its working directory and
-`GONDOLIN_GUEST_DIR=<main repository>/.pi/harness/.state/assets/builder` (the TypeScript builder
-VM image that `harness/Makefile` builds):
+Recorded 2026-11-08 from the shadow runs' evidence (`.state/shadow/run-01` to `run-05`,
+`evidence/inputs.txt` and `bin/builder.sh`; `../spec/decisions.md`, "The builder command the
+shadow runs used"); the same in all five runs. `LOYLY_BUILDER_CMD <builder-room>
+<instruction-file>` ran, with the builder room as its working directory and
+`GONDOLIN_GUEST_DIR=$PI_HARNESS_STATE_ROOT/assets/builder`, that is
+`.pi/harness/.state/assets/builder` of this checkout (in a worktree, `assets` links to the main
+checkout's), the TypeScript builder VM image that `harness/Makefile` builds. A cycle runner's
+runs directory, `LOYLY_RUNS_DIR`, goes under the same root: `.pi/harness/.state/runs`.
 
 ```bash
 pi -e <gondolin extension> --model openai-codex/gpt-6.1-sol --thinking high --no-skills --no-prompt-templates --session-dir <run's builder session dir> -p @<instruction-file> "Build it now, as the attached instruction says."

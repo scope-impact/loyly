@@ -36,7 +36,10 @@
 
 (def root (fs/canonicalize (first *command-line-args*)))
 (def rooms (zipmap (sort (keys contexts)) (rest *command-line-args*)))
-(def work (str (fs/create-temp-dir {:prefix "assemble."})))
+;; the work directory, kept as run state (harness/README.md, "Where a spec-v2 cycle's run state
+;; goes"): PI_HARNESS_STATE_ROOT, by default this checkout's .pi/harness/.state
+(def state (or (not-empty (System/getenv "PI_HARNESS_STATE_ROOT")) (str (fs/path root ".pi" "harness" ".state"))))
+(def work (str (fs/create-temp-dir {:dir (fs/create-dirs (fs/path state "assemble")) :prefix "assemble."})))
 
 ;; ---------------------------------------------------------------- the contracts
 (defn model-of [ctx]
