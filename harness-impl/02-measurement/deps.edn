@@ -1,0 +1,35 @@
+{:paths ["src" "resources"]
+ :deps {org.clojure/clojure {:mvn/version "1.12.0"}
+        org.clojure/data.json {:mvn/version "2.5.1"}
+
+        ;; ORC: the workflow engine. Its orc-service component is the engine.
+        obneyai/orc-service {:git/url "https://github.com/ObneyAI/orc.git"
+                             :git/sha "af086675be0e8a3fae0ebda503abe9942c9437ce"
+                             :deps/root "components/orc-service"}
+
+        ;; Grain: commands, queries, read models, todo processors, event store.
+        obneyai/grain-core-v2 {:git/url "https://github.com/ObneyAI/grain.git"
+                               :git/sha "dbf5b5229aad09785e40f71e96adf65c90f971d5"
+                               :deps/root "projects/grain-core-v2"}
+        obneyai/grain-event-store-sqlite-v3 {:git/url "https://github.com/ObneyAI/grain.git"
+                                             :git/sha "dbf5b5229aad09785e40f71e96adf65c90f971d5"
+                                             :deps/root "projects/grain-event-store-sqlite-v3"}
+        obneyai/grain-code-agent-tools {:git/url "https://github.com/ObneyAI/grain.git"
+                                        :git/sha "dbf5b5229aad09785e40f71e96adf65c90f971d5"
+                                        :deps/root "projects/grain-code-agent-tools"}}
+ :aliases
+ {:run {:extra-paths ["classes"]
+        :main-opts ["-m" "measurement.main"]
+        :jvm-opts ["--add-opens=java.base/java.nio=ALL-UNNAMED"
+                   "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"
+                   "--enable-native-access=ALL-UNNAMED"]}
+  :aot {:extra-paths ["classes"]
+        :main-opts ["-e" "(compile 'measurement.main)"]
+        :jvm-opts ["--add-opens=java.base/java.nio=ALL-UNNAMED"
+                   "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"
+                   "--enable-native-access=ALL-UNNAMED"]}
+  :test {:extra-paths ["test"]
+         :main-opts ["-m" "measurement.test-runner"]
+         :jvm-opts ["--add-opens=java.base/java.nio=ALL-UNNAMED"
+                    "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"
+                    "--enable-native-access=ALL-UNNAMED"]}}}

@@ -1,0 +1,10 @@
+# Build outputs and caches of the promoted candidates (each candidate's own .gitignore names
+# some of these; this covers all six, including those that ship none).
+.cpcache/
+target/
+classes/
+node_modules/
+*.sqlite
+*.sqlite-*
+*.log
+tmp/
