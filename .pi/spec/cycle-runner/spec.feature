@@ -390,3 +390,25 @@ Feature: Cycle runner
       When the operator starts run R-1 of cycle C-1 at source cut K-1
       Then the gate effect of run R-1 for attempt 1 was recorded with the event "regeneration-cycle/gate-attempt-passed"
       And run R-1 awaits its verdicts
+
+    # context.allium, contract GateOnTheHost, invariant TheGateGradesACopy
+    # Legacy: verify.sh runs the candidate's test.sh in a writable tree; shadow run 2, decisions.md "Spec round 7d"
+    @minimum @allium-boundary.TheGateGradesACopy
+    @item-06-037
+    Scenario: A candidate whose suite writes inside its own directory passes the gate
+      Given the stub builder leaves a candidate whose suite creates and removes a temporary directory inside its own directory, then exits 0, and whose launch entrypoint serves the marker on the port
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then the gate effect of run R-1 for attempt 1 was recorded with the event "regeneration-cycle/gate-attempt-passed"
+      And the install effect's candidate digest is the regenerate effect's
+
+  Rule: No clean room is built over a failed harness self-check
+
+    # cycle-run.allium, rule RecordEffect (a skipped check is part of the recorded self-check)
+    # Legacy: check.sh prints "SKIP  the oracle cannot judge this tree: a tool it grades is absent."; shadow run 2, decisions.md "Spec round 7d"
+    @minimum @allium-rule-success.RecordEffect
+    @item-06-038
+    Scenario: A skipped check is recorded with the whole text after SKIP
+      Given the self-check exits 0 and prints legacy check.sh's line "SKIP  the oracle cannot judge this tree: a tool it grades is absent."
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then the first self-check effect of run R-1 was recorded with the event "regeneration-cycle/harness-self-check-passed"
+      And its detail names the skipped check "the oracle cannot judge this tree: a tool it grades is absent.", that legacy line's whole text after SKIP

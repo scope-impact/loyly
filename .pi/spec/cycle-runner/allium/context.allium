@@ -95,12 +95,17 @@ contract GateOnTheHost {
     @invariant TheGateGradesACopy
         -- The gate grades a copy of the candidate taken when its builder session ended, in
         -- a gate room the builder never had: what the builder does after it ends does not
-        -- reach what the gate grades.
+        -- reach what the gate grades. The gate room is the gate's, out of the builder's
+        -- reach, and writable by the candidate's own test.sh and start.sh, as legacy
+        -- verify.sh runs the candidate in a writable tree. The candidate digest recorded
+        -- at install is the copy's as taken, before the gate runs: what the candidate's
+        -- own run writes does not change it (decisions.md, "Spec round 7d").
 
     @invariant TheLegacyGateOrder
         -- The first guard that does not hold is the gate's reply, in legacy verify.sh's
         -- order; the port already answering is a refusal to grade, not a failed attempt
-        -- (decisions.md b). Each step takes legacy verify.sh's arguments (seam.md, E5):
+        -- (decisions.md b). Each step runs in the writable gate room and takes legacy
+        -- verify.sh's arguments (seam.md, E5):
         -- test.sh none; start.sh the port; the identity probe the served URL,
         -- "http://127.0.0.1:" followed by the port, never the bare port (decisions.md,
         -- "Spec round 7c").

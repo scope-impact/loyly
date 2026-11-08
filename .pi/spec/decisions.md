@@ -846,3 +846,41 @@ event-model schema changed; no existing scenario's text changed.
 
 The slice-06 grader grows by this one item ("spec grew", additions only). The checklist golden
 grows 184 → 185. `@item-06-036` is the next cycle's untuned holdout.
+
+## Spec round 7d (decided 2026-11-08)
+
+A spec round: no builder ran; no other context's `spec.feature`, Allium `requires` or
+event-model schema changed; no existing scenario's text changed.
+
+1. **The findings: shadow run 2.** The fence and the checklist agreed with legacy, as in shadow
+   run 1. Two gaps remained in slice 06:
+   - *The gate room was read-only.* On the same candidate legacy `verify.sh` passed (suite 16/16)
+     and the runner's gate failed attempt 1 for `suite-red` (0/16): the candidate's own suite
+     failed with `EACCES` on `mkdtemp` inside its directory, because `cycle-runner/seam.md` E5
+     said the installed copy is "read-only". Legacy `verify.sh` runs the candidate's `test.sh`
+     and `start.sh` in place, in a writable tree.
+   - *SKIP lines were read by their first word.* E2 said "each line `SKIP <check>` a skipped
+     check"; legacy `check.sh` prints `SKIP  the oracle cannot judge this tree: …` and
+     `SKIP  <sibling> is declared in SIBLING_REPOS …`, so the runner recorded the skipped check
+     as "the" or similar, not the check.
+2. **The judge's decisions (main session).** The gate stage disagreed; the spec was wrong:
+   "read-only" was meant to keep the builder out of the gate room, which "a copy … taken when
+   the builder ended" already guarantees; it blocked the candidate's own run, which legacy runs
+   writable. The SKIP reading is a spec gap: the skipped check is the rest of the line.
+3. **The fix.** E5 and `GateOnTheHost` (`TheGateGradesACopy`, `TheLegacyGateOrder`): the gate
+   room is a fresh copy owned by the gate, taken when the builder ended, out of the builder's
+   reach, and writable by the candidate's own `test.sh` and `start.sh`; the candidate digest
+   recorded at install is the copy's as taken, before the gate runs, so what the candidate's run
+   writes does not change it. E2: the skipped check named by a line starting `SKIP` is the rest
+   of the line after `SKIP` and its whitespace, trimmed. Checked while there, every other
+   "read-only" in slice 06: E6, `TheBuilderSeesOnlyItsMounts`, the repair instruction and
+   `@item-06-023` concern the repair builder's mounts of the previous candidate and the gate
+   evidence, and stay read-only; no other statement makes the gate room read-only.
+4. **Two new scenarios**, appended under repeats of their Rule headers, both `@minimum`:
+   `@item-06-037` "A candidate whose suite writes inside its own directory passes the gate"
+   (`TheGateGradesACopy`): its gate attempt passes and the install digest equals the regenerate
+   digest; `@item-06-038` "A skipped check is recorded with the whole text after SKIP"
+   (`RecordEffect`): legacy `check.sh`'s oracle SKIP line is recorded with its whole text.
+
+The slice-06 grader grows by these two items ("spec grew", additions only). The checklist golden
+grows 185 → 187. `@item-06-037` and `@item-06-038` are the next cycle's untuned holdout.
