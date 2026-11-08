@@ -1,15 +1,18 @@
 # Pi harness architecture
 
-The architecture the contract in [`.pi/model/`](model/) specifies. It describes the target,
-derived from the model alone; it makes no claim about any built harness. Where this page and
-the model disagree, the model wins.
+The architecture of spec v2 ([`.pi/spec/`](spec/README.md)) and of the harness as it runs since
+the switch (`spec/decisions.md`, "The switch to the new harness"): the slice-06 cycle runner (its
+cycle 03 candidate) driving the five contexts of slices 01 to 05, with `pi` and its Gondolin
+backend as the builder and the legacy harness kept as the reference. Every element below is
+taken from `.pi/spec/<context>/` (README, `domain-design.md`, `seam.md`, `event-model/`),
+`spec/decisions.md`, `harness/README.md` and AGENTS.md. Where this page and the spec disagree,
+the spec wins.
 
 ## C4 views
 
-Three levels, following the `c4-diagrams` skill. Every element and relationship is taken from
-the model: ORC is a library, so it runs inside the harness process and appears only as
-components; Grain's event store is a data store; the builder, gate, and validation rooms are
-runnable containers. "Technology bindings" below names the technology behind each domain term.
+Three levels. Every context is its own runnable JVM with its own store; ORC and Grain are
+libraries inside each JVM, so they appear only as components. "Technology bindings" below
+names the technology behind each term.
 
 ### Level 1: System Context
 
@@ -18,27 +21,29 @@ Who uses the harness and what it depends on.
 ```mermaid
 
 flowchart TB
-  operator(["<b>Operator</b><br/>[Person]<br/>A person, or a Pi or Codex session acting for one"])
-  driver["<b>Regeneration driver</b><br/>[Software System, external]<br/>Legacy gate and sealed graders"]
-  harness["<b>Pi harness</b><br/>[Software System]<br/>Regenerates a project from an approved slice of its contract in a fenced clean room, gates the candidate, and measures it with approved sealed graders"]
-  repo["<b>Project repository</b><br/>[Software System, external]<br/>Commits and stamped Gherkin plan"]
-  host["<b>Durable builder host</b><br/>[Software System, provided]<br/>TypeScript on pi-durable; one durable Pi session per ORC builder tick"]
-  pi["<b>Codex</b><br/>[Software System, external]<br/>The model the builder session talks to"]
-  gondolin["<b>Gondolin</b><br/>[Software System, external]<br/>Micro-VMs for isolated rooms"]
-  bedrock["<b>Amazon Bedrock</b><br/>[Software System, external; deferred, slice 06]<br/>Pinned reflection model"]
+  operator(["<b>Operator</b><br/>[Person]<br/>A person, or the main session acting for one; the final judge of a shadow run"])
+  harness["<b>Pi harness, spec v2</b><br/>[Software System]<br/>The cycle runner and the five contexts: runs one regeneration cycle, fence to scoreboard, and records each fact in the context that owns it"]
+  repo["<b>Project repository</b><br/>[Software System, external: git]<br/>The cut's commit: the stamped plan, the harness configuration, the self-check and the identity probe"]
+  builder["<b>Builder</b><br/>[Software System, provided]<br/>pi with its Gondolin backend, one VM room per run; launched and waited for"]
+  model["<b>Model provider</b><br/>[Software System, external]<br/>The existing Codex login the builder uses"]
+  candidate["<b>Candidate</b><br/>[Software System, regenerated]<br/>The product the builder left in its candidate scope; reached only over its public seam"]
+  grading["<b>Grading agent</b><br/>[Software System, external]<br/>Legacy step 5: one grading subagent per candidate, black-box; writes one verdicts file"]
+  legacy["<b>Legacy harness</b><br/>[Software System, reference]<br/>fence.sh, verify.sh, score.clj, scoreboard.clj; never deleted"]
 
-  operator -- "Approves and submits work, reads outcomes<br/>[JSON-RPC over stdio]" --> harness
-  driver -- "Starts it, proves identity, drives graded actions<br/>[JSON-RPC over stdio]" --> harness
-  harness -- "Cuts a commit, reads its plan<br/>[git]" --> repo
-  harness -- "Launches one durable session per builder tick<br/>(production prompt, room policy, tick as request id)" --> host
-  harness -- "Starts and stops the room ORC chose;<br/>runs gate and validation rooms" --> gondolin
-  host -- "Model turns; credentials stay on the host" --> pi
-  host -- "Forwards each tool call into the room" --> gondolin
-  harness -. "Asks for instruction candidates<br/>[HTTPS, deferred]" .-> bedrock
+  operator -- "Starts a run, hands in its verdicts, reads its progress<br/>[JSON-RPC over stdio]" --> harness
+  operator -- "Launches one per candidate" --> grading
+  harness -- "Reads the cut, fences a copy of it<br/>[git]" --> repo
+  harness -- "Launches with the builder room and the instruction; waits" --> builder
+  builder -- "Model turns" --> model
+  builder -- "Writes the candidate scope" --> candidate
+  harness -- "Gates a copy on the host<br/>(legacy verify.sh order)" --> candidate
+  grading -- "Drives over its public seam" --> candidate
+  operator -. "Shadow run: same cut, same candidate, same verdicts file" .-> legacy
+  legacy -. "Fences the same cut" .-> repo
 
   class operator person
   class harness system
-  class driver,repo,host,pi,gondolin,bedrock external
+  class repo,builder,model,candidate,grading,legacy external
   classDef person fill:#08427b,stroke:#052e56,color:#fff
   classDef system fill:#1168bd,stroke:#0b4884,color:#fff
   classDef external fill:#8a8a8a,stroke:#6b6b6b,color:#fff
@@ -47,11 +52,13 @@ flowchart TB
   classDef boundary fill:none,stroke:#444,stroke-dasharray:6 4,color:#444
 ```
 
-- The **operator** is `actor Operator`, identified by its `OperatorSession`. Exploratory
-  transcripts, skills, and branches stay in the operator session; only an approved preparation
-  crosses into ORC.
-- The **regeneration driver** (the legacy gate and sealed graders) reaches the harness only
-  through the seam, exactly like the operator.
+- The **operator** speaks only the runner's seam (`cycle-runner/seam.md`, "Methods"). The
+  methods are synchronous: whoever watches a live run reads the runner's Grain store and the pi
+  session directly (`spec/decisions.md`, "Spec round 7b" 5).
+- The harness **never grades**: the verdicts file is handed in. In a shadow run the same file
+  goes unchanged to the runner and to legacy `score.clj` (`cycle-runner/domain-design.md`,
+  "Boundaries").
+- The **builder's exit is not evidence**; the gate is.
 
 ### Level 2: Container
 
@@ -61,45 +68,45 @@ The runnable parts of the harness and the stores they use.
 
 flowchart LR
   operator(["<b>Operator</b><br/>[Person]"])
-  driver["<b>Regeneration driver</b><br/>[Software System, external]"]
 
-  subgraph h ["Pi harness [Software System]"]
-    proc["<b>Harness process</b><br/>[Container: Clojure, ORC, Grain; launch entrypoint start.sh]<br/>Serves the seam; runs the :loyly.pi-harness service area and the ORC cycle workflow"]
-    events[("<b>Event store</b><br/>[Container: Grain, tenant-scoped]<br/>Harness facts and ORC :sheet facts, never duplicated into each other")]
-    state[("<b>Cycle state</b><br/>[Container: files under PI_HARNESS_STATE_ROOT]<br/>Clean rooms, candidates, gate evidence, per-cycle evidence volumes")]
-    host["<b>Builder host</b><br/>[Container: TypeScript, pi-durable; provided, on the host]<br/>Runs the durable Pi loop for one tick; submits ORC's production prompt with the tick as request id; holds the Codex credentials"]
-    builder["<b>Builder room</b><br/>[Container: Gondolin VM chosen by ORC, offline]<br/>Image for the target stack; clean room read-only, writes only the candidate scope; no host environment"]
-    gate["<b>Gate room</b><br/>[Container: Gondolin VM, independent of the builder]<br/>Boots the candidate fresh through its launch entrypoint, proves its suite green"]
-    validator["<b>Validation room</b><br/>[Container: Gondolin VM]<br/>Graders and independent invariant checks against the candidate's seam; capture policy read-only, one cycle evidence volume writable"]
+  subgraph h ["Pi harness, spec v2 [Software System]"]
+    runner["<b>Cycle runner</b><br/>[Container: Clojure on ORC and Grain; slice 06, start.sh]<br/>Performs the effects E1 to E8, records each through a context's seam, relays the handoffs"]
+    rstore[("<b>Runner store</b><br/>[Container: Grain event-store-v3, SQLite, LOYLY_GRAIN_STORE]<br/>Its own events only; ORC on the same file and tenant")]
+    spec["<b>Specification</b><br/>[Container: Clojure on ORC and Grain; slice 01]<br/>stamp-slice"]
+    prep["<b>Cycle preparation</b><br/>[Container: Clojure on ORC and Grain; slice 05]<br/>pin-source-cut"]
+    grader["<b>Grader lifecycle</b><br/>[Container: Clojure on ORC and Grain; slice 03]<br/>instrument goldens"]
+    meas["<b>Measurement</b><br/>[Container: Clojure on ORC and Grain; slice 02]<br/>checklist, verdicts, score, scoreboard"]
+    regen["<b>Regeneration cycle</b><br/>[Container: Clojure on ORC and Grain; slice 04]<br/>self-check, clean room, attempts, conclusion"]
+    runs[("<b>Run directory</b><br/>[Container: files under LOYLY_RUNS_DIR]<br/>The five contexts' SQLite Grain stores, the clean room, builder rooms, gate rooms, gate evidence")]
+    gate["<b>Gate room</b><br/>[Container: a directory on the host]<br/>A copy of the candidate; its test.sh and start.sh run here, writable"]
   end
 
-  subgraph ext ["External software systems"]
-    direction TB
-    repo["<b>Project repository</b><br/>[Software System]"]
-    pi["<b>Codex</b><br/>[Software System]"]
-    bedrock["<b>Amazon Bedrock</b><br/>[Software System; deferred, slice 06]"]
-  end
+  vm["<b>Builder VM</b><br/>[Container: pi with its Gondolin backend; provided]<br/>Mounts one builder room; writes the candidate scope"]
+  repo["<b>Project repository</b><br/>[Software System, git]"]
 
-  operator -- "Approves, submits, observes<br/>[JSON-RPC over stdio]" --> proc
-  driver -- "Proves identity, drives graded actions<br/>[JSON-RPC over stdio]" --> proc
-  proc -- "Appends facts, projects read models" --> events
-  proc -- "Cuts a commit [git]" --> repo
-  proc -- "Fences clean rooms, keeps candidates" --> state
-  proc -- "Launches per builder tick: production prompt and digest, tick as request id" --> host
-  proc -- "Starts and stops with the room policy" --> builder
-  proc -- "Gates each candidate" --> gate
-  proc -- "Scores with approved graders" --> validator
-  host -- "Model turns" --> pi
-  host -- "Forwards tool calls" --> builder
-  builder -- "Reads clean room, writes scope" --> state
-  validator -- "Writes evidence" --> state
-  proc -. "Requests instruction candidates [HTTPS, deferred]" .-> bedrock
+  operator -- "start-run, hand-in-verdicts, run-progress<br/>[JSON-RPC over stdio]" --> runner
+  runner -- "Appends its facts; ORC sheet facts" --> rstore
+  runner -- "Starts for the run, records effects, hands in handoffs<br/>[JSON-RPC over stdio]" --> spec
+  runner -- "[JSON-RPC over stdio]" --> prep
+  runner -- "[JSON-RPC over stdio]" --> grader
+  runner -- "[JSON-RPC over stdio]" --> meas
+  runner -- "[JSON-RPC over stdio]" --> regen
+  spec -- "Own store and tenant" --> runs
+  prep -- "Own store and tenant" --> runs
+  grader -- "Own store and tenant" --> runs
+  meas -- "Own store and tenant" --> runs
+  regen -- "Own store and tenant" --> runs
+  runner -- "Reads each producer's handoffs from its store; fences the clean room" --> runs
+  runner -- "git show, rev-parse, fence.sh" --> repo
+  runner -- "LOYLY_BUILDER_CMD builder-room instruction; waits" --> vm
+  vm -- "Reads the clean room, writes APP_DIR" --> runs
+  runner -- "Installs a copy, runs the gate" --> gate
 
   class operator person
-  class proc,host,builder,gate,validator container
-  class events,state container
-  class driver,repo,pi,bedrock external
-  class h,ext boundary
+  class runner,spec,prep,grader,meas,regen,gate,vm container
+  class rstore,runs container
+  class repo external
+  class h boundary
   classDef person fill:#08427b,stroke:#052e56,color:#fff
   classDef system fill:#1168bd,stroke:#0b4884,color:#fff
   classDef external fill:#8a8a8a,stroke:#6b6b6b,color:#fff
@@ -108,64 +115,70 @@ flowchart LR
   classDef boundary fill:none,stroke:#444,stroke-dasharray:6 4,color:#444
 ```
 
-- The **harness process** is one container: its launch entrypoint (`start.sh`) starts it, it
-  serves the seam, and it runs both the `:loyly.pi-harness` service area and ORC's cycle
-  workflow.
-- The **event store** holds harness facts and ORC's `:sheet` facts; neither is copied into the
-  other. **Cycle state** is the harness's file state under `PI_HARNESS_STATE_ROOT`; a fresh
-  directory means fresh state.
-- **Rooms** (builder, gate, validation) are the ones ORC starts; each is isolated from the
-  others, the builder never controls the gate room, and score evidence never reaches a
-  builder room. The clean room is not a room ORC starts: it is the read-only cut a builder
-  room mounts.
+- **Six JVMs, six stores.** Each context is its own candidate, `harness-impl/NN-<context>/`,
+  started by its `start.sh`, speaking JSON-RPC over stdio. Each keeps its own Grain store, and ORC
+  shares that candidate's file and tenant; no store is shared across contexts (`spec/decisions.md`,
+  "Spec round 5" 1).
+- The runner starts the five named in `LOYLY_CONTEXTS` for each run, with a fresh store each in
+  the run's directory and the fixtures it wrote there, and stops them when the run ends
+  (`cycle-runner/seam.md`, "Handed in").
+- The **gate room is the gate's**: a copy taken when the builder ended, out of the builder's
+  reach, writable by the candidate's own run (`spec/decisions.md`, "Spec round 7d"). The gate runs
+  on the host in stage 1; a Gondolin gate room is not in slice 06.
 
-### Level 3: Component (harness process)
+### Level 3: Component (cycle runner)
 
-The responsibilities inside the harness process.
+The responsibilities inside the cycle runner (`cycle-runner/event-model/`,
+`cycle-runner/seam.md`).
 
 ```mermaid
 
 flowchart TB
-  operator(["<b>Operator / driver</b><br/>[Person, external system]"])
+  operator(["<b>Operator</b><br/>[Person]"])
 
-  subgraph p ["Harness process [Container]"]
-    seam["<b>Seam</b><br/>[Component: JSON-RPC over stdio]<br/>Maps each of 16 actions to a command or query; refuses with a named reason"]
-    control["<b>Harness commands</b><br/>[Component: Grain defcommand]<br/>Operator intents: selections, preparations, submissions, checklists, grader approval. Stage facts from ORC's nodes: self-check, clean room, slices, candidate, gate, authored and calibrated graders. System facts from policies"]
-    views["<b>Projections and queries</b><br/>[Component: Grain defreadmodel, defquery]<br/>Cycles, selections, preparations, receipts, outcomes, cuts, gate attempts, graders, measurements, scoreboards, builder sessions; node-stages translates ORC"]
-    dispatch["<b>Policies</b><br/>[Component: Grain defprocessor]<br/>One ORC tick per task-submitted; receipts and outcomes; start the cycle; route the gate verdict and the score; report the scoreboard; conclude the cycle; file the score; record evidence; bind workspace generations; retire replaced graders"]
-    launcher["<b>Builder launcher</b><br/>[Component: Grain defprocessor launch-builder-for-tick]<br/>Launches, or relaunches, the durable session of each builder tick in the room ORC chose"]
-    workflow["<b>Cycle workflow</b><br/>[Component: ORC sheet]<br/>fence, regenerate, gate, score, scoreboard; continuation, verification repair, durable resume"]
-    strategy["<b>Instruction strategy</b><br/>[Component: ORC, GEPA]<br/>Renders every production prompt; optimizes builder instructions per purpose"]
-    instrument["<b>Instrument</b><br/>[Component: approved sealed graders]<br/>Checklist, one verdict per item, scoreboard"]
-    guard["<b>Event Model guard</b><br/>[Component: Grain verify-or-throw!]<br/>Refuses to start on any drift from the registered model"]
+  subgraph p ["Cycle runner [Container]"]
+    seam["<b>Seam</b><br/>[Component: JSON-RPC 2.0 over stdio]<br/>start-run, hand-in-verdicts, run-progress, runs-to-advance; a refusal is -32000 with data.refusal"]
+    commands["<b>CycleRun commands</b><br/>[Component: Grain commands]<br/>Operator: start-run, hand-in-verdicts. Processor only: record-effect, relay-handoff, conclude-run, halt-run"]
+    views["<b>Read models and queries</b><br/>[Component: Grain]<br/>runs, effect-results, relayed-handoffs, runs-to-advance; queries run-progress, runs-to-advance"]
+    advance["<b>advance-run</b><br/>[Component: Grain todo processor]<br/>One node per effect; reads runs-to-advance"]
+    flows["<b>Workflows</b><br/>[Component: ORC, one per flow]<br/>run-to-gate, verdicts-to-conclusion, cycle-failed-ends-run, effect-not-performed-halts-run"]
+    cut["<b>Cut effects E1</b><br/>[Component]<br/>stamp a stripped copy, pin the tree digest, derive the checklist"]
+    harnessfx["<b>Harness effects E2 to E6</b><br/>[Component]<br/>self-check, fence and probe, regenerate, install, gate, gate refusal, repair, fail-cycle"]
+    score["<b>Score effects E7</b><br/>[Component]<br/>file the handed-in verdicts, file the score, fail the score stage"]
+    relay["<b>Relay E8</b><br/>[Component]<br/>Each producer's new handoffs, from its store, in store order, to every consumer's hand-in method"]
+    endrun["<b>Conclusion and halt</b><br/>[Component]<br/>Reads cycle-progress; concludes as the cycle ended, or halts"]
+    guard["<b>Boot guard</b><br/>[Component: Grain verify-or-throw!]<br/>Refuses to start on drift from the registered event model"]
   end
 
-  events[("<b>Event store</b><br/>[Container: Grain]")]
-  rooms["<b>Builder, gate, validation rooms</b><br/>[Containers: Gondolin VMs]"]
-  host["<b>Builder host</b><br/>[Container: pi-durable, provided]"]
+  rstore[("<b>Runner store</b><br/>[Container: Grain, SQLite]")]
+  contexts["<b>Five contexts</b><br/>[Containers: their seams]"]
+  world["<b>Repository, builder VM, gate room</b><br/>[Containers]"]
 
   operator -- "One request per line [stdio]" --> seam
-  seam -- "Issues commands" --> control
-  seam -- "Runs queries" --> views
-  control -- "Appends harness events" --> events
-  events -- "harness facts, :sheet facts (via node-stages), committed tool results" --> dispatch
-  dispatch -- "receipts, outcomes, stage advances and failures, file-score, report-scoreboard, conclude-cycle" --> control
-  workflow -- "Stage facts: record-gate-attempt, prove-clean-room, ..." --> control
-  dispatch -- ":sheet/tick-tree" --> workflow
-  workflow -- "Appends :sheet events" --> events
-  views -- "Fold harness and :sheet events from" --> events
-  strategy -- "Supplies every production prompt to" --> workflow
-  events -- ":sheet/node-execution-started" --> launcher
-  launcher -- "launch-builder-session, one per tick" --> host
-  host -- "Forwards tool calls into" --> rooms
-  workflow -- "Starts rooms; runs gates and validators in" --> rooms
-  workflow -- "Scores a gated candidate with" --> instrument
-  instrument -- "Returns verdicts to the score node of" --> workflow
-  guard -. "Checks registered blocks at startup" .-> control
+  seam -- "Issues" --> commands
+  seam -- "Runs" --> views
+  commands -- "run-started, verdicts-handed-in, effect-recorded, handoff-relayed, run-concluded, run-halted" --> rstore
+  views -- "Fold from" --> rstore
+  rstore -- "runs-to-advance" --> advance
+  advance -- "Runs as" --> flows
+  flows -- "Performs" --> cut
+  flows -- "Performs" --> harnessfx
+  flows -- "Performs" --> score
+  flows -- "After every recording" --> relay
+  flows -- "After every recording and relay" --> endrun
+  cut -- "Records through a method" --> contexts
+  harnessfx -- "Records through a method" --> contexts
+  score -- "Records through a method" --> contexts
+  relay -- "Hands in" --> contexts
+  endrun -- "Reads regeneration-cycle/cycle-progress" --> contexts
+  harnessfx -- "Acts on" --> world
+  cut -- "Reads" --> world
+  advance -- "record-effect, relay-handoff, conclude-run, halt-run" --> commands
+  guard -. "Checks registered blocks at startup" .-> commands
 
   class operator person
-  class seam,control,views,dispatch,launcher,workflow,strategy,instrument,guard component
-  class events,rooms,host container
+  class seam,commands,views,advance,flows,cut,harnessfx,score,relay,endrun,guard component
+  class rstore,contexts,world container
   class p boundary
   classDef person fill:#08427b,stroke:#052e56,color:#fff
   classDef system fill:#1168bd,stroke:#0b4884,color:#fff
@@ -175,259 +188,172 @@ flowchart TB
   classDef boundary fill:none,stroke:#444,stroke-dasharray:6 4,color:#444
 ```
 
-- **Approval starts nothing.** Commands append facts; the task dispatcher turns each
-  `task-submitted` into exactly one ORC tick.
-- Projections and queries only read; progress and builder-session views never advance ORC.
-- The instrument reports to a person and never feeds the build loop.
-- The Event Model guard refuses to start when the registered model and the live registries
-  disagree.
-
-Assumptions: the model names the execution backends `host` and `gondolin` but no deployment
-topology, so there is no deployment view. ORC's internals are out of scope (ORC's own
-`specs/orc-service.allium`).
+- **It owns no rule of the five contexts.** A refusal it shows is the context's reply, recorded
+  as an effect result (`outcome` `refused`); its run ends as its cycle ends
+  (`cycle-runner/domain-design.md`, "Boundaries").
+- Its own rules guard only its own facts: one run at a time, a cycle run once, the verdicts taken
+  once and only for a gated candidate at an approved grader digest, each effect result and each
+  relayed handoff recorded once.
+- **A halt is never the cycle's conclusion**: a recording refused before the cycle opened (stamp,
+  pin, checklist), a stamp whose identities are not the plan's own, a context that did not
+  respond, or a handed-in command that could not be started.
 
 ## The seam
 
-`APP_DIR/start.sh` reads one JSON request per line on stdin and writes one response per line
-on stdout; every request gets exactly one response carrying its id. `PI_HARNESS_PROJECT_ROOT`
-names the repository worked on; `PI_HARNESS_STATE_ROOT` holds the harness's own state, and a
-fresh directory means fresh state.
+Every context, the runner included, is reached only through its `seam.md`: `start.sh` reads
+JSON-RPC 2.0 requests on stdin, one per line, and writes one response per request carrying its
+`id`; diagnostics go to stderr. Errors are `-32700` (not JSON), `-32601` (unknown method),
+`-32602` (params off the schema) and `-32000` (a refusal, with `data.refusal`).
 
-| Group | Actions (method) |
-|---|---|
-| Cycle | `CycleContract` (`cycle-contract`), `WorkflowContract` (`workflow-contract`), `SubmitCycle` (`submit-cycle`), `Wait` (`wait`), `ExecutionStatus` (`execution-status`) |
-| Cut and selection | `PrepareCut` (`prepare-cut`), `SliceComposition` (`slice-composition`), `PreviewSelection` (`preview-selection`), `ApproveSelection` (`approve-selection`) |
-| Preparation | `PrepareCycle` (`prepare-cycle`), `ApprovePreparation` (`approve-preparation`), `SubmitApprovedSlice` (`submit-approved-slice`) |
-| Instrument | `ApproveGrader` (`approve-grader`), `Measurement` (`measurement`) |
-| Builder sessions | `BuilderSession` (`builder-session`) |
-| Prompt optimization | `OptimizePrompt` (`optimize-prompt`) |
+- **One method per command and per query**, named exactly as the block without the leading
+  colon, its params the block's `:schema` verbatim.
+- **One hand-in method per consumed handoff**, named exactly as the event, its params the event's
+  contract in the producer's `event-model/handoffs.edn`. The context appends the event as given
+  and runs no ORC workflow for it; these methods are the only way another context's event enters
+  its store (`measurement/seam.md`, `regeneration-cycle/seam.md`, "The consumed handoffs, handed
+  in").
+- **Each command method runs as the ORC workflow of its flow** (`event-model/area.edn`), on the
+  context's own store; the gate's event-store check requires every event a command produced to
+  lie inside a completed run of that workflow (`spec/decisions.md`, "First light" 4).
+- **The runner's own commands are not methods**: `record-effect`, `relay-handoff`, `conclude-run`
+  and `halt-run` are issued only by `advance-run`; a request naming one is `-32601`.
 
-Each action names the Allium rule its outcomes and rejections realise and the Grain command or
-query it reaches. A rejection is a refused response naming what and why; the harness keeps
-running.
+| Context | Command methods | Hand-in methods |
+|---|---|---|
+| Specification | `stamp-slice` | none |
+| Cycle preparation | `pin-source-cut` | none |
+| Grader lifecycle | `write-instrument-golden`, `move-instrument-golden` | none |
+| Measurement | `derive-checklist`, `file-item-verdicts`, `file-score`, `fail-score-stage`, `report-scoreboard` | `scenario-stamped`, `source-cut-pinned`, `gate-attempt-passed` |
+| Regeneration cycle | `record-harness-self-check`, `prove-clean-room`, `record-regenerated-candidate`, `install-candidate-in-gate-room`, `record-gate-attempt`, `record-gate-refusal`, `pass-cycle`, `fail-cycle` | `source-cut-pinned`, `instrument-golden-written`, `instrument-golden-moved`, `measurement-filed`, `score-stage-failed`, `scoreboard-reported` |
+| Cycle runner | `start-run`, `hand-in-verdicts` | none |
 
-## Control plane
+## Context map
+
+The handoffs, producer to consumer, as the `event-model/handoffs.edn` files define them. The
+runner produces and consumes none: it carries the others'.
 
 ```text
-prepare-cut ─► slice-composition ─► preview-selection ─► approve-selection
-                                                              │
-                         prepare-cycle ─► approve-preparation ┘
-                                │
-              submit-approved-slice ──┐        submit-cycle (whole plan) ──┐
-                                      ▼                                    ▼
-                               task-submitted ─► dispatch-submitted-task ─► :sheet/tick-tree (ORC)
-                                                                                 │
-              execution-status ◄─ cycle-progress ◄─ node-stages ◄─ :sheet/* ◄───┤
-              wait ◄─ task-outcomes ◄─ complete-task / fail-task ◄─ record-task-outcome ◄─┘
+specification ──── scenario-stamped ────────────────────────► measurement
+cycle-preparation ─ source-cut-pinned ──────────────────────► measurement, regeneration-cycle
+grader-lifecycle ── instrument-golden-written / -moved ─────► regeneration-cycle
+regeneration-cycle  gate-attempt-passed (one way) ──────────► measurement
+measurement ─────── measurement-filed, score-stage-failed,
+                    scoreboard-reported (to conclude only) ──► regeneration-cycle
+
+cycle-runner: reads each producer's store, hands each handoff in to every consumer (the relay)
 ```
 
-- Every identity is deterministic: previewing or preparing the same choices again returns the
-  same identity and digest, and approval accepts only that exact digest.
-- **Approval starts nothing.** ORC is dispatched once per submitted task.
-- A **slice cycle** runs an approved preparation, which binds the selection, scope, target
-  stack, execution profile, cut digest, grader digest, diagram digest, and outer-cycle budget.
-- A **whole-plan cycle** (`submit-cycle`) runs the whole plan of the pinned cut under a fixed
-  preparation (configured scope, stack, and profile, approved graders, one outer cycle);
-  submitting it is that preparation's approval, as in the legacy shape.
-- Repeating a request identity returns the original receipt; reusing it for a different
-  request is refused. A replacement ORC worker responds to `wait` from ORC's durable state and
-  never reruns a task.
-- Progress is a projection of ORC facts through the translation `node-stages`; it never
-  advances ORC. A task's outcome is recorded once, by a policy, when ORC completes its tick.
+## The relay, and the deferred shared store
+
+After every recording the runner relays (E8), as `harness/v2/assemble.clj` does: the producer's
+handoff events not yet relayed are read from its store file, within its tenant, in store order,
+and each is handed in unchanged (its `type` the method, its other fields the params) to every
+consumer whose event model consumes it; `handoff-relayed` records the consumer's reply. A
+handoff a policy issued, such as Measurement's `scoreboard-reported` inside `file-score`, travels
+like any other, because it is taken from the store, not from command results
+(`spec/decisions.md`, "Spec round 5" 1 and 2).
+
+Deferred, the end state (option A1): one shared store with one fixed tenant, a consumer's read
+models projecting from it and its policies polling it, to be taken up when ORC hosts all
+contexts. The assembly gate's experiment showed why it waits: each candidate wrote its own Grain
+tenant, and a todo processor's `start` sees only its own JVM's appends.
 
 ## The cycle
 
 ```text
-fence → regenerate → gate → score → scoreboard
+stamp, pin, checklist → self-check → fence → regenerate → install, self-check, gate
+      → (failed attempt, cycle still running: repair, at most three attempts)
+      → hand-in-verdicts → file verdicts, file score → scoreboard → conclude
 ```
 
-| Stage | Behaviour |
-|---|---|
-| fence | Builds a clean room from the pinned cut only after the harness self-check passes. The fence is physical: fenced paths are absent from the tree and the object graph. |
-| regenerate | One fresh builder session per slice, in plan order, each extending the cycle's candidate; continued in the same session at most three times while its slice is uncarried. The builder reads the clean room read-only and writes only its declared scope. |
-| gate | A room the builder does not control boots the candidate fresh and proves its suite green. A failed gate may start a fresh repair builder with only the previous candidate and the gate's evidence, at most three attempts. |
-| score | Approved sealed graders file one verdict per checklist item through the seam. An unreached item fails and stays in the denominator. |
-| scoreboard | Compares with the previous cycle on shared items, newly passing and newly failing separately; new items are the untuned holdout; never a net. |
-
-Each stage's outcome is a typed harness fact that ORC's stage node records
-(`record-harness-self-check`, `prove-clean-room`, `record-slice-build`, `record-candidate`,
-`record-gate-attempt`), or that a policy derives (`route-gate-verdict`, `route-filed-score`,
-`report-cycle-scoreboard`, `close-reported-cycle`, `conclude-cycle-result`). The cycle ends as
-`cycle-passed` or `cycle-failed` (ADR 0004).
-
-The fence and the gate are the **harness** and feed the build loop. The score and the
-scoreboard are the **instrument** and never do: no score evidence reaches a builder, and a
-failed score is measured, not retried within the cycle.
-
-## Grain service area
-
-`:loyly.pi-harness` (`event-model/loyly/pi_harness/event_model.clj`). The cycle's stage facts
-are harness events, recorded by commands ORC's workflow nodes issue; transitions the Allium
-rules make on a state are policies (ADR 0004).
-
-| Concern | Commands | Events | Read models → queries |
-|---|---|---|---|
-| Selection | `record-selection`, `approve-selection` | `selection-recorded`, `selection-approved` | `selections` → `selection` |
-| Preparation | `record-cycle-preparation`, `approve-cycle-preparation` | `cycle-preparation-recorded`, `cycle-preparation-approved` | `cycle-preparations` → `cycle-preparation` |
-| Cuts | `submit-cut-task`; `record-prepared-cut` (ORC node) | `cut-prepared` | `prepared-cuts` → `slice-composition` |
-| Tasks | `submit-cycle-task`, `submit-whole-plan-cycle`; `record-task-receipt`, `complete-task`, `fail-task` (processors) | `task-submitted`, `task-receipt-issued`, `task-completed`, `task-failed` | `task-receipts` → `task-receipt`, `tick-task`, `highest-task-id`; `task-outcomes` → `task-outcome` |
-| Cycle | `start-cycle`, `advance-cycle-stage`, `fail-cycle-stage`, `conclude-cycle` (processors); `record-harness-self-check`, `prove-clean-room`, `record-slice-build`, `record-candidate`, `record-gate-attempt` (ORC nodes); `record-child-cycle` | `cycle-submitted`, `cycle-started`, `harness-self-check-recorded`, `clean-room-proved`, `slice-built`, `candidate-regenerated`, `gate-attempt-recorded`, `cycle-stage-advanced`, `cycle-passed`, `cycle-failed`, `child-cycle-lineage-recorded` | `regeneration-cycles` → `regeneration-cycle`; `harness-self-checks`; `gate-attempts` → `gate-attempt` |
-| ORC translation | | | `node-stages` → `node-stage`, `cycle-progress` |
-| Builder sessions | `launch-builder-session`, `relaunch-builder-session`, `bind-workspace-generation` (processors); `commit-builder-tool-result`, `end-builder-session` (builder host); `intervene-in-builder-session` | `builder-session-launched`, `builder-session-resumed`, `builder-tool-result-committed`, `builder-session-ended`, `workspace-generation-bound`, `builder-intervention-recorded` | `builder-sessions` → `builder-session` |
-| Instrument | `derive-checklist`, `request-grader`, `approve-grader`; `record-authored-grader`, `seal-grader`, `discard-grader` (ORC nodes); `retire-grader`, `file-score`, `report-scoreboard` (processors) | `checklist-derived`, `grader-authoring-requested`, `grader-recalibration-requested`, `grader-authored`, `grader-sealed`, `grader-discarded`, `instrument-declared-unavailable`, `grader-approved`, `grader-replaced`, `cycle-measurement-recorded`, `score-refused`, `scoreboard-reported` | `checklists` → `checklist`; `graders` → `grader`, `approved-graders`; `cycle-measurements` → `cycle-measurement`; `scoreboards` → `scoreboard` |
-| Runtime evidence | `record-observation` (processor); `record-validation-room`, `bind-baseline-trace` (ORC node) | `observation-recorded`, `validation-room-opened`, `baseline-trace-bound` | `cycle-observations` → `cycle-observations` |
-| Prompt optimization | `start-prompt-optimization`; `record-production-prompt`, `propose-instruction-candidate`, `measure-instruction-candidate`, `reject-instruction-candidate`, `select-winning-instruction`, `fail-prompt-optimization` (ORC) | `prompt-optimization-started`, `production-prompt-rendered`, `instruction-candidate-proposed`, `instruction-candidate-measured`, `instruction-candidate-rejected`, `winning-instruction-selected`, `prompt-optimization-failed` | `prompt-optimizations` → `prompt-optimization` |
-
-The screen `pi-regeneration` issues operator intents only: selection, preparation, approvals,
-submissions, checklist derivation, grader request and approval, builder intervention, child
-cycles, and optimization. It links the surfaces `RegenerationControlPlane`, `RegenerationHarness`,
-`Instrument`, and `BuilderPromptOptimization`. Every command links the Allium rule or rules it
-realises. Every `tick-id` is a `:uuid`, as in ORC, and every cycle is named by `:cycle-id`.
-
-Fourteen todo processors issue system facts, each reading a to-do query:
-
-| Processor | When | Issues |
+| Effect | What the runner does | Recorded through |
 |---|---|---|
-| `dispatch-submitted-task` | a task is submitted | `:sheet/tick-tree`, once per task |
-| `issue-task-receipt` | ORC starts the dispatched tick | `record-task-receipt` |
-| `start-dispatched-cycle` | a cycle's task is bound to its tick | `start-cycle` |
-| `record-task-outcome` | ORC completes or cancels the tick | `complete-task` or `fail-task` |
-| `launch-builder-for-tick` | ORC starts a node `node-stage` names a builder role | `launch-builder-session` or `relaunch-builder-session` |
-| `bind-committed-result` | the builder host commits a tool result | `bind-workspace-generation` |
-| `retire-replaced-grader` | an operator approves a grader that replaces another | `retire-grader` |
-| `route-gate-verdict` | a gate attempt is recorded | `advance-cycle-stage` (score, or regenerate under three attempts) or `fail-cycle-stage` |
-| `file-cycle-score` | ORC completes a node `node-stage` names the score stage | `file-score` |
-| `route-filed-score` | a measurement is filed or a score refused | `advance-cycle-stage` (scoreboard) or `fail-cycle-stage` |
-| `report-cycle-scoreboard` | a cycle reaches the scoreboard | `report-scoreboard` |
-| `close-reported-cycle` | the scoreboard is reported | `advance-cycle-stage` (result) |
-| `conclude-cycle-result` | a cycle reaches its result | `conclude-cycle` (passed or failed) |
-| `record-validation-evidence` | ORC completes a validation node | `record-observation` |
+| E1 | Stamps a copy of each slice's spec file with its `@item` tags removed and checks the identities come back; pins the commit's tree digest; derives the checklist with legacy `gen_checklist`'s reading | `specification/stamp-slice`, `cycle-preparation/pin-source-cut`, `measurement/derive-checklist` |
+| E2 | Runs `LOYLY_SELF_CHECK_CMD` (legacy `check.sh --local`), before the fence and before each gate | `regeneration-cycle/record-harness-self-check` |
+| E3 | Legacy `fence.sh` as-is, then probes one root commit, one commit, no fenced path in the tree or the object graph | `regeneration-cycle/prove-clean-room`, or `fail-cycle` |
+| E4 | A fresh builder room; `LOYLY_BUILDER_CMD <builder-room> <instruction>` launched and waited for within the regenerate timeout | `regeneration-cycle/record-regenerated-candidate` |
+| E5 | Installs a copy in a fresh gate room; the gate in legacy `verify.sh`'s order and arguments, on the host | `install-candidate-in-gate-room`, `record-gate-attempt`, `record-gate-refusal` |
+| E6 | After a failed attempt with the cycle still running: a fresh builder room with the previous candidate and the gate evidence, read-only, and the repair instruction | `record-regenerated-candidate` (`verification-repair`) |
+| E7 | Files the handed-in verdicts and the score, or fails the score stage with the refusal as heard | `measurement/file-item-verdicts`, `file-score`, `fail-score-stage` |
+| E8 | The relay, after every recording | each consumer's hand-in method |
 
-`:sheet` (`event-model/orc/sheet/event_model.clj`) declares the ORC blocks the area uses: the
-command `tick-tree` and the events `tree-tick-started`, `node-execution-started`,
-`node-execution-completed`, `tree-tick-completed`, and `tick-cancelled`, copied from ORC's
-pinned `orc-service` schemas. Only `node-stages` and the processors' triggers touch them.
-Startup validates the registered model strictly against the live registries and refuses to
-start on drift.
+Exhaustion, refusals, the stage clock and the conclusion are the Regeneration cycle's: its
+policy `conclude-cycle` issues `pass-cycle` or `fail-cycle`, and its clock fails a stage that
+outlived its timeout (`regeneration-cycle/seam.md`, "The conclude-cycle policy and the stage
+clock"). The runner reads `regeneration-cycle/cycle-progress` after every recording and relay and
+records `conclude-run` once the cycle passed or failed.
 
-## Context map
+The fence and the gate are the **harness** and feed the build loop. The score and the scoreboard
+are the **instrument** and never do: no score evidence reaches a builder, and a failed score is
+measured, not retried within the cycle (AGENTS.md).
 
-The harness is one bounded context. Every other context meets it at a named boundary.
+## The instrument
 
-```text
-                    ┌───────────────────────────────┐
-                    │ ORC (upstream, Grain library) │
-                    │ :sheet workflow facts         │
-                    └───────────────┬───────────────┘
-                    Conformist; ACL │ :sheet/tick-tree ▲  :sheet/* events ▼
-                    = node-stages   │ stage commands from ORC's workflow nodes ▼
-┌──────────────┐    ┌───────────────┴───────────────┐    ┌──────────────────────────┐
-│ Operator /   │───►│ Pi harness  :loyly.pi-harness │───►│ Builder host (provided)  │
-│ driver       │seam│ cycle, instrument, tasks,     │OHS │ launch / resume /        │
-└──────────────┘    │ builder sessions, evidence    │◄───│ commit tool result       │
-                    └──────┬─────────────────┬──────┘    └────────────┬─────────────┘
-       Published Language: │                 │ rooms ORC chose        │ tool calls
-       affordances seam    ▼                 ▼                        ▼
-           ┌────────────────────┐    ┌──────────────────────────────────────────┐
-           │ Regenerated product│    │ Gondolin (provided infrastructure,       │
-           │ (candidate)        │    │ no domain model)                         │
-           └────────────────────┘    └──────────────────────────────────────────┘
-       Bedrock / OpenRouter: model providers for reflection and builders (deferred)
-```
+- The **checklist** is one item per stamped scenario of the selection, derived by Measurement and
+  never written; an unstamped scenario or an empty selection stops the cycle (the run halts,
+  `refused-before-the-cycle`).
+- The **score** is honest: zero verdicts are refused, so no score is filed; an unreached item
+  fails and stays in the denominator.
+- The **scoreboard** compares with the last measured cycle of the same selection on shared items,
+  newly passing and newly failing apart, new items as the untuned holdout, and never a net.
+  Measurement's policy `report-scoreboard-once` reports it.
+- **Grading today is legacy step 5**: a black-box grading agent per candidate drives it over its
+  seam and writes one verdicts file, handed in unchanged; the main session judges `@item-01-011`
+  of the Löyly app and hands that verdict in with the others. Nothing is sealed, calibrated or
+  approved for these runs (`harness/README.md`, "Scoring a spec-v2 cycle"). A sealed Löyly
+  grader and the product Grader (OG1) are still open (`spec/decisions.md`, "The switch to the new
+  harness" 7).
 
-| Context | Relationship to the harness | Where it is modelled |
-|---|---|---|
-| **Pi harness** (`:loyly.pi-harness`) | The context this model specifies: cuts, selections, preparations, the regeneration cycle and its stage facts, the instrument, tasks, builder sessions, runtime evidence, prompt optimization. | `.pi/model/*.allium`, `event-model/loyly/pi_harness/` |
-| **ORC** | Upstream. The harness is **Conformist** to ORC's `:sheet` model: it dispatches `:sheet/tick-tree` and consumes `:sheet/*` events as ORC defines them, and translates them through an **anti-corruption layer**, the read model `node-stages`, into its own `CycleStage` and builder role. ORC's workflow nodes record stage facts by issuing harness commands (ADR 0004). In Allium, ORC is `actor OrcRuntime`, and every fact it reports reaches a surface facing it, already in the harness's terms (stage and role, never a node id). | `event-model/orc/sheet/` (a declared copy; see ADR 0002 "Known risk") |
-| **Builder host** (provided, `@earendil-works/pi-durable`) | **Open Host Service**: launch a durable session for a tick, resume it, and report a committed tool result (`commit-builder-tool-result`) and the session's end (`end-builder-session`). It runs the model loop and forwards tool calls; it decides nothing about rooms, production prompts, or stages. | `launch-builder-session`, `relaunch-builder-session`, `commit-builder-tool-result`; `execution-pipeline.allium` `BuilderSession` |
-| **Gondolin** (provided) | Infrastructure with no domain model: micro-VMs for builder, gate, and validation rooms. The harness names a room only through `BuilderRoomPolicy`, which ORC chooses. | `BuilderRoomPolicy`, `OrcAloneChoosesTheRoom` |
-| **Regenerated product** | **Published Language**: the product is reached only through its affordance seam (`affordances.yaml`-style JSON-RPC over stdio), by the gate and by sealed graders. It shares no code or runtime with the harness, and the harness shares no events with it. | `model/<project>/affordances.yaml`; this harness's own seam is `.pi/model/affordances.yaml` |
-| **Bedrock / OpenRouter** | Model providers, deferred: the pinned Bedrock reflection model for prompt optimization (slice 06) and the builder's model provider behind the builder host. No harness block talks to them directly. | `prompt-optimization.allium` `ReflectionModelBinding` |
+## How it is checked
 
-## Instrument
-
-- The **checklist** is one item per stamped scenario of the approved selection, derived and
-  never written; an unstamped scenario or an empty selection stops the cycle.
-- A **grader** is written once from the selected Gherkin and the public calibration protocol by
-  an author who cannot read any candidate, transcript, or prior verdict. It is calibrated so
-  carried behaviour passes and uncarried behaviour fails, sealed by digest, discarded and
-  re-authored at most three times if uncalibrated, and used only after the operator approves
-  its exact digest. It is reused until its scenarios change and replaced only for a recorded
-  reason; never to turn a score green.
-
-## Runtime evidence
-
-Producers record runtime signals with their authority (candidate, harness observer,
-independent validator) and purpose (assertion, diagnostic, calibration). Only an independent
-validator files a verdict, only from complete, unsampled collection; incomplete collection is
-inconclusive, and a diagnostic signal never decides a verdict. Validation runs in a
-validation room with a pinned read-only capture policy and a per-cycle writable evidence
-volume; a passing baseline is bound to its complete trace artifact. Reports are projections
-and never authority.
-
-## Prompt optimization
-
-ORC owns every production prompt. A builder instruction is optimized per purpose (fresh
-generation, verification repair) as a complete strategy: GEPA proposes candidates through a
-pinned Bedrock reflection model, each candidate is measured by independent regeneration, and
-the winner is activated durably with its provenance, superseding the purpose's previous
-winner. The builder cannot author its own metric, and enforcement never depends on the
-builder instruction being followed.
-
-## Durable builder sessions
-
-Every agent step of the cycle is a durable Pi builder session that ORC launches: the slice
-builder (and its continuations), the repair builder after a failed gate, and the grader author.
-The work is split so that ORC decides everything and the provided builder host only runs the
-model loop.
-
-| ORC (in the harness process) | Provided builder host (TypeScript, `@earendil-works/pi-durable`) |
-|---|---|
-| The stages, one tick per builder attempt, limits, timeouts, cancellation, resume | Runs the durable Pi agent loop: model turns and tool calls are committed before they count |
-| The production prompt for each role and its digest | Submits ORC's production prompt with the tick as its request identity, so a relaunch resumes |
-| The room policy: builder image for the stack, cut read-only, scope-only writes, gate evidence read-only for a repair, only Gherkin and protocol for a grader author, no egress, no host environment | Connects to the model (Codex) with credentials that stay on the host |
-| Starts and stops the Gondolin room | Forwards each tool call into that room; it cannot widen it |
-| Records session ↔ tick, progress, and outcome as Grain facts (`builder-sessions`) | Reports committed tool results and the session's end (`end-builder-session`) |
-| Binds a workspace generation to each committed tool result | |
-
-A relaunch of the same tick resumes the same session from its committed turns and never starts a
-second one (`02-018`). ORC alone chooses the room (`02-019`). The builder host and the Gondolin
-images (`harness/Makefile`, `harness/<project-id>/`, `.pi/harness/config/`) are provided, like
-ORC and Grain, and checked by their own tests, not by the checklist. The gate and validation
-rooms use Gondolin directly, without Pi.
+- **One context per cycle, before the switch**: `harness/v2/gate.sh NN ROOM` runs legacy
+  `verify.sh` with the slice's probe, then reads the Grain store it handed the candidate
+  directly (`harness/v2/event-store-check.sh`); `harness/v2/score.sh` files a verdicts file with
+  legacy `score.clj` and `scoreboard.clj` (`spec/decisions.md`, "First light").
+- **The assembly gate**: `harness/v2/assemble.sh` wires the five gated candidates through the
+  relay, one story end to end, and reports the shared-store experiment.
+- **The switch**: in shadow runs 4 and 5 the runner agreed with the legacy harness at every stage,
+  fence to scoreboard, on the full Löyly app (11 items); since then the runner runs the cycles and
+  the legacy harness stays as the reference. Until a run can resume after a restart, the runner is
+  kept alive from start to the filed score.
 
 ## Technology bindings
 
-The model names domain terms; this table binds each to the technology that realises it. A
-binding may change without changing the model, except where the seam fixes a value (the
-backend value `gondolin`, the profile value `gondolin-isolated`, the seam's `start`).
-
-| Domain term (glossary) | Technology |
+| Term | Technology |
 |---|---|
-| Execution backend `gondolin`; builder, gate, and validation rooms | Gondolin micro-VMs, offline, with no host environment; backend `host` runs on the host, for development |
-| Builder room's target stack (`BuilderRoomPolicy.target_stack`) | The Gondolin image for that stack (`harness/<project-id>/`, `.pi/harness/config/`) |
-| Builder host | `@earendil-works/pi-durable` (TypeScript), one durable Pi session per ORC tick; the model is Codex, whose credentials stay on the host |
-| Launch entrypoint | `APP_DIR/start.sh`, speaking JSON-RPC over stdio (the seam's `start`) |
-| Uncarried list | The slice builder's `UNCARRIED.md` in its candidate scope |
-| Reflection provider (`prompt-optimization.allium` `config.reflection_provider`) | Amazon Bedrock, with a pinned model; AWS credentials never enter a production prompt |
-| Capture policy, runtime signals | An OpenTelemetry (OTel) capture policy and its probes, mounted read-only at `/observability`; the cycle evidence volume at `/evidence` |
-| Trace artifact (`config.baseline_trace_path`) | Recorded by Playwright, at `playwright/baseline/trace.zip` in the cycle evidence volume |
-| Event store | Grain's tenant-scoped event store, shared with ORC |
-| Harness process | One JVM running Clojure, ORC, and the `:loyly.pi-harness` Grain service area |
+| A context's candidate | Clojure on ORC, with Grain; one JVM per context, `harness-impl/NN-<context>/start.sh` |
+| ORC | `obneyai/orc`, the `orc-service` pin `af086675`; each command runs as the ORC workflow of its flow, on the context's own store |
+| Event store | Grain's `event-store-v3`, SQLite backend, at `LOYLY_GRAIN_STORE`; Grain pin `dbf5b522` (`harness/v2/deps.edn`) |
+| Seam | JSON-RPC 2.0 over stdio, one JSON object per line |
+| Builder | `pi` with its Gondolin backend on the existing Codex login, launched as `LOYLY_BUILDER_CMD`; provided, never regenerated. The durable host on `@earendil-works/pi-durable` is not built |
+| Gate | On the host, in legacy `verify.sh`'s order and arguments, in a writable gate room |
+| Harness configuration | Legacy `config.sh` as-is, handed in as `LOYLY_HARNESS_CONFIG` |
+| Legacy tools, v2 cycle tools | Babashka and shell: `harness/` and `harness/v2/` |
 
-## Where the model states it
+## Where the spec states it
 
-| Concern | Gherkin slice | Allium | Grain | Seam |
-|---|---|---|---|---|
-| Cuts, selection, preparation, cycles | `01-regeneration-cycle` | `regeneration-cycle.allium` | selection, preparation, cuts | cut and selection, preparation |
-| The cycle's stages | `02-execution-pipeline` | `execution-pipeline.allium` | cycle, ORC translation | `CycleContract`, `WorkflowContract` |
-| Instrument | `03-instrument` | `instrument.allium` | instrument | `ApproveGrader`, `Measurement` |
-| Control plane | `04-operator-control-plane` | `operator-control-plane.allium` | tasks, progress, dispatch | cycle, builder sessions |
-| Runtime evidence | `05-runtime-evidence` | `runtime-evidence.allium` | `record-observation`, `record-validation-evidence` | |
-| Prompt optimization | `06-prompt-optimization` | `prompt-optimization.allium` | prompt optimization | `OptimizePrompt` |
-| The seam | `09-rpc-seam` | | | `affordances.yaml` `seam` |
+| Concern | Where |
+|---|---|
+| The runner: effects, handed-in values, the relay, the conclusion | `.pi/spec/cycle-runner/seam.md`, `allium/`, `event-model/` |
+| Stamps and item identity | `.pi/spec/specification/` |
+| The source cut | `.pi/spec/cycle-preparation/` |
+| Instrument goldens | `.pi/spec/grader-lifecycle/` |
+| Checklist, score, scoreboard | `.pi/spec/measurement/` |
+| Self-check, clean room, gate attempts, the cycle's conclusion | `.pi/spec/regeneration-cycle/` |
+| Each context's boundaries and decisions | `.pi/spec/<context>/domain-design.md` |
+| The handoffs | `.pi/spec/<context>/event-model/handoffs.edn` |
+| Every decision, in order | `.pi/spec/decisions.md` |
+| The tools, the legacy reference | `harness/README.md` |
 
-[`model/COVERAGE.md`](model/COVERAGE.md) holds the exact mappings, the ownership between Allium
-files, the verification commands, and the diagnostic baseline (no Allium errors or warnings;
-Grain's composition gate clean). The vocabulary is [`model/GLOSSARY.md`](model/GLOSSARY.md);
-the decisions are in [`model/docs/adr/`](model/docs/adr/).
+Each context's accepted scenarios are its `spec.feature`, a slice through
+`.pi/plan/NN-<context>`. Validate with `tools/spec/v2/gates.sh`.
+
+## History
+
+Spec v1, in `.pi/model/` and in git history (this page described it up to `3da969e`),
+described the harness as one JVM: one `:loyly.pi-harness` Grain service area with an operator
+control plane (cuts, selections, preparations, task submission), runtime evidence in validation
+rooms, builder-instruction optimization through GEPA and a Bedrock reflection model, and a
+durable builder host on `pi-durable` that ORC launched once per tick. Spec v2 replaced it with
+six contexts built one per cycle; none of those v1 parts is in spec v2, and the durable host
+is not built.
