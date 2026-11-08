@@ -107,6 +107,8 @@ its CDN, is the one library), draws the event-storm arrows, and toggles a diagra
   obligations, the unit-level and gate-verified ones, open questions.
 
 `b754644` dropped the C4 views of `.pi/architecture.md`, which then still described spec v1.
+The C4 views are back since `2d37241`: read from `.pi/architecture.md` (rewritten for v2 in
+`8008768`), shown in the `#c4` view, and checked by `views/check.sh`.
 Spec v1 (`.pi/model/`) was rendered by this tool up to `6d42c8e`; check that commit out to
 rebuild the v1 page.
 

@@ -8,8 +8,9 @@ the regeneration cycles: the slice-06 cycle runner drives the five contexts of s
 (spec v2, [`../spec/`](../spec/README.md)). The builder is `pi` with its Gondolin backend on the
 existing Codex login; the cycle runner launches it as `LOYLY_BUILDER_CMD <builder-room>
 <instruction-file>` and waits for it, one builder per run at a time
-([`../spec/cycle-runner/seam.md`](../spec/cycle-runner/seam.md)). The legacy harness in
-[`../../harness/`](../../harness/README.md) stays as the reference.
+([`../spec/cycle-runner/seam.md`](../spec/cycle-runner/seam.md)); the exact `pi` command the
+shadow runs used is in `../spec/decisions.md`, "The builder command the shadow runs used". The
+legacy harness in [`../../harness/`](../../harness/README.md) stays as the reference.
 
 | Path | What it is |
 |---|---|
