@@ -4,6 +4,8 @@ status: accepted
 
 # Keep the ORC inner cycle independent from operator and builder sessions
 
+> **Spec v1, kept as history.** The maintained spec is spec v2 in `.pi/spec/` ([README](../../../spec/README.md)); the harness that runs the cycles now is in its decisions, ["The switch to the new harness"](../../../spec/decisions.md#the-switch-to-the-new-harness-decided-2026-11-08).
+
 ORC owns the complete cut, build, verification-repair, grading, and measurement cycle;
 Codex, Pi, or another operator session owns preparation approval and the bounded decision to
 start a distinct child cycle. Builder sessions are separately identified effectors behind ORC

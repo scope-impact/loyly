@@ -1,5 +1,7 @@
 # Legacy trace
 
+> A snapshot of round R2; later decisions are in [`decisions.md`](decisions.md).
+
 Every behaviour of the legacy harness (`archive/legacy-harness/`) against spec v2 R2: kept
 (**preserved**), kept as the product owner changed it (**changed-as-decided**,
 `decisions.md`), written in R2 (**added**, `decisions.md` "to add" 1-8), or left out with

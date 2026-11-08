@@ -1,5 +1,7 @@
 # Pi harness specification coverage
 
+> **Spec v1, kept as history.** The maintained spec is spec v2 in `.pi/spec/` ([README](../spec/README.md)); the harness that runs the cycles now is in its decisions, ["The switch to the new harness"](../spec/decisions.md#the-switch-to-the-new-harness-decided-2026-11-08).
+
 This ledger defines "every part of the Pi harness" against the slices in `plan/`. A domain
 is complete only when its behaviour is in a checked Allium specification, its checklist
 items are stamped scenarios in its slice, and every Grain block that changes its state links

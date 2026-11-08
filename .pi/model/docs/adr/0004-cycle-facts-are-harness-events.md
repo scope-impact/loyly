@@ -4,6 +4,8 @@ status: accepted
 
 # The cycle's stage facts are harness events
 
+> **Spec v1, kept as history.** The maintained spec is spec v2 in `.pi/spec/` ([README](../../../spec/README.md)); the harness that runs the cycles now is in its decisions, ["The switch to the new harness"](../../../spec/decisions.md#the-switch-to-the-new-harness-decided-2026-11-08).
+
 ## Context
 
 After ADR 0003 the Allium model holds the whole regeneration cycle, but the Grain Event Model

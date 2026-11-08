@@ -4,6 +4,8 @@ status: accepted
 
 # Make the Pi harness a Grain service area inside ORC
 
+> **Spec v1, kept as history.** The maintained spec is spec v2 in `.pi/spec/` ([README](../../../spec/README.md)); the harness that runs the cycles now is in its decisions, ["The switch to the new harness"](../../../spec/decisions.md#the-switch-to-the-new-harness-decided-2026-11-08).
+
 ORC is already built on Grain. The Pi harness therefore participates in the same tenant-scoped
 Grain runtime as the `:loyly.pi-harness` service area instead of maintaining a parallel event
 system or bridging into ORC as though it were external.

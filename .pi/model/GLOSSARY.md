@@ -1,5 +1,7 @@
 # Pi harness regeneration context
 
+> **Spec v1, kept as history.** The maintained spec is spec v2 in `.pi/spec/` ([README](../spec/README.md)); the harness that runs the cycles now is in its decisions, ["The switch to the new harness"](../spec/decisions.md#the-switch-to-the-new-harness-decided-2026-11-08).
+
 The Pi harness runs one regeneration cycle in the legacy shape: fence, regenerate, gate, score,
 scoreboard. The harness feeds the build loop; the instrument reports to a person.
 

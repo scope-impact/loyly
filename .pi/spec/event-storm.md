@@ -1,5 +1,7 @@
 # Pi harness: Big Picture EventStorming board
 
+> A snapshot of round R0; later decisions are in [`decisions.md`](decisions.md).
+
 One consolidated timeline of domain events for the Pi harness, merged from four participants'
 stickies. ◆ marks a pivotal event; ✗ marks an unhappy branch, listed after the happy event it
 diverges from. Hot spots are numbered H1–H35 (see below). The same board as data is

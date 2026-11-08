@@ -1,5 +1,7 @@
 # Runtime evidence contract
 
+> **Spec v1, kept as history.** The maintained spec is spec v2 in `.pi/spec/` ([README](../spec/README.md)); the harness that runs the cycles now is in its decisions, ["The switch to the new harness"](../spec/decisions.md#the-switch-to-the-new-harness-decided-2026-11-08).
+
 Each project may define `model/<project>/runtime-evidence-contract.json`. The pinned
 project model—not ORC or the evaluator—supplies every domain identity and expectation.
 The document contains a version, the evidence-root environment variable exposed to the

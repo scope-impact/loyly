@@ -1,5 +1,10 @@
 # spec-review: review the spec with an agent
 
+> **Spec v1 only; it does not work with the current page tool.** This app reviews spec v1 in
+> `.pi/model/` (kept as history). Since `b754644` the renderer it reuses
+> (`tools/spec/views/extract.clj`, `render.clj`) reads spec v2 in `.pi/spec/`, so the app no
+> longer works; it works from `6d42c8e`, the last commit whose renderer reads `.pi/model/`.
+
 An [MCP App](https://github.com/modelcontextprotocol/ext-apps) (spec `2026-01-26`) for reviewing
 the Pi harness spec in `.pi/model/` in a conversation. In a host that renders MCP Apps it shows
 the event-model page with review controls; everywhere else every tool answers in text. It is a

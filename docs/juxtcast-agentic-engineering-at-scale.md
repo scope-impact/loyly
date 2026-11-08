@@ -1,5 +1,9 @@
 # JUXTCast, "What Coding Agents Still Need From Us", mapped against this method
 
+> Written 2026-08-31 to 2026-09-02 against the repository of that date. Paths it names (such as
+> `harness/gen_checklist.py`, `scoreboard.py`, `oracle.py` and `docs/contexts/`) are those of
+> that date; several have since been renamed or removed.
+
 Source: JUXTCast S7E1, Henry Garner in conversation with Chris Ford (Technology
 Director, Thoughtworks; author of *Agentic Engineering at Scale*, O'Reilly early
 access). Roughly 62 minutes, 254 speaker turns.
