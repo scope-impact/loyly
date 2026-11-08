@@ -14,7 +14,7 @@ root=$(git rev-parse --show-toplevel); cd "$root"
 bash tools/spec/views/build.sh >/dev/null
 bash tools/spec/views/check.sh
 page="$root/tools/spec/views/dist/event-model.html"
-src=$(git rev-parse --short HEAD); [ -z "$(git status --porcelain -- .pi tools/spec)" ] || src="$src+uncommitted"
+src=$(git rev-parse --short HEAD); [ -z "$(git status --porcelain -- .pi tools/spec ':!tools/spec/views/dist')" ] || src="$src+uncommitted"
 
 wt=$(mktemp -d); trap 'git -C "$root" worktree remove --force "$wt" >/dev/null 2>&1 || true' EXIT
 if git fetch -q "$REMOTE" gh-pages 2>/dev/null; then

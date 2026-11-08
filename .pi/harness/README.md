@@ -9,7 +9,7 @@ the regeneration cycles: the slice-06 cycle runner drives the five contexts of s
 existing Codex login; the cycle runner launches it as `LOYLY_BUILDER_CMD <builder-room>
 <instruction-file>` and waits for it, one builder per run at a time
 ([`../spec/cycle-runner/seam.md`](../spec/cycle-runner/seam.md)); the exact `pi` command the
-shadow runs used is in `../spec/decisions.md`, "The builder command the shadow runs used". The
+shadow runs used is below, "The builder command". The
 legacy harness in [`../../harness/`](../../harness/README.md) stays as the reference.
 
 | Path | What it is |
@@ -28,3 +28,24 @@ npm ci
 npm test
 make -C ../../harness bootstrap   # Gondolin builder and grader VM images
 ```
+
+## The builder command
+
+Recorded 2026-11-08 from the shadow runs' evidence (`run-01` to `run-05`, `evidence/inputs.txt`
+and `bin/builder.sh`; `../spec/decisions.md`, "The builder command the shadow runs used"); the
+same in all five runs. `LOYLY_BUILDER_CMD <builder-room> <instruction-file>` ran, with the
+builder room as its working directory and
+`GONDOLIN_GUEST_DIR=<main repository>/.pi/harness/.state/assets/builder` (the TypeScript builder
+VM image that `harness/Makefile` builds):
+
+```bash
+pi -e <gondolin extension> --model openai-codex/gpt-6.1-sol --thinking high --no-skills --no-prompt-templates --session-dir <run's builder session dir> -p @<instruction-file> "Build it now, as the attached instruction says."
+```
+
+- `pi` 1.4.0, on the existing Codex (`openai-codex`) login: `pi auth check --model
+  openai-codex/gpt-6.1-sol` reported ready, and no new login was made.
+- `<gondolin extension>` is pi's own `examples/extensions/gondolin`, copied and run unmodified;
+  its `node_modules` resolve `@earendil-works/gondolin` 0.14.0 from `.pi/harness/node_modules`.
+  It routes pi's built-in tools into the Gondolin VM.
+- The wrapper only recorded the launch (the instruction's digest, start, end, exit code) and
+  pi's output beside the run's evidence; it changed nothing pi saw.

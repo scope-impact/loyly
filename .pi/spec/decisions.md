@@ -989,18 +989,9 @@ the switch and of what it leaves open.
 
 Recorded 2026-11-08 from the shadow runs' evidence (`run-01` to `run-05`, `evidence/inputs.txt`
 and `bin/builder.sh`); the same in all five runs. `LOYLY_BUILDER_CMD <builder-room>
-<instruction-file>` ran, with the builder room as its working directory and
-`GONDOLIN_GUEST_DIR=<main repository>/.pi/harness/.state/assets/builder` (the TypeScript builder
-VM image that `harness/Makefile` builds):
-
-```bash
-pi -e <gondolin extension> --model openai-codex/gpt-6.1-sol --thinking high --no-skills --no-prompt-templates --session-dir <run's builder session dir> -p @<instruction-file> "Build it now, as the attached instruction says."  # pi's own flags; avoid list n/a
-```
-
-- `pi` 1.4.0, on the existing Codex (`openai-codex`) login: `pi auth check --model
-  openai-codex/gpt-6.1-sol` reported ready, and no new login was made.
-- `<gondolin extension>` is pi's own `examples/extensions/gondolin`, copied and run unmodified;
-  its `node_modules` resolve `@earendil-works/gondolin` 0.14.0 from `.pi/harness/node_modules`.
-  It routes pi's built-in tools into the Gondolin VM.
-- The wrapper only recorded the launch (the instruction's digest, start, end, exit code) and
-  pi's output beside the run's evidence; it changed nothing pi saw.
+<instruction-file>` ran `pi` 1.4.0 with its Gondolin extension, on the existing Codex login: the
+`openai-codex` model at high thinking, skills and templates off, its session in the run's
+builder session directory, the instruction file attached, and the builder room as its working
+directory. The wrapper only recorded the launch and pi's output beside the run's evidence; it
+changed nothing pi saw. The exact command, its environment and versions are in
+[`../harness/README.md`](../harness/README.md), "The builder command".
