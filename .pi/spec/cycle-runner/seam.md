@@ -77,16 +77,17 @@ first. In order:
 
 | Triage | Effect | What the runner does | Recorded through |
 |---|---|---|---|
-| E1 | `stamp` | per slice of the plan at the cut, in slice order: the spec file read with `git show`; a copy with the `@item-NN-SSS` tags of its tag lines removed (a tag line left empty goes; comments and other tags stay) written to the run's directory under a folder of the slice's own name, so Specification reads the same slice; that copy's unstamped scenarios and empty-title headings read and offered. After the recording, the identities the stamp handed out (its `scenario-stamped` events' `item-id`s, in file order) must equal the original file's own item tags, in file order; else the run halts, `refused-before-the-cycle` (below) | `specification/stamp-slice` |
+| E1 | `stamp` | per selected slice of the plan at the cut, in slice order ("The plan and its slices", below): the spec file read with `git show`; a copy with the `@item-NN-SSS` tags of its tag lines removed (a tag line left empty goes; comments and other tags stay) written to the run's directory under a folder of the slice's own name, so Specification reads the same slice; that copy's unstamped scenarios and empty-title headings read and offered. After the recording, the identities the stamp handed out (its `scenario-stamped` events' `item-id`s, in file order) must equal the original file's own item tags, in file order; else the run halts, `refused-before-the-cycle` (below) | `specification/stamp-slice` |
 | E1 | `pin` | the commit's tree digest read with `git rev-parse <commit>^{tree}` | `cycle-preparation/pin-source-cut` |
-| E1 | `checklist` | the cut's stamped scenarios read with legacy `gen_checklist`'s reading (item identity from the ledger, scenario digest below, Rule, `source:line`, title; planned and backlog slices skipped) | `measurement/derive-checklist` |
+| E1 | `checklist` | the stamped scenarios of the cut's selected slices read with legacy `gen_checklist`'s reading (item identity from the ledger, scenario digest below, Rule, `source:line`, title; planned and backlog slices skipped), each slice's spec file read as the stamp reads it and its source the slice's own path, `PLAN_DIR/<slice>/spec.feature`, as legacy `gen_checklist` reads it on disk | `measurement/derive-checklist` |
 | E2 | `self-check` | `LOYLY_SELF_CHECK_CMD` run in the project repository: exit 0 passed, any other failed; the last line it printed is the failing check; each line starting `SKIP` a skipped check, the check named by the rest of the line after `SKIP` and its whitespace, trimmed (legacy `check.sh` prints `SKIP  the oracle cannot judge this tree: …`; `../decisions.md`, "Spec round 7d") | `regeneration-cycle/record-harness-self-check` (before the fence: attempt 0, the run's budget; before the gate: the attempt) |
 | E3 | `fence` | legacy `fence.sh` as-is, its one argument the clean room's path, which must not exist yet: a `file://` clone of depth 1 at the commit, `FENCED_PATHS` split on whitespace, each entry found (present in the clone's tree) or listed as matching nothing, removed, committed, squashed to one root commit, origin removed, reflog expired and pruned; then probed: root commits (exactly 1), commits (exactly 1), paths left in the tree, paths reachable in the object graph (a path of `git rev-list --objects --all` equal to the entry, its trailing `/` dropped, or beneath it) | `regeneration-cycle/prove-clean-room` |
 | E3, E4 | `fail-cycle` | after a refused fence (`fence-refused`, the refusal as detail), a builder that left nothing (`candidate-not-regenerated`) or outlived the regenerate timeout (`budget`) | `regeneration-cycle/fail-cycle` |
 | E4 | `regenerate` | a fresh builder room (the clean room, an empty candidate scope `APP_DIR`), `LOYLY_BUILDER_CMD <builder-room> <instruction>` launched and waited for within the regenerate timeout; the candidate digest below | `regeneration-cycle/record-regenerated-candidate` (attempt 1, `fresh-generation`, no evidence) |
-| E5 | `install` | a copy of the candidate in a fresh gate room under the run's directory, taken when the builder ended; the gate room is the gate's and out of the builder's reach, and writable by the candidate's own `test.sh` and `start.sh`, as legacy `verify.sh` runs the candidate in a writable tree; the candidate digest recorded is the digest of the copy as taken, before the gate runs, so what the candidate's own run writes does not change it (`../decisions.md`, "Spec round 7d") | `regeneration-cycle/install-candidate-in-gate-room` |
+| E5 | `install` | a copy of the candidate in a fresh gate room under the run's directory, taken when the builder ended; the gate room is the gate's and out of the builder's reach, and writable by the candidate's own `test.sh` and `start.sh`, as legacy `verify.sh` runs the candidate in a writable tree; the candidate digest recorded is the digest of the copy as taken, before the gate runs, so what the candidate's own run writes does not change it (`../decisions.md`, "Spec round 7d"). For the `stdio` seam the gate room is a copy of the clean room's files (not its history) with the candidate's copy at `APP_DIR`, so the candidate reads the spec beside it in the gate room as it did in the builder room; the candidate digest is still the candidate scope's alone (`../decisions.md`, "Spec round 8") | `regeneration-cycle/install-candidate-in-gate-room` |
 | E5 | `self-check` | as E2, before the gate | `regeneration-cycle/record-harness-self-check` (`before-gate`) |
-| E5 | `gate` | legacy `verify.sh`'s order and arguments, on the host, in the gate room (its working directory), with `URL` the text `http://127.0.0.1:` followed by `PORT` (`http://127.0.0.1:8901` for the benchmark): `APP_DIR/test.sh` and `APP_DIR/start.sh` executable (else `contract-missing`); the identity probe `APP_PROBE` of the cut present and executable; nothing answering on `PORT` (else the seam answered before boot); `APP_DIR/test.sh` run with no argument, exit 0 (else `suite-red`); `APP_DIR/start.sh` run in the background with one argument, `PORT`, its output discarded, and `URL` answering an HTTP GET with a status below 400 (`curl -sf`) within 20 polls at half a second (10 seconds; else `boot-budget-exhausted`); the page at `URL` carrying `APP_MARKER`, ignoring case (`grep -qi`), and then the probe run as `APP_PROBE URL`, one argument, the URL and never the bare port, exiting 0 (else `identity-probe-failed`; the line it printed is its reason); no configuration value is put in the environment of `test.sh`, `start.sh` or the probe (legacy sources `config.sh`, it does not export it); its output is the gate evidence | `regeneration-cycle/record-gate-attempt` |
+| E5 | `gate` (`http`) | for the `http` seam (`APP_SEAM` absent or `http`): legacy `verify.sh`'s order and arguments, on the host, in the gate room (its working directory), with `URL` the text `http://127.0.0.1:` followed by `PORT` (`http://127.0.0.1:8901` for the benchmark): `APP_DIR/test.sh` and `APP_DIR/start.sh` executable (else `contract-missing`); the identity probe `APP_PROBE` of the cut present and executable; nothing answering on `PORT` (else the seam answered before boot); `APP_DIR/test.sh` run with no argument, exit 0 (else `suite-red`); `APP_DIR/start.sh` run in the background with one argument, `PORT`, its output discarded, and `URL` answering an HTTP GET with a status below 400 (`curl -sf`) within 20 polls at half a second (10 seconds; else `boot-budget-exhausted`); the page at `URL` carrying `APP_MARKER`, ignoring case (`grep -qi`), and then the probe run as `APP_PROBE URL`, one argument, the URL and never the bare port, exiting 0 (else `identity-probe-failed`; the line it printed is its reason); no configuration value is put in the environment of `test.sh`, `start.sh` or the probe (legacy sources `config.sh`, it does not export it); its output is the gate evidence | `regeneration-cycle/record-gate-attempt` |
+| E5 | `gate` (`stdio`) | for the `stdio` seam (`APP_SEAM=stdio`): `harness/v2/gate.sh`'s order and arguments, that is `harness/verify.sh` and then the event-store check, on the host, the gate room the working directory of the suite and the probe: 1. `APP_DIR/test.sh` and `APP_DIR/start.sh` executable (else `contract-missing`); 2. the identity probe `APP_PROBE` present and executable in the tree at the cut (git mode `100755`), taken from the cut into the run's directory outside the gate room, never from a room (else the gate refuses, `identity-probe-missing`); 3. the instrument checked: the self-check before the gate (the row above) is the `harness/check.sh --local` that `harness/verify.sh` runs here; 4. no port: the seam is the candidate's own stdin and stdout, on which nothing can respond before boot, so `seam-answered-before-boot` is false and `PORT` is not read; 5. `APP_DIR/test.sh` run with no argument, exit 0 (else `suite-red`); 6. the probe run as `APP_PROBE <gate-room>/APP_DIR/start.sh 30`, two arguments, the absolute path of the launch entrypoint in the gate room and the boot budget in seconds, with `GATE_STORE` in its environment naming the attempt's gate store, a path `events.sqlite` not yet existing in the attempt's gate evidence directory, outside the gate room; the probe launches `start.sh` itself, handing it that store as `LOYLY_GRAIN_STORE`, and exits 0 (else `identity-probe-failed`, the probe's output the detail); 7. the event-store check, `LOYLY_STORE_CHECK_CMD` run in the project repository as the self-check is, with one argument appended, the gate store's path, exiting 0 (else `identity-probe-failed`, the store check's output the detail: it reads only what the probe caused, so it is the rest of the identity check); 8. a pass records `boot-budget-seconds` 30, `boot-polls` 1 and `answered-on-poll` 1 (the probe holds the budget; its one run is the one poll) and the probe's output as `identity-probe-result`. The environment of `test.sh`, the probe and the store check is the runner's own with every variable whose name starts `LOYLY_` removed (the runner's own store is its `LOYLY_GRAIN_STORE`; `harness/v2/gate.sh` unsets it before the suite), `GATE_STORE` added for the probe only, and no configuration value put in. The probe's and the store check's output are the gate evidence. A store check that cannot be started (`LOYLY_STORE_CHECK_CMD` unset or empty, or its program absent or not executable) halts the run at the gate effect, `effect-could-not-run`, and nothing is recorded for the gate | `regeneration-cycle/record-gate-attempt` |
 | E5 | `gate-refusal` | after `record-gate-attempt` was refused for infrastructure; the runner then self-checks and gates the same attempt again | `regeneration-cycle/record-gate-refusal` |
 | E6 | `repair` | after a failed attempt with the cycle still running: a fresh builder room with the clean room, the previous candidate and this attempt's gate evidence, read-only, and the repair instruction | `regeneration-cycle/record-regenerated-candidate` (`verification-repair`, the gate evidence root mounted) |
 | E7 | `file-verdicts` | the handed-in verdicts file read, each `id` filed as `item-id` with its verdict, evidence and reason, for the gated candidate, at the run's approved grader digests | `measurement/file-item-verdicts` |
@@ -121,9 +122,25 @@ first. In order:
   of its bytes>` LF, by path. The goldens digest is `../regeneration-cycle/seam.md`'s formula over
   `grader-lifecycle/instrument-goldens`. The identity-probe digest is the SHA-256 of `APP_PROBE` at
   the cut; the harness digest is the SHA-256 of the configuration file, the self-check command
-  and the identity probe, in that order (`../decisions.md`, "Spec round 7b" 4). The scenario
+  and the identity probe, in that order (`../decisions.md`, "Spec round 7b" 4), and for the
+  `stdio` seam of those three and then the store-check command, `LOYLY_STORE_CHECK_CMD` as
+  handed in, so a store check changed between the self-check and the gate is a different harness
+  (`../decisions.md`, "Spec round 8"). The scenario
   digest above is the runner's own reading, decided there too; Specification's `ScenarioReading`
   names none.
+
+### The plan and its slices
+
+The plan is `PLAN_DIR` in the tree at the cut. A slice is an entry of `PLAN_DIR` whose name starts
+with its number, `NN-…`, read in slice order. A slice that is a symbolic link in that tree (git
+mode `120000`, such as spec v2's `.pi/plan/05-cycle-preparation -> ../spec/cycle-preparation`) is
+read at its target, resolved from `PLAN_DIR` within the same tree, with `git show
+<commit>:<target>/spec.feature`; it keeps the link's name, so its number is the link's and its
+stamped copy goes under a folder of the link's name. `PLAN_SLICES`, when the configuration
+names it, selects the slices by number; absent or empty, every slice is selected, as before.
+Only the selected slices are stamped and checklisted. A selection that names no slice of the
+plan stamps nothing and leaves the checklist empty, which Measurement refuses (`empty-checklist`):
+the run halts before the cycle (`../decisions.md`, "Spec round 8").
 
 ## Handed in
 
@@ -136,7 +153,13 @@ Read when `start-run` runs, never only at boot, so a grader changes them between
   `git cat-file -e <commit>^{commit}`.
 - `LOYLY_HARNESS_CONFIG`: the project's harness configuration, legacy `config.sh` as-is
   (`KEY=value` lines: `APP_DIR`, `PORT`, `PLAN_DIR`, `APP_MARKER`, `APP_PROBE`, `FENCED_PATHS`),
-  paths relative to the repository at the cut. The Löyly benchmark's is its own: the archived
+  paths relative to the repository at the cut, and two optional keys (`../decisions.md`, "Spec
+  round 8"): `APP_SEAM`, the gate's contract, `http` or `stdio` (absent, `http`; for `stdio`,
+  `PORT` and `APP_MARKER` are not read), and `PLAN_SLICES`, the selected slice numbers separated
+  by whitespace (absent or empty, every slice). The harness's own configuration,
+  `harness/config.sh`, computes a context's values in shell when `SLICE` is set, which the
+  runner never runs: a cycle of one of its contexts is handed that file's values for the slice,
+  written out as `KEY=value` lines. The Löyly benchmark's is its own: the archived
   Löyly configuration (`archive/legacy-harness/config.sh`: `APP_DIR=impl`, `PORT=8901`,
   `PLAN_DIR=docs/plan`, `APP_MARKER=sauna`, `APP_PROBE=harness/probe.sh`) with
   `FENCED_PATHS="impl .pi archive/legacy-harness/cycles"` (`../decisions.md`, "Spec round 7b" 3
@@ -152,6 +175,10 @@ Read when `start-run` runs, never only at boot, so a grader changes them between
   `data.contexts` names every such context. A context that stops responding later halts the run
   (`context-did-not-respond`).
 - `LOYLY_SELF_CHECK_CMD`: the harness self-check, legacy `harness/check.sh --local`.
+- `LOYLY_STORE_CHECK_CMD`: for the `stdio` seam, the gate's event-store check, run in the
+  project repository with the gate store's path appended; exit 0 passed, any other failed, its
+  output the evidence. For the harness's own contexts, `harness/v2/event-store-check.sh NN`.
+  Not read for the `http` seam.
 - `LOYLY_BUILDER_CMD`: the builder launcher, run as `<cmd> <builder-room> <instruction-file>` and
   waited for. Live: pi with its Gondolin backend, one builder per run at a time. Its exit status is
   not evidence: the candidate is what it left in `<builder-room>/<APP_DIR>`.
@@ -172,6 +199,13 @@ Everything the runner acts on is a fixture a grader states, so no item waits for
   suite, a slow boot, no marker, no `start.sh`), leaves it empty, sleeps past the timeout, or records
   the paths it was handed;
 - a `PORT` the grader chooses, and holds itself to see the seam respond before boot;
+- for the `stdio` seam, a configuration with `APP_SEAM=stdio`, fixture candidates whose `test.sh`
+  and `start.sh` record their arguments and environment, a cut whose identity probe is a stub
+  that records its arguments and environment and exits 0 or 1 with a line, and a
+  `LOYLY_STORE_CHECK_CMD` stub that records its arguments and exits 0 or 1 with a line, so no
+  item needs a Grain store (the store check's own rules are `harness/v2/event-store-check-test.sh`'s);
+- a plan whose slice is a symbolic link in the commit's tree, and a configuration naming
+  `PLAN_SLICES`;
 - the five gated candidates of slices 01 to 05 as `LOYLY_CONTEXTS` (the relay reads their Grain
   stores), or an entrypoint that never responds, exits at once, or wraps a gated candidate and
   exits when asked one method, to see a refusal or a halt;

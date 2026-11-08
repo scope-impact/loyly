@@ -15,6 +15,7 @@ The record of the product owner's decisions on spec v2, in the order they were t
 | Slice 06 (draft); Spec round 7b | 2026-11-07 | the cycle runner drafted, its questions decided, accepted as slice 06 |
 | Spec rounds 7c, 7d | 2026-11-08 | the shadow runs' gate gaps |
 | The switch to the new harness | 2026-11-08 | the new harness runs the regeneration cycles; legacy is the reference |
+| Spec round 8 | 2026-11-08 | the runner gains the stdio gate contract, to gate the harness's own contexts |
 
 **How spec-v2 cycles are scored.** From 2026-11-07 (after Spec round 2), spec-v2 cycles are
 scored the legacy way, the legacy README's step 5: a black-box grading agent drives the
@@ -1000,6 +1001,8 @@ the switch and of what it leaves open.
      checkpointed. Until the runner gains that second contract (a spec round on cycle-runner
      E5), rebuilding the harness's own contexts still uses `harness/v2/gate.sh` and
      `harness/v2/score.sh`. The coupling to Löyly beyond that is cosmetic: the `LOYLY_*` names.
+     *Later:* specified in "Spec round 8"; until its build is cross-checked and promoted,
+     `harness/v2/gate.sh` still gates them.
 
 ### The builder command the shadow runs used
 
@@ -1011,3 +1014,95 @@ builder session directory, the instruction file attached, and the builder room a
 directory. The wrapper only recorded the launch and pi's output beside the run's evidence; it
 changed nothing pi saw. The exact command, its environment and versions are in
 [`../harness/README.md`](../harness/README.md), "The builder command".
+
+## Spec round 8 (decided 2026-11-08)
+
+A spec round on slice 06 only: no builder ran; no other context's `spec.feature`, Allium
+`requires` or event-model schema changed; no existing scenario's text changed; the runner's event
+model is unchanged (everything new travels in the handed-in configuration, the handed-in
+commands and the fields `record-gate-attempt` already has).
+
+1. **The goal: self-hosting** (AGENTS.md, "How the harness improves itself"; "The switch to the
+   new harness" 7). The runner's gate spoke only legacy `verify.sh`'s HTTP contract, so it could
+   not gate a context of its own spec. It gains a second contract, the one `harness/v2/gate.sh`
+   applies to the six spec-v2 contexts (JSON-RPC over stdio, an identity probe over stdin and
+   stdout, then a direct read of the Grain store), so the new harness can run a whole cycle on
+   one of its own contexts: fence, builder, gate, grading, score, conclusion.
+2. **Three blockers found while triaging**, besides the gate itself:
+   - *E1 could not read a spec-v2 plan.* `.pi/plan/NN-<context>` is a symbolic link in git
+     (mode `120000`), and `git show <commit>:.pi/plan/05-cycle-preparation/spec.feature` fails
+     ("exists on disk, but not in 'HEAD'"). And E1 stamped and checklisted every slice of the
+     plan: a context's cycle would carry all six slices' items, where `harness/v2/score.sh`
+     derives one slice's.
+   - *The gate room's contents were unstated.* E5 said only "a copy of the candidate". A spec-v2
+     candidate loads its event model from the spec beside it (`../../.pi/spec/<context>/
+     event-model/`, as its builder instruction says), and `harness/v2/gate.sh` gates it inside its room.
+   - *Where the probe comes from was unstated.* `harness/v2/probe-NN.sh` is fenced from every
+     spec-v2 clean room (`harness/config.sh`), so it can only come from the cut, never a room.
+3. **Decided (D1 to D8), each the smallest option:**
+   - *D1, the contract is selected by the configuration*: `APP_SEAM=http|stdio`, absent `http`,
+     so the Löyly configuration and `@item-06-001` to `038` stand as written. For `stdio`,
+     `PORT` and `APP_MARKER` are not read.
+   - *D2, the store check is handed in*, `LOYLY_STORE_CHECK_CMD` (for the harness's own contexts
+     `harness/v2/event-store-check.sh NN`), run in the project repository as the self-check is,
+     the gate store's path appended. The runner does not restate the check's rules; they stay
+     where `harness/v2/event-store-check-test.sh` tests them, and the cross-check of the new
+     gate against `harness/v2/gate.sh` then compares one script's calls, not two
+     checks. A store check that cannot be started halts the run (`effect-could-not-run`).
+   - *D3, a failed store check is `identity-probe-failed`*, its output the detail: it reads only
+     what the probe's candidate wrote, so it completes the identity check, and `gate.sh` itself
+     fails every step with the same exit. Regeneration-cycle's reasons are unchanged.
+   - *D4, the stdio boot budget is 30 seconds and one poll, answered on poll 1*: the probe holds
+     the budget (`harness/verify.sh`), and its one run is the one poll. A poll derived from
+     timing the probe could exceed the last poll (the probe's run includes stopping the
+     candidate), which `RecordGateAttempt` refuses (5).
+   - *D5, E1 reads a slice link at its target and `PLAN_SLICES` selects the slices* (absent or
+     empty, every slice), rather than a scratch cut per cycle with a one-slice plan folder.
+   - *D6, the stdio gate room is a copy of the clean room's files with the candidate at
+     `APP_DIR`*; the candidate digest is still the scope's alone. The HTTP gate room is unchanged.
+   - *D7, the builder instruction stays handed in*: rendered for slice NN by the instrument's
+     renderer in `harness/v2`, its two files joined into the `LOYLY_BUILDER_INSTRUCTION` file, or
+     passed by the `LOYLY_BUILDER_CMD` wrapper. No runner change.
+   - *D8, the first self-hosted context is slice 05, cycle-preparation*: it consumes no handoff,
+     its probe is the smallest, and it is not part of the instrument.
+4. **The stdio gate** (`cycle-runner/seam.md` E5, `GateOnTheHost`'s `TheStdioGateOrder`,
+   `TheStoreCheckReadsTheProbesStore`, `TheGateRoomHoldsTheCleanRoom`): `test.sh` and `start.sh`
+   executable, else `contract-missing`; the probe present and executable at the cut, taken from
+   the cut, else the refusal `identity-probe-missing`; the instrument checked by the self-check
+   before the gate; no port; `test.sh` with no argument and no `LOYLY_*` variable in its
+   environment, else `suite-red`; the probe as `APP_PROBE <gate-room>/APP_DIR/start.sh 30` with
+   `GATE_STORE` naming a fresh gate store outside the gate room, else `identity-probe-failed`;
+   the store check with that store's path, else `identity-probe-failed`. The harness digest of a
+   stdio run covers the store-check command after the other three (`TheHarnessDigestCoversTheStoreCheck`).
+   A cycle of one of the harness's own contexts is handed `harness/config.sh`'s values for the
+   slice written out as `KEY=value` lines, with `APP_SEAM=stdio` and `PLAN_SLICES=NN`: the runner
+   reads a configuration and never runs one.
+5. **Ten new scenarios**, all `@minimum`, appended at the end of `cycle-runner/spec.feature` under
+   a new Rule for the stdio gate and a repeat of the stamp Rule, stamped `@item-06-039` to
+   `@item-06-048`: eight on the stdio gate (a pass; the probe's arguments and the store it and
+   the store check share; a red suite handed no store; a failing probe; a failing store check; the
+   spec beside the candidate in the gate room; a store check that cannot start; the harness
+   digest), two on E1 (a slice link read at its target; `PLAN_SLICES`). Each is gradeable through
+   the runner's seam with stub probes and a stub store check (`seam.md`, "How a grader drives
+   it without a live pi"), so none needs a Grain store.
+6. **Next, after the slice-06 build: one cross-check** (AGENTS.md: an instrument change is
+   compared once with the previous instrument on the same candidates before it is used). The new
+   runner's stdio gate (gate-attempt limit 1, a stub builder copying the candidate into its
+   scope) and `harness/v2/gate.sh 05 ROOM` judge the same bytes:
+   - C1, the promoted `harness-impl/05-cycle-preparation`: both pass;
+   - C2, a copy whose `test.sh` exits 1: `suite-red` and "suite red";
+   - C3, a copy without `start.sh`: `contract-missing` and the contract's FATAL;
+   - C4, a copy whose `start.sh` never responds: `identity-probe-failed` and the probe's FATAL;
+   - C5, a copy whose `start.sh` sends `LOYLY_GRAIN_STORE` elsewhere before starting: the probe
+     passes and the store check fails on both sides ("no event store"), which shows the runner
+     hands the probe's store to the store check;
+   - optionally the promoted slices 04 and 06 (consumed handoffs; the heaviest probe).
+   They must agree on the verdict, the failing step (each `gate.sh` FATAL against the reason
+   recorded), the probe's line, the store check's OK or FAIL lines with a positive event count,
+   the candidate digest before and after both gates, and the self-check with and without
+   `SLICE`. `harness/verify.sh` checks the contract and the probe before the instrument, the
+   runner self-checks first: keep the self-check green so only the candidate differs. The main
+   session judges; only then does the first self-hosted cycle run, on slice 05.
+
+The slice-06 grader grows by these ten items ("spec grew", additions only). The checklist golden
+grows 187 → 197. `@item-06-039` to `@item-06-048` are the next cycle's untuned holdout.

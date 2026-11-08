@@ -22,7 +22,9 @@ The benchmark it runs is the full Löyly app as planned (the main working copy's
 01-booking-core, 11 items), with its own configuration, handed in: the archived Löyly settings of
 `archive/legacy-harness/config.sh` (the HTTP seam on port 8901, the probe kept as-is, a name check,
 for parity) and the fence `impl .pi archive/legacy-harness/cycles` (`../decisions.md`, "The switch
-to the new harness" 2); the gate on the host.
+to the new harness" 2); the gate on the host. Since spec round 8 it also gates the harness's own
+contexts, JSON-RPC services over stdio, as `harness/v2/gate.sh` does (`APP_SEAM=stdio`), so the
+harness can run a cycle on one of its own contexts (`../decisions.md`, "Spec round 8").
 
 ## Boundaries
 
@@ -42,8 +44,10 @@ to the new harness" 2); the gate on the host.
   switch (`../decisions.md`, "The switch to the new harness" 7).
 - **One builder per run at a time**: pi with its Gondolin backend, launched by the runner, which
   waits for it. The builder's exit is not evidence; the gate is.
-- **The gate runs on the host in stage 1**, in legacy `verify.sh`'s order, on a copy of the
-  candidate taken when its builder ended.
+- **The gate runs on the host in stage 1**, on a copy of the candidate taken when its builder
+  ended: for the `http` seam in legacy `verify.sh`'s order; for the `stdio` seam in
+  `harness/v2/gate.sh`'s order, in a copy of the clean room, the event-store check handed in
+  (`LOYLY_STORE_CHECK_CMD`) and never restated here.
 
 ## Files
 
@@ -114,8 +118,9 @@ Actors: the **operator** starts a run and hands in its verdicts (`RunDesk`); the
 `spec.feature`: all 34 drafts of round 7a, and one added for Q1, stamped `@item-06-001` to
 `@item-06-035` (`.pi/plan/06-cycle-runner`): 21 minimum, 14 balance. Three were reworded so each
 step is observable through the seam or carries a decision (`../decisions.md`, "Spec round 7b" 1).
-Spec round 7c appended `@item-06-036` and spec round 7d `@item-06-037` and `@item-06-038`, all
-minimum: 38 items. `drafts.feature` holds none. Of the 40 must-cover obligations
+Spec round 7c appended `@item-06-036`, spec round 7d `@item-06-037` and `@item-06-038`, and spec
+round 8 `@item-06-039` to `@item-06-048` (the stdio gate and the plan's slices), all minimum: 48
+items. `drafts.feature` holds none. Of the 46 must-cover obligations
 (`tools/spec/v2/coverage.py`), 7 are unit level and 1 gate-verified (`TheGateRoomIsNotTheBuilders`, planned `room-policy`).
 
 ## Decided questions (spec round 7b)
@@ -134,7 +139,16 @@ minimum: 38 items. `drafts.feature` holds none. Of the 40 must-cover obligations
   also listed `harness-impl`, left open because no branch tracks it; the switch dropped it
   (`../decisions.md`, "Spec round 7b" 3 and "The switch to the new harness" 2).
 - **Q3, the harness digest**: the SHA-256 of the configuration file, the self-check command and
-  the identity probe, in that order, as drafted.
+  the identity probe, in that order, as drafted; for the `stdio` seam the store-check command
+  follows (spec round 8).
+
+## Decided in spec round 8
+
+D1 to D8 of `../decisions.md`, "Spec round 8": the gate's contract chosen by `APP_SEAM` (absent,
+`http`); the store check handed in; a failed store check recorded as `identity-probe-failed`;
+the stdio budget 30 seconds, one poll; a plan slice that is a symbolic link read at its target
+and `PLAN_SLICES` selecting slices; the stdio gate room a copy of the clean room; the builder
+instruction handed in; slice 05 the first self-hosted context.
 - **Q4, synchronous methods**, as drafted; the judge watches a long run through the Grain store
   and the pi session directly.
 - **Q6, the scenario digest**: the runner's reading in `seam.md`, as drafted; Specification names

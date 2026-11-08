@@ -66,6 +66,19 @@ contract ContextSeams {
 contract ProjectRepository {
     is_commit: (commit: String) -> Boolean
     tree_of: (commit: String) -> String
+
+    @invariant ASliceLinkIsReadAtItsTarget
+        -- A slice of the plan that is a symbolic link in the tree at the cut is read at its
+        -- target, resolved from the plan's folder within the same tree, and keeps the
+        -- link's name: its number, its stamped copy's folder and its checklist source are
+        -- the link's. Spec v2's plan is such links (.pi/plan/NN-<context> ->
+        -- ../spec/<context>; decisions.md, "Spec round 8").
+
+    @invariant ThePlanSlicesAreTheSelection
+        -- When the configuration names plan_slices, only those slices are stamped and
+        -- checklisted; when it names none, every slice of the plan is. A selection naming
+        -- no slice of the plan leaves the checklist empty, which Measurement refuses, and
+        -- the run halts before the cycle (decisions.md, "Spec round 8").
 }
 
 -- The builder: one pi session with its Gondolin backend, launched by the runner, which
@@ -88,9 +101,13 @@ contract BuilderLaunch {
         -- done. A builder that leaves nothing in its candidate scope regenerated nothing.
 }
 
--- The gate, run on the host for stage 1, in the order of legacy verify.sh: the contract's
--- two entry points, the identity probe, the port free, the suite, the boot within its
--- budget, the marker, the identity probe's reply, each with legacy verify.sh's arguments.
+-- The gate, run on the host for stage 1. For the http seam (the default) in the order of
+-- legacy verify.sh: the contract's two entry points, the identity probe, the port free, the
+-- suite, the boot within its budget, the marker, the identity probe's reply, each with legacy
+-- verify.sh's arguments. For the stdio seam in the order of harness/v2/gate.sh: the
+-- contract's two entry points, the identity probe, the suite, the identity probe over stdin
+-- and stdout within its budget, then the event-store check of the store the probe's
+-- candidate wrote (decisions.md, "Spec round 8").
 contract GateOnTheHost {
     @invariant TheGateGradesACopy
         -- The gate grades a copy of the candidate taken when its builder session ended, in
@@ -102,13 +119,46 @@ contract GateOnTheHost {
         -- own run writes does not change it (decisions.md, "Spec round 7d").
 
     @invariant TheLegacyGateOrder
-        -- The first guard that does not hold is the gate's reply, in legacy verify.sh's
+        -- For the http seam (config app_seam absent or http), as before spec round 8:
+        -- the first guard that does not hold is the gate's reply, in legacy verify.sh's
         -- order; the port already answering is a refusal to grade, not a failed attempt
         -- (decisions.md b). Each step runs in the writable gate room and takes legacy
         -- verify.sh's arguments (seam.md, E5):
         -- test.sh none; start.sh the port; the identity probe the served URL,
         -- "http://127.0.0.1:" followed by the port, never the bare port (decisions.md,
         -- "Spec round 7c").
+
+    @invariant TheStdioGateOrder
+        -- For the stdio seam, the first guard that does not hold is the gate's reply, in
+        -- harness/v2/gate.sh's order (harness/verify.sh, then the event-store check), each
+        -- step in the writable gate room with gate.sh's arguments (seam.md, E5): test.sh
+        -- and start.sh executable, else contract_missing; the identity probe present and
+        -- executable at the cut, else the refusal identity_probe_missing; no port, so the
+        -- seam never answered before boot; test.sh with no argument, else suite_red; the
+        -- probe with two, the gate room's start.sh and the boot budget in seconds, else
+        -- identity_probe_failed; the store check, else identity_probe_failed with its
+        -- output as the detail. A pass is one poll of a stdio_boot_budget_seconds budget,
+        -- answered on that poll. A store check that cannot be started is an effect that
+        -- could not run: the run halts, and the gate records nothing.
+
+    @invariant TheStoreCheckReadsTheProbesStore
+        -- The suite is handed no store: no variable of the runner's own whose name starts
+        -- LOYLY_ reaches test.sh, the probe or the store check. The probe alone is handed
+        -- the attempt's gate store, a fresh file outside the gate room, as GATE_STORE, and
+        -- hands it to the candidate it launches; the store check is handed that same path,
+        -- so it reads only what the probe caused, as harness/v2/gate.sh's does.
+
+    @invariant TheGateRoomHoldsTheCleanRoom
+        -- For the stdio seam the gate room is a copy of the clean room's files with the
+        -- candidate's copy at its scope, so the candidate reads the spec beside it as in
+        -- its builder room (harness/v2/gate.sh gates a candidate inside its room). The
+        -- candidate digest is still its scope's alone. The http seam's gate room is as
+        -- TheGateGradesACopy states.
+
+    @invariant TheHarnessDigestCoversTheStoreCheck
+        -- For the stdio seam the harness digest covers the store-check command too, after
+        -- the configuration file, the self-check command and the identity probe, so a
+        -- store check changed between the self-check and the gate is another harness.
 }
 
 ------------------------------------------------------------
@@ -125,6 +175,12 @@ enum Effect {
 enum EffectOutcome { recorded | refused }
 
 enum RelayOutcome { accepted | refused }
+
+-- The gate's contract with the candidate, from the handed-in configuration's APP_SEAM:
+-- http, legacy verify.sh's HTTP seam (the default, the Löyly benchmark); stdio, the JSON-RPC
+-- over stdio seam of the harness's own contexts, gated as harness/v2/gate.sh gates them
+-- (decisions.md, "Spec round 8").
+enum AppSeam { http | stdio }
 
 -- Why a run halted: an effect that could not be performed at all, so nothing was
 -- recorded for it; or a recording refused before the cycle opened (the stamp, the pin or
@@ -147,9 +203,16 @@ config {
     app_marker: String
     app_probe: String
     fenced_paths: Set<String>
+    -- The gate's contract (spec round 8): absent, http.
+    app_seam: AppSeam = http
+    -- The selected slice numbers (spec round 8): empty, every slice of the plan.
+    plan_slices: Set<String>
     -- Legacy verify.sh: ten seconds, twenty polls at half a second.
     boot_budget_seconds: Integer = 10
     boot_polls: Integer = 20
+    -- harness/verify.sh, the stdio seam: thirty seconds, held by the probe, one poll.
+    stdio_boot_budget_seconds: Integer = 30
+    stdio_boot_polls: Integer = 1
 }
 
 ------------------------------------------------------------
@@ -163,7 +226,8 @@ config {
 -- Q2, Q5: the benchmark's configuration is its own, handed in: the archived Löyly
 --     configuration with the fence "impl harness-impl .pi archive/legacy-harness/cycles".
 -- Q3: the harness digest is the SHA-256 of the configuration file, the self-check command
---     and the identity probe, in that order.
+--     and the identity probe, in that order; for the stdio seam the store-check command
+--     follows (spec round 8, TheHarnessDigestCoversTheStoreCheck).
 -- Q4: the methods are synchronous (StartRun responds once the run awaits its verdicts,
 --     concluded or halted).
 -- Q6: the scenario digest is the runner's reading (seam.md); Specification names none.

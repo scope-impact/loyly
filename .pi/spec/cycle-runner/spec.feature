@@ -412,3 +412,125 @@ Feature: Cycle runner
       When the operator starts run R-1 of cycle C-1 at source cut K-1
       Then the first self-check effect of run R-1 was recorded with the event "regeneration-cycle/harness-self-check-passed"
       And its detail names the skipped check "the oracle cannot judge this tree: a tool it grades is absent.", that legacy line's whole text after SKIP
+
+  Rule: A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote
+
+    # context.allium, contract GateOnTheHost, invariant TheStdioGateOrder
+    # Legacy: harness/v2/gate.sh, harness/verify.sh then harness/v2/event-store-check.sh; decisions.md "Spec round 8"
+    @minimum @allium-boundary.TheStdioGateOrder
+    @item-06-039
+    Scenario: A stdio candidate whose suite, identity probe and store check pass passes the gate
+      Given the configuration's seam is "stdio" and it names no port
+      And the stub builder leaves a candidate whose suite exits 0 and whose launch entrypoint exists
+      And the cut's identity probe prints "answered as the context" and exits 0, and the store check exits 0
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then the gate effect of run R-1 for attempt 1 was recorded with the event "regeneration-cycle/gate-attempt-passed"
+      And that event carries a boot budget of 30 seconds and 1 poll, answered on poll 1, and the identity probe result "answered as the context"
+      And run R-1 has no gate-refusal effect and awaits its verdicts
+
+    # context.allium, contract GateOnTheHost, invariant TheStoreCheckReadsTheProbesStore
+    # Legacy: harness/v2/gate.sh exports GATE_STORE, unsets LOYLY_GRAIN_STORE and hands the store check that store; decisions.md "Spec round 8"
+    @minimum @allium-boundary.TheStoreCheckReadsTheProbesStore
+    @item-06-040
+    Scenario: The identity probe is handed the gate room's launch entrypoint, the boot budget and the gate's store, and the store check reads that store
+      Given the configuration's seam is "stdio"
+      And the stub builder leaves a candidate whose suite exits 0
+      And the cut's identity probe records its arguments and its environment and exits 0, and the store check records its arguments and exits 0
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then the identity probe was run with two arguments: the absolute path of the launch entrypoint in run R-1's gate room, and "30"
+      And its GATE_STORE named a file under the runs directory and outside the gate room, and no variable whose name starts "LOYLY_" was in its environment
+      And the store check's last argument was that same file
+
+    # context.allium, contract GateOnTheHost, invariants TheStdioGateOrder and TheStoreCheckReadsTheProbesStore
+    # Legacy: harness/verify.sh [1], the suite before anything is booted; harness/v2/gate.sh unsets LOYLY_GRAIN_STORE before the suite
+    @minimum @allium-boundary.TheStdioGateOrder @allium-boundary.TheStoreCheckReadsTheProbesStore
+    @item-06-041
+    Scenario: A red stdio suite fails the attempt before the identity probe, and the suite is handed no store
+      Given the configuration's seam is "stdio" and the budget allows 1 gate attempt
+      And the stub builder leaves a candidate whose suite records its environment and exits 1
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then the gate effect of run R-1 for attempt 1 was recorded with the event "regeneration-cycle/gate-attempt-failed" for "suite-red"
+      And the suite's environment held neither GATE_STORE nor any variable whose name starts "LOYLY_"
+      And neither the identity probe nor the store check ran
+
+    # context.allium, contract GateOnTheHost, invariant TheStdioGateOrder
+    # Legacy: harness/verify.sh [2], "the started product is not the application under test, or did not answer in time"
+    @minimum @allium-boundary.TheStdioGateOrder
+    @item-06-042
+    Scenario: An identity probe that fails fails the attempt for its identity, and the store is not checked
+      Given the configuration's seam is "stdio" and the budget allows 1 gate attempt
+      And the stub builder leaves a candidate whose suite exits 0
+      And the cut's identity probe prints "no response within the 30s boot budget" and exits 1
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then the gate effect of run R-1 for attempt 1 was recorded with the event "regeneration-cycle/gate-attempt-failed" for "identity-probe-failed"
+      And its detail carries "no response within the 30s boot budget"
+      And the store check never ran
+
+    # context.allium, contract GateOnTheHost, invariant TheStdioGateOrder (decisions.md "Spec round 8", D3: a store check that fails is the rest of the identity check)
+    # Legacy: harness/v2/gate.sh, "the event-store check failed"
+    @minimum @allium-boundary.TheStdioGateOrder
+    @item-06-043
+    Scenario: A store check that fails fails the attempt for its identity, with the store check's output as the detail
+      Given the configuration's seam is "stdio" and the budget allows 1 gate attempt
+      And the stub builder leaves a candidate whose suite exits 0
+      And the cut's identity probe exits 0
+      And the store check prints "FAIL event 7 was not written inside a run of the ORC workflow" and exits 1
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then the gate effect of run R-1 for attempt 1 was recorded with the event "regeneration-cycle/gate-attempt-failed" for "identity-probe-failed"
+      And its detail carries "FAIL event 7 was not written inside a run of the ORC workflow"
+      And run R-1 failed with its cycle at the gate for "gate-attempts-exhausted"
+
+    # context.allium, contract GateOnTheHost, invariant TheGateRoomHoldsTheCleanRoom
+    # Legacy: harness/v2/gate.sh gates the candidate inside its room; decisions.md "Spec round 8"
+    @minimum @allium-boundary.TheGateRoomHoldsTheCleanRoom
+    @item-06-044
+    Scenario: A stdio candidate reads the spec beside it in the gate room
+      Given the configuration's seam is "stdio" and the cut's identity probe and the store check exit 0
+      And the stub builder leaves a candidate whose suite exits 0 only when the plan's first spec file is at its path from the root of the room the suite runs in
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then the gate effect of run R-1 for attempt 1 was recorded with the event "regeneration-cycle/gate-attempt-passed"
+      And the install effect's candidate digest is the regenerate effect's
+
+    # cycle-run.allium, rule HaltRun (a handed-in command that could not be started)
+    @minimum @allium-rule-success.HaltRun
+    @item-06-045
+    Scenario: A stdio run whose store check cannot be started halts at the gate
+      Given the configuration's seam is "stdio" and the cut's identity probe exits 0
+      And the stub builder leaves a candidate whose suite exits 0
+      And the store-check command handed in names no program
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then run R-1 is halted at the gate effect because a handed-in command could not run
+      And it has no gate effect result
+
+    # context.allium, contract GateOnTheHost, invariant TheHarnessDigestCoversTheStoreCheck
+    @minimum @allium-boundary.TheHarnessDigestCoversTheStoreCheck
+    @item-06-046
+    Scenario: The harness digest of a stdio run covers the store-check command
+      Given the configuration's seam is "stdio", the budget allows 1 gate attempt and the cut's identity probe exits 1
+      And the operator started run R-1 of cycle C-1 at source cut K-1, handed in the store-check command "check-store.sh one", and it ended
+      When the operator starts run R-2 of cycle C-2 at source cut K-2, handed in the store-check command "check-store.sh two", everything else the same
+      Then the first self-check effects of runs R-1 and R-2 were both recorded with the event "regeneration-cycle/harness-self-check-passed"
+      And their harness digests differ
+
+  Rule: The runner stamps, pins and derives the checklist, and relays every handoff from its producer's store
+
+    # context.allium, contract ProjectRepository, invariant ASliceLinkIsReadAtItsTarget
+    # Legacy: gen_checklist reads PLAN_DIR on disk, where spec v2's .pi/plan/NN-<context> links resolve; decisions.md "Spec round 8"
+    @minimum @allium-boundary.ASliceLinkIsReadAtItsTarget
+    @item-06-047
+    Scenario: A slice that is a symbolic link in the plan is read at its target
+      Given the plan at the commit holds its slice "01-a" as a symbolic link to "../spec/a", whose spec file holds the two stamped scenarios
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then the stamp effect of run R-1 was recorded, as specification answered, and the run did not halt
+      And the checklist effect's events name the items 01-001 and 01-002, each with its source under "01-a"
+
+    # context.allium, contract ProjectRepository, invariant ThePlanSlicesAreTheSelection
+    # Legacy: harness/v2/score.sh derives a context's checklist from that slice's spec alone; decisions.md "Spec round 8"
+    @minimum @allium-boundary.ThePlanSlicesAreTheSelection
+    @item-06-048
+    Scenario: The configuration's plan slices select what is stamped and checklisted
+      Given the plan at the commit holds slice 01 with 01-001 and 01-002 and slice 02 with 02-001
+      And the configuration's plan slices are "02"
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then the stamp effects of run R-1 stamped slice 02 only
+      And the checklist effect's events name the item 02-001 and no item of slice 01
