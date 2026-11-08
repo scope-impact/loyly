@@ -142,7 +142,7 @@
                       "the stub builder belong to your suite, never to the product.")
          :inputs (str "It is also handed, and reads at every `cycle-runner/start-run`, never only at boot: "
                       "`LOYLY_RUNS_DIR`, `LOYLY_PROJECT_REPO`, `LOYLY_HARNESS_CONFIG`, `LOYLY_CONTEXTS`, "
-                      "`LOYLY_SELF_CHECK_CMD`, `LOYLY_BUILDER_CMD`, `LOYLY_BUILDER_INSTRUCTION` and "
+                      "`LOYLY_SELF_CHECK_CMD`, `LOYLY_STORE_CHECK_CMD`, `LOYLY_BUILDER_CMD`, `LOYLY_BUILDER_INSTRUCTION` and "
                       "`LOYLY_SCORING_TOOL_PATHS` (`seam.md`, \"Handed in\"). Its methods are synchronous: "
                       "`cycle-runner/start-run` responds once the run awaits its verdicts, concluded or halted, and "
                       "`cycle-runner/hand-in-verdicts` once it concluded or halted.")

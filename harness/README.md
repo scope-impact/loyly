@@ -373,3 +373,17 @@ checklist is the 185 and those two. The spec grew (additions only), so the golde
 re-recorded with `harness/oracle.sh record`; its diff is additions plus the one `total` line
 (185 → 187). The slice-06 grader grows by those items for the recorded reason "spec grew"; no
 other approved grader's scenarios changed.
+
+**2026-11-08: the spec grew: spec round 8.** The runner's gate spoke only legacy `verify.sh`'s
+HTTP contract, so it could not gate a context of its own spec. The product owner's spec round 8
+(`.pi/spec/decisions.md`, "Spec round 8") gave it the stdio contract `v2/gate.sh` applies
+(`APP_SEAM=stdio`: the suite with no store, the slice's probe from the cut with `GATE_STORE`, then
+the handed-in store check `LOYLY_STORE_CHECK_CMD` on that store), a gate room holding the clean
+room, a plan slice that is a git symlink read at its target, and `PLAN_SLICES`; it appended ten
+stamped minimum items at the end of slice 06's `spec.feature`: `06-039` to `06-048`; the derived
+checklist is the 187 and those ten. The spec grew (additions only), so the golden was re-recorded
+with `harness/oracle.sh record`; its diff is additions plus the one `total` line (187 → 197). The
+slice-06 grader grows by those items for the recorded reason "spec grew"; no other approved
+grader's scenarios changed. `prompt.clj`'s slice-06 list of handed-in values now names
+`LOYLY_STORE_CHECK_CMD`, so it stays the seam's list; `probe-06.sh` is unchanged, because the
+slice-06 identity probe asks nothing of the gate.
