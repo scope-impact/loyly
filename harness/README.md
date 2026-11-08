@@ -1,15 +1,33 @@
-# The legacy harness tools, measuring the Pi/ORC harness
+# The harness tools: the legacy reference and the spec-v2 cycle tools
+
+## Current state (2026-11-08)
+
+- **What runs the regeneration cycles: the new harness.** The slice-06 cycle runner (its cycle
+  03 candidate) drives the five contexts of slices 01-05, with `pi` and its Gondolin backend as
+  the builder. Until a run can resume after a restart, the runner is kept alive from start to
+  the filed score. See "The switch to the new harness", below.
+- **What these tools are for: the reference.** The legacy fence, gate and instrument, adopted
+  here to measure the Pi/ORC harness, and the `v2/` tools that built and scored spec v2 one
+  context per cycle. They are never deleted; the shadow runs compared the new harness with
+  them stage by stage.
+- **How a spec-v2 cycle is scored: legacy step 5.** A black-box grading agent drives the
+  candidate over its seam and writes a verdicts file; `harness/v2/score.sh --verdicts` files
+  it with the legacy `score.clj` and `scoreboard.clj`. No Elixir grader, no calibration, no
+  approval. See "Scoring a spec-v2 cycle", below.
+- **What happened before:** every move of the goldens is under "History", in date order.
+
+## What these tools are
 
 These are the legacy fence, gate, and instrument tools from
 [`archive/legacy-harness/`](../archive/legacy-harness/README.md), adopted here to regenerate
 and measure the Pi/ORC harness itself. The product they measure is the harness; its spec is
 spec v2, `.pi/plan/NN-context/spec.feature` (`PLAN_DIR` in `config.sh`), each `.pi/plan/NN-context`
-a symlink to `../spec/<context>`. ORC runs the cycle and calls
-these tools from its stages: fence (`fence.sh`), regenerate (a Pi builder session), gate
-(`verify.sh`), score (the sealed grader and `score.clj`), and scoreboard (`scoreboard.clj`).
-The archive stays untouched as the parity reference.
+a symlink to `../spec/<context>`. The stages are the legacy ones: fence (`fence.sh`),
+regenerate (a Pi builder session), gate (`verify.sh`), score (a verdicts file and `score.clj`)
+and scoreboard (`scoreboard.clj`). Until the switch a person ran them, one context per cycle
+(below). The archive stays untouched as the parity reference.
 
-## First light: one context per cycle (`v2/`)
+## Spec v2: one context per cycle (`v2/`)
 
 Spec v2 is rebuilt one context at a time (`.pi/spec/decisions.md`, "First light"). `SLICE=NN`
 in the environment switches `config.sh` to that context: `APP_DIR` is `harness-impl/NN-context`,
@@ -28,8 +46,8 @@ The room holds no instrument, so the gate runs here: `CANDIDATE_ROOM=ROOM` point
 the room's candidate, `verify.sh` runs unchanged (with `v2/probe-01.sh`), and then
 `v2/event-store-check.sh` reads the Grain store the gate handed the candidate
 (`LOYLY_GRAIN_STORE`) directly, ORC's workflow runs included: ORC runs on that store, and each
-event a command produced must lie inside a completed run of its workflow. `v2/event-store-check-test.sh` judges that check on hand-made
-stores.
+event a command produced must lie inside a completed run of its workflow.
+`v2/event-store-check-test.sh` judges that check on hand-made stores.
 
 A context that consumes other contexts' handoffs is built alone too: its room keeps each
 producer's `event-model/handoffs.edn` and nothing else of it (`config.sh` finds them in the
@@ -55,6 +73,13 @@ paths, `LOYLY_SCORING_TOOL_PATHS` (`.pi/spec/decisions.md`, "Slice 04"). Its pro
 digest `seam.md` defines, has a fence whose path matched nothing refused, proves the clean room
 and reads the cycle back.
 
+Slice 05, `cycle-preparation`, consumes no handoff and is handed the repository's commits
+(`LOYLY_PROJECT_COMMITS`); its probe is `v2/probe-05.sh`. Slice 06, `cycle-runner`, keeps the
+five other contexts' `seam.md` and `event-model/` in its room, the contracts the runner speaks
+(`harness/config.sh`); its probe is `v2/probe-06.sh`.
+
+### Scoring a spec-v2 cycle (legacy step 5)
+
 After the gate, `harness/v2/score.sh NN ROOM --verdicts FILE [--by "who/how graded"]` scores
 the cycle the legacy way, the legacy README's step 5: grade each checklist item against the
 running app, however you grade, then file. The grading happens before `score.sh` and outside
@@ -68,54 +93,62 @@ derives the checklist from the slice's spec alone, copies `FILE` into the cycle 
 unreached, fails and stays in the denominator; zero verdicts are refused. A missing or
 unreadable `FILE` is refused before a cycle is claimed; `SCORE_WHICH=1` prints what would be
 recorded. Nobody approves a grading and nothing is calibrated or sealed (decided 2026-11-07).
-The Elixir graders that scored cycles 01 to 03 of each slice are retired; git history keeps
-them. An open grader run by ORC is a new-harness feature, drafted in the spec
-(`.pi/spec/grader-lifecycle/drafts.feature`, `.pi/spec/measurement/drafts.feature`), not part
-of this tool.
+The Elixir graders that scored cycles 01 and 02 of slice 01 and 01 to 03 of slices 02 to 04 are
+retired with `graders.json` and their calibration (cb8f5c7); git history keeps them. An open
+grader run by ORC was tried in this tool and reverted (4616d13, 1f03fe8): it is a new-harness
+feature, drafted in the spec (`.pi/spec/grader-lifecycle/drafts.feature`,
+`.pi/spec/measurement/drafts.feature`) and parked while OG1 is no (`.pi/spec/decisions.md`,
+"Spec round 3" 4).
 
-**Assembly gate (2026-11-07).** `harness/v2/assemble.sh ROOM01 ROOM02 ROOM03 ROOM04 ROOM05`
-(with `v2/assemble.clj` and `v2/store_reader.clj`) wires the five gated candidates together
-through their handoffs (`.pi/spec/decisions.md`, "First light" 5 and "Spec round 5"), driving
-each only through its `start.sh` seam. It first tries one shared `LOYLY_GRAIN_STORE` for
-producers and consumers, one after the other and concurrently, and reports, not as a check,
-whether a consumer sees a producer's facts with nothing handed in (it did not: each candidate
-writes its own Grain tenant; the shared store is the deferred end state, "Spec round 5" 1). The
-assembly is the relay, as in the legacy harness, whose tools pass files: each candidate runs
-on its own fresh store and one story runs end to end: stamp, pin a cut, write and move a
-golden, derive the checklist, a regeneration cycle to a passed gate attempt, item verdicts, the
-score, the scoreboard, the cycle passed. After each command the relay reads the producer's
-store file directly, with Grain's own reader on a copy (as `v2/event_store_check.clj` does),
-takes the events of the producer's handoff types (its `event-model/handoffs.edn`) within its
-tenant, in store order, not from command results ("Spec round 5" 2), and hands each new one in
-unchanged, in that order, to every consumer the event models name (a read model's `:consumes`
-or a processor's `:subscribes` of a foreign event); so `scoreboard-reported`, which
-Measurement's policy issues inside `file-score`, travels like any other handoff. It checks the
-contracts fit, each producer's handoffs lie in one tenant, every handoff a command result
-carries is in the producer's store as given, no hand-in is refused, each is echoed as given,
-the order is kept, the cycle passed measured and reported, and the cut id, candidate digest,
-goldens digest and item ids agree across contexts. Last, a reading ("Spec round 5" 3, option
-c): a cycle the stage clock failed at the score stage and Measurement measured anyway stays
-failed in the Regeneration cycle while Measurement keeps its measurement filed. Exit 0 only
-when every check passes; it stops every process it starts.
+### The assembly gate (2026-11-07)
 
-**Where a spec-v2 cycle is filed (2026-11-07).** Each slice numbers its own cycles under
-`v2/cycles/NN/` (`01`, `02`, ...), never under `harness/cycles/`. `oracle.sh`, a shared module
-file, reads `harness/cycles/01` as this repository's recorded cycle 01 and judges it against
-`oracle/scoreboard-01.golden`, recorded from spec v1's cycle 01; the first v2 score filed as
-`harness/cycles/01` would have collided with that and turned the oracle red with no instrument
-defect, and moving the golden needs a recorded reason this is not. `score.clj` and
-`scoreboard.clj` find `harness/cycles` from their own location, not from an argument, so
-`v2/score.sh` runs unchanged copies of them in its scratch root, whose `harness/cycles` is a
-link to `v2/cycles/NN`; no shared module file changed and no golden moved. One root per slice
-also makes the legacy scoreboard's "previous cycle" (the number minus one) the last cycle of
-the same selection, the slice, as `.pi/spec/decisions.md` g asks.
+`harness/v2/assemble.sh ROOM01 ROOM02 ROOM03 ROOM04 ROOM05` (with `v2/assemble.clj` and
+`v2/store_reader.clj`) wires the five gated candidates together through their handoffs
+(`.pi/spec/decisions.md`, "First light" 5 and "Spec round 5"), driving each only through its
+`start.sh` seam. It first tries one shared `LOYLY_GRAIN_STORE` for producers and consumers, one
+after the other and concurrently, and reports, not as a check, whether a consumer sees a
+producer's facts with nothing handed in (it did not: each candidate writes its own Grain
+tenant; the shared store is the deferred end state, "Spec round 5" 1). The assembly is the
+relay, as in the legacy harness, whose tools pass files: each candidate runs on its own fresh
+store and one story runs end to end: stamp, pin a cut, write and move a golden, derive the
+checklist, a regeneration cycle to a passed gate attempt, item verdicts, the score, the
+scoreboard, the cycle passed. After each command the relay reads the producer's store file
+directly, with Grain's own reader on a copy (as `v2/event_store_check.clj` does), takes the
+events of the producer's handoff types (its `event-model/handoffs.edn`) within its tenant, in
+store order, not from command results ("Spec round 5" 2), and hands each new one in unchanged,
+in that order, to every consumer the event models name (a read model's `:consumes` or a
+processor's `:subscribes` of a foreign event); so `scoreboard-reported`, which Measurement's
+policy issues inside `file-score`, travels like any other handoff. It checks the contracts fit,
+each producer's handoffs lie in one tenant, every handoff a command result carries is in the
+producer's store as given, no hand-in is refused, each is echoed as given, the order is kept,
+the cycle passed measured and reported, and the cut id, candidate digest, goldens digest and
+item ids agree across contexts. Last, a reading ("Spec round 5" 3, option c): a cycle the stage
+clock failed at the score stage and Measurement measured anyway stays failed in the
+Regeneration cycle while Measurement keeps its measurement filed. Exit 0 only when every check
+passes; it stops every process it starts.
 
-**The switch to the new harness (2026-11-08).** The new harness, the slice-06 cycle-runner
-(the cycle 03 candidate) driving the five contexts of slices 01-05 with `pi` and its Gondolin
-backend as the builder, now runs the regeneration cycles. It did what this harness did on the
-full Löyly app (11 items) at every stage, fence to scoreboard, in shadow runs 4 and 5, and the
-user confirmed the switch. These tools stay as the reference and are never deleted. The rule,
-the five runs, and what stays open: `.pi/spec/decisions.md`, "The switch to the new harness".
+### Where a spec-v2 cycle is filed (2026-11-07)
+
+Each slice numbers its own cycles under `v2/cycles/NN/` (`01`, `02`, ...), never under
+`harness/cycles/`. `oracle.sh`, a shared module file, reads `harness/cycles/01` as this
+repository's recorded cycle 01 and judges it against `oracle/scoreboard-01.golden`, recorded
+from spec v1's cycle 01; the first v2 score filed as `harness/cycles/01` would have collided
+with that and turned the oracle red with no instrument defect, and moving the golden needs a
+recorded reason this is not. `score.clj` and `scoreboard.clj` find `harness/cycles` from their
+own location, not from an argument, so `v2/score.sh` runs unchanged copies of them in its
+scratch root, whose `harness/cycles` is a link to `v2/cycles/NN`; no shared module file changed
+and no golden moved. One root per slice also makes the legacy scoreboard's "previous cycle"
+(the number minus one) the last cycle of the same selection, the slice, as
+`.pi/spec/decisions.md` g asks.
+
+## The switch to the new harness (2026-11-08)
+
+The new harness, the slice-06 cycle-runner (the cycle 03 candidate) driving the five contexts
+of slices 01-05 with `pi` and its Gondolin backend as the builder, now runs the regeneration
+cycles. It did what this harness did on the full Löyly app (11 items) at every stage, fence to
+scoreboard, in shadow runs 4 and 5, and the user confirmed the switch. These tools stay as the
+reference and are never deleted. The rule, the five runs, and what stays open:
+`.pi/spec/decisions.md`, "The switch to the new harness".
 
 ## Differences from the archive, each with its reason
 
@@ -138,7 +171,13 @@ the five runs, and what stays open: `.pi/spec/decisions.md`, "The switch to the 
 - `config.sh` declares no `SIBLING_REPOS`: no other repository carries this harness, so
   `modules.sh` compares nothing and says so.
 
-## The goldens, and why they moved
+## History
+
+### The goldens, and why they moved
+
+Since 2026-11-07 no spec-v2 cycle has a sealed grader ("Scoring a spec-v2 cycle", above): where
+an entry from then on says a slice's grader grows, the grading agent grades the grown checklist.
+"Approved grader" in these entries means `graders.approved.json`, written for spec v1.
 
 **2026-11-04: the instrument was adopted for a different product.** The checklist golden in
 `oracle/` had been recorded for the Löyly product spec under `docs/plan/`. Here the same tools
@@ -244,6 +283,19 @@ and its 27 stamped items, `04-001` to `04-027`; the derived checklist is slice 0
 02's 24, slice 03's 4 and those 27. The spec grew (additions only), so the golden was
 re-recorded with `harness/oracle.sh record`; its diff is additions plus the one `total` line
 (43 → 70). No approved grader's scenarios changed.
+
+**2026-11-07: wording replaced: spec round 1.** The product owner's spec round 1
+(`.pi/spec/decisions.md`, "Spec round 1") reworded `@item-02-002` and `@item-02-018`; one line
+left slice 02's `spec.feature`, so the golden was re-recorded with `harness/oracle.sh record`
+and its diff is only the `source` line numbers of `02-019` to `02-024`, each up one; no id, name
+or Rule moved (10ec776). *(Entry added 2026-11-08 from the commit; it was missing.)*
+
+**2026-11-07: the spec grew: spec round 2.** The product owner's spec round 2
+(`.pi/spec/decisions.md`, "Spec round 2") appended 21 stamped minimum items at the end of their
+slices' `spec.feature`: `02-025` to `02-031`, `03-005` to `03-007` and `04-028` to `04-038`; the
+derived checklist is the 70 and those 21. The spec grew (additions only), so the golden was
+re-recorded with `harness/oracle.sh record`; its diff is additions plus the one `total` line
+(70 → 91) (337546b). *(Entry added 2026-11-08 from the commit; it was missing.)*
 
 **2026-11-07: the spec grew: slice 05, `cycle-preparation`, accepted.** The product owner's
 acceptance of cycle-preparation's new minimum drafts (none cites legacy behaviour) added
