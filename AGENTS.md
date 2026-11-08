@@ -100,3 +100,26 @@ The builder cannot declare completion. The gate and the score drive the real pub
 from fresh state, preserve the approved denominator, and report failed, missing, unreached,
 or inconclusive items explicitly. Score evidence never becomes builder input; a failed score
 is measured, not retried within the cycle.
+
+## How the harness improves itself
+
+The running harness is `harness-impl/`, the promoted build (`harness-impl/README.md`). It
+improves only through a spec round on `.pi/spec`, then a regeneration cycle of the affected
+context: a fenced clean room, a fresh builder, the gate, grading, the score. Never edit
+`harness-impl/` by hand; each context's `PROVENANCE.md` names the cycle that produced it.
+
+- **An accepted build is the running build.** When a cycle's candidate passes the gate, its
+  score is filed, and the final judge (the operating session) accepts it, the cycle's last
+  step writes it into `harness-impl/NN-<context>/` with its `PROVENANCE.md`. There is no
+  separate promotion; the next cycle runs on it.
+- **The instrument judging itself is the one exception.** When the rebuilt context is part of
+  the instrument (the cycle runner's gate, measurement, scoring), compare the new build once
+  against the previous instrument (the previous promoted build or the legacy harness) on the
+  same candidates before it is used. The fence keeps the builder honest, not the judge: a gate
+  bug would pass every later build, its own successor included. Shadow runs 1 and 2 are the
+  precedent (a probe handed the port, not the URL; a read-only gate room).
+- **The builder never sees `harness-impl/`**: `harness/config.sh` fences it from every clean
+  room.
+- **Self-hosting is not done yet**: the runner's gate speaks only the HTTP app contract, so the
+  harness's own stdio contexts are still gated by `harness/v2/gate.sh` until the runner gains
+  that contract (`.pi/spec/decisions.md`, "The switch to the new harness", Self-hosting).
