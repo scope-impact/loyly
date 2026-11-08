@@ -110,6 +110,13 @@ link to `v2/cycles/NN`; no shared module file changed and no golden moved. One r
 also makes the legacy scoreboard's "previous cycle" (the number minus one) the last cycle of
 the same selection, the slice, as `.pi/spec/decisions.md` g asks.
 
+**The switch to the new harness (2026-11-08).** The new harness, the slice-06 cycle-runner
+(the cycle 03 candidate) driving the five contexts of slices 01-05 with `pi` and its Gondolin
+backend as the builder, now runs the regeneration cycles. It did what this harness did on the
+full Löyly app (11 items) at every stage, fence to scoreboard, in shadow runs 4 and 5, and the
+user confirmed the switch. These tools stay as the reference and are never deleted. The rule,
+the five runs, and what stays open: `.pi/spec/decisions.md`, "The switch to the new harness".
+
 ## Differences from the archive, each with its reason
 
 - `hjson.clj` resolves the plan tree from the `PLAN_DIR` line of `harness/config.sh` instead of

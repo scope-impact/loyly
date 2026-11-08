@@ -884,3 +884,72 @@ event-model schema changed; no existing scenario's text changed.
 
 The slice-06 grader grows by these two items ("spec grew", additions only). The checklist golden
 grows 185 → 187. `@item-06-037` and `@item-06-038` are the next cycle's untuned holdout.
+
+## The switch to the new harness (decided 2026-11-08)
+
+Not a spec round: no `spec.feature`, Allium file or event-model schema changed. The record of
+the switch and of what it leaves open.
+
+1. **The rule (decided earlier by the operator).** Switch when the new harness does what the legacy
+   harness did, on the same work with the same results: per stage on shared input (the fence
+   room's contents, the checklist, the gate verdict on the same candidate, the per-item
+   verdicts, the score, the scoreboard), in two consecutive shadow runs the main session, the
+   final judge, accepts at every stage.
+2. **The benchmark.** The full Löyly app: the main repository's `docs/plan` at `6d42c8e`,
+   unchanged, 11 items. Both sides fence the same cut, `249a90b`: a scratch-only commit on
+   `6d42c8e` whose `harness/` is the archived Löyly legacy harness with the benchmark
+   configuration, `FENCED_PATHS="impl .pi archive/legacy-harness/cycles"`; `docs/` is the same
+   as at `6d42c8e`. The new side is the slice-06 cycle-runner (the cycle 03 candidate) driving
+   the five contexts of slices 01-05; the builder on both sides is the same `pi` command with
+   its Gondolin backend on the existing Codex login, and one builder run per shadow run gives
+   the one candidate both gates judge.
+3. **The five shadow runs.**
+
+   | Run | Fence | Checklist | Gate | Verdicts and score | Scoreboard | Outcome |
+   |---|---|---|---|---|---|---|
+   | 1 | agree | agree | disagree: the probe was handed the port, not the URL | not reached | not reached | spec round 7c |
+   | 2 | agree | agree | disagree: the read-only gate room blocked the candidate's own suite | not reached | not reached | spec round 7d |
+   | 3 | agree | agree | agree (both pass) | not compared: the runner was stopped between gate and grading, and a run cannot resume in a restarted runner | not compared | procedure: keep the runner alive |
+   | 4 | agree | agree | agree (both pass) | agree, 11/11 both sides | agree, both baseline | accepted at every stage |
+   | 5 | agree | agree | agree (both pass) | agree, 11/11 both sides | agree, both baseline | accepted at every stage |
+
+4. **Runs 4 and 5, the accepted pair.** Shared input, the same in both runs and checked by
+   byte comparison: configuration `51288e81…` (equal to the cut's `harness/config.sh`), builder
+   instruction `d72223df…`, contexts `debea8ae…`, cut `249a90b`, fenced tree `ce2a1ebd…` (98
+   paths, both rooms one commit each, differing only in commit metadata).
+   - *Checklist*: legacy `gen_checklist` and the derived checklist project to the same 11 items
+     (`{id, title, rule, source}` digest `5cde9808…` on both sides, both runs); checklist digest
+     `af764810…`.
+   - *Gate*: run 4's candidate `sha256:756829d1…` (21 files), suite 15/15; run 5's candidate
+     `sha256:11456ad8…` (30 files), suite 17/17. In each run both sides judged the same bytes:
+     legacy `verify.sh` passed (`verify OK`) and the runner's gate passed attempt 1 ("suite
+     green, booted on poll 2, identity proved"); the candidate's digest was unchanged after
+     both gates.
+   - *Verdicts and score*: one verdicts file handed to both sides (run 4 `bdb76215…`, run 5
+     `14cf771b…`, 11 items, all pass); per-item verdicts and evidence equal on both sides,
+     11/11; score 11/11 = 100.0% on both sides.
+   - *Scoreboard*: both baseline (no previous cycle). The two differ only in form: legacy prints
+     text; the measurement event records the rate, new and dropped items and nil previous ids.
+   - *Cycle*: the run ended `passed`; the regeneration cycle concluded `cycle-passed` on the
+     candidate gated; no run left to advance.
+
+   The judge accepted both runs at every stage, and the operator confirmed the switch ("Switch").
+5. **A judging note.** `@item-01-011` was judged by the main session from the refusal text alone
+   in runs 3 to 5, with a conflict declared: it had seen a spec comment hinting at an
+   alternative. Run 5's refusal named a different alternative from the one hinted, and passed.
+6. **From now on.** The new harness runs the regeneration cycles: the slice-06 cycle-runner (the
+   cycle 03 candidate) driving the five contexts of slices 01-05, the builder `pi` with its
+   Gondolin backend on the existing Codex login. The legacy harness stays as the reference and
+   is never deleted. Until a run can resume after a restart, the runner is kept alive from
+   start to the filed score.
+7. **Open, for later rounds.**
+   - *Resume a run after a runner restart*: run 3 halted (`context-did-not-respond`) when its
+     verdicts reached a restarted runner; deferred to the inbox.
+   - *Room isolation as spec*: Gondolin enforces it for builders today; the spec does not yet
+     state it.
+   - *A sealed Löyly grader (OG1) and the product Grader*: the shadow runs' verdicts came from
+     a grading session, not a sealed, approved digest.
+   - *The spec-round inbox*: the surprises recorded in `cycles/0{2,3,4}/05` and
+     `cycles/06/0{1,2,3}`; `record-gate-attempt`'s undeclared read of `instrument-goldens`;
+     `@item-03-010` and `@item-03-011`, whose Whens omit a note the schema requires; the
+     runner's self-check after a refusal against regeneration-cycle's one-per-attempt rule.
