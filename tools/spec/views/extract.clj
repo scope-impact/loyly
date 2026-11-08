@@ -7,7 +7,8 @@
 ;;   event-model/handoffs.edn        the events the context hands to others
 ;;   spec.feature, drafts.feature    examples, tags, tiers
 ;;   .pi/plan/NN-<context>           the slice number of an accepted context
-;; and <coverage.json>, tools/spec/v2/coverage.py --report: the gate's own classification of
+;; .pi/architecture.md, its C4 views (### Level N: … then a ```mermaid block), stamped with its
+;; own commit; and <coverage.json>, tools/spec/v2/coverage.py --report: the gate's own classification of
 ;; every obligation. The page holds no facts of its own: everything it shows comes from here.
 (require '[clojure.string :as str] '[cheshire.core :as json] '[clojure.java.io :as io]
          '[clojure.java.shell :as sh] '[clojure.edn :as edn])
@@ -144,9 +145,17 @@
 (def commit (str/trim (:out (sh/sh "git" "-C" root "log" "-1" "--format=%h" "--" ".pi/spec" ".pi/plan"))))
 (def dirty (not (str/blank? (:out (sh/sh "git" "-C" root "status" "--porcelain" "--" ".pi/spec" ".pi/plan")))))
 
+;; ---------- .pi/architecture.md: the C4 views, with their own source stamp ----------
+(def arch (let [f (io/file root ".pi/architecture.md")] (if (.exists f) (slurp f) "")))
+(def c4 (mapv (fn [[_ t s]] {:title t :source (str/trim s)})
+              (re-seq #"(?s)### (Level \d: [^\n]+)\n.*?```mermaid\n(.*?)```" arch)))
+(def arch-commit (str/trim (:out (sh/sh "git" "-C" root "log" "-1" "--format=%h" "--" ".pi/architecture.md"))))
+(def arch-dirty (not (str/blank? (:out (sh/sh "git" "-C" root "status" "--porcelain" "--" ".pi/architecture.md")))))
+
 (def world {:title "Löyly spec v2" :source ".pi/spec" :commit commit :dirty dirty
             :contexts contexts :handoffs handoffs :coverage (:summary coverage)
-            :items (vec (sort (mapcat :items contexts)))})
+            :items (vec (sort (mapcat :items contexts)))
+            :c4 c4 :arch {:source ".pi/architecture.md" :commit arch-commit :dirty arch-dirty}})
 (println "contexts" (count contexts)
          "files" (reduce + (map (comp count :modules) contexts))
          "rules" (reduce + (for [c contexts m (vals (:modules c))] (count (:rules m))))
@@ -154,4 +163,5 @@
          "flows" (reduce + (for [c contexts a (vals (:areas c))] (count (:flows a))))
          "items" (count (:items world))
          "drafts" (count (for [c contexts s (:scenarios c) :when (= "drafts" (:kind s))] s))
-         "handoffs" (count handoffs) "edges" (reduce + (map (comp count :consumers) handoffs)))
+         "handoffs" (count handoffs) "edges" (reduce + (map (comp count :consumers) handoffs))
+         "c4" (count c4))

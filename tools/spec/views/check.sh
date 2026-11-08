@@ -3,12 +3,16 @@
 #   1. check.clj static: every view is in the file and not empty, ids are unique, every
 #      internal #link resolves, no Clojure value leaked into the text; against .pi/spec itself,
 #      every context has its view and card, every handoff edge is drawn, and the item count
-#      shown is the number of distinct stamped @item tags.
-#   2. mmdc, when installed: every distinct Mermaid diagram renders. Skipped, with a note, if not.
+#      shown is the number of distinct stamped @item tags; the C4 view (#c4) is linked from home
+#      and shows the three C4 views of .pi/architecture.md (Level 1: System Context, Level 2:
+#      Container, Level 3: Component (cycle runner)), each with its Mermaid diagram.
+#   2. mmdc, when installed: every distinct Mermaid diagram renders, the three C4 ones included.
+#      Skipped, with a note, if not.
 #   3. headless Chrome, when installed: the page loads at every top-level address (home, review,
-#      each context and each Allium file) and shows that view, with no JavaScript error
+#      c4, each context and each Allium file) and shows that view, with no JavaScript error
 #      and every Mermaid block of the view drawn, none as Mermaid's syntax-error box.
-#   4. Playwright (after npm install here): every view fits a phone; no storm cluster overlaps.
+#   4. Playwright (after npm install here): every view, #c4 included, fits a phone; no storm
+#      cluster overlaps.
 # Usage: tools/spec/views/check.sh   (run build.sh first; needs bb; CHROME may name a Chromium)
 set -euo pipefail
 V="$(cd "$(dirname "$0")" && pwd)"; PAGE="$V/dist/event-model.html"

@@ -1,6 +1,7 @@
 ;; Render the spec v2 event-model page at build time: the specs (extract.clj's `world` map) →
 ;; Hiccup, one pure function per view or component → one static HTML file, rendered by Replicant.
-;; The home view (the six contexts and the handoffs between them) and the Review view are here;
+;; The home view (the six contexts and the handoffs between them), the Review view and the C4
+;; view (the three C4 diagrams of .pi/architecture.md) are here;
 ;; each context's views come from context.clj, loaded once per context into a namespace of its
 ;; own (ctx.<context>), so the per-context code reads `spec` as that context.
 ;;   bb --config tools/spec/views/bb.edn tools/spec/views/render.clj [options]
@@ -82,12 +83,34 @@
        [:p.muted "Each event a context hands out (its " (code "event-model/handoffs.edn") "), and each context whose read models or policies read it. This is the assembly the cycle runner's relay drives: " (count (:handoffs world)) " handoffs, " nedge " producer-consumer edges."]
        (mm-block (handoff-map) "Contexts, with the handoff events on each edge. The cycle runner consumes none: it reads each from the producer's store and hands it in through the consumer's seam.")
        [:div.handoffs {:style {:margin-top "12px"}} (for [h (:handoffs world)] (in-ctx (:producer h) 'handoff-row h))]]
+      (when (seq (:c4 world))
+        [:section
+         [:h2 "Architecture: the C4 views"]
+         [:p.muted "How the harness runs: who uses it, the runnable parts, and the cycle runner's components, from " (code (:source (:arch world))) "."]
+         [:div.cards [:a.card {:href "#c4"}
+                      [:h3 "C4 views"] [:span.muted {:style {:font-size "12.5px"}} (interpose " · " (map :title (:c4 world)))]
+                      [:span.src (:source (:arch world)) " · " (:commit (:arch world)) (when (:dirty (:arch world)) " (dirty)")]]]])
       [:section
        [:h2 "Each context is specified in three layers"]
        [:div.layers
         [:div.layer [:span.lbl "behaviour"] [:b "Allium"] (muted (code ".pi/spec/<context>/allium/*.allium") ": one file per aggregate and the context's shared language. Its state and lifecycle, the rules that change it (" (code "when") " · " (code "requires") " · " (code "ensures") "), invariants, contracts, and the surfaces that say who may act.")]
         [:div.layer [:span.lbl "topology"] [:b "Event Model"] (muted (code ".pi/spec/<context>/event-model/*.edn") ": Grain Event Model fragments (commands, events with schemas, read models, queries, policies, screens) and the flows that join them. Each block links back to its Allium rule.")]
         [:div.layer [:span.lbl "examples"] [:b "Gherkin"] (muted (code ".pi/spec/<context>/spec.feature") " and " (code "drafts.feature") ": Given/When/Then, each accepted scenario stamped " (code "@item-NN-SSS") " with its build tier, and tagged " (code "@allium-…") " with the obligations it checks. A rule's success and each of its refusals is one obligation.")]]])))
+
+;; ---------- C4: the views of .pi/architecture.md ----------
+(def C4-HEADINGS {"1" "System context (C4 level 1)" "2" "Containers (C4 level 2)" "3" "Components (C4 level 3)"})
+(defn view-c4 []
+  (let [{:keys [source commit dirty]} (:arch world)]
+    (view "c4" [home-crumb ["C4 views" "c4"]]
+      [:div.head
+       [:div.eyebrow "Architecture · built from " (code source) " at " (code commit) (when dirty " with local changes")]
+       [:h1 "C4 views"]
+       [:p.muted "The harness as it runs, at three levels of zoom. Drawn from the Mermaid blocks of " (code source) "; its source stamp is its own, not the spec's."]
+       (stats (n-of (count (:c4 world)) "views") (list "source " [:b source]) (list "commit " [:b commit] (when dirty " (dirty)")))]
+      (for [d (:c4 world) :let [n (second (re-find #"^Level (\d)" (:title d)))]]
+        [:section {:data-c4 (:title d)}
+         [:h2 (get C4-HEADINGS n (:title d))]
+         (mm-block (:source d) (list "From " (code source) ", " (:title d) "."))]))))
 
 ;; ---------- Review: what the product owner decides ----------
 (defn view-review []
@@ -126,15 +149,15 @@
     [:script {:src "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"}]]
    [:body
     [:div.wrap
-     (view-home built) (view-review)
+     (view-home built) (view-review) (when (seq (:c4 world)) (view-c4))
      (for [c CTXS] (in-ctx (:id c) 'views))
      [:footer "Built on " built " by " (code "tools/spec/views/build.sh") " from spec v2 in " (code ".pi/spec/<context>/") " at " (code (:commit world)) (when (:dirty world) " (with local changes)") ": " (code "allium/*.allium") " (behaviour), the Grain Event Model fragments " (code "event-model/*.edn")
       " (topology, merged by " (code "tools/spec/v2/load.clj") "), " (code "spec.feature") " and " (code "drafts.feature") " (examples), and the coverage gate's own classification (" (code "tools/spec/v2/coverage.py --report")
-      "). Nothing here is written by hand: change the specs and rebuild."]]
+      "); and the C4 views of " (code ".pi/architecture.md") " at " (code (:commit (:arch world))) (when (:dirty (:arch world)) " (with local changes)") ". Nothing here is written by hand: change the specs and rebuild."]]
     [:script {:innerHTML (slurp (str here "/page.js"))}]
     (when app? [:script#review-app {:innerHTML (if (:app-js opts) (slurp (:app-js opts)) "")}])]])
 
 (let [{:keys [out built mode]} opts]
   (fs/create-dirs (fs/parent (fs/absolutize out)))
   (spit out (str "<!doctype html>\n" (r/render (page built))))
-  (println mode "views" (+ 2 (reduce + (for [c CTXS] (count (in-ctx (:id c) 'views))))) "· wrote" out))
+  (println mode "views" (+ 2 (if (seq (:c4 world)) 1 0) (reduce + (for [c CTXS] (count (in-ctx (:id c) 'views))))) "· wrote" out))

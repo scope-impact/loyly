@@ -26,7 +26,7 @@ cd "$wt"
 git rm -rqf . 2>/dev/null || true
 cp "$page" index.html; : > .nojekyll
 git add index.html .nojekyll
-git commit -q -m "Publish the Pi harness event model from $src"
+git commit -q -m "Publish the Löyly spec v2 event model from $src"
 git log --oneline -1; git show --stat --format= HEAD | tail -3
 if [ "$DRY" = 1 ]; then echo "dry run: not pushed to $REMOTE gh-pages"; exit 0; fi
 git push -q "$REMOTE" HEAD:gh-pages

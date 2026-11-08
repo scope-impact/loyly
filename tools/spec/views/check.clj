@@ -3,7 +3,9 @@
 ;;       every internal #link names an id, no Clojure value leaked into the text; and, against
 ;;       spec v2 itself (.pi/spec, read here, not through extract.clj): every context has its view
 ;;       and its card, every handoff edge (producer | event | consumer) is drawn, and the item
-;;       count shown is the number of distinct @item tags of the spec.feature files. Writes each
+;;       count shown is the number of distinct @item tags of the spec.feature files; the C4 view
+;;       is linked from home and shows the three C4 views of .pi/architecture.md (C4, below), in
+;;       order, each with its Mermaid diagram. Writes each
 ;;       distinct Mermaid diagram to <mmd-dir>; prints the top-level views for the browser check.
 ;;   bb check.clj dom <view-id> < dumped-dom      headless Chrome's DOM at #<view-id>: that view
 ;;       is the one shown, no JavaScript error, and its every Mermaid block drawn without error.
@@ -16,6 +18,7 @@
 (defn text-of [chunk] (-> chunk (str/replace #"(?s)<div class=\"bar\">.*?</nav>" "") (str/replace #"<[^>]+>" "") str/trim))
 (defn unescape [s] (-> s (str/replace "&lt;" "<") (str/replace "&gt;" ">") (str/replace "&quot;" "\"") (str/replace "&amp;" "&")))
 (defn fail [& xs] (binding [*out* *err*] (apply println xs)) (System/exit 1))
+(def C4 ["Level 1: System Context" "Level 2: Container" "Level 3: Component (cycle runner)"])   ; .pi/architecture.md
 (defn spec-v2 [page]   ; what the page must show, read from .pi/spec directly
   (let [root (str/trim (:out (sh/sh "git" "rev-parse" "--show-toplevel" :dir (.getParent (io/file page)))))
         dir (io/file root ".pi/spec")
@@ -47,13 +50,19 @@
             cards (set (map second (re-seq #"data-context=\"([^\"]+)\"" home)))
             n-items (some-> (re-find #"data-count=\"items\">(\d+)<" home) second parse-long)
             n-ctx (some-> (re-find #"data-count=\"contexts\">(\d+)<" home) second parse-long)]
-        (doseq [need (concat ["home" "review"] (map #(str "ctx-" %) ctxs))] (when-not (some #(= need (first %)) vs) (fail "missing view" need)))
+        (doseq [need (concat ["home" "review" "c4"] (map #(str "ctx-" %) ctxs))] (when-not (some #(= need (first %)) vs) (fail "missing view" need)))
         (when (not= (set ctxs) cards) (fail "context cards" (sort cards) "but .pi/spec has" ctxs))
         (when (not= n-ctx (count ctxs)) (fail "the page counts" n-ctx "contexts, .pi/spec has" (count ctxs)))
         (when (seq (remove shown-edges edges)) (fail "handoff edges missing from the page:" (str/join " " (sort (remove shown-edges edges)))))
         (when (seq (remove edges shown-edges)) (fail "handoff edges the spec does not have:" (str/join " " (sort (remove edges shown-edges)))))
         (when (not= n-items items) (fail "the page counts" n-items "items, the spec.feature files stamp" items))
-        (println (str "spec v2: " (count ctxs) " contexts, each with its view and card; " (count edges) " handoff edges drawn; " items " items, as stamped")))
+        (println (str "spec v2: " (count ctxs) " contexts, each with its view and card; " (count edges) " handoff edges drawn; " items " items, as stamped"))
+        (let [c4 (or (second (first (filter #(= "c4" (first %)) vs))) "")
+              secs (map second (re-seq #"(?s)<section data-c4=\"([^\"]+)\">.*?<pre class=\"mermaid\">" c4))]
+          (when-not (str/includes? home "href=\"#c4\"") (fail "home does not link the C4 view"))
+          (when (not= C4 secs) (fail "C4 views" (vec secs) "but the page must show" C4))
+          (when (not= 3 (count (re-seq #"<pre class=\"mermaid\">" c4))) (fail "the C4 view must hold 3 diagrams"))
+          (println (str "C4: " (count secs) " views, each with its diagram: " (str/join "; " secs)))))
       (when (seq dup) (fail "duplicate ids:" (str/join " " (take 10 dup))))
       (when (seq broken) (fail "links to no id:" (str/join " " (map #(str "#" %) (take 10 broken)))))
       (when (seq empty-views) (fail "empty views:" (str/join " " empty-views)))
