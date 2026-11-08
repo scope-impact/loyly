@@ -3,6 +3,10 @@
 The method as presented (`wow/`), the domain wiki (`wiki/`), the slices (`plan/`), and
 findings brought in from outside.
 
+`plan/` is the Löyly app's slice. Since 2026-11-08 it is also the benchmark the harness is
+measured on, unchanged (`../.pi/spec/decisions.md`, "The switch to the new harness" 2). The
+harness's own spec is not here: it is spec v2, under `../.pi/spec/`.
+
 ## Brought in from outside
 
 - **[juxtcast-agentic-engineering-at-scale.md](juxtcast-agentic-engineering-at-scale.md)**:

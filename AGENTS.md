@@ -1,7 +1,8 @@
 # Löyly Agent Instructions
 
 The maintained assets are the behavioral specifications under `.pi/spec/` (spec v2, one folder
-per bounded context; `.pi/model/` is spec v1, kept for its glossary); generated
+per bounded context, 187 stamped items; `.pi/model/` is spec v1, history, kept for its
+glossary); generated
 implementation is a reproducible build product. Keep specification planning and
 implementation in separate rounds. Never repair a specification from inside a fenced
 builder run.
@@ -23,25 +24,29 @@ Each part has one language. Do not mix them.
 |---|---|---|
 | The model: behaviour | Gherkin scenarios, one stamped `@item-NN-SSS` per checklist item | `.pi/spec/<context>/spec.feature`; an accepted context is slice `NN` through its link `.pi/plan/NN-<context>` |
 | The model: event storming and rules | Grain Event Model (commands, events, read models, queries, processors) and Allium (entities, rules, invariants, surfaces); the public seam | `.pi/spec/<context>/event-model/*.edn`, `.pi/spec/<context>/allium/`, `.pi/spec/<context>/seam.md` |
-| The harness implementation | Clojure on ORC, with Grain for the event store; each context registers its room's event model as given | `harness-impl/NN-<context>/`, one per context, generated from the model |
-| The builder host and Gondolin rooms | TypeScript on `@earendil-works/pi-durable`: one durable Pi session per ORC tick, tool calls forwarded into a Gondolin room ORC chose. Provided, like ORC and Grain: ORC launches it, never regenerates it. Not needed for first light: the builder is a person-run `pi` session | `.pi/harness/`, `harness/Makefile`, `harness/<project-id>/` |
-| The graders | Elixir scripts (`.exs`), driving the candidate only over its JSON-RPC seam | sealed under `.pi/harness/.state/graders/` |
-| The legacy driver | Babashka and shell, the legacy harness tools | `harness/` |
+| The harness implementation | Clojure on ORC, with Grain for the event store; each context registers its room's event model as given | `harness-impl/NN-<context>/`, one per context, generated from `.pi/spec` by the regeneration cycle |
+| The builder and Gondolin rooms | `pi` with its Gondolin backend, on the existing Codex login, launched by the cycle runner (`LOYLY_BUILDER_CMD`, `.pi/spec/cycle-runner/seam.md`). Provided, like ORC and Grain: never regenerated. The durable host on `@earendil-works/pi-durable` (TypeScript) is not built | `.pi/harness/`, `harness/Makefile`, `harness/<project-id>/` |
+| The graders | Elixir scripts (`.exs`), driving the candidate only over its JSON-RPC seam, sealed, calibrated and approved: the product rule (OG1 = no). Not built for spec v2 yet; until then a v2 cycle is graded by legacy step 5, a black-box grading agent's verdicts filed by `harness/v2/score.sh --verdicts` (`harness/README.md`) | sealed under `.pi/harness/.state/graders/` |
+| The legacy driver | Babashka and shell, the legacy harness tools: the reference since the switch, never deleted | `harness/`, `archive/legacy-harness/` |
 
 Graders use a functional language other than the product's Clojure, so they share no code or
-runtime with what they measure. The three graders sealed before this choice are Python and
-stay in use until they are ported, re-calibrated, and re-approved.
+runtime with what they measure. The Elixir graders that scored the first spec-v2 cycles are
+retired (cb8f5c7); the three Python graders in `harness/graders.approved.json` were written for
+spec v1 and cover no spec-v2 item.
 
 ## The regeneration cycle
 
-ORC runs one cycle, in the shape of the legacy harness (`archive/legacy-harness/`). Until the
-harness can rebuild itself (first light, `.pi/spec/decisions.md`), the legacy driver runs it:
-`SLICE=NN harness/fence.sh ROOM`, a person-run `pi` session in ROOM with the prompt
-`bb harness/v2/prompt.clj NN` renders, then `harness/v2/gate.sh NN ROOM`. A cycle rebuilds
-**one context** from scratch, into `harness-impl/NN-<context>/`; an assembly gate wiring the
-contexts through their handoffs comes later; until then the handoffs a context consumes are
-handed to its candidate through its seam, one method per consumed event (`.pi/spec/decisions.md`,
-"Slice 02").
+ORC runs one cycle, in the shape of the legacy harness (`archive/legacy-harness/`). Since
+2026-11-08 the new harness runs the regeneration cycles: the slice-06 cycle runner driving the
+five contexts of slices 01-05. The legacy harness (`harness/`, `archive/legacy-harness/`) is
+the reference and is never deleted. Until a run can resume after a restart, keep the runner
+alive from start to the filed score. The switch rule, the five shadow runs and what stays open:
+`.pi/spec/decisions.md`, "The switch to the new harness".
+
+A spec-v2 cycle rebuilds **one context** from scratch, into `harness-impl/NN-<context>/`
+("First light"). The assembly is a relay: each context keeps its own Grain store, and a
+producer's handoffs reach a consumer only through the consumer's hand-in methods, one per
+consumed event; one shared store is deferred ("Spec round 5").
 
 ```text
 fence → regenerate → gate → score → scoreboard
