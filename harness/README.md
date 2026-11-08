@@ -32,7 +32,8 @@ and scoreboard (`scoreboard.clj`). Until the switch a person ran them, one conte
 Spec v2 is rebuilt one context at a time (`.pi/spec/decisions.md`, "First light"). `SLICE=NN`
 in the environment switches `config.sh` to that context: `APP_DIR` is `harness-impl/NN-context`,
 `APP_PROBE` is `v2/probe-NN.sh`, and `FENCED_PATHS` also hides spec v1, every other context, the
-legacy driver itself (the earlier answer of every context) and `v2/`. The shared module files
+legacy driver itself (the earlier answer of every context), `v2/`, and all of `harness-impl/`
+(the promoted build, `../harness-impl/README.md`, so the room's candidate scope starts empty). The shared module files
 are unchanged. One cycle, by hand:
 
 ```bash

@@ -24,15 +24,16 @@ APP_PROBE=harness/probe.sh
 # FENCED_PATHS: what the clean room must not contain, space separated, relative to the
 # repository root. Each entry is removed from the working tree and the history, and fence.sh
 # proves it is unreachable in the object graph. Every entry must exist: a fenced path that
-# matches nothing stops the fence. This is a clean generation, so no earlier implementation
-# of the harness exists to fence. The builder adapter and its Gondolin runtime under
+# matches nothing stops the fence. The builder adapter and its Gondolin runtime under
 # .pi/harness are provided components, like ORC and Grain, and stay in the room.
 #   archive/legacy-harness/cycles  recorded legacy measurements
+#   harness-impl           the promoted build of spec v2 (harness-impl/README.md), an
+#                          earlier implementation of this harness
 #   docs/plan impl raw     the Löyly product: its spec, implementation, and sources. A room
 #                          holds one product; with another product's spec in it, a builder
 #                          rebuilt that product instead (harness-regen-2).
 # Once this harness's own cycle records are committed under harness/cycles, add that path.
-FENCED_PATHS="archive/legacy-harness/cycles docs/plan impl raw"
+FENCED_PATHS="archive/legacy-harness/cycles docs/plan harness-impl impl raw"
 
 # SIBLING_REPOS is not declared: no other repository carries this harness, so modules.sh
 # names no sibling and compares nothing, and says so.
@@ -59,8 +60,10 @@ FENCED_PATHS="archive/legacy-harness/cycles docs/plan impl raw"
 #                  rest of that context is fenced file by file (decisions.md, "Spec round 7b" 7).
 #     prior work   the legacy driver in harness/ (it implements the stamper, the checklist,
 #                  the score, the fence and the gate: every context's earlier answer), its
-#                  archive, tools/spec/v2/stamp.clj, the instrument in harness/v2, and every
-#                  other context's harness-impl/NN-*. archive/legacy-harness covers its cycles.
+#                  archive, tools/spec/v2/stamp.clj, the instrument in harness/v2, and the
+#                  whole of harness-impl: the promoted build, this context's earlier candidate
+#                  among it, so the room's candidate scope starts empty. archive/legacy-harness
+#                  covers its cycles.
 #     kept         harness/config.sh, harness/Makefile and harness/loyly (the provided
 #                  Gondolin runtime), .pi/harness, docs (but docs/plan), .pi/spec/README.md,
 #                  .pi/spec/decisions.md, AGENTS.md, README.md
@@ -77,7 +80,7 @@ if [[ -n "${SLICE:-}" ]]; then
     _cfg_ctx="$(basename "$(readlink "$_cfg_root/$_cfg_link")")"
     APP_DIR="harness-impl/$(basename "$_cfg_link")"
     APP_PROBE="harness/v2/probe-$SLICE.sh"
-    _cfg_fence="docs/plan impl raw archive/legacy-harness tools/spec/v2/stamp.clj"
+    _cfg_fence="docs/plan impl raw archive/legacy-harness tools/spec/v2/stamp.clj harness-impl"
     _cfg_fence+=" .pi/architecture.md .pi/affordances.schema.json"
     _cfg_fence+=" .pi/spec/event-storm.md .pi/spec/event-storm.edn .pi/spec/legacy-trace.md"
     _cfg_producers=" "
@@ -91,10 +94,10 @@ if [[ -n "${SLICE:-}" ]]; then
         | grep -qE "(^|[{[:space:]])$_cfg_k([[:space:]]|\$)" && _cfg_producers+="$_cfg_ns "
     done
     for _cfg_p in $(git -C "$_cfg_root" ls-tree --name-only HEAD \
-                      .pi/model/ tools/spec/ harness/ .pi/spec/ .pi/plan/ harness-impl/ 2>/dev/null); do
+                      .pi/model/ tools/spec/ harness/ .pi/spec/ .pi/plan/ 2>/dev/null); do
       case "$_cfg_p" in
         .pi/model/GLOSSARY.md|tools/spec/v2|harness/config.sh|harness/Makefile|harness/loyly) ;;
-        .pi/spec/"$_cfg_ctx"|"$_cfg_link"|"$APP_DIR") ;;
+        .pi/spec/"$_cfg_ctx"|"$_cfg_link") ;;
         .pi/spec/*.md|.pi/spec/*.edn) ;;
         *)
           _cfg_ns="${_cfg_p#.pi/spec/}"
