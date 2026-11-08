@@ -1,8 +1,9 @@
 # Specification: domain design
 
-status: proposed, 2026-11-06 (spec v2, R1 event model; R2 Allium and the product owner's
-decisions, `../decisions.md`). Derived from the storm (`../event-storm.md`, Specify) and
-the legacy stamper (`archive/legacy-harness/stamp_item_ids.clj`), in the glossary's words
+status: accepted as slice 01 (R4.1, 2026-11-06); proposed 2026-11-06 (spec v2, R1 event model;
+R2 Allium and the product owner's decisions, `../decisions.md`). Derived from the storm
+(`../event-storm.md`, Specify) and the legacy stamper
+(`archive/legacy-harness/stamp_item_ids.clj`), in the glossary's words
 (`.pi/model/GLOSSARY.md`).
 
 The open host: every other context conforms to its published language, the **item
@@ -66,7 +67,10 @@ identity**, the **stamped scenario** and, since R2, the **one reading of Gherkin
 invariant, each contract invariant, each guarantee), every one tagged; 0 uncovered. Each
 draft names its rule, file and the Gherkin `Rule:` it goes under, cites the legacy
 `@harness-NNN` it preserves, and suggests a tier. Unit-level, not drafted (2): `StampFirstScenarios.3` and `StampSlice.3` (one half each of the ledger / no-ledger pair). Refusals 2, 4 and 5 of the two stamping rules are drafted as Scenario Outlines with one example per rule (no ledger, a ledger).
-The product owner accepts a draft by moving it into `spec.feature` (R4).
+The product owner accepts a draft by moving it into `spec.feature` (R4). R4.1 (2026-11-06): 15
+are accepted, `@item-01-001` to `@item-01-015` (slice 01, `.pi/plan/01-specification`); the 2
+left are deferred, so that slice 01 is not rebuilt for them (`../decisions.md`, "Spec round 6" 4).
+Its seam is `seam.md` (`../decisions.md`, "First light").
 
 ## Open questions
 

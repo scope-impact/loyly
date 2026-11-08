@@ -1,9 +1,9 @@
 # Measurement (instrument: score and scoreboard): domain design
 
-status: proposed, 2026-11-06 (spec v2, R1 event model; R2 Allium and the product owner's
-decisions, `../decisions.md`). From the storm (`../event-storm.md`: Prepare (checklist),
-Score, Scoreboard) and the legacy `gen_checklist.clj`, `score.clj` and `scoreboard.clj`, in
-the glossary's words.
+status: accepted as slice 02 (R4.2, 2026-11-07); proposed 2026-11-06 (spec v2, R1 event model;
+R2 Allium and the product owner's decisions, `../decisions.md`). From the storm
+(`../event-storm.md`: Prepare (checklist), Score, Scoreboard) and the legacy
+`gen_checklist.clj`, `score.clj` and `scoreboard.clj`, in the glossary's words.
 
 ## Files
 
@@ -122,13 +122,17 @@ once), each by a `guarded by:` comment the coverage gate checks; guarantee `Publ
 The product owner accepts a draft by moving it into `spec.feature` (R4). R4.2 (2026-11-07):
 the 24 that cite legacy behaviour and are tier minimum are accepted, `@item-02-001` to
 `@item-02-024` (slice 02, `.pi/plan/02-measurement`); 21 stay drafts, 8 of them new minimum.
-Its seam is `seam.md` (`../decisions.md`, "Slice 02").
+Its seam is `seam.md` (`../decisions.md`, "Slice 02"). Since then `@item-02-025` to `@item-02-031`
+(spec round 2), `@item-02-032` (spec round 3) and `@item-02-033` to `@item-02-043` (spec round 6)
+are accepted; two R3 drafts stay drafts, each needing a seam or schema change (`../decisions.md`,
+"Spec round 6" 4).
 
 2026-11-07: 4 more drafts, the score stage with the open grader (`drafts.feature`, "The open
 grader"), with no Allium yet and no `@allium` tag, for the next spec round: the score stage
 delegates grading to a child grading workflow over the gated candidate; an item the open grader
 leaves out is unreached and fails; no verdicts files no score; a surprise is on the receipt and
-never changes a verdict. How it grades is Grader lifecycle's drafts.
+never changes a verdict. How it grades is Grader lifecycle's drafts. Parked since spec round 3
+(OG1 = no).
 
 ## Open questions
 
@@ -142,8 +146,11 @@ Settled by `../decisions.md`: H7 (the field), H13, H26, g. Still open (also as
 - **R3.1**: `PublicSeamOnly` waits for the planned `room-policy` check; since spec round 3,
   `NeverIntoTheLoop` too (the mount itself is the Regeneration cycle's
   `RecordRegeneratedCandidate` requires 9, `@item-04-035`).
+
+## Decided questions
+
 - **OG1 to OG3** (the open grader drafts, 2026-11-07; `../grader-lifecycle/domain-design.md`,
-  "Open questions"): the accepted Rule "The approved sealed grader files the item verdicts it
+  "Decided questions"): the accepted Rule "The approved sealed grader files the item verdicts it
   returned for the gated candidate only", `FileItemVerdicts` refusal 9, `FileScore` refusal 5
   and guarantee `ApprovedDigestOnly` bind an approved grader digest. What digest does an open
   grader's filing carry (its instruction, its model), and who approves it, if anyone?

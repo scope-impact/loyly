@@ -1,8 +1,9 @@
 # Cycle preparation: domain design
 
-status: proposed, 2026-11-06 (spec v2, R1 event model; R2 Allium and the product owner's
-decisions, `../decisions.md`). The core holds only the legacy part of this context: the
-source cut. From the storm (`../event-storm.md`, Prepare and approve).
+status: accepted as slice 05 (R4.5, 2026-11-07); proposed 2026-11-06 (spec v2, R1 event model;
+R2 Allium and the product owner's decisions, `../decisions.md`). The core holds only the legacy
+part of this context: the source cut. From the storm (`../event-storm.md`, Prepare and
+approve).
 
 ## Files
 
@@ -50,7 +51,8 @@ here is new. Unit-level, not drafted (1): `PinSourceCut.1` (the guard of an idem
 The product owner accepts a draft by moving it into `spec.feature` (R4). R4.5 (2026-11-07):
 the 4 new drafts of tier minimum are accepted, reworded with full 40-hex commits (the event
 model's `commit` schema refuses short ones), `@item-05-001` to `@item-05-004` (slice 05,
-`.pi/plan/05-cycle-preparation`); the balance draft `TreeContentIsTheCommits` stays a draft.
+`.pi/plan/05-cycle-preparation`); the balance draft `TreeContentIsTheCommits` stays a draft,
+deferred so that slice 05 is not rebuilt for it (`../decisions.md`, "Spec round 6" 4).
 Its seam is `seam.md` (`../decisions.md`, "Slice 05").
 
 ## Open questions

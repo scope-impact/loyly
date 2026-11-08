@@ -139,8 +139,8 @@ Read when `start-run` runs, never only at boot, so a grader changes them between
   paths relative to the repository at the cut. The Löyly benchmark's is its own: the archived
   Löyly configuration (`archive/legacy-harness/config.sh`: `APP_DIR=impl`, `PORT=8901`,
   `PLAN_DIR=docs/plan`, `APP_MARKER=sauna`, `APP_PROBE=harness/probe.sh`) with
-  `FENCED_PATHS="impl harness-impl .pi archive/legacy-harness/cycles"` (`../decisions.md`, "Spec
-  round 7b" 3). The runner reads the file it is handed; it holds no benchmark value itself.
+  `FENCED_PATHS="impl .pi archive/legacy-harness/cycles"` (`../decisions.md`, "Spec round 7b" 3
+  and "The switch to the new harness" 2). The runner reads the file it is handed; it holds no benchmark value itself.
 - `LOYLY_CONTEXTS`: a JSON file naming each context's candidate by its launch entrypoint:
   `{"specification": ".../harness-impl/01-specification/start.sh", ...}`, the five gated candidates
   of slices 01 to 05. The runner starts each for the run with a fresh `LOYLY_GRAIN_STORE` in the
@@ -243,6 +243,6 @@ workflow of a flow holding them:
 
 ## Not in this slice
 
-The gate in a Gondolin room (stage 1 gates on the host); the sealed Löyly grader (after the switch,
-OG1 = no); one shared store (A1, deferred in Spec round 5); the room policy check
+The gate in a Gondolin room (stage 1 gates on the host); a sealed Löyly grader (OG1 = no; still
+open after the switch, `../decisions.md`, "The switch to the new harness" 7); one shared store (A1, deferred in Spec round 5); the room policy check
 (`TheGateRoomIsNotTheBuilders`, planned `room-policy`).

@@ -1,9 +1,9 @@
 # Regeneration cycle (harness: fence and gate): domain design
 
-status: proposed, 2026-11-06 (spec v2, R1 event model; R2 Allium and the product owner's
-decisions, `../decisions.md`). From the storm (`../event-storm.md`: Fence, Regenerate,
-Gate, Conclude) and the legacy `fence.sh`, `verify.sh`, `probe.sh` and `check.sh`, in the
-glossary's words.
+status: accepted as slice 04 (R4.4, 2026-11-07); proposed 2026-11-06 (spec v2, R1 event model;
+R2 Allium and the product owner's decisions, `../decisions.md`). From the storm
+(`../event-storm.md`: Fence, Regenerate, Gate, Conclude) and the legacy `fence.sh`,
+`verify.sh`, `probe.sh` and `check.sh`, in the glossary's words.
 
 ## Files
 
@@ -205,7 +205,10 @@ cycle; the first regenerated candidate with `DoneIsTheGatesVerdict`.
 The product owner accepts a draft by moving it into `spec.feature` (R4). R4.4 (2026-11-07):
 the 27 that cite legacy behaviour and are tier minimum are accepted, `@item-04-001` to
 `@item-04-027` (slice 04, `.pi/plan/04-regeneration-cycle`); 56 stay drafts, 12 of them new
-minimum. Its seam is `seam.md` (`../decisions.md`, "Slice 04").
+minimum. Its seam is `seam.md` (`../decisions.md`, "Slice 04"). Since then `@item-04-028` to
+`@item-04-038` (spec round 2), `@item-04-039` and `@item-04-040` (spec round 3) and `@item-04-041`
+to `@item-04-076` (spec round 6) are accepted; the 9 drafts left stay drafts for the reasons in
+`../decisions.md`, "Spec round 6" 4.
 
 ## Checks
 
@@ -228,8 +231,12 @@ self-check key, the reworded golden). Still open (the first also as `open questi
 - Is `cycle-failed`'s stage `regenerate` (`candidate-not-regenerated`) enough before builder
   sessions and continuations arrive?
 - **R3.1, the planned `room-policy` check** (Checks): it cannot exist before ORC's room
-  policy does; until then `TheClaimantNeverControlsTheGate`, `ProbeOutOfReach` and
-  `PublicSeamOnly` are verified by nothing that runs.
+  policy does; until then `TheClaimantNeverControlsTheGate`, `ProbeOutOfReach`,
+  `GateEvidenceOnly` and measurement's `PublicSeamOnly` and `NeverIntoTheLoop` (the last two
+  pointed here since spec round 3) are verified by nothing that runs.
+
+## Decided questions
+
 - **Spec round 4, an assembly-gate question: was a cycle that failed at the score stage
   measured?** A measurement filed after the cycle failed at the score stage leaves the cycle
   where it failed (`NoteMeasurementFiled` requires 2, `@item-04-040`), but stays Measurement's
@@ -240,4 +247,4 @@ self-check key, the reworded golden). Still open (the first also as `open questi
   Measurement's record and may be the next cycle's baseline (legacy: `score.clj` files whatever
   was scored, and the legacy harness keeps no cycle state). Deferred: a `cycle-failed` handoff
   to Measurement (`../decisions.md`, "Spec round 5" 3; `../measurement/domain-design.md`,
-  "Open questions").
+  "Decided questions").

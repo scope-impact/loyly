@@ -2,6 +2,14 @@
 
 A from-scratch specification of the Pi harness, built in rounds.
 
+Today (2026-11-08): six contexts are accepted, each a slice under `../plan/`, 187 stamped items
+(specification 15, measurement 43, grader-lifecycle 11, regeneration-cycle 76,
+cycle-preparation 4, cycle-runner 38; the recorded checklist golden agrees). Since the switch
+the new harness runs the regeneration cycles: the slice-06 cycle runner driving the five
+contexts of slices 01-05, with the legacy harness as the reference (`decisions.md`, "The switch
+to the new harness"). Every decision is in `decisions.md`, in
+order; where two disagree the later one wins.
+
 | Round | What | Where |
 |---|---|---|
 | R0 | Big Picture EventStorming board | `event-storm.md`, `event-storm.edn` |
@@ -18,7 +26,10 @@ A from-scratch specification of the Pi harness, built in rounds.
 | Slice 05 | Cycle preparation alone: its seam, its flow cut to its own context, the repository's commits and tree digests handed in (`LOYLY_PROJECT_COMMITS`), full 40-hex commits in its scenarios | `decisions.md` ("Slice 05"), `cycle-preparation/seam.md` |
 | Slice 06 (draft) | Cycle runner, spec round 7a, drafts for review: the ORC workflow that performs a cycle's effects (E1 to E8: stamp, pin, checklist, self-check, fence, regenerate, gate on the host, repair, file the handed-in verdicts) and records each into its context through its seam, relaying every handoff from its producer's store; 34 drafts, no `spec.feature`, no `.pi/plan/06-*` yet | `decisions.md` ("Slice 06 (draft)"), `cycle-runner/` |
 | Slice 06 | Cycle runner accepted in spec round 7b: the open questions decided (Q1 restamp a stripped copy, else halt; Q2/Q5 the benchmark's own configuration, handed in; Q3, Q6 the drafted digests; Q4 synchronous methods), all 34 drafts and one added for Q1 stamped `@item-06-001` to `@item-06-035`, `.pi/plan/06-cycle-runner`; its suite stands the five contexts in (`seam.md`) | `decisions.md` ("Spec round 7b"), `cycle-runner/` |
-| | Decisions of the product owner after R1 and R2 | `decisions.md` |
+| Spec rounds 1 to 6 | Fixes and acceptances after the cycles of slices 01 to 05: 21 new minimum items (round 2), 4 (round 3), wording and readings (rounds 4, 5; round 5: the assembly is a relay of each producer's handoffs, `harness/v2/assemble.sh`), 50 balance items (round 6) | `decisions.md` ("Spec round 1" to "Spec round 6") |
+| Spec rounds 7c, 7d | The shadow runs' gate gaps: the probe gets the served URL (`@item-06-036`), the gate room writable by the candidate's own run and SKIP lines read whole (`@item-06-037`, `@item-06-038`) | `decisions.md` ("Spec round 7c", "Spec round 7d"), `cycle-runner/seam.md` |
+| The switch | Not a spec round: the new harness runs the regeneration cycles after shadow runs 4 and 5 agreed with the legacy harness at every stage; legacy stays the reference; what stays open | `decisions.md` ("The switch to the new harness") |
+| | Every decision of the product owner, R1 to the switch | `decisions.md` |
 
 ## Contexts in R1
 

@@ -1,9 +1,9 @@
 # Grader lifecycle: domain design
 
-status: proposed, 2026-11-06 (spec v2, R1 event model; R2 Allium and the product owner's
-decisions, `../decisions.md`). The core holds only the legacy part of this context: the
-instrument goldens. From the storm (`../event-storm.md`, Grader preparation) and the legacy
-README ("The goldens, and the three reasons one can change").
+status: accepted as slice 03 (R4.3, 2026-11-07); proposed 2026-11-06 (spec v2, R1 event model;
+R2 Allium and the product owner's decisions, `../decisions.md`). The core holds only the legacy
+part of this context: the instrument goldens. From the storm (`../event-storm.md`, Grader
+preparation) and the legacy README ("The goldens, and the three reasons one can change").
 
 ## Files
 
@@ -59,7 +59,9 @@ draft names its rule, file and the Gherkin `Rule:` it goes under, cites the lega
 The product owner accepts a draft by moving it into `spec.feature` (R4). R4.3 (2026-11-07):
 the 4 that cite legacy behaviour and are tier minimum are accepted, `@item-03-001` to
 `@item-03-004` (slice 03, `.pi/plan/03-grader-lifecycle`); 7 stay drafts, 4 of them new minimum.
-Its seam is `seam.md` (`../decisions.md`, "Slice 03").
+Its seam is `seam.md` (`../decisions.md`, "Slice 03"). Since then the other 7 are accepted too:
+`@item-03-005` to `@item-03-007` (spec round 2), `@item-03-008` (spec round 3, reworded) and
+`@item-03-009` to `@item-03-011` (spec round 6); every R3 draft is in `spec.feature`.
 
 2026-11-07: 8 more drafts, the open grader (`drafts.feature`, "The open grader"), with no
 Allium yet and no `@allium` tag, for the next spec round: it grades however it judges, deciding
@@ -70,11 +72,21 @@ hand an item to an explore session with all tools, recorded, and still files the
 every grading run is kept in the grading history, findable by slice, cycle and candidate, and a
 trial files nothing; a black-box audit reports a run clean or names each breach (the room, the
 candidate's source, a prior cycle, a credential). Measurement holds the matching filing drafts.
+Parked since spec round 3 (OG1 = no, below); they are all `drafts.feature` holds.
 
 ## Open questions
 
-The open grader drafts (2026-11-07) conflict with accepted text; the spec round decides each
-before any of them is accepted:
+- **H19** (can wait): who checks a recorded reason is true? Only `spec_grew` has an
+  enforceable test.
+- **H27** (can wait): the legacy files still say "oracle" for three things.
+
+## Decided questions
+
+- **h**: the golden carries its scenario digest. A golden whose scenario was reworded fails the
+  Regeneration cycle's self-check (R2.1, `../decisions.md`, "Questions raised by R2" 5).
+
+The open grader drafts (2026-11-07) conflicted with accepted text; spec round 3 decided each
+before any of them could be accepted:
 
 - **OG1** (blocks the drafts): AGENTS.md "The instrument" and the glossary's **Grader** say a
   grader is written once by a grader author, calibrated so carried behaviour passes and
@@ -94,9 +106,3 @@ before any of them is accepted:
   run, not a room. "The fence is physical, never an instruction": does an explore session need
   its own room, or is a named breach enough? **Moot while OG1 is no** (`../decisions.md`,
   "Spec round 3").
-
-- **H19** (can wait): who checks a recorded reason is true? Only `spec_grew` has an
-  enforceable test.
-- **H27** (can wait): the legacy files still say "oracle" for three things.
-- (Settled by h: the golden carries its scenario digest. Whether the self-check fails or
-  only reports a golden whose scenario was reworded is open in the Regeneration cycle.)

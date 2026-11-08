@@ -1,5 +1,29 @@
 # Decisions
 
+The record of the product owner's decisions on spec v2, in the order they were taken
+(2026-11-06 to 2026-11-08). Where two sections disagree, the later one wins; an italic
+*Later:* note points from an earlier entry to the decision that superseded or settled it.
+
+| Section | Date | In short |
+|---|---|---|
+| Hot spots; Questions raised by R1; Legacy behaviours | 2026-11-06 | R1 checked against the legacy harness |
+| Questions raised by R2 | 2026-11-06 | budget, gate refusals, self-check key, reworded golden, empty title, same selection |
+| Calls after R3 | 2026-11-06 | gate refusals as an event, unit level, structural obligations |
+| First light | 2026-11-06 | one context per cycle with the legacy tools |
+| Slice 02 to Slice 05 | 2026-11-07 | each context built alone, with its seam |
+| Spec rounds 1 to 6 | 2026-11-07 | fixes and acceptances after the slice 01 to 05 cycles; round 5 the assembly as a relay |
+| Slice 06 (draft); Spec round 7b | 2026-11-07 | the cycle runner drafted, its questions decided, accepted as slice 06 |
+| Spec rounds 7c, 7d | 2026-11-08 | the shadow runs' gate gaps |
+| The switch to the new harness | 2026-11-08 | the new harness runs the regeneration cycles; legacy is the reference |
+
+**How spec-v2 cycles are scored.** From 2026-11-07 (after Spec round 2), spec-v2 cycles are
+scored the legacy way, the legacy README's step 5: a black-box grading agent drives the
+candidate over its seam and writes a verdicts file, which `harness/v2/score.sh --verdicts`
+files (`harness/README.md`). The Elixir graders, `graders.json` and their calibration are
+retired, and the open grader run by ORC was reverted; its drafts are parked (OG1 = no, Spec
+round 3, 4). Where a later round says a slice's grader "grows" or "stands", read: the grading
+agent grades the grown checklist, and nothing is sealed or approved for it.
+
 Decided by the product owner on 2026-11-06, after R1 was checked against the legacy harness
 (`archive/legacy-harness/`). Each line names the hot spot or question it settles.
 
@@ -86,7 +110,8 @@ the harness can rebuild itself.
    takes the slice number from the link. `SLICE=NN` selects the cycle (`harness/config.sh`).
 2. **The builder is a person-run `pi` session** in the room, given the builder instructions
    `harness/v2/prompt.clj` renders (the legacy way). The durable Pi builder host is not
-   needed for this and is not built.
+   needed for this and is not built. *Later:* since the switch the cycle runner launches `pi`
+   with its Gondolin backend ("The switch to the new harness" 6).
 3. **Architecture inside a context is enforced by the stack and by the gate.** The candidate
    is Clojure on ORC with Grain; it registers the room's event model as given, and Grain's
    boot guard refuses drift between the model and the running blocks. After the suite and
@@ -104,7 +129,8 @@ the harness can rebuild itself.
    events (`sheet/*`, `rlm/*`, `intervention/*`) are listed, not refused. A candidate whose
    ORC keeps its own store fails the gate: the gate cannot tell ORC was used.
 5. **Assembly later.** A gate that wires the contexts together through their handoffs comes
-   later, not now.
+   later, not now. *Later:* the assembly gate came (`harness/v2/assemble.sh`), and the assembly
+   is the relay ("Spec round 5" 1).
 
 ## Slice 02: measurement (decided 2026-11-07)
 
@@ -139,7 +165,8 @@ preparing its cycle; each is a reading of the spec, not a change of behaviour.
    events into the store before the candidate starts (a grader in Elixir cannot write Grain's
    store, and a candidate reading its store only at boot would miss what is appended later).
    When the contexts are assembled (`First light` 5), the producers' own events replace these
-   methods.
+   methods. *Later:* the assembly is a relay that hands the producers' events in through these
+   methods ("Spec round 5" 1); a shared store that would replace them is deferred (A1).
 5. **The reading of the spec is the issuer's.** The event model's `derive-checklist` takes the
    reading of the cut's spec files as its params (`items`, `unstamped`, `skipped-slices`) and
    names no place to read a cut from, and `DeriveChecklist` has no `requires` that compares the
@@ -509,7 +536,8 @@ schema and no golden changed.
 2. **A measured cycle at the scoreboard stage has no timeout.** The stage clock times out
    `fence`, `regenerate`, `gate` and `score` only; a scoreboard follows its measurement, and the
    legacy harness keeps no cycle state to time out. No change.
-3. **Open, for the assembly gate: was a cycle that failed at the score stage measured?** A
+3. **Open, for the assembly gate: was a cycle that failed at the score stage measured?**
+   *Later:* closed, leave it ("Spec round 5" 3). A
    measurement filed after the cycle failed at the score stage leaves the cycle failed
    (`NoteMeasurementFiled` requires 2, `@item-04-040`) but stays Measurement's record, and can
    be the next cycle's baseline (`last_measured_before`). Assembled, the two contexts may
@@ -702,7 +730,8 @@ no `.pi/plan/06-*` link, no existing context changed. Decided by the product own
    today 01-booking-core, 11 items), with the legacy settings of
    `archive/legacy-harness/config.sh` (`PORT=8901`, `PLAN_DIR=docs/plan`, `APP_MARKER=sauna`,
    `APP_PROBE=harness/probe.sh`, `FENCED_PATHS="impl harness/cycles"`), the probe kept as-is (a
-   name check, for parity), the gate on the host for stage 1.
+   name check, for parity), the gate on the host for stage 1. *Later:* the fence changed
+   ("Spec round 7b" 3, then "The switch to the new harness" 2).
 2. **One builder per run**: the runner launches pi with its Gondolin backend and waits for it.
 3. **The verdicts are handed in.** One legacy-step-5 grading subagent per candidate writes one
    verdicts file, handed to the runner (and to legacy `score.clj` in a shadow run); the main
@@ -722,7 +751,8 @@ each is recorded through; everything the runner acts on is handed in (`LOYLY_PRO
 `LOYLY_BUILDER_INSTRUCTION`, `LOYLY_RUNS_DIR`), so a grader drives it black-box with fixtures, a
 stub builder and the five gated candidates. 34 drafts cover its 40 must-cover obligations.
 
-Open, for the product owner (`cycle-runner/domain-design.md`): Q1 the already-stamped Löyly plan
+Open, for the product owner (`cycle-runner/domain-design.md`; *Later:* all six decided in "Spec
+round 7b"): Q1 the already-stamped Löyly plan
 against a fresh Specification ledger (Measurement refuses the checklist `unknown-item` as things
 stand); Q2 `harness/cycles` does not exist at today's cut, so the legacy fence refuses
 `fenced-path-matched-nothing`; Q3 the harness digest; Q4 synchronous methods against a builder
@@ -777,6 +807,8 @@ ran; no other context's `spec.feature`, Allium `requires` or event-model schema 
    recording:** `harness-impl` is tracked in no branch today (the main working copy at `6d42c8e`
    has none), so at today's cut that entry stops the fence the same way; the value holds once
    `harness-impl` is committed at the cut, else that entry is dropped. No scenario depends on it.
+   *Later:* dropped; the benchmark's fence is `FENCED_PATHS="impl .pi
+   archive/legacy-harness/cycles"` ("The switch to the new harness" 2).
 4. **Q3 and Q6: the drafted readings.** The harness digest of a self-check is the SHA-256 of the
    configuration file, the self-check command and the identity probe, in that order; the
    scenario digest is the runner's reading in `cycle-runner/seam.md` (Specification's
@@ -799,7 +831,6 @@ ran; no other context's `spec.feature`, Allium `requires` or event-model schema 
 8. **Seam wording.** A context responds when it replies to a query of its own seam with a response
    carrying the request's `id`; `contexts-not-responding` names every context not named or not
    responding in `data.contexts`; a context that stops responding later halts the run.
-
 9. **Event schemas the gate can hold a candidate to.** The gate's event-store check closes every
    map of an event's schema, so a bare `:map` admits only `{}`. `run-started`'s `budget` now
    spells out `start-run`'s budget schema; `effect-recorded`'s `events` and `run-concluded`'s
