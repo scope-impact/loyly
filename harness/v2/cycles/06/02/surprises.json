@@ -1,0 +1,11 @@
+[
+ "Re-gate after a gate refusal: the runner's before-gate self-check for the same attempt is refused self-check-already-recorded by regeneration-cycle (g/K positions 11,14); seam says 'self-checks and gates the same attempt again' but the context only accepts one per attempt.",
+ "Gate effect detail for a port-held refusal reads 'failed (boot-budget-exhausted): Something answered on port...' while the refusal is seam-answered-before-boot (g/K).",
+ "A refused file-verdicts effect still carries detail '... filed as given' (g/C).",
+ "candidate-regenerated event has no mounted-evidence field (command param only); 'evidence mounted' is visible only in the effect detail.",
+ "Repair room read-only is permission bits only; .loyly/ itself is writable (same user could rename/chmod).",
+ "06-022 is timing-sensitive: a first fixture whose late writer could start before the builder process exited put the red file into the gate copy (all 3 attempts suite-red). Rerun with writing begun only after the builder exited: gate passed. Spec does not say how 'when the builder ended' is detected.",
+ "06-017 first run (under 8 parallel groups) the 2s timeout hit before the stub builder logged anything; rerun alone shows it started and was stopped.",
+ "Spec's literal commit 4f2a9c... cannot exist in a fixture repo; real commits used. start-run takes 30-130s (six JVMs).",
+ "LOYLY_SCORING_TOOL_PATHS handed in as [] (spec leaves fixture value open)."
+]

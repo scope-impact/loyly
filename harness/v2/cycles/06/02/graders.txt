@@ -1,0 +1,2 @@
+verdicts: sha256:095442778468f284d2f714826ed9f0979ad6afaac5bef00a1137f49d26f2feec verdicts.json
+by: legacy step 5: black-box grading subagent over the seam, against the real gated candidates of slices 01-05
