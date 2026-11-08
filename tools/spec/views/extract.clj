@@ -1,20 +1,19 @@
-;; Extract the event-model page's data from the Pi harness specs, as one map: `spec`.
-;; Loaded by render.clj, which first defines `opts`: {:root <repo-root> :model <model.edn>
-;; :coverage <coverage.json>}.
-;; Sources, all read-only:
-;;   .pi/model/*.allium                      behaviour (entities, rules, invariants, surfaces)
-;;   <model.edn>                              the Grain Event Model, as grain-validate.clj --dump
-;;                                            evaluated it from .pi/model/event-model/**/*.clj
-;;   <coverage.json>                          tools/spec/coverage.py --report: the gate's own
-;;                                            classification of every obligation
-;;   .pi/model/plan/NN-slug/{spec,drafts}.feature   examples, tags, tiers
-;;   .pi/architecture.md                      the C4 views
-;; The page holds no facts of its own: everything it shows comes from here.
-(require '[clojure.edn :as edn] '[clojure.string :as str] '[cheshire.core :as json] '[clojure.java.io :as io]
-         '[clojure.java.shell :as sh])
+;; Extract the event-model page's data from spec v2, as one map: `world`.
+;; Loaded by render.clj, which first defines `opts`: {:root <repo-root> :coverage <coverage.json>}.
+;; Sources, all read-only, per context .pi/spec/<context>/:
+;;   allium/*.allium                 behaviour (entities, rules, invariants, contracts, surfaces)
+;;   event-model/*.edn               the Grain Event Model fragments, merged by
+;;                                   tools/spec/v2/load.clj (one home per block)
+;;   event-model/handoffs.edn        the events the context hands to others
+;;   spec.feature, drafts.feature    examples, tags, tiers
+;;   .pi/plan/NN-<context>           the slice number of an accepted context
+;; and <coverage.json>, tools/spec/v2/coverage.py --report: the gate's own classification of
+;; every obligation. The page holds no facts of its own: everything it shows comes from here.
+(require '[clojure.string :as str] '[cheshire.core :as json] '[clojure.java.io :as io]
+         '[clojure.java.shell :as sh] '[clojure.edn :as edn])
+(load-file (str (:root opts) "/tools/spec/v2/load.clj"))   ; ns load: merge-model
 (def root (:root opts))
-(def model-dir (str root "/.pi/model"))
-(def plan-dir (str model-dir "/plan"))
+(def spec-dir (str root "/.pi/spec"))
 (defn rel [p] (str/replace (str p) (str root "/") ""))
 (defn nm [k] (if (keyword? k) (if (namespace k) (str (namespace k) "/" (name k)) (name k)) (str k)))
 (defn files [dir ext] (->> (.listFiles (io/file dir)) (map #(.getName %)) (filter #(str/ends-with? % ext)) sort))
@@ -23,7 +22,7 @@
 (defn blocks [src kw]
   (for [[whole n] (re-seq (re-pattern (str "(?ms)^" kw " (\\w+) \\{.*?\\n\\}")) src)] {:name n :src whole}))
 (defn header [src]
-  (->> (str/split-lines src) (drop-while #(re-find #"^-- (allium:|[\w-]+\.allium\s*$)" %)) (take-while #(str/starts-with? % "--"))
+  (->> (str/split-lines src) (drop-while #(re-find #"^-- (allium:|[\w./-]+\.allium\s*$)" %)) (take-while #(str/starts-with? % "--"))
        (map #(str/trim (str/replace % #"^--" ""))) (remove str/blank?) (str/join " ")))
 (defn clauses [body kw]
   (map (comp str/trim second) (re-seq (re-pattern (str "(?m)^\\s+" kw ":\\s*(.*)$")) body)))
@@ -33,9 +32,9 @@
          (remove (fn [[_ q _]] (and q (re-find #"^[A-Z]" q))))   ; Entity.created(
          (map (fn [[_ q n]] (if q (str q "." n) n))) distinct vec)))
 (defn prose [p] (str/join " " (map #(str/trim (str/replace % #"^\s*--" "")) (str/split-lines p))))
-(defn parse-allium [f]
-  (let [src (slurp (str model-dir "/" f))]
-    {:id (str/replace f ".allium" "") :file (str ".pi/model/" f) :header (header src)
+(defn parse-allium [ctx f]
+  (let [src (slurp (str spec-dir "/" ctx "/allium/" f))]
+    {:id (str/replace f ".allium" "") :file (str ".pi/spec/" ctx "/allium/" f) :header (header src)
      :uses (into {} (for [[_ m a] (re-seq #"(?m)^use \"(?:\./)?([\w-]+)\.allium\" as (\w+)" src)] [a m]))
      :entities (vec (concat (for [b (blocks src "entity")] (assoc b :external false))
                             (for [b (blocks src "external entity")] (assoc b :external true))))
@@ -55,28 +54,26 @@
                        :guarantees (vec (for [[_ g p] (re-seq #"@guarantee (\w+)\n((?:\s+--[^\n]*\n?)+)" s)] {:name g :text (prose p)}))}))
      :openQuestions (vec (map second (re-seq #"(?m)^open question \"([^\"]+)\"" src)))}))
 
-;; ---------- the Grain Event Model, as evaluated ----------
-;; a schema may hold a function ([:fn inst?]); it prints as #object[clojure.core$inst_QMARK_ ..]
-(defn obj [_ v] (let [c (str (first v))] (symbol (-> (subs c (inc (.lastIndexOf c "$"))) (str/replace "_QMARK_" "?") (str/replace "_BANG_" "!") (str/replace "_" "-")))))
-(def dump (edn/read-string {:default obj} (slurp (:model opts))))
-;; block kinds by Grain's own keys; a block keyed by "<area>/<name>"
+;; ---------- the Grain Event Model, from the EDN fragments ----------
 (def kinds [:commands :events :read-models :queries :todo-processors :periodic-tasks :screens])
 (defn names [v] (if (set? v) (vec (sort (map nm v))) (mapv nm v)))
 (defn kv [m] (into {} (for [[k v] m] [(nm k) (cond (keyword? v) (nm v) (map? v) (kv v) (coll? v) (names v) :else v)])))
-(defn block-data [v]
-  (merge {:description (:description v) :schema (:schema v) :schema-src (some-> (:schema v) pr-str)
+(defn block-data [v file]
+  (merge {:description (:description v) :schema (:schema v) :schema-src (some-> (:schema v) pr-str) :file file
           :allium (mapv (fn [a] {:kind (nm (:kind a)) :name (nm (:name a)) :spec (:spec a)}) (:grain/allium v))
           :schedule (some-> (:schedule v) kv)}
          (into {} (for [k [:reads :produces :consumes :subscribes :queries :commands] :when (seq (get v k))] [k (names (get v k))]))))
-(def areas
-  (into (sorted-map)
-        (for [[area am] (:model dump)]
-          [(nm area)
-           (merge {:file (get-in dump [:files area]) :description (:description am)}
-                  (into {} (for [k kinds] [k (into (sorted-map) (for [[bk bv] (get am k)] [(nm bk) (block-data bv)]))]))
-                  {:flows (into (sorted-map) (for [[fk f] (:flows am)]
-                                               [(nm fk) {:description (:description f)
-                                                         :steps (mapv (fn [{:keys [from to]}] [(some-> from first nm) (some-> from second nm) (some-> to first nm) (some-> to second nm)]) (:steps f))}]))})])))
+(defn areas-of [ctx]
+  (let [{:keys [model homes]} (load/merge-model (str spec-dir "/" ctx "/event-model"))
+        file (fn [area k bk] (str ".pi/spec/" ctx "/event-model/" (get homes [area k bk] "area.edn")))]
+    (into (sorted-map)
+          (for [[area am] model]
+            [(nm area)
+             (merge {:file (str ".pi/spec/" ctx "/event-model/area.edn") :description (:description am)}
+                    (into {} (for [k kinds] [k (into (sorted-map) (for [[bk bv] (get am k)] [(nm bk) (block-data bv (file area k bk))]))]))
+                    {:flows (into (sorted-map) (for [[fk f] (:flows am)]
+                                                 [(nm fk) {:description (:description f)
+                                                           :steps (mapv (fn [{:keys [from to]}] [(some-> from first nm) (some-> from second nm) (some-> to first nm) (some-> to second nm)]) (:steps f))}]))})]))))
 
 ;; ---------- Gherkin ----------
 (def tiers #{"@minimum" "@balance" "@deferred"})
@@ -99,42 +96,62 @@
             (recur more rule tags (update cur :steps conj l) out)
             :else (recur more rule tags cur out)))))))
 
-(def module-ids (set (map #(str/replace % ".allium" "") (files model-dir ".allium"))))
-(def slices
-  (vec (for [d (sort (.listFiles (io/file plan-dir))) :when (.isDirectory d)
-             :let [id (.getName d) slug (str/replace id #"^\d+-" "")
+;; ---------- coverage: the gate's report, each obligation with its rule and clause ----------
+(def coverage (json/parse-string (slurp (:coverage opts)) true))
+(defn obligations [ctx modules]
+  (let [rules (into {} (for [m (vals modules) r (:rules m)] [(:name r) r]))]
+    (vec (for [o (get-in coverage [:contexts (keyword ctx) :obligations])
+               :let [[_ _ r n] (re-find #"^(rule-success|rule-failure)\.(\w+)(?:\.(\d+))?$" (:id o))
+                     n (some-> n parse-long)]]
+           (cond-> o
+             r (assoc :rule r)
+             n (assoc :n n :clause (get-in rules [r :requires (dec n)]))
+             (string? (:unit o)) (update :unit str/replace "-" " "))))))
+
+;; ---------- contexts, in their slice order ----------
+(def slice-of   ; context -> "NN-context", from the .pi/plan links
+  (into {} (for [l (.listFiles (io/file root ".pi/plan")) :let [c (.getName (.getCanonicalFile l))]] [c (.getName l)])))
+(def contexts
+  (vec (for [d (sort-by #(or (slice-of (.getName %)) (str "99-" (.getName %))) (.listFiles (io/file spec-dir)))
+             :when (.isDirectory (io/file d "allium"))
+             :let [ctx (.getName d) sl (or (slice-of ctx) ctx)
                    spec (io/file d "spec.feature") drafts (io/file d "drafts.feature")
                    src (if (.exists spec) (slurp spec) "")
-                   feat (second (re-find #"(?m)^Feature:\s*(.*)$" src))
-                   desc (some->> (re-find #"(?ms)^Feature:[^\n]*\n(.*?)(?:\n\s*\n|\n\s*(?:Rule:|@|Scenario))" src) second
-                                 str/split-lines (map str/trim) (str/join " "))]]
-         {:id id :n (re-find #"^\d+" id) :slug slug :module (when (module-ids slug) slug)
-          :feature feat :description desc
-          :specFile (when (.exists spec) (rel spec)) :draftsFile (when (.exists drafts) (rel drafts))})))
-(def scenarios
-  (vec (for [s slices k ["spec" "drafts"] :let [f (io/file plan-dir (:id s) (str k ".feature"))] :when (.exists f)
-             sc (parse-feature (str f) (:id s) k)]
-         (assoc sc :module (:module s)))))
+                   modules (into (sorted-map) (for [f (files (io/file d "allium") ".allium")] [(str ctx "--" (str/replace f ".allium" "")) (parse-allium ctx f)]))
+                   areas (areas-of ctx)
+                   scen (vec (for [[k f] [["spec" spec] ["drafts" drafts]] :when (.exists f) sc (parse-feature (str f) sl k)] (assoc sc :ctx ctx)))
+                   handoffs (let [f (io/file d "event-model" "handoffs.edn")]
+                              (when (.exists f) (vec (sort (map nm (mapcat (comp keys :events) (vals (edn/read-string (slurp f)))))))))]]
+         {:id ctx :slice sl :n (re-find #"^\d+" sl) :accepted (boolean (slice-of ctx))
+          :feature (second (re-find #"(?m)^Feature:\s*(.*)$" src))
+          :description (or (some :description (vals areas)) "")
+          :modules modules :areas areas :scenarios scen :handoffs (or handoffs [])
+          :obligations (obligations ctx modules)
+          :unknownTags (get-in coverage [:contexts (keyword ctx) :unknownTags])
+          :specFile (when (.exists spec) (rel spec)) :draftsFile (when (.exists drafts) (rel drafts))
+          :items (vec (sort (distinct (keep :item (filter #(= "spec" (:kind %)) scen)))))})))
 
-;; ---------- .pi/architecture.md: the C4 views ----------
-(def arch (let [f (io/file root ".pi/architecture.md")] (if (.exists f) (slurp f) "")))
-(def c4 (mapv (fn [[_ t s]] {:title t :source (str/trim s)})
-              (re-seq #"(?s)### (Level \d: [^\n]+)\n.*?```mermaid\n(.*?)```" arch)))
+;; ---------- the handoffs: producer -> event -> consumer, the assembly the relay drives ----------
+(def handoffs
+  (vec (for [p contexts e (:handoffs p)]
+         {:producer (:id p) :event e
+          :consumers (vec (for [c contexts :when (not= (:id c) (:id p))
+                                :let [blocks (for [[_ a] (:areas c) k [:read-models :todo-processors :periodic-tasks :commands :queries :screens]
+                                                   [bk b] (get a k) :when (some #{e} (concat (:consumes b) (:subscribes b) (:reads b)))] [bk k])]
+                                :when (seq blocks)]
+                            {:ctx (:id c) :blocks (vec blocks)}))})))
 
-(def modules (into (sorted-map) (for [f (files model-dir ".allium")] [(str/replace f ".allium" "") (parse-allium f)])))
-(def coverage (json/parse-string (slurp (:coverage opts)) true))
-(def commit (str/trim (:out (sh/sh "git" "-C" root "log" "-1" "--format=%h" "--" ".pi/model" ".pi/architecture.md"))))
-(def dirty (not (str/blank? (:out (sh/sh "git" "-C" root "status" "--porcelain" "--" ".pi/model" ".pi/architecture.md")))))
+(def commit (str/trim (:out (sh/sh "git" "-C" root "log" "-1" "--format=%h" "--" ".pi/spec" ".pi/plan"))))
+(def dirty (not (str/blank? (:out (sh/sh "git" "-C" root "status" "--porcelain" "--" ".pi/spec" ".pi/plan")))))
 
-(def spec {:title "Pi Harness" :source ".pi/model" :commit commit :dirty dirty
-           :modules modules :areas areas :slices slices :scenarios scenarios
-           :coverage coverage :c4 c4})
-(println "modules" (count modules)
-         "rules" (reduce + (map (comp count :rules) (vals modules)))
-         "areas" (count areas)
-         "blocks" (reduce + (for [a (vals areas) k kinds] (count (get a k))))
-         "flows" (reduce + (map (comp count :flows) (vals areas)))
-         "slices" (count slices)
-         "scenarios" (count (filter #(= "spec" (:kind %)) scenarios))
-         "drafts" (count (filter #(= "drafts" (:kind %)) scenarios))
-         "c4" (count c4))
+(def world {:title "Löyly spec v2" :source ".pi/spec" :commit commit :dirty dirty
+            :contexts contexts :handoffs handoffs :coverage (:summary coverage)
+            :items (vec (sort (mapcat :items contexts)))})
+(println "contexts" (count contexts)
+         "files" (reduce + (map (comp count :modules) contexts))
+         "rules" (reduce + (for [c contexts m (vals (:modules c))] (count (:rules m))))
+         "blocks" (reduce + (for [c contexts a (vals (:areas c)) k kinds] (count (get a k))))
+         "flows" (reduce + (for [c contexts a (vals (:areas c))] (count (:flows a))))
+         "items" (count (:items world))
+         "drafts" (count (for [c contexts s (:scenarios c) :when (= "drafts" (:kind s))] s))
+         "handoffs" (count handoffs) "edges" (reduce + (map (comp count :consumers) handoffs)))

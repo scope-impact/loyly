@@ -347,3 +347,5 @@ code, .id, .tag, .cov, .k, .edn-h, .crumbs a, .crumbs span { overflow-wrap: anyw
 .storm-lbl.event, .storm-lbl.policy { fill: #4b2a9a; }
 .storm-lbl.state { fill: #2d3833; }
 .storm .aft-spot { min-height: 22px; }
+/* Spec v2 paths are long (.pi/spec/<context>/allium/<file>.allium): a summary's meta wraps on a phone. */
+@media (max-width: 640px) { .inv > summary .meta { white-space: normal; overflow-wrap: anywhere; min-width: 0; } }

@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # Check the built page the way a reader sees it.
 #   1. check.clj static: every view is in the file and not empty, ids are unique, every
-#      internal #link resolves, no Clojure value leaked into the text.
+#      internal #link resolves, no Clojure value leaked into the text; against .pi/spec itself,
+#      every context has its view and card, every handoff edge is drawn, and the item count
+#      shown is the number of distinct stamped @item tags.
 #   2. mmdc, when installed: every distinct Mermaid diagram renders. Skipped, with a note, if not.
-#   3. headless Chrome, when installed: the page loads at every top-level address (home, the
-#      context, review, each aggregate and slice) and shows that view, with no JavaScript error
+#   3. headless Chrome, when installed: the page loads at every top-level address (home, review,
+#      each context and each Allium file) and shows that view, with no JavaScript error
 #      and every Mermaid block of the view drawn, none as Mermaid's syntax-error box.
+#   4. Playwright (after npm install here): every view fits a phone; no storm cluster overlaps.
 # Usage: tools/spec/views/check.sh   (run build.sh first; needs bb; CHROME may name a Chromium)
 set -euo pipefail
 V="$(cd "$(dirname "$0")" && pwd)"; PAGE="$V/dist/event-model.html"
