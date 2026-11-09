@@ -1,3 +1,5 @@
-classes/
-tmp/
 .cpcache/
+target/
+work/
+vendor/
+deps.log
