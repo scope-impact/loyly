@@ -1,7 +1,8 @@
 ;; Render the spec pages at build time: the specs (extract.clj's `world` map) → Hiccup, one pure
 ;; function per view or component → static HTML, rendered by Replicant. Loaded by main.clj with
 ;; `cfg` (project.edn) and `cli`. The drill-down, top to bottom:
-;;   L0 home: the event storm (story.clj), what changed since --base (diff.clj), the contexts;
+;;   L0 home: the title, one plain sentence (:text :summary), what changed since --base (diff.clj,
+;;      compact), the event storm (story.clj), the contexts, and lower down About this page;
 ;;   L1 each context's event model as swimlanes, L2 its spec cards, L3 under the hood (context.clj,
 ;;      loaded once per context into a namespace of its own, ctx.<context>, reading `spec`);
 ;;   beside it: the architecture view (handoffs, then the C4 views) and the Review view.
@@ -70,47 +71,51 @@
          "\n    classDef ctx fill:#e6e9e7,stroke:#2d3833,color:#2d3833\n    linkStyle default stroke:#6b3fc4,stroke-width:1.7px\n"
          (str/join "\n" (for [c (:contexts world)] (str "    class " (nid (:id c)) " ctx"))))))
 (defn arch? [] (or (seq (:c4 world)) (seq (:handoffs world))))
-(defn changes-summary []
+(defn changes-summary []   ; compact, above the storm: one line of counts, the changed cards folded
   (when CHG
-    (let [cx (into {} (map (juxt :id identity) CTXS))
-          scen-n (fn [st] (count (filter #(= st (val %)) (:scen CHG))))
-          cnt (fn [k st] (count (filter #(= st (val %)) (get CHG k))))
+    (let [scen-n (fn [st] (count (filter #(= st (val %)) (:scen CHG))))
+          cnt (fn [k] (count (get CHG k)))
           ;; each changed card, with its context: rule cards, property cards, journeys
           cards (for [c CTXS :let [rows (in-ctx (:id c) 'changed-cards)] :when (seq rows)] [c rows])
-          removed (for [[k v] (:removed CHG) x v] [k x])]
+          removed (for [[k v] (:removed CHG) x v] [k x])
+          counts (for [[n w] [[(scen-n :new) "new scenarios"] [(scen-n :changed) "changed scenarios"] [(cnt :rules) "rules"]
+                              [(cnt :props) "invariants and guarantees"]
+                              [(count (filter (fn [[[_ k _] _]] (= k :events)) (:blocks CHG))) "events"]
+                              [(count (remove (fn [[[_ k _] _]] (= k :events)) (:blocks CHG))) "other event-model blocks"]
+                              [(cnt :flows) "flows"] [(count removed) "removed"]]
+                       :when (pos? n)] (n-of n w))
+          ncards (reduce + (map (comp count second) cards))]
       [:section.changes {:id "changes"}
-       [:h2 "What changed in this round"]
-       [:p.muted "The spec now against " (code (:base CHG)) " (" (code (:base-commit CHG)) "), both read by the same extractor from git. A green " [:span.chg.changed "changed"] " or pink " [:span.chg.new "new"] " mark follows the change down every level: the event storm, the event model, the spec card and the scenario."]
-       (stats (n-of (scen-n :new) "new scenarios") (n-of (scen-n :changed) "changed scenarios") (n-of (+ (cnt :rules :new) (cnt :rules :changed)) "rules new or changed")
-              (n-of (+ (cnt :props :new) (cnt :props :changed)) "invariants and guarantees new or changed")
-              (n-of (count (filter (fn [[[_ k _] _]] (= k :events)) (:blocks CHG))) "events new or changed")
-              (n-of (count (remove (fn [[[_ k _] _]] (= k :events)) (:blocks CHG))) "other event-model blocks") (n-of (count (:flows CHG)) "flows") (n-of (count removed) "removed"))
-       (if (seq cards)
-         [:div.chg-list (for [[c rows] cards]
-                          [:div.chg-ctx [:a {:href (str "#ctx-" (:id c))} [:b (human (:id c))]]
-                           [:ul (for [{:keys [href title m kind scs]} rows]
-                                  [:li (chg-badge m) " " [:a {:href href} title] " " [:span.muted kind (when (seq scs) (str " · " (str/join ", " scs)))]])]])]
-         (none "No spec card changed."))
-       (when (seq removed)
-         [:details.inv [:summary [:span.t "Removed since " (:base CHG)] [:span.meta (count removed)]]
-          [:div.inv-body (qlist (for [[k x] removed] (list (muted (name k)) " " (code (str/join " " (map str (if (coll? x) x [x])))))))]])])))
+       [:p.chg-line [:b "Changed since " (code (:base CHG))] " (" (code (:base-commit CHG)) "): "
+        (if (seq counts) (interpose " · " counts) "nothing")]
+       [:details.chg-more
+        [:summary (n-of ncards (if (= 1 ncards) "changed card" "changed cards")) (when (seq removed) (list ", " (n-of (count removed) "removed")))]
+        [:div.chg-body
+         [:p.muted "The spec now against " (code (:base CHG)) " (" (code (:base-commit CHG)) "), both read by the same extractor from git. A green " [:span.chg.changed "changed"] " or pink " [:span.chg.new "new"] " mark follows the change down every level: the event storm, the event model, the spec card and the scenario."]
+         (if (seq cards)
+           [:div.chg-list (for [[c rows] cards]
+                            [:div.chg-ctx [:a {:href (str "#ctx-" (:id c))} [:b (human (:id c))]]
+                             [:ul (for [{:keys [href title m kind scs]} rows]
+                                    [:li (chg-badge m) " " [:a {:href href} title] " " [:span.muted kind (when (seq scs) (str " · " (str/join ", " scs)))]])]])]
+           (none "No spec card changed."))
+         (when (seq removed)
+           [:details.inv [:summary [:span.t "Removed since " (:base CHG)] [:span.meta (count removed)]]
+            [:div.inv-body (qlist (for [[k x] removed] (list (muted (name k)) " " (code (str/join " " (map str (if (coll? x) x [x])))))))]])]]])))
 (defn view-home [built]
   (let [cs (:contexts world) items (:items world) S (:coverage world)]
     (view "home" [home-crumb]
       [:div.head
-       [:div.eyebrow "Level 0 · the big picture · built from " (code (:source world)) " at " (code (:commit world)) (when (:dirty world) " with local changes")]
        [:h1 (:page-title cfg)]
-       (when (seq (T :intro)) [:p.lede (T :intro {:contexts (count cs)})])
-       (stats (list [:b {:data-count "contexts"} (count cs)] " contexts") (n-of (count SE) "domain events") (list [:b {:data-count "items"} (count items)] " stamped items")
-              (n-of (reduce + (for [c cs] (count (filter #(= "drafts" (:kind %)) (:scenarios c))))) "drafts")
-              (n-of (count (:handoffs world)) "handoffs") (list "built " [:b built]))]
+       (when (seq (T :summary)) [:p.lede (T :summary {:contexts (count cs)})])]
       (changes-summary)
-      [:section
-       [:h2 "The event storm"]
-       [:p.muted "Every domain event of the spec, in the order a cycle happens, one band per bounded context. Under each sticky, lightly, who or what triggers it. Arrows are the handoffs from one context to the next. Click a band or a sticky to open its event model."]
-       [:div.story-key [:span [:i.k-evt] "domain event"] [:span [:i.k-un] "unhappy path"] [:span [:i.k-arrow] "handoff, in time order"]
-        (when CHG (list [:span [:i.k-chg] "changed"] [:span [:i.k-new] "new"]))]
-       [:div.story-frame {:innerHTML (story-svg false)}]]
+      [:section.storm-sec {:aria-label "The event storm"}
+       [:div.story-bar
+        [:div.story-key [:span [:i.k-evt] "domain event"] [:span [:i.k-un] "unhappy path"] [:span [:i.k-arrow] "handoff, in time order"]
+         (when CHG (list [:span [:i.k-chg] "changed"] [:span [:i.k-new] "new"]))]
+        [:div.story-tools [:span.story-hint "Time runs left to right: scroll sideways."]
+         [:button.story-fit {:type "button" :aria-pressed "false"} "Fit to screen"]]]
+       [:div.story-frame {:innerHTML (story-svg false)}]
+       [:p.muted.story-cap "Every domain event, in the order a cycle happens, one band per part of the system. Under each sticky, who or what triggers it; arrows hand work from one part to the next. Click a band or a sticky to open it."]]
       [:section
        [:h2 "Drill down"]
        [:p.muted "Each context's event model (commands, events, the views they feed), then its spec cards (each rule in plain words with its Given/When/Then), then under the hood (the Allium, the Grain blocks, the flows and handoffs)."]
@@ -125,8 +130,14 @@
         [:a.card {:href "#review"} [:h3 "Review"]
          [:span.muted {:style {:font-size "12.5px"}} "What the product owner decides: drafts awaiting acceptance, uncovered obligations, open questions, and the spec text not yet written in plain words."]
          (when (seq S) [:span.src (:must S) " must-cover · " (:uncovered S) " uncovered"])]]]
-      [:section
-       [:h2 "Each context is specified in three layers"]
+      [:section.about {:id "about"}
+       [:h2 "About this page"]
+       [:div.eyebrow "Level 0 · the big picture · built from " (code (:source world)) " at " (code (:commit world)) (when (:dirty world) " with local changes")]
+       (when (seq (T :intro)) [:p.muted (T :intro {:contexts (count cs)})])
+       (stats (list [:b {:data-count "contexts"} (count cs)] " contexts") (n-of (count SE) "domain events") (list [:b {:data-count "items"} (count items)] " stamped items")
+              (n-of (reduce + (for [c cs] (count (filter #(= "drafts" (:kind %)) (:scenarios c))))) "drafts")
+              (n-of (count (:handoffs world)) "handoffs") (list "built " [:b built]))
+       [:h3 "Each context is specified in three layers"]
        [:div.layers
         [:div.layer [:span.lbl "behaviour"] [:b "Allium"] (muted (code (str (:spec-root cfg) "/<context>/" (get-in cfg [:files :allium]) "/*.allium")) ": one file per aggregate and the context's shared language. Its state and lifecycle, the rules that change it (" (code "when") " · " (code "requires") " · " (code "ensures") "), invariants, contracts, and the surfaces that say who may act.")]
         [:div.layer [:span.lbl "topology"] [:b "Event Model"] (muted (code (str (:spec-root cfg) "/<context>/" (get-in cfg [:files :event-model]) "/*.edn")) ": Grain Event Model fragments (commands, events with schemas, read models, queries, policies, screens) and the flows that join them. Each block links back to its Allium rule.")]

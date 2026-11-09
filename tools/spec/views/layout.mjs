@@ -1,14 +1,15 @@
 // Layout check (Playwright, the installed Chrome): at a phone (375) and a desktop (1280) width,
 // light and dark, no view widens the page, neither as built (every "under the hood" folded) nor
 // with every <details> open; the event storm (L0) scrolls inside its own frame and keeps its
-// stickies legible; no event-storm cluster of an aggregate overlaps another or spills out of
+// stickies legible; at 1280 it fits its frame without scrolling, no handoff arrow runs over a
+// sticky, and no sticky text, trigger line or band header overlaps another; no event-storm cluster of an aggregate overlaps another or spills out of
 // its columns. Exit 1 on any finding.
 //   node layout.mjs <page.html> [review.html]
 import { chromium } from 'playwright-core';
 import { pathToFileURL } from 'node:url';
 const pages = process.argv.slice(2);
 const b = await chromium.launch({ channel: 'chrome' });
-const bad = []; let n = 0;
+const bad = []; let n = 0, storm = '';
 const go = async (p, id) => { await p.evaluate(h => { location.hash = h; }, id); await p.waitForTimeout(30); };
 const wider = p => p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 for (const file of pages) {
@@ -33,6 +34,41 @@ for (const file of pages) {
         if (!s) bad.push(`${tag}: home has no event storm`);
         else { if (s.frame > width) bad.push(`${tag}: the event storm's frame is wider than the screen`);
                if (s.font < 11) bad.push(`${tag}: the event storm's stickies are set at ${s.font}px, too small to read`); }
+        if (width === 1280) {   // the whole storm fits a desktop page, legibly, and nothing in it collides
+          const g = await p.evaluate(() => {
+            const f = document.querySelector('#home .story-frame'), svg = f.querySelector('svg'), out = [];
+            const scale = svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;
+            const font = parseFloat(getComputedStyle(svg.querySelector('.sk-t')).fontSize) * scale;
+            if (f.scrollWidth > f.clientWidth + 1) out.push(`the event storm overflows its frame by ${f.scrollWidth - f.clientWidth}px`);
+            if (font < 10.5) out.push(`the event storm is scaled so its stickies read at ${font.toFixed(1)}px`);
+            const R = el => el.getBoundingClientRect();
+            const sks = [...svg.querySelectorAll('.ev')].map(a => ({ a, r: R(a.querySelector('.sk')) }));
+            const inside = (q, r, m) => q.left >= r.left - m && q.right <= r.right + m && q.top >= r.top - m && q.bottom <= r.bottom + m;
+            const hit = (q, r, m) => q.left < r.right - m && r.left < q.right - m && q.top < r.bottom - m && r.top < q.bottom - m;
+            // no arrow runs over a sticky: sample each arrow along its length, in screen space
+            const m = svg.getScreenCTM(); let crossings = 0;
+            for (const path of svg.querySelectorAll('path.arrow')) {
+              const L = path.getTotalLength();
+              for (let d = 0; d <= L; d += 2) { const pt = path.getPointAtLength(d), x = m.a * pt.x + m.c * pt.y + m.e, y = m.b * pt.x + m.d * pt.y + m.f;
+                const s = sks.find(({ r }) => x > r.left + 2 && x < r.right - 2 && y > r.top + 2 && y < r.bottom - 2);
+                if (s) { crossings++; out.push(`the arrow ${path.dataset.arrow} runs over the sticky ${s.a.dataset.event}`); break; } }
+            }
+            // no label overlaps: a sticky's text inside its sticky; its trigger lines clear of every other sticky and trigger
+            const hints = [];
+            for (const { a, r } of sks) {
+              for (const t of a.querySelectorAll('.sk-t')) if (!inside(R(t), r, 1)) out.push(`the sticky ${a.dataset.event}: "${t.textContent}" spills out of it`);
+              for (const t of a.querySelectorAll('.hint')) hints.push({ a, q: R(t), t });
+            }
+            for (const h of hints) {
+              for (const { a, r } of sks) if (hit(h.q, r, 1)) out.push(`the trigger "${h.t.textContent}" of ${h.a.dataset.event} overlaps the sticky ${a.dataset.event}`);
+              for (const k of hints) if (k !== h && k.a !== h.a && hit(h.q, k.q, 1)) out.push(`the triggers of ${h.a.dataset.event} and ${k.a.dataset.event} overlap`);
+            }
+            for (const t of svg.querySelectorAll('.lane-h')) for (const { a, r } of sks) if (hit(R(t), r, 1)) out.push(`the band header "${t.textContent}" overlaps the sticky ${a.dataset.event}`);
+            return { out, arrows: svg.querySelectorAll('path.arrow').length, scale };
+          });
+          g.out.forEach(o => bad.push(`${tag}: ${o}`));
+          if (!g.out.length && scheme === 'light') storm = `the event storm fits 1280 (scale ${g.scale.toFixed(2)}), ${g.arrows} handoff arrows cross no sticky, no label overlaps`;
+        }
       }
       if (width === 1280 && scheme === 'light' && id.startsWith('mod-')) {
         await p.waitForTimeout(60);
@@ -50,5 +86,5 @@ for (const file of pages) {
   }
 }
 await b.close();
-console.log(bad.length ? bad.join('\n') : `layout: ${n} view checks (375 and 1280, light and dark, folded and open) fit the screen; the event storm scrolls in its frame; storm boards have no overlaps`);
+console.log(bad.length ? bad.join('\n') : `layout: ${n} view checks (375 and 1280, light and dark, folded and open) fit the screen; the event storm scrolls in its frame on a phone; ${storm}; storm boards have no overlaps`);
 process.exit(bad.length ? 1 : 0);

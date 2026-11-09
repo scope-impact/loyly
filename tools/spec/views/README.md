@@ -1,6 +1,7 @@
 # Spec views: the drill-down page of an Allium + Grain + Gherkin spec
 
-One static page per project, built with Babashka and Replicant, that a person reviews top-down:
+One static page per project, built with Babashka and Replicant, that a person reviews top-down.
+Its first screen is the title, one plain sentence of what the system does, and the event storm.
 L0 the event storm (every domain event, in time order, one band per bounded context), L1 each
 context's event model as swimlanes, L2 a spec card per rule (plain words, then Given/When/Then),
 L3 under the hood (Allium, Grain EDN, flows, handoffs), folded; the architecture (handoffs, C4)
@@ -40,8 +41,8 @@ Here: `tools/spec/views/build.sh [--base <ref>]` (the Löyly config, `project.ed
 | `:coverage` | optional command that writes the coverage JSON to the path appended |
 | `:out-dir` `:outputs` | where the page, review page and story SVG go, and their names |
 | `:publish` | `{:remote :branch}` read by `tools/spec/publish.sh` |
-| `:story` | `:after` event pairs the event models do not order; `:unhappy`, a regex of unhappy events |
-| `:text` | the project's own sentences (intro, notes), with `{contexts}` filled in |
+| `:story` | `:after` event pairs the event models do not order; `:unhappy`, a regex of unhappy events (drawn in a lighter sub-row of their band); `:orchestrator`, the context that only relays, drawn as a thin band at the top |
+| `:text` | the project's own sentences, with `{contexts}` filled in: `:summary`, the one plain sentence of what the system does under the title on the first screen; `:intro` and the notes, for "About this page" and the views below |
 
 A missing optional file switches its section off: no C4 and no handoffs, no architecture view;
 no coverage, no coverage figures.

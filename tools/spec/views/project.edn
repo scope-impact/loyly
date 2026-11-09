@@ -21,15 +21,18 @@
  ;; the order they do not hold. The cycle runner reads every context's store instead of
  ;; consuming its events (cycle-runner/allium/context.allium, "One run in the legacy shape"), so
  ;; its run starts before the stamp and the pin, its verdicts are handed in after the gate's
- ;; pass, and it concludes after the cycle does. :unhappy marks the events drawn as unhappy paths.
- :story {:after [[:cycle-runner/run-started :specification/scenario-stamped]
+ ;; pass, and it concludes after the cycle does. :unhappy marks the events drawn as unhappy paths;
+ ;; :orchestrator names the context that only relays, drawn as a thin band at the top.
+ :story {:orchestrator "cycle-runner"
+         :after [[:cycle-runner/run-started :specification/scenario-stamped]
                  [:cycle-runner/run-started :cycle-preparation/source-cut-pinned]
                  [:regeneration-cycle/gate-attempt-passed :cycle-runner/verdicts-handed-in]
                  [:cycle-runner/verdicts-handed-in :measurement/item-verdicts-filed]
                  [:regeneration-cycle/cycle-passed :cycle-runner/run-concluded]
                  [:regeneration-cycle/cycle-failed :cycle-runner/run-concluded]]
          :unhappy "failed|refused|halted"}
- :text {:intro "The Pi harness, specified as {contexts} bounded contexts. Each is a slice of its own: its Allium, its Grain Event Model, its stamped scenarios. The contexts meet only through handoffs, events one context defines and others read; the cycle runner relays each from its producer's store."
+ :text {:summary "Löyly rebuilds a software product from its written specification in a clean room, lets a gate it does not control decide whether the rebuild works, and scores the result item by item, one cycle at a time."
+        :intro "The Pi harness, specified as {contexts} bounded contexts. Each is a slice of its own: its Allium, its Grain Event Model, its stamped scenarios. The contexts meet only through handoffs, events one context defines and others read; the cycle runner relays each from its producer's store."
         :handoffs-assembly "This is the assembly the cycle runner's relay drives: "
         :handoffs-note " The cycle runner consumes none: it reads each from the producer's store and hands it in through the consumer's seam."
         :relay-note " The cycle runner relays each from the producer's store to the consumer."

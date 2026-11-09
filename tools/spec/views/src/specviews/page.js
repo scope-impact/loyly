@@ -1,7 +1,7 @@
 // The page's only script. Every view is already in the HTML; CSS shows the one the address
 // targets. This draws the Mermaid diagrams of the view on screen (Mermaid cannot lay out a
 // hidden one), draws the event-storm arrows (they depend on where the browser placed each
-// cluster), and toggles a diagram between fit-to-width and actual size.
+// cluster), and toggles a diagram (or the event storm on a phone) between fit-to-width and actual size.
 window.addEventListener("error", e => document.documentElement.setAttribute("data-js-error", String(e.message || e)));
 
 const escText = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -58,6 +58,13 @@ function mmSize(btn) {
 }
 window.mermaid?.initialize({ startOnLoad: false, securityLevel: "strict", theme: "base", flowchart: { htmlLabels: true, curve: "basis", useMaxWidth: true }, state: { useMaxWidth: true }, themeVariables: { fontFamily: "Instrument Sans, system-ui, sans-serif", fontSize: "13px" } });
 window.addEventListener("hashchange", drawShown);
-document.addEventListener("click", e => { const b = e.target.closest(".mm .size"); if (b) mmSize(b); });
+// The event storm on a narrow screen: scroll it in its frame, or fit it to the screen.
+function storyFit(btn) {
+  const f = btn.closest(".storm-sec").querySelector(".story-frame"), on = f.classList.toggle("fit");
+  btn.setAttribute("aria-pressed", String(on));
+  btn.textContent = on ? "Actual size" : "Fit to screen";
+  btn.previousElementSibling.textContent = on ? "Fitted to the screen: zoom in, or show it at actual size." : "Time runs left to right: scroll sideways.";
+}
+document.addEventListener("click", e => { const b = e.target.closest(".mm .size"); if (b) mmSize(b); const s = e.target.closest(".story-fit"); if (s) storyFit(s); });
 window.addEventListener("load", drawShown);   // after the address has picked its view
 window.addEventListener("resize", () => { const v = document.getElementById(document.documentElement.dataset.view || "home"); if (v) drawStorms(v); });

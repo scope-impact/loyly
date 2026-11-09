@@ -13,4 +13,5 @@
  :tiers ["@minimum"]
  :out-dir "dist"
  :story {:unhappy "refused"}
- :text {:intro "A lending library, specified as {contexts} bounded context."}}
+ :text {:summary "A lending library lends its books to members, one member at a time per book, and takes them back."
+        :intro "A lending library, specified as {contexts} bounded context."}}
