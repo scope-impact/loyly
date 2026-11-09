@@ -1,0 +1,64 @@
+[
+ {
+  "id": "S1",
+  "items": [
+   "06-001",
+   "06-003",
+   "06-004",
+   "06-007",
+   "06-015",
+   "06-025",
+   "06-026",
+   "06-029",
+   "06-030",
+   "06-031",
+   "06-032",
+   "06-035",
+   "06-036",
+   "06-039",
+   "06-047",
+   "06-051"
+  ],
+  "surprise": "Every run whose gate passes halts while relaying regeneration-cycle/gate-attempt-passed to measurement: halt detail \"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date\". The event is never handed in (measurement's store has no gate-attempt-passed). Regeneration-cycle's store keeps passed-at as a grain/instant (java.time.Instant), while specification's and cycle-preparation's instants (relayed fine) are java.util.Date. Handing the same event to the gated measurement candidate directly, passed-at as ISO text, is accepted (transcript/probe-meas-direct-handin/response.json). So no run can reach awaiting-verdicts with the real gated candidates; every verdict, score and scoreboard item is unreachable. The halt is also labelled context-did-not-respond, though the context was never asked."
+ },
+ {
+  "id": "S2",
+  "items": [
+   "06-018"
+  ],
+  "surprise": "With the port held, regeneration-cycle refuses the runner's record-gate-attempt with reason-does-not-fit-outcome, and record-gate-refusal is refused with no refusal code. The runner retried 11 times at the same attempt (positions 9 to 30), then halted {effect gate-refusal, reason effect-could-not-run, detail \"Gate refusals did not conclude the cycle\"}."
+ },
+ {
+  "id": "S3",
+  "items": [],
+  "surprise": "Host load, not the candidate: the machine ran at load 40-55 (a long-running VM and other processes). The five gated JVM contexts often took over 30 s to boot together, and the runner refused contexts-not-responding naming all five (also 06-050, which checks contexts before the image). For that reason I named wrappers in LOYLY_CONTEXTS (grading/ctx/*.sh: the unchanged gated candidates with JAVA_TOOL_OPTIONS='-XX:TieredStopAtLevel=1 -XX:ActiveProcessorCount=2 -XX:+UseSerialGC'), added one runs-to-advance read before each scenario, and reran any scenario that got an unexpected contexts-not-responding (s/done.txt, s/flaky/). The runner's own work before it starts the contexts (~30 s on the loaded host in 050's failed tries) seems to count toward that wait. The seam names no deadline."
+ },
+ {
+  "id": "S4",
+  "items": [
+   "06-051"
+  ],
+  "surprise": "Even though both runs halted, R-2 on the same LOYLY_MEASUREMENT_STORE relayed only that run's new handoffs, with positions counted from 1 (scenario-stamped #1, #2, source-cut-pinned #1), and H kept both runs' events. So the history-store relay window works up to the gate."
+ },
+ {
+  "id": "S5",
+  "items": [
+   "06-045"
+  ],
+  "surprise": "When the store-check command cannot be started, the identity probe (which launches start.sh) still ran before the halt (t045/probe-run.*.txt). The seam allows this, but the check could fail before booting anything."
+ },
+ {
+  "id": "S6",
+  "items": [
+   "06-003"
+  ],
+  "surprise": "After R-1 halted, start R-2 C-2 was accepted. In an earlier try on the loaded host it was refused contexts-not-responding naming cycle-preparation only."
+ },
+ {
+  "id": "S7",
+  "items": [
+   "06-049"
+  ],
+  "surprise": "Without BUILDER_IMAGE (t049b), the builder got two arguments, as before. With it, the image digest in the detail matches the candidate-digest formula over the image folder that I computed myself (sha256:07f0b66e...)."
+ }
+]

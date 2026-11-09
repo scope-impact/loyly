@@ -1,0 +1,266 @@
+[
+ {
+  "id": "06-001",
+  "verdict": "fail",
+  "evidence": "transcript/s1: positions 1-9 are stamp,pin,checklist,self-check,fence,regenerate,install,self-check,gate, each recorded, gate events [regeneration-cycle/gate-attempt-passed]; but run R-1 status=halted, not awaiting-verdicts: halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}"
+ },
+ {
+  "id": "06-002",
+  "verdict": "pass",
+  "evidence": "transcript/fence: R-1 C-1 failed at the fence (fence-refused); start R-1 C-2 -> -32000 run-already-started; run-progress lists [R-1 C-1 failed] once"
+ },
+ {
+  "id": "06-003",
+  "verdict": "fail",
+  "evidence": "transcript/s1: R-1 status=halted (halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}); R-2 C-2 was then started (not refused) because R-1 was no longer in progress",
+  "reason": "unreached: run R-1 never awaits its verdicts: every gate-passed run halts relaying gate-attempt-passed"
+ },
+ {
+  "id": "06-004",
+  "verdict": "fail",
+  "evidence": "transcript/s1: R-1 status=halted (halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}); hand-in refused run-not-awaiting-verdicts; start R-2 C-1 refused run-already-started (R-2 existed); the given 'R-1 concluded passed' cannot be set up",
+  "reason": "unreached: no run concludes passed: every gate-passed run halts before its verdicts"
+ },
+ {
+  "id": "06-005",
+  "verdict": "pass",
+  "evidence": "transcript/t005: start with commit deadbeef... -> -32000 not-a-commit; run-progress R-1 null, runs []; no stub builder launch recorded; runner store holds 0 cycle-runner events"
+ },
+ {
+  "id": "06-006",
+  "verdict": "pass",
+  "evidence": "transcript/t006: measurement entrypoint exits at once -> -32000 contexts-not-responding, data.contexts [\"measurement\"]; run-progress R-1 null"
+ },
+ {
+  "id": "06-007",
+  "verdict": "fail",
+  "evidence": "transcript/s1: relayed handoffs begin scenario-stamped#1,#2 -> measurement, source-cut-pinned#1 -> measurement and -> regeneration-cycle, all accepted; but regeneration-cycle/gate-attempt-passed at position 1 is never relayed to measurement: halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}"
+ },
+ {
+  "id": "06-008",
+  "verdict": "pass",
+  "evidence": "transcript/t008: checklist effect refused \"empty-checklist\", context measurement; run halted {effect checklist, reason refused-before-the-cycle, detail empty-checklist}; effects are stamp,pin,checklist only"
+ },
+ {
+  "id": "06-009",
+  "verdict": "pass",
+  "evidence": "transcript/t009: stamp effect recorded by specification (3 scenario-stamped); halt {effect stamp, reason refused-before-the-cycle, detail plan identities [01-001 01-002], stamp identities [01-001 01-002 01-003]}; no pin, no checklist"
+ },
+ {
+  "id": "06-010",
+  "verdict": "pass",
+  "evidence": "transcript/t010: status failed; cycle.failure {stage fence, reason harness-self-check-failed, detail \"golden checklist differs\"}; last effect position 4 self-check (harness-self-check-failed); no fence, no regenerate"
+ },
+ {
+  "id": "06-011",
+  "verdict": "pass",
+  "evidence": "transcript/t011: first self-check recorded regeneration-cycle/harness-self-check-passed with skipped-checks [\"bb-tools\"], detail 'OK oracle\\nSKIP bb-tools\\n'"
+ },
+ {
+  "id": "06-012",
+  "verdict": "pass",
+  "evidence": "transcript/fence: effect 5 fence refused \"fenced-path-matched-nothing\", context regeneration-cycle; effect 6 fail-cycle recorded (cycle-failed); R-1 failed, cycle.failure {stage fence, reason fence-refused}; no builder launch recorded"
+ },
+ {
+  "id": "06-013",
+  "verdict": "pass",
+  "evidence": "transcript/s1/launch-1: builder room held docs/plan/01-a/spec.feature, harness/config.sh, harness/check.sh, harness/probe.sh and an empty ./impl; git rev-list --all --count = 1; no impl or harness/cycles path in the tree or in rev-list --objects --all (commit held both)"
+ },
+ {
+  "id": "06-014",
+  "verdict": "pass",
+  "evidence": "transcript/t014: launch-1 start 1794233823.90 end 1794233824.10; launch-2 start 1794233825.07 end 1794233825.27; exactly 2 launches (regenerate a1, repair a2)"
+ },
+ {
+  "id": "06-015",
+  "verdict": "fail",
+  "evidence": "transcript/t015: builder exited 1; regenerate effect recorded with candidate-digest sha256:0652754d... (= install digest), gate passed; but run R-1 status=halted, not awaiting its verdicts: halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}"
+ },
+ {
+  "id": "06-016",
+  "verdict": "pass",
+  "evidence": "transcript/t016: effects stamp,pin,checklist,self-check,fence,fail-cycle (recorded, cycle-failed); no regenerate effect; cycle.failure {stage regenerate, reason candidate-not-regenerated}; status failed"
+ },
+ {
+  "id": "06-017",
+  "verdict": "pass",
+  "evidence": "transcript/t017: regen timeout 2s, builder sleeping 30s: builder pid not alive when start responded and never woke (checked again 32s later); cycle.failure {stage regenerate, reason budget, detail builder exceeded regenerate timeout}"
+ },
+ {
+  "id": "06-018",
+  "verdict": "fail",
+  "evidence": "transcript/t018: gate effect a1 refused \"reason-does-not-fit-outcome\" (not seam-answered-before-boot), each gate-refusal effect refused too; 11 gate tries, then halt {effect gate-refusal, reason effect-could-not-run, detail \"Gate refusals did not conclude the cycle\"}; run halted, not failed for infrastructure"
+ },
+ {
+  "id": "06-019",
+  "verdict": "pass",
+  "evidence": "transcript/t019: gate a1 recorded regeneration-cycle/gate-attempt-failed reason suite-red; start.sh never ran (no start-ran.log); cycle.failure {stage gate, reason gate-attempts-exhausted}"
+ },
+ {
+  "id": "06-020",
+  "verdict": "pass",
+  "evidence": "transcript/t020: gate a1 recorded gate-attempt-failed reason contract-missing, detail \"test.sh and start.sh must be executable\""
+ },
+ {
+  "id": "06-021",
+  "verdict": "pass",
+  "evidence": "transcript/t021: gate a1 recorded gate-attempt-failed reason identity-probe-failed, detail \"Page did not carry marker\""
+ },
+ {
+  "id": "06-022",
+  "verdict": "pass",
+  "evidence": "transcript/t022: post-exit writer wrote RED into the builder room; gate a1 recorded gate-attempt-passed; install digest sha256:92caae6f... = regenerate digest"
+ },
+ {
+  "id": "06-023",
+  "verdict": "pass",
+  "evidence": "transcript/t014: repair effect a2 recorded (verification-repair, parent digest of a1), detail 'mounted gate evidence .../gate-evidence/attempt-1 read-only at .../builder-rooms/attempt-2/gate-evidence'; launch-2 saw docs, harness, impl (W), previous-candidate RO(PermissionError), gate-evidence RO(PermissionError)"
+ },
+ {
+  "id": "06-024",
+  "verdict": "pass",
+  "evidence": "transcript/t024: 3 launches; gates a1,a2,a3 gate-attempt-failed; cycle.failure {stage gate, reason gate-attempts-exhausted}; no fourth launch"
+ },
+ {
+  "id": "06-025",
+  "verdict": "fail",
+  "evidence": "transcript/s1, t051: hand-in for R-1 -> -32000 run-not-awaiting-verdicts; R-1 halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}; no file-verdicts or file-score effect",
+  "reason": "unreached: run R-1 never awaits its verdicts"
+ },
+ {
+  "id": "06-026",
+  "verdict": "fail",
+  "evidence": "transcript/s2: hand-in of a file holding only 01-001 -> -32000 run-not-awaiting-verdicts; R-1 halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}",
+  "reason": "unreached: run R-1 never awaits its verdicts"
+ },
+ {
+  "id": "06-027",
+  "verdict": "pass",
+  "evidence": "transcript/s1: hand-in for R-9 -> -32000 no-run; run-progress R-9 -> run null"
+ },
+ {
+  "id": "06-028",
+  "verdict": "pass",
+  "evidence": "transcript/t024: R-1 failed gate-attempts-exhausted; hand-in -> -32000 gate-not-passed; afterwards no file-verdicts effect, status still failed"
+ },
+ {
+  "id": "06-029",
+  "verdict": "fail",
+  "evidence": "transcript/t032: both hand-ins -> run-not-awaiting-verdicts; R-1 halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}; cycle never failed at the score",
+  "reason": "unreached: verdicts can never be handed in: every gate-passed run halts before its verdicts"
+ },
+ {
+  "id": "06-030",
+  "verdict": "fail",
+  "evidence": "transcript/s1: hand-in with digest r-2 -> -32000 run-not-awaiting-verdicts (not grader-not-approved); R-1 already halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}",
+  "reason": "unreached: run R-1 never awaits its verdicts"
+ },
+ {
+  "id": "06-031",
+  "verdict": "fail",
+  "evidence": "transcript/s2: blank and whitespace hand-ins -> run-not-awaiting-verdicts; R-1 halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}; Then 'still awaits its verdicts' false",
+  "reason": "unreached: run R-1 never awaits its verdicts"
+ },
+ {
+  "id": "06-032",
+  "verdict": "fail",
+  "evidence": "transcript/t032: hand-in of 01-001 + 09-001 -> -32000 run-not-awaiting-verdicts; no file-verdicts or fail-score-stage effect; R-1 halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}",
+  "reason": "unreached: run R-1 never awaits its verdicts"
+ },
+ {
+  "id": "06-033",
+  "verdict": "pass",
+  "evidence": "transcript/t033: wrapper exits on measurement/derive-checklist; halt {effect checklist, reason context-did-not-respond}; effects stamp,pin only, no checklist effect"
+ },
+ {
+  "id": "06-034",
+  "verdict": "pass",
+  "evidence": "transcript/fence: R-1 failed at fence, R-2 C-2 halted at checklist; readings taken >5s after each start responded are identical to the readings at start (same effect results and relayed handoffs), still failed / halted"
+ },
+ {
+  "id": "06-035",
+  "verdict": "fail",
+  "evidence": "transcript/s1: two readings of R-1 are identical, but R-1 status=halted (halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}), so 'still awaits its verdicts' is false",
+  "reason": "unreached: run R-1 never awaits its verdicts"
+ },
+ {
+  "id": "06-036",
+  "verdict": "fail",
+  "evidence": "transcript/s1: probe called with one argument http://127.0.0.1:24101 and gate a1 recorded gate-attempt-passed; but run R-1 status=halted, not awaiting its verdicts: halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}"
+ },
+ {
+  "id": "06-037",
+  "verdict": "pass",
+  "evidence": "transcript/t037: suite creating/removing a dir in its own directory: gate a1 recorded gate-attempt-passed; install digest sha256:563a627b... = regenerate digest"
+ },
+ {
+  "id": "06-038",
+  "verdict": "pass",
+  "evidence": "transcript/t038: first self-check recorded harness-self-check-passed with skipped-checks [\"the oracle cannot judge this tree: a tool it grades is absent.\"]"
+ },
+ {
+  "id": "06-039",
+  "verdict": "fail",
+  "evidence": "transcript/t039: gate a1 gate-attempt-passed with boot-budget-seconds 30, boot-polls 1, answered-on-poll 1, identity-probe-result \"answered as the context\", no gate-refusal effect; but run R-1 status=halted, not awaiting its verdicts: halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}"
+ },
+ {
+  "id": "06-040",
+  "verdict": "pass",
+  "evidence": "transcript/t039: probe ARGC=2, ARG=.../runs/R-1/gate-rooms/attempt-1/impl/start.sh, ARG=30; GATE_STORE=.../runs/R-1/gate-evidence/attempt-1/events.sqlite (outside the gate room); no LOYLY_ variable in its env; store check's only/last arg the same file"
+ },
+ {
+  "id": "06-041",
+  "verdict": "pass",
+  "evidence": "transcript/t041 (and t041b with an inherited GATE_STORE): gate a1 gate-attempt-failed reason suite-red; suite env holds no GATE_STORE and no LOYLY_ variable; no probe-run or storecheck-run record"
+ },
+ {
+  "id": "06-042",
+  "verdict": "pass",
+  "evidence": "transcript/t042: gate a1 gate-attempt-failed reason identity-probe-failed, detail \"no response within the 30s boot budget\"; no storecheck-run record"
+ },
+ {
+  "id": "06-043",
+  "verdict": "pass",
+  "evidence": "transcript/t043: gate a1 gate-attempt-failed reason identity-probe-failed, detail \"FAIL event 7 was not written inside a run of the ORC workflow\"; cycle.failure {stage gate, reason gate-attempts-exhausted}"
+ },
+ {
+  "id": "06-044",
+  "verdict": "pass",
+  "evidence": "transcript/t044: suite exits 0 only if docs/plan/01-a/spec.feature is at the room root; gate a1 gate-attempt-passed; install digest = regenerate digest"
+ },
+ {
+  "id": "06-045",
+  "verdict": "pass",
+  "evidence": "transcript/t045 (t045b with an empty command): halt {effect gate, reason effect-could-not-run, detail \"Cannot start .../no-such-check.sh ...\"}; effects end at position 8 self-check, no gate effect result"
+ },
+ {
+  "id": "06-046",
+  "verdict": "pass",
+  "evidence": "transcript/t046: R-1 and R-2 first self-checks both harness-self-check-passed; harness digests sha256:8455c3c9... vs sha256:4750b2d9... differ"
+ },
+ {
+  "id": "06-047",
+  "verdict": "fail",
+  "evidence": "transcript/t047: stamp effect recorded by specification and checklist names 01-001 and 01-002 with sources docs/plan/01-a/spec.feature:7 and :13, but run R-1 did halt (status=halted at the gate: context-did-not-respond, java.time.Instant cannot be cast to java.util.Date)"
+ },
+ {
+  "id": "06-048",
+  "verdict": "pass",
+  "evidence": "transcript/t048: one stamp effect, of 02-b (scenario-stamped 02-001, slice 02); checklist-derived items [02-001] only, total 1"
+ },
+ {
+  "id": "06-049",
+  "verdict": "pass",
+  "evidence": "transcript/t049: both launches argv 3: builder room, instruction file, .../t049/images/builder-clojure; regenerate detail and repair detail each end 'builder image builder-clojure sha256:07f0b66e...', equal to the grader's own candidate-digest formula over the image folder"
+ },
+ {
+  "id": "06-050",
+  "verdict": "pass",
+  "evidence": "transcript/t050: start -> -32000 builder-image-missing; run-progress R-1 null, runs []; no builder launch recorded; runner store 0 cycle-runner events"
+ },
+ {
+  "id": "06-051",
+  "verdict": "fail",
+  "evidence": "transcript/t051: with LOYLY_MEASUREMENT_STORE=H, R-1 and R-2 both halted at the gate (Instant->Date cast relaying gate-attempt-passed); both hand-ins refused run-not-awaiting-verdicts; measurement/scoreboard on H for C-2 -> {\"scoreboard\":null}; no measurement-filed or scoreboard-reported relayed"
+ }
+]

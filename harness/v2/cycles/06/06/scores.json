@@ -1,0 +1,412 @@
+{
+ "items": [
+  {
+   "id": "06-001",
+   "name": "The operator starts a run, and it performs the cycle's effects up to the gate's verdict",
+   "rule": "A run starts once, one at a time, on a commit of the project repository, with its five contexts responding",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:18",
+   "verdict": "fail",
+   "evidence": "transcript/s1: positions 1-9 are stamp,pin,checklist,self-check,fence,regenerate,install,self-check,gate, each recorded, gate events [regeneration-cycle/gate-attempt-passed]; but run R-1 status=halted, not awaiting-verdicts: halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}"
+  },
+  {
+   "id": "06-002",
+   "name": "A run identity is started once",
+   "rule": "A run starts once, one at a time, on a commit of the project repository, with its five contexts responding",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:28",
+   "verdict": "pass",
+   "evidence": "transcript/fence: R-1 C-1 failed at the fence (fence-refused); start R-1 C-2 -> -32000 run-already-started; run-progress lists [R-1 C-1 failed] once"
+  },
+  {
+   "id": "06-003",
+   "name": "A second run is refused while the first awaits its verdicts",
+   "rule": "A run starts once, one at a time, on a commit of the project repository, with its five contexts responding",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:38",
+   "verdict": "fail",
+   "evidence": "transcript/s1: R-1 status=halted (halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}); R-2 C-2 was then started (not refused) because R-1 was no longer in progress"
+  },
+  {
+   "id": "06-004",
+   "name": "A cycle is run once",
+   "rule": "A run starts once, one at a time, on a commit of the project repository, with its five contexts responding",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:47",
+   "verdict": "fail",
+   "evidence": "transcript/s1: R-1 status=halted (halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}); hand-in refused run-not-awaiting-verdicts; start R-2 C-1 refused run-already-started (R-2 existed); the given 'R-1 concluded passed' cannot be set up"
+  },
+  {
+   "id": "06-005",
+   "name": "A run of something that is not a commit of the project repository is refused",
+   "rule": "A run starts once, one at a time, on a commit of the project repository, with its five contexts responding",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:56",
+   "verdict": "pass",
+   "evidence": "transcript/t005: start with commit deadbeef... -> -32000 not-a-commit; run-progress R-1 null, runs []; no stub builder launch recorded; runner store holds 0 cycle-runner events"
+  },
+  {
+   "id": "06-006",
+   "name": "A run whose context does not respond on its seam is refused",
+   "rule": "A run starts once, one at a time, on a commit of the project repository, with its five contexts responding",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:65",
+   "verdict": "pass",
+   "evidence": "transcript/t006: measurement entrypoint exits at once -> -32000 contexts-not-responding, data.contexts [\"measurement\"]; run-progress R-1 null"
+  },
+  {
+   "id": "06-007",
+   "name": "Each handoff is handed in, unchanged and once, to every consumer, in its producer's order",
+   "rule": "The runner stamps, pins and derives the checklist, and relays every handoff from its producer's store",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:77",
+   "verdict": "fail",
+   "evidence": "transcript/s1: relayed handoffs begin scenario-stamped#1,#2 -> measurement, source-cut-pinned#1 -> measurement and -> regeneration-cycle, all accepted; but regeneration-cycle/gate-attempt-passed at position 1 is never relayed to measurement: halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}"
+  },
+  {
+   "id": "06-008",
+   "name": "A checklist Measurement refuses halts the run with Measurement's refusal",
+   "rule": "The runner stamps, pins and derives the checklist, and relays every handoff from its producer's store",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:88",
+   "verdict": "pass",
+   "evidence": "transcript/t008: checklist effect refused \"empty-checklist\", context measurement; run halted {effect checklist, reason refused-before-the-cycle, detail empty-checklist}; effects are stamp,pin,checklist only"
+  },
+  {
+   "id": "06-009",
+   "name": "A plan whose item identities a fresh stamp does not give back halts the run before the cycle",
+   "rule": "The runner stamps, pins and derives the checklist, and relays every handoff from its producer's store",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:99",
+   "verdict": "pass",
+   "evidence": "transcript/t009: stamp effect recorded by specification (3 scenario-stamped); halt {effect stamp, reason refused-before-the-cycle, detail plan identities [01-001 01-002], stamp identities [01-001 01-002 01-003]}; no pin, no checklist"
+  },
+  {
+   "id": "06-010",
+   "name": "A failing self-check fails the cycle at the fence, and the run with it",
+   "rule": "No clean room is built over a failed harness self-check",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:112",
+   "verdict": "pass",
+   "evidence": "transcript/t010: status failed; cycle.failure {stage fence, reason harness-self-check-failed, detail \"golden checklist differs\"}; last effect position 4 self-check (harness-self-check-failed); no fence, no regenerate"
+  },
+  {
+   "id": "06-011",
+   "name": "A check the self-check skips is recorded as a listed skip",
+   "rule": "No clean room is built over a failed harness self-check",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:122",
+   "verdict": "pass",
+   "evidence": "transcript/t011: first self-check recorded regeneration-cycle/harness-self-check-passed with skipped-checks [\"bb-tools\"], detail 'OK oracle\\nSKIP bb-tools\\n'"
+  },
+  {
+   "id": "06-012",
+   "name": "A fenced path that matches nothing fails the cycle at the fence",
+   "rule": "The fence builds the clean room of the cut and proves it, as legacy fence.sh does",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:134",
+   "verdict": "pass",
+   "evidence": "transcript/fence: effect 5 fence refused \"fenced-path-matched-nothing\", context regeneration-cycle; effect 6 fail-cycle recorded (cycle-failed); R-1 failed, cycle.failure {stage fence, reason fence-refused}; no builder launch recorded"
+  },
+  {
+   "id": "06-013",
+   "name": "The fresh builder sees the clean room of one commit with no fenced path",
+   "rule": "The fence builds the clean room of the cut and proves it, as legacy fence.sh does",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:145",
+   "verdict": "pass",
+   "evidence": "transcript/s1/launch-1: builder room held docs/plan/01-a/spec.feature, harness/config.sh, harness/check.sh, harness/probe.sh and an empty ./impl; git rev-list --all --count = 1; no impl or harness/cycles path in the tree or in rev-list --objects --all (commit held both)"
+  },
+  {
+   "id": "06-014",
+   "name": "Each regenerate launches one builder and waits for it",
+   "rule": "A regenerate launches one fresh builder and records what it left in its candidate scope",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:157",
+   "verdict": "pass",
+   "evidence": "transcript/t014: launch-1 start 1794233823.90 end 1794233824.10; launch-2 start 1794233825.07 end 1794233825.27; exactly 2 launches (regenerate a1, repair a2)"
+  },
+  {
+   "id": "06-015",
+   "name": "A builder that exits non-zero but leaves a candidate is gated",
+   "rule": "A regenerate launches one fresh builder and records what it left in its candidate scope",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:167",
+   "verdict": "fail",
+   "evidence": "transcript/t015: builder exited 1; regenerate effect recorded with candidate-digest sha256:0652754d... (= install digest), gate passed; but run R-1 status=halted, not awaiting its verdicts: halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}"
+  },
+  {
+   "id": "06-016",
+   "name": "A builder that leaves nothing fails the cycle at regenerate",
+   "rule": "A regenerate launches one fresh builder and records what it left in its candidate scope",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:177",
+   "verdict": "pass",
+   "evidence": "transcript/t016: effects stamp,pin,checklist,self-check,fence,fail-cycle (recorded, cycle-failed); no regenerate effect; cycle.failure {stage regenerate, reason candidate-not-regenerated}; status failed"
+  },
+  {
+   "id": "06-017",
+   "name": "A builder that outlives the regenerate timeout is stopped and the cycle fails for its budget",
+   "rule": "A regenerate launches one fresh builder and records what it left in its candidate scope",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:186",
+   "verdict": "pass",
+   "evidence": "transcript/t017: regen timeout 2s, builder sleeping 30s: builder pid not alive when start responded and never woke (checked again 32s later); cycle.failure {stage regenerate, reason budget, detail builder exceeded regenerate timeout}"
+  },
+  {
+   "id": "06-018",
+   "name": "Something answering on the port is a gate refusal, and three in a row fail the cycle",
+   "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:198",
+   "verdict": "fail",
+   "evidence": "transcript/t018: gate effect a1 refused \"reason-does-not-fit-outcome\" (not seam-answered-before-boot), each gate-refusal effect refused too; 11 gate tries, then halt {effect gate-refusal, reason effect-could-not-run, detail \"Gate refusals did not conclude the cycle\"}; run halted, not failed for infrastructure"
+  },
+  {
+   "id": "06-019",
+   "name": "A red suite fails the attempt before the candidate is booted",
+   "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:209",
+   "verdict": "pass",
+   "evidence": "transcript/t019: gate a1 recorded regeneration-cycle/gate-attempt-failed reason suite-red; start.sh never ran (no start-ran.log); cycle.failure {stage gate, reason gate-attempts-exhausted}"
+  },
+  {
+   "id": "06-020",
+   "name": "A candidate with no launch entrypoint fails the attempt for a missing contract",
+   "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:220",
+   "verdict": "pass",
+   "evidence": "transcript/t020: gate a1 recorded gate-attempt-failed reason contract-missing, detail \"test.sh and start.sh must be executable\""
+  },
+  {
+   "id": "06-021",
+   "name": "A served page without the marker fails the attempt for its identity",
+   "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:230",
+   "verdict": "pass",
+   "evidence": "transcript/t021: gate a1 recorded gate-attempt-failed reason identity-probe-failed, detail \"Page did not carry marker\""
+  },
+  {
+   "id": "06-022",
+   "name": "What a builder writes after it ended does not reach the gate",
+   "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:239",
+   "verdict": "pass",
+   "evidence": "transcript/t022: post-exit writer wrote RED into the builder room; gate a1 recorded gate-attempt-passed; install digest sha256:92caae6f... = regenerate digest"
+  },
+  {
+   "id": "06-023",
+   "name": "A repair builder sees the previous candidate and the gate evidence, read-only",
+   "rule": "A failed gate attempt is repaired by a fresh builder that sees only the previous candidate and the gate's evidence",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:251",
+   "verdict": "pass",
+   "evidence": "transcript/t014: repair effect a2 recorded (verification-repair, parent digest of a1), detail 'mounted gate evidence .../gate-evidence/attempt-1 read-only at .../builder-rooms/attempt-2/gate-evidence'; launch-2 saw docs, harness, impl (W), previous-candidate RO(PermissionError), gate-evidence RO(PermissionError)"
+  },
+  {
+   "id": "06-024",
+   "name": "Three failed attempts fail the cycle, and no fourth builder is launched",
+   "rule": "A failed gate attempt is repaired by a fresh builder that sees only the previous candidate and the gate's evidence",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:261",
+   "verdict": "pass",
+   "evidence": "transcript/t024: 3 launches; gates a1,a2,a3 gate-attempt-failed; cycle.failure {stage gate, reason gate-attempts-exhausted}; no fourth launch"
+  },
+  {
+   "id": "06-025",
+   "name": "Verdicts handed in are filed as given, and the run passes as its cycle passes",
+   "rule": "The verdicts of the gated candidate are handed in, filed as given, and the run ends as its cycle ends",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:273",
+   "verdict": "fail",
+   "evidence": "transcript/s1, t051: hand-in for R-1 -> -32000 run-not-awaiting-verdicts; R-1 halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}; no file-verdicts or file-score effect"
+  },
+  {
+   "id": "06-026",
+   "name": "An item the verdicts file does not name is Measurement's to record as unreached",
+   "rule": "The verdicts of the gated candidate are handed in, filed as given, and the run ends as its cycle ends",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:285",
+   "verdict": "fail",
+   "evidence": "transcript/s2: hand-in of a file holding only 01-001 -> -32000 run-not-awaiting-verdicts; R-1 halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}"
+  },
+  {
+   "id": "06-027",
+   "name": "Verdicts for a run that does not exist are refused",
+   "rule": "The verdicts of the gated candidate are handed in, filed as given, and the run ends as its cycle ends",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:295",
+   "verdict": "pass",
+   "evidence": "transcript/s1: hand-in for R-9 -> -32000 no-run; run-progress R-9 -> run null"
+  },
+  {
+   "id": "06-028",
+   "name": "Verdicts for a run whose gate never passed are refused",
+   "rule": "The verdicts of the gated candidate are handed in, filed as given, and the run ends as its cycle ends",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:305",
+   "verdict": "pass",
+   "evidence": "transcript/t024: R-1 failed gate-attempts-exhausted; hand-in -> -32000 gate-not-passed; afterwards no file-verdicts effect, status still failed"
+  },
+  {
+   "id": "06-029",
+   "name": "A second verdicts file is refused, and no builder follows the verdicts",
+   "rule": "The verdicts of the gated candidate are handed in, filed as given, and the run ends as its cycle ends",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:315",
+   "verdict": "fail",
+   "evidence": "transcript/t032: both hand-ins -> run-not-awaiting-verdicts; R-1 halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}; cycle never failed at the score"
+  },
+  {
+   "id": "06-030",
+   "name": "Verdicts under a grader digest the run did not approve are refused",
+   "rule": "The verdicts of the gated candidate are handed in, filed as given, and the run ends as its cycle ends",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:324",
+   "verdict": "fail",
+   "evidence": "transcript/s1: hand-in with digest r-2 -> -32000 run-not-awaiting-verdicts (not grader-not-approved); R-1 already halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}"
+  },
+  {
+   "id": "06-031",
+   "name": "A verdicts file that is blank is refused, and nothing is filed",
+   "rule": "The verdicts of the gated candidate are handed in, filed as given, and the run ends as its cycle ends",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:334",
+   "verdict": "fail",
+   "evidence": "transcript/s2: blank and whitespace hand-ins -> run-not-awaiting-verdicts; R-1 halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}; Then 'still awaits its verdicts' false"
+  },
+  {
+   "id": "06-032",
+   "name": "Verdicts Measurement refuses fail the score stage, and the run fails with its cycle",
+   "rule": "The verdicts of the gated candidate are handed in, filed as given, and the run ends as its cycle ends",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:344",
+   "verdict": "fail",
+   "evidence": "transcript/t032: hand-in of 01-001 + 09-001 -> -32000 run-not-awaiting-verdicts; no file-verdicts or fail-score-stage effect; R-1 halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}"
+  },
+  {
+   "id": "06-033",
+   "name": "A context that stops answering halts the run, and nothing is recorded for that effect",
+   "rule": "A run that cannot perform an effect halts, loudly, and a run that ended stays as it ended",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:356",
+   "verdict": "pass",
+   "evidence": "transcript/t033: wrapper exits on measurement/derive-checklist; halt {effect checklist, reason context-did-not-respond}; effects stamp,pin only, no checklist effect"
+  },
+  {
+   "id": "06-034",
+   "name": "A run that ended stays as it ended",
+   "rule": "A run that cannot perform an effect halts, loudly, and a run that ended stays as it ended",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:365",
+   "verdict": "pass",
+   "evidence": "transcript/fence: R-1 failed at fence, R-2 C-2 halted at checklist; readings taken >5s after each start responded are identical to the readings at start (same effect results and relayed handoffs), still failed / halted"
+  },
+  {
+   "id": "06-035",
+   "name": "Reading a run's progress changes nothing",
+   "rule": "A run that cannot perform an effect halts, loudly, and a run that ended stays as it ended",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:375",
+   "verdict": "fail",
+   "evidence": "transcript/s1: two readings of R-1 are identical, but R-1 status=halted (halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}), so 'still awaits its verdicts' is false"
+  },
+  {
+   "id": "06-036",
+   "name": "The identity probe is handed the served URL, and passes a candidate that serves the marker",
+   "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:387",
+   "verdict": "fail",
+   "evidence": "transcript/s1: probe called with one argument http://127.0.0.1:24101 and gate a1 recorded gate-attempt-passed; but run R-1 status=halted, not awaiting its verdicts: halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}"
+  },
+  {
+   "id": "06-037",
+   "name": "A candidate whose suite writes inside its own directory passes the gate",
+   "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:398",
+   "verdict": "pass",
+   "evidence": "transcript/t037: suite creating/removing a dir in its own directory: gate a1 recorded gate-attempt-passed; install digest sha256:563a627b... = regenerate digest"
+  },
+  {
+   "id": "06-038",
+   "name": "A skipped check is recorded with the whole text after SKIP",
+   "rule": "No clean room is built over a failed harness self-check",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:410",
+   "verdict": "pass",
+   "evidence": "transcript/t038: first self-check recorded harness-self-check-passed with skipped-checks [\"the oracle cannot judge this tree: a tool it grades is absent.\"]"
+  },
+  {
+   "id": "06-039",
+   "name": "A stdio candidate whose suite, identity probe and store check pass passes the gate",
+   "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:422",
+   "verdict": "fail",
+   "evidence": "transcript/t039: gate a1 gate-attempt-passed with boot-budget-seconds 30, boot-polls 1, answered-on-poll 1, identity-probe-result \"answered as the context\", no gate-refusal effect; but run R-1 status=halted, not awaiting its verdicts: halt {\"effect\":\"gate\",\"reason\":\"context-did-not-respond\",\"detail\":\"measurement: regeneration-cycle/gate-attempt-passed: class java.time.Instant cannot be cast to class java.util.Date ...\"}"
+  },
+  {
+   "id": "06-040",
+   "name": "The identity probe is handed the gate room's launch entrypoint, the boot budget and the gate's store, and the store check reads that store",
+   "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:435",
+   "verdict": "pass",
+   "evidence": "transcript/t039: probe ARGC=2, ARG=.../runs/R-1/gate-rooms/attempt-1/impl/start.sh, ARG=30; GATE_STORE=.../runs/R-1/gate-evidence/attempt-1/events.sqlite (outside the gate room); no LOYLY_ variable in its env; store check's only/last arg the same file"
+  },
+  {
+   "id": "06-041",
+   "name": "A red stdio suite fails the attempt before the identity probe, and the suite is handed no store",
+   "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:448",
+   "verdict": "pass",
+   "evidence": "transcript/t041 (and t041b with an inherited GATE_STORE): gate a1 gate-attempt-failed reason suite-red; suite env holds no GATE_STORE and no LOYLY_ variable; no probe-run or storecheck-run record"
+  },
+  {
+   "id": "06-042",
+   "name": "An identity probe that fails fails the attempt for its identity, and the store is not checked",
+   "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:460",
+   "verdict": "pass",
+   "evidence": "transcript/t042: gate a1 gate-attempt-failed reason identity-probe-failed, detail \"no response within the 30s boot budget\"; no storecheck-run record"
+  },
+  {
+   "id": "06-043",
+   "name": "A store check that fails fails the attempt for its identity, with the store check's output as the detail",
+   "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:473",
+   "verdict": "pass",
+   "evidence": "transcript/t043: gate a1 gate-attempt-failed reason identity-probe-failed, detail \"FAIL event 7 was not written inside a run of the ORC workflow\"; cycle.failure {stage gate, reason gate-attempts-exhausted}"
+  },
+  {
+   "id": "06-044",
+   "name": "A stdio candidate reads the spec beside it in the gate room",
+   "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:487",
+   "verdict": "pass",
+   "evidence": "transcript/t044: suite exits 0 only if docs/plan/01-a/spec.feature is at the room root; gate a1 gate-attempt-passed; install digest = regenerate digest"
+  },
+  {
+   "id": "06-045",
+   "name": "A stdio run whose store check cannot be started halts at the gate",
+   "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:497",
+   "verdict": "pass",
+   "evidence": "transcript/t045 (t045b with an empty command): halt {effect gate, reason effect-could-not-run, detail \"Cannot start .../no-such-check.sh ...\"}; effects end at position 8 self-check, no gate effect result"
+  },
+  {
+   "id": "06-046",
+   "name": "The harness digest of a stdio run covers the store-check command",
+   "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:508",
+   "verdict": "pass",
+   "evidence": "transcript/t046: R-1 and R-2 first self-checks both harness-self-check-passed; harness digests sha256:8455c3c9... vs sha256:4750b2d9... differ"
+  },
+  {
+   "id": "06-047",
+   "name": "A slice that is a symbolic link in the plan is read at its target",
+   "rule": "The runner stamps, pins and derives the checklist, and relays every handoff from its producer's store",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:521",
+   "verdict": "fail",
+   "evidence": "transcript/t047: stamp effect recorded by specification and checklist names 01-001 and 01-002 with sources docs/plan/01-a/spec.feature:7 and :13, but run R-1 did halt (status=halted at the gate: context-did-not-respond, java.time.Instant cannot be cast to java.util.Date)"
+  },
+  {
+   "id": "06-048",
+   "name": "The configuration's plan slices select what is stamped and checklisted",
+   "rule": "The runner stamps, pins and derives the checklist, and relays every handoff from its producer's store",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:531",
+   "verdict": "pass",
+   "evidence": "transcript/t048: one stamp effect, of 02-b (scenario-stamped 02-001, slice 02); checklist-derived items [02-001] only, total 1"
+  },
+  {
+   "id": "06-049",
+   "name": "Each builder is handed the configured builder image, and each regenerate names the image and its digest",
+   "rule": "A regenerate launches one fresh builder and records what it left in its candidate scope",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:544",
+   "verdict": "pass",
+   "evidence": "transcript/t049: both launches argv 3: builder room, instruction file, .../t049/images/builder-clojure; regenerate detail and repair detail each end 'builder image builder-clojure sha256:07f0b66e...', equal to the grader's own candidate-digest formula over the image folder"
+  },
+  {
+   "id": "06-050",
+   "name": "A start whose configured builder image is not in the builder images directory is refused",
+   "rule": "A run starts once, one at a time, on a commit of the project repository, with its five contexts responding",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:557",
+   "verdict": "pass",
+   "evidence": "transcript/t050: start -> -32000 builder-image-missing; run-progress R-1 null, runs []; no builder launch recorded; runner store 0 cycle-runner events"
+  },
+  {
+   "id": "06-051",
+   "name": "Two runs handed one measurement history store compare the second cycle with the first",
+   "rule": "Measurement keeps its history across runs when a history store is handed in, so a scoreboard compares a cycle with the last measured cycle of its selection",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:569",
+   "verdict": "fail",
+   "evidence": "transcript/t051: with LOYLY_MEASUREMENT_STORE=H, R-1 and R-2 both halted at the gate (Instant->Date cast relaying gate-attempt-passed); both hand-ins refused run-not-awaiting-verdicts; measurement/scoreboard on H for C-2 -> {\"scoreboard\":null}; no measurement-filed or scoreboard-reported relayed"
+  }
+ ]
+}

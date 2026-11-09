@@ -1,0 +1,2 @@
+verdicts: sha256:daabee58a5aef3e4212e1b7b786c41e1f394b682043de6ad2480657ab06f7d96 verdicts.json
+by: selfhost-02-grading-subagent
