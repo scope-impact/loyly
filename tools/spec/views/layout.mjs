@@ -3,13 +3,13 @@
 // with every <details> open; the event storm (L0) scrolls inside its own frame and keeps its
 // stickies legible; at 1280 it fits its frame without scrolling, no handoff arrow runs over a
 // sticky, and no sticky text, trigger line or band header overlaps another; no event-storm cluster of an aggregate overlaps another or spills out of
-// its columns. Exit 1 on any finding.
+// its columns; a deep link to an example folded under "N more examples" opens it and scrolls to it. Exit 1 on any finding.
 //   node layout.mjs <page.html> [review.html]
 import { chromium } from 'playwright-core';
 import { pathToFileURL } from 'node:url';
 const pages = process.argv.slice(2);
 const b = await chromium.launch({ channel: 'chrome' });
-const bad = []; let n = 0, storm = '';
+const bad = []; let n = 0, deeps = 0, storm = '';
 const go = async (p, id) => { await p.evaluate(h => { location.hash = h; }, id); await p.waitForTimeout(30); };
 const wider = p => p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 for (const file of pages) {
@@ -82,9 +82,18 @@ for (const file of pages) {
       }
       await p.evaluate(id => document.getElementById(id).querySelectorAll('details').forEach(d => { d.open = false; }), id);
     }
+    // a deep link to an example folded under a card's "more examples" opens that fold and scrolls to it
+    const deep = await p.evaluate(() => [...document.querySelectorAll('details.more-ex .sc[id]')].map(e => e.id).filter((_, i, a) => i === 0 || i === a.length - 1));
+    for (const id of deep) {
+      await go(p, id); await p.waitForTimeout(150);
+      const r = await p.evaluate(id => { const t = document.getElementById(id), d = t.closest('details.more-ex'), q = t.getBoundingClientRect();
+        return { open: d.open, top: q.top, h: innerHeight, shown: document.documentElement.dataset.view === t.closest('.view').id }; }, id);
+      if (!r.open || !r.shown || r.top < -1 || r.top > r.h - 20) bad.push(`${tag}: the deep link #${id} does not open its fold and scroll to it (open ${r.open}, top ${Math.round(r.top)})`);
+      else deeps++;
+    }
     await p.context().close();
   }
 }
 await b.close();
-console.log(bad.length ? bad.join('\n') : `layout: ${n} view checks (375 and 1280, light and dark, folded and open) fit the screen; the event storm scrolls in its frame on a phone; ${storm}; storm boards have no overlaps`);
+console.log(bad.length ? bad.join('\n') : `layout: ${n} view checks (375 and 1280, light and dark, folded and open) fit the screen; the event storm scrolls in its frame on a phone; ${storm}; storm boards have no overlaps; ${deeps} deep links into folded examples open and scroll to them`);
 process.exit(bad.length ? 1 : 0);

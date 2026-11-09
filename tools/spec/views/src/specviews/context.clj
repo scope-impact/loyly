@@ -413,16 +413,20 @@
       [:details.obl-chip [:summary (str "covers " (plural (count obs) "obligation"))]
        [:ul (for [t obs :let [[k n] (ob-plain t)]] [:li [:span.ob-k k] " " n])]])))
 (defn sc-anchor [card-id s] (str card-id "--sc-" (if (= "spec" (:kind s)) (:item s) (str/replace (str/lower-case (:title s)) #"[^a-z0-9]+" "-"))))
-(defn scenario-plain [s & [id]]
+(defn scenario-plain
+  "A scenario as prose. `src`: :fold puts its spec file:line and tier under a small fold of its
+  own; :drop leaves them out (a rule card's hood already shows them). `happy?` tags the happy path."
+  [s & [id {:keys [src happy?] :or {src :fold}}]]
   (let [m (scen-mark s) draft? (= "drafts" (:kind s))]
     [:div {:class ["sc" (when draft? "draft") (when m "marked")] :id id :data-scenario (or (:item s) (:title s))}
-     [:div.sc-h [:b (:title s)] (when draft? [:span.draft-tag "draft"]) (chg-badge m)]
+     [:div.sc-h [:b (:title s)] (when happy? [:span.happy-tag "happy path"]) (when draft? [:span.draft-tag "draft"]) (chg-badge m)]
      [:div.sc-steps
       (for [l (:steps s) :let [[w more] (str/split l #" " 2)]]
         (if (or (str/starts-with? l "|") (str/starts-with? l "Examples:"))
           [:div.sc-row l]
           [:div.sc-step [:span {:class ["kw" (kw-class w)]} w] " " more]))]
-     [:div.sc-meta (ob-chip s) (if draft? (muted "draft, not stamped") [:span.item (str (:item-tag cfg) (:item s))]) (tier-chip (:tier s)) [:span.from (:file s) ":" (:line s)]
+     [:div.sc-meta (ob-chip s) (if draft? (muted "draft, not stamped") [:span.item (str (:item-tag cfg) (:item s))])
+      (when (= :fold src) [:details.sc-src [:summary "source"] [:span.from (:file s) ":" (:line s)] " " (tier-chip (:tier s))])
       (if draft? (review (str "draft:" (:slice s) ":" (:title s)) "accept" "comment") (review (str "scenario:" (:item s)) "comment"))]]))
 (defn scenarios-of [covs]   ; the distinct scenarios of some obligations, accepted first
   (let [ss (distinct (mapcat :sc covs))] (concat (filter #(= "spec" (:kind %)) ss) (remove #(= "spec" (:kind %)) ss))))
@@ -433,9 +437,9 @@
     {:rules g :doc (:doc r)}))
 (defn rule-mark [r] (merge-marks (cons (mark :rules [CX (:name r)]) (map scen-mark (scenarios-of (rule-covs r))))))
 
-;; ---------- L2: the rule as a skeleton, Given / When / Only if / Then, in plain words ----------
+;; ---------- L2: the rule as a skeleton, Given / When / Refused if / Then, in plain words ----------
 ;; All of it from the Allium rule and the Event Model: the trigger and who issues it, the command,
-;; each requires (its comment, else its condition) with the coverage of its refusal, and what the
+;; each refusal (the comment of its requires, else its condition) with its coverage, and what the
 ;; rule ensures as typed verbs; an event another context reads is marked with that context.
 (declare handoff-to)
 (defn plain-val [v] (str/replace (str v) "_" " "))
@@ -458,8 +462,8 @@
 (defn line-mark   ; a skeleton line's mark since --base: every line of a new rule is new; a line its base lacks, changed
   [r in-base?] (when CHG (cond (nil? (base-rule r)) :new (not in-base?) :changed)))
 (defn ws [t] (str/replace (str/trim (str t)) #"\s+" " "))
-(def DOTS {"spec" ["✓" "covered by an accepted scenario"] "draft" ["○" "covered only by a draft"] "none" ["✗" "uncovered"]
-           "unit" ["◇" "checked by a unit test"] "gate" ["◇" "checked by a gate"]})
+(def DOTS {"spec" ["✓" "checked by an example"] "draft" ["○" "only in a draft example"] "none" ["✗" "no example yet"]
+           "unit" ["◇" "checked only by the code's own tests"] "gate" ["◇" "checked by a gate"]})
 (defn req-cov   ; a refusal's coverage; with no coverage report, read from the scenarios tagged with it
   [id]
   (let [cv (cov id) ss (:sc cv)]
@@ -467,6 +471,33 @@
           (some #(= "spec" (:kind %)) ss) (assoc cv :k "spec" :t (plural (count (filter #(= "spec" (:kind %)) ss)) "scenario"))
           (seq ss) (assoc cv :k "draft" :t "draft")
           :else (assoc cv :t "uncovered"))))
+(defn cov-chip   ; a refusal's coverage, as a small chip after its words: ✓ 06-005, ◇ unit test, ○ draft, ✗ no example
+  [cv card-id]
+  (let [k (if (DOTS (:k cv)) (:k cv) "none") [sym words] (DOTS k)
+        sc (or (first (filter #(= "spec" (:kind %)) (:sc cv))) (first (:sc cv)))
+        txt (cond (and sc (= "spec" (:kind sc))) (:item sc) sc "draft" (= "unit" k) "unit test"
+                  (= "gate" k) (str "gate " (:gate (:o cv))) :else "no example")
+        at {:class ["cov-chip" (str "d-" k)] :title words}]
+    (if sc [:a (assoc at :href (str "#" (sc-anchor card-id sc))) sym " " txt] [:span at sym " " txt])))
+(defn cov-legend [ks]   ; one line, only where a card's refusals are checked in more than one way
+  (let [syms (distinct (for [k ["spec" "draft" "unit" "gate" "none"] :when (some #{k} ks)] (DOTS k)))
+        by (ordered-groups first syms)]
+    (when (> (count by) 1)
+      [:li.sk-legend (interpose " · " (for [[sym xs] by] (str sym " " (str/join " or " (map second xs)))))])))
+
+;; ---------- the plain text, as a reader reads it: no source references, no repeated actor ----------
+(def SRC-REF "(?:[\\w./-]+\\.(?:md|allium|feature|edn|sh)|[a-z][\\w-]*\\.[A-Z]\\w*)\\b")
+(defn unref   ; drop "(decisions.md H8)", "(ctx.MeasurementKeepsItsHistory)", and a "; seam.md, E5" ending a parenthesis
+  [t]
+  (some-> t str
+          (str/replace (re-pattern (str "\\s*\\(" SRC-REF "[^()]*\\)")) "")
+          (str/replace (re-pattern (str "\\s*;\\s*" SRC-REF "[^();]*\\)")) ")")
+          str/trim not-empty))
+(defn drop-issuer   ; a trailing "Issued by the operator." when the Given line already names that actor
+  [doc who]
+  (let [[all a] (when (and doc who) (re-find #"\s*(?:Issued|Handed in) by ([^.]+)\.\s*$" doc))
+        norm #(-> % str/lower-case (str/replace #"\([^)]*\)" "") str/trim (str/replace #"^the\s+" "") (str/replace #"\s+context$" ""))]
+    (if (and a (= (norm a) (norm who))) (not-empty (str/trimr (subs doc 0 (- (count doc) (count all))))) doc)))
 (defn skeleton [r card-id]
   (let [g (gwt-of r) blk (rule-block r) t (trig r) who (issuer r) b (base-rule r)
         given (concat (for [x (:given g)]
@@ -483,14 +514,11 @@
                         :else [:b (human (:name r))])
         base-req (set (map (fn [q d] [(ws q) (ws d)]) (:requires b) (concat (:requires-doc b) (repeat nil))))
         reqs (map-indexed (fn [i q] (let [n (inc i) d (get (:requires-doc r) i) cv (req-cov (str "rule-failure." (:name r) "." n))
-                                          [sym tt] (DOTS (:k cv) (DOTS "none"))
-                                          sc (first (:sc cv)) m (line-mark r (base-req [(ws q) (ws d)]))]
-                                      [:li {:class ["sk-req" (when m "marked")]}
-                                       [:span {:class ["dot" (str "d-" (:k cv))] :title tt :aria-label tt} sym]
-                                       [:span.sk-t (if (seq d) (cap d) (list (muted "requires ") [:code.cl q])) (chg-badge m)]
-                                       [:span.sk-cov (cond sc [:a {:href (str "#" (sc-anchor card-id sc))} (if (= "spec" (:kind sc)) (str "item " (:item sc)) "draft")]
-                                                           (= "gate" (:k cv)) (str "gate " (:gate (:o cv)))
-                                                           :else (:t cv))]]))
+                                          d (unref d) m (line-mark r (base-req [(ws q) (ws (get (:requires-doc r) i))]))]
+                                      {:k (:k cv)
+                                       :li [:li {:class ["sk-req" (when m "marked")]}
+                                            [:span.sk-t (if d (cap d) (list (muted "Not yet written in words") " " [:code.raw q]))
+                                             " " (cov-chip cv card-id) (chg-badge m)]]}))
                           (requires-of r))
         base-then (when b (set (map (juxt :verb :label) (then-items (assoc r :src (:src b))))))
         thens (for [{:keys [verb label key to d]} (then-items r)
@@ -506,30 +534,44 @@
     [:div.skel
      [:div.sk-k "Given"] [:div (if (seq given) [:ul.sk-list (for [l given] [:li l])] (muted "nothing before it: it starts the lifecycle"))]
      [:div.sk-k "When"] [:div when-line]
-     [:div.sk-k "Only if"] [:div (if (seq reqs) [:ul.sk-list (when (some seq (:requires-doc r)) [:li.sk-lead (muted "It is refused when:")]) reqs] (muted "nothing can refuse it"))]
+     [:div.sk-k "Refused if"] [:div (if (seq reqs) [:ul.sk-list.sk-reqs (map :li reqs) (cov-legend (map :k reqs))] (muted "nothing can refuse it"))]
      [:div.sk-k "Then"] [:div (if (seq thens) [:ul.sk-list thens] (muted "no effect stated"))]]))
 
 (defn spec-card
   "The review unit (L2): a title, the rule in plain words, its skeleton (a rule's Given / When /
   Only if / Then), its scenarios readable, and L3 (`hood`) collapsed beneath."
-  [{:keys [id kind title plain doc who skel scs badge m hood hood-title]}]
-  (let [nd (count (filter #(= "drafts" (:kind %)) scs)) ns (- (count scs) nd)]
+  [{:keys [id kind title plain doc who skel scs status happy m hood hood-title]}]
+  (let [nd (count (filter #(= "drafts" (:kind %)) scs)) ns (- (count scs) nd)
+        [s1 & more] scs
+        one (fn [s] (scenario-plain s (when skel (sc-anchor id s)) {:src (if skel :drop :fold) :happy? (contains? (set happy) s)}))]
     [:article {:class ["card2" (when m "marked")] :id id :data-card kind}
      [:header.c2-h [:div [:span.lbl kind] [:h3 title (chg-badge m)]]
-      [:div.c2-meta (when badge (list [:span.cnt (if (= kind "rule") "success:" "checked:")] badge)) [:span.cnt (plural ns "scenario")] (when (pos? nd) [:span.cnt.drafts (plural nd "draft")])]]
+      [:div.c2-meta [:span.cnt (str/join " · " (remove nil? [(if (pos? ns) (plural ns "example") "no example yet")
+                                                                 (when (pos? nd) (plural nd "draft")) status]))]]]
      (when (seq plain) [:div.plain (for [p plain] [:p p])])
      (when doc [:p.doc doc])
      (when who [:p.who who])
      skel
      (when skel [:div.sk-k.ex-k "Examples"])
-     (if (seq scs) [:div.scs (for [s scs] (scenario-plain s (when skel (sc-anchor id s))))] (none "No scenario yet."))
+     (if (seq scs)
+       [:div.scs (one s1)
+        (when (seq more) [:details.more-ex [:summary (plural (count more) "more example")] [:div.scs (map one more)]])]
+       (none "No scenario yet."))
      [:details.hood [:summary [:span "Under the hood"] [:span.muted hood-title]] [:div.hood-body hood]]]))
 
+(defn happy-status   ; the rule's happy path (its success obligation), in words
+  [ok]
+  (let [n (count (filter #(= "spec" (:kind %)) (:sc ok)))]
+    (cond (pos? n) (plural n "happy path")
+          (seq (:sc ok)) "happy path only in a draft"
+          (= "unit" (:k ok)) "happy path checked by a unit test"
+          (= "gate" (:k ok)) (str "happy path checked by gate " (:gate (:o ok)))
+          :else "no happy-path example")))
 (defn rule-spec-card [r]
-  (let [{:keys [rules doc]} (rule-plain r) id (rid (:name r))]
-    (spec-card {:id id :kind "rule" :title (human (:name r)) :plain rules :doc doc
+  (let [{:keys [rules doc]} (rule-plain r) id (rid (:name r)) ok (cov (str "rule-success." (:name r)))]
+    (spec-card {:id id :kind "rule" :title (human (:name r)) :plain (keep unref rules) :doc (drop-issuer (unref doc) (issuer r))
                 :skel (skeleton r id)
-                :scs (scenarios-of (rule-covs r)) :badge (badge (cov (str "rule-success." (:name r)))) :m (rule-mark r)
+                :scs (scenarios-of (rule-covs r)) :happy (:sc ok) :status (happy-status ok) :m (rule-mark r)
                 :hood-title (str "Allium rule " (:name r) ", its refusals, its Grain block")
                 :hood (rule-card r true false)})))
 
@@ -539,9 +581,9 @@
                   (for [k (:contracts m) i (:invariants k)] {:id (str "boundary." (:name i)) :name (:name i) :kind "boundary" :on (:name k) :text (:text i)}))
         :let [c (cov (:id p)) scs (scenarios-of [c]) txt (some-> (:text p) (str/replace #"\s*Verified by:.*$" "") not-empty)]]
     {:id (str "prop-" CX "--" (str/replace (:id p) #"[^A-Za-z0-9]" "-")) :kind (:kind p) :title (human (:name p))
-     :plain (keep identity [txt]) :doc (:doc p)
+     :plain (keep unref [txt]) :doc (unref (:doc p))
      :who (when (:on p) (list (if (= "boundary" (:kind p)) "Held at the boundary by contract " "Promised by surface ") [:b (:on p)]))
-     :scs scs :badge (badge c) :m (merge-marks (cons (mark :props [CX (:name p)]) (map scen-mark scs)))
+     :scs scs :status (case (:k c) "gate" (str "checked by gate " (:gate (:o c))) "unit" "checked by a unit test" nil) :m (merge-marks (cons (mark :props [CX (:name p)]) (map scen-mark scs)))
      :hood-title (str "Allium " (:kind p) " " (:name p) " · @allium-" (:id p))
      :hood (list (when (:src p) (allium (:src p))) (when (:text p) [:p.muted (:text p)])
                  (when (= "gate" (:k c)) [:p.muted "Checked by gate " (:gate (:o c)) ", not by a scenario."]))}))

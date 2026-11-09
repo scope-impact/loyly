@@ -39,7 +39,7 @@ function drawShown() {
   const t = document.getElementById(decodeURIComponent(location.hash.slice(1)));
   const v = t?.closest(".view") || document.getElementById("home");
   document.documentElement.dataset.view = v.id;
-  // a target folded under the hood (a refusal, a rule card's source) opens its <details>
+  // a target folded away (a refusal under the hood, an example among a card's "more examples") opens every <details> around it
   for (let d = t?.parentElement?.closest("details"); d; d = d.parentElement?.closest("details")) d.open = true;
   if (t && t !== v) requestAnimationFrame(() => t.scrollIntoView({ block: "start" }));
   requestAnimationFrame(() => drawStorms(v));

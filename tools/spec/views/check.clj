@@ -111,6 +111,22 @@
           (when (not= n (count (re-seq #"data-card=\"rule\"" v))) (fail "L2: mod-" m "shows" (count (re-seq #"data-card=\"rule\"" v)) "rule cards, its Allium has" n "rules"))
           (when (not= n (count cs)) (fail "L3: mod-" m ": a rule card without its folded hood")))
         (println (str "L2: " (reduce + (vals rules)) " rule cards, each with its scenarios; L3: under the hood of each, folded"))
+        ;; L2, as a reader reads it: the card above its hood names no source document or Allium
+        ;; name, reads "Refused if" (never "Only if" over refusals), and folds all but its first example
+        (let [cards (for [c (rest (str/split html #"<article")) :when (re-find #"^[^>]*data-card=\"" c)
+                          :let [vis (first (str/split c #"<details class=\"hood\">"))]]
+                      {:id (second (re-find #"^[^>]* id=\"([^\"]+)\"" c)) :rule? (re-find #"^[^>]*data-card=\"rule\"" c)
+                       :text (unescape (str/replace vis #"<[^>]+>" " ")) :vis vis})
+              refs (for [{:keys [id text]} cards :let [m (re-find #"\((?:[\w./-]+\.(?:md|allium|feature|edn|sh)|[a-z][\w-]*\.[A-Z]\w*)\b[^()]*\)" text)] :when m] (str id ": " m))
+              rcards (filter :rule? cards)
+              rows (for [{:keys [id text]} rcards :when (or (not (str/includes? text "Refused if")) (re-find #"Only if|It is refused when" text))] id)
+              unfolded (for [{:keys [id vis]} cards :let [n (count (re-seq #"<div class=\"sc[ \"]" (first (str/split vis #"<details class=\"more-ex\">"))))] :when (> n 1)] id)
+              folded (count (filter #(str/includes? (:vis %) "<details class=\"more-ex\">") cards))]
+          (when (seq refs) (fail "L2: source references in a card's plain text:" (str/join "; " (take 5 refs))))
+          (when (seq rows) (fail "L2: rule cards without a \"Refused if\" row, or still \"Only if\":" (str/join " " (take 5 rows))))
+          (when (seq unfolded) (fail "L2: cards showing more than one example unfolded:" (str/join " " (take 5 unfolded))))
+          (println (str "L2: " (count cards) " cards name no source document in their plain text; " (count rcards) " rule cards read \"Refused if\"; "
+                        folded " fold their examples after the first")))
         (when (seq c4)
           (let [secs (map second (re-seq #"(?s)<section data-c4=\"([^\"]+)\">.*?<pre class=\"mermaid\">" arch-v))]
             (when-not (str/includes? home "href=\"#c4\"") (fail "home does not link the architecture view"))

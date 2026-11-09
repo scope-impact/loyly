@@ -3,9 +3,11 @@
 One static page per project, built with Babashka and Replicant, that a person reviews top-down.
 Its first screen is the title, one plain sentence of what the system does, and the event storm.
 L0 the event storm (every domain event, in time order, one band per bounded context), L1 each
-context's event model as swimlanes, L2 a spec card per rule (its title and plain sentence; the
-rule as Given / When / Only if / Then, each `requires` with the coverage of its refusal and each
-handoff event marked with the context that reads it; then its scenarios as prose),
+context's event model as swimlanes, L2 a spec card per rule (its title and plain sentence, with no source references; the
+rule as Given / When / Refused if / Then, each refusal with a coverage chip after its words
+(✓ the item that checks it, ◇ a unit test or gate, ○ a draft, ✗ no example) and each handoff
+event marked with the context that reads it; then its examples as prose, the happy path first
+and the rest folded),
 L3 under the hood (Allium, Grain EDN, flows, handoffs), folded; the architecture (handoffs, C4)
 beside it, and a Review view. Everything is derived from the spec files; nothing is hand-written.
 
