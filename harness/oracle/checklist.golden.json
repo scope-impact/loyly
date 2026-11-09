@@ -1181,9 +1181,27 @@
    "name": "The configuration's plan slices select what is stamped and checklisted",
    "rule": "The runner stamps, pins and derives the checklist, and relays every handoff from its producer's store",
    "source": ".pi/plan/06-cycle-runner/spec.feature:531"
+  },
+  {
+   "id": "06-049",
+   "name": "Each builder is handed the configured builder image, and each regenerate names the image and its digest",
+   "rule": "A regenerate launches one fresh builder and records what it left in its candidate scope",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:544"
+  },
+  {
+   "id": "06-050",
+   "name": "A start whose configured builder image is not in the builder images directory is refused",
+   "rule": "A run starts once, one at a time, on a commit of the project repository, with its five contexts responding",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:557"
+  },
+  {
+   "id": "06-051",
+   "name": "Two runs handed one measurement history store compare the second cycle with the first",
+   "rule": "Measurement keeps its history across runs when a history store is handed in, so a scoreboard compares a cycle with the last measured cycle of its selection",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:569"
   }
  ],
  "counts": {
-  "total": 197
+  "total": 200
  }
 }

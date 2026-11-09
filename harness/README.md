@@ -387,3 +387,18 @@ slice-06 grader grows by those items for the recorded reason "spec grew"; no oth
 grader's scenarios changed. `prompt.clj`'s slice-06 list of handed-in values now names
 `LOYLY_STORE_CHECK_CMD`, so it stays the seam's list; `probe-06.sh` is unchanged, because the
 slice-06 identity probe asks nothing of the gate.
+
+**2026-11-09: the spec grew: spec round 9.** The first self-hosted cycle (`selfhost-01`) ran its
+Clojure builder in the TypeScript image and its runner scoreboard had no previous cycle. The
+product owner's spec round 9 (`.pi/spec/decisions.md`, "Spec round 9") had the configuration name
+the builder image (`BUILDER_IMAGE`, a folder of the handed-in `LOYLY_BUILDER_IMAGES`, handed to the
+builder command as a third argument; `builder-image-missing` when it is not there) and gave
+Measurement an optional history store (`LOYLY_MEASUREMENT_STORE`) kept across runs; it appended
+three stamped minimum items at the end of slice 06's `spec.feature`: `06-049` to `06-051`; the
+derived checklist is the 197 and those three. The spec grew (additions only), so the golden was
+re-recorded with `harness/oracle.sh record`; its diff is additions plus the one `total` line
+(197 → 200). The slice-06 grader grows by those items for the recorded reason "spec grew"; no
+other approved grader's scenarios changed. `prompt.clj`'s slice-06 list of handed-in values now
+names `LOYLY_BUILDER_IMAGES` and `LOYLY_MEASUREMENT_STORE`, so it stays the seam's list;
+`probe-06.sh` is unchanged, because with `BUILDER_IMAGE` and the history store absent the runner
+behaves as before.
