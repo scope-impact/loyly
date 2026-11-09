@@ -126,7 +126,10 @@ contract GateOnTheHost {
         -- verify.sh's arguments (seam.md, E5):
         -- test.sh none; start.sh the port; the identity probe the served URL,
         -- "http://127.0.0.1:" followed by the port, never the bare port (decisions.md,
-        -- "Spec round 7c").
+        -- "Spec round 7c"). After a refusal to grade is recorded, the runner gates the
+        -- same attempt again on the attempt's self-check, which stands: it does not
+        -- self-check again, as the Regeneration cycle records one self-check per attempt
+        -- (decisions.md, "Spec round 8b"). The same holds for the stdio seam.
 
     @invariant TheStdioGateOrder
         -- For the stdio seam, the first guard that does not hold is the gate's reply, in
@@ -143,10 +146,12 @@ contract GateOnTheHost {
 
     @invariant TheStoreCheckReadsTheProbesStore
         -- The suite is handed no store: no variable of the runner's own whose name starts
-        -- LOYLY_ reaches test.sh, the probe or the store check. The probe alone is handed
-        -- the attempt's gate store, a fresh file outside the gate room, as GATE_STORE, and
-        -- hands it to the candidate it launches; the store check is handed that same path,
-        -- so it reads only what the probe caused, as harness/v2/gate.sh's does.
+        -- LOYLY_ reaches test.sh, the probe or the store check, and neither does a
+        -- GATE_STORE the runner itself inherited (decisions.md, "Spec round 8b"). The
+        -- probe alone is handed the attempt's gate store, a fresh file outside the gate
+        -- room, as GATE_STORE, and hands it to the candidate it launches; the store check
+        -- is handed that same path, so it reads only what the probe caused, as
+        -- harness/v2/gate.sh's does.
 
     @invariant TheGateRoomHoldsTheCleanRoom
         -- For the stdio seam the gate room is a copy of the clean room's files with the

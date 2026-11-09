@@ -987,6 +987,7 @@ the switch and of what it leaves open.
      `cycles/06/0{1,2,3}`; `record-gate-attempt`'s undeclared read of `instrument-goldens`;
      `@item-03-010` and `@item-03-011`, whose Whens omit a note the schema requires; the
      runner's self-check after a refusal against regeneration-cycle's one-per-attempt rule.
+     *Later:* the last cleared in "Spec round 8b".
    - *Self-hosting* (2026-11-08): the cycle-runner's gate (`cycle-runner/seam.md` E5) is legacy
      `verify.sh`'s HTTP contract: `APP_DIR/test.sh`, `APP_DIR/start.sh PORT`,
      `http://127.0.0.1:PORT` answering an HTTP GET, the page carrying `APP_MARKER`, and the
@@ -1106,3 +1107,61 @@ commands and the fields `record-gate-attempt` already has).
 
 The slice-06 grader grows by these ten items ("spec grew", additions only). The checklist golden
 grows 187 → 197. `@item-06-039` to `@item-06-048` are the next cycle's untuned holdout.
+
+## Spec round 8b (decided 2026-11-09)
+
+A wording round on slice 06 only: no `spec.feature` text changed, no scenario added, no
+Allium `requires` and no event-model schema changed, no other context touched. The golden
+stays at 197.
+
+1. **The regression.** Runner cycle 04 scored 47/48 (`harness/v2/cycles/06/04`): `@item-06-018`
+   newly failing. Its gate was refused `seam-answered-before-boot`, the refusal was recorded,
+   and the runner then self-checked attempt 1 again; Regeneration cycle refused that second
+   self-check (`self-check-already-recorded`, `RecordHarnessSelfCheck` 3) and the run halted
+   (`effect-could-not-run`) instead of gating again. Runner cycle 03 had met the same refusal,
+   recorded it and carried on, so `@item-06-018` passed there.
+2. **Five whys.** The run halted because the runner self-checked a second time. It did because
+   `cycle-runner/seam.md` E5 said "the runner then self-checks and gates the same attempt
+   again", while Regeneration cycle accepts one self-check per attempt: two spec statements
+   that cannot both hold. The contradiction was known: cycles 01 and 02 reported it as a
+   surprise, and "The switch to the new harness" 7 left it in the inbox. It stayed there
+   because spec round 8 accepted new items without clearing it. And every cycle is a fresh
+   builder, so an open contradiction is decided again each cycle: cycle 03's builder chose to
+   carry on, cycle 04's to halt. Regeneration turns an ambiguity into a coin flip.
+3. **Wording fix 1, the self-check stands** (`cycle-runner/seam.md` E5 `self-check` and
+   `gate-refusal`; `GateOnTheHost`'s `TheLegacyGateOrder`): once a refusal to grade is
+   recorded, the runner gates the same attempt again on the attempt's self-check, and does not
+   self-check again. Regeneration cycle accepts that gate: `GateAttemptRefused` leaves the
+   attempt `awaiting` (`RecordGateRefusal`), and `RecordGateAttempt` requires only that a
+   passed self-check exists for the attempt at the same harness digest, goldens, identity
+   probe and grader digests (`regeneration-cycle/allium/gate-attempt.allium`, requires 2, 7, 9
+   and 12), all of which the standing self-check still meets.
+4. **Wording fix 2, an inherited `GATE_STORE`** (`cycle-runner/seam.md` E5 `gate` (`stdio`);
+   `TheStoreCheckReadsTheProbesStore`): a `GATE_STORE` the runner itself inherited is removed
+   from the environment of `test.sh`, the probe and the store check, with every `LOYLY_*`
+   variable; the attempt's own `GATE_STORE` is then added for the probe only. Runner cycle 04's
+   own gate attempt 1, inside `harness/v2/gate.sh`, failed on this gate-in-a-gate leak.
+5. **The inbox sweep (cycle-runner)**, against "a contradiction is two spec statements that
+   cannot both hold". Only item 2's was one. The rest are readings or gaps, left as they are:
+   - the repair's mounted gate evidence appears only in the effect's detail, not in
+     `candidate-regenerated` (cycles 01-04): a gap; `@item-06-023` asks for the effect;
+   - read-only rooms enforced by permission bits only, and a writable clean room in the
+     builder room (cycles 01, 02): a gap in enforcement, not two statements;
+   - how "when the builder ended" is detected, and a builder's late children (cycles 01-03,
+     `@item-06-022`): a gap;
+   - a port-held refusal's detail text naming `boot-budget-exhausted`, and a refused
+     `file-verdicts` detail saying "filed as given" (cycle 02): the candidate's wording;
+   - the spec's literal commit that a fixture repository cannot reproduce, the regenerate
+     timeout against the time `start-run` takes to respond, `LOYLY_SCORING_TOOL_PATHS`'s fixture
+     value, load-sensitive context timeouts (cycles 02-04): readings of the fixtures;
+   - an empty plan's stamp recorded with zero events, the checklist's `source:line` read from
+     the stripped copy, a second runner on one store (cycle 04): readings, as specified;
+   - resume after a runner restart, room isolation as spec (The switch 7): gaps.
+   Outside cycle-runner and not swept here: `record-gate-attempt`'s undeclared read of
+   `instrument-goldens` (regeneration-cycle) and `@item-03-010`, `@item-03-011` (grader-lifecycle);
+   each is cleared before its own context next accepts new items, if it is a contradiction.
+6. **Outcome.** Runner cycle 04 is not accepted; the cycle 03 candidate stays the running
+   runner. Runner cycle 05 is next, against this wording. No new item: `@item-06-018` already
+   fails a run that halts after a refusal, and the denominator stays 48.
+7. **The rule** (AGENTS.md): before a spec round accepts new items for a context, it clears
+   that context's inbox items that are contradictions; readings and gaps may wait.
