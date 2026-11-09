@@ -1,0 +1,26 @@
+[
+ {
+  "item": "06-018",
+  "note": "After a gate refusal the runner re-runs the self-check for the same attempt; real regeneration-cycle refuses it self-check-already-recorded, and the runner halts effect-could-not-run instead of re-gating. Matches the open inbox item 'the runner's self-check after a refusal against regeneration-cycle's one-per-attempt rule' (decisions.md, The switch 7). Reproduced twice."
+ },
+ {
+  "item": "06-015/016/020",
+  "note": "With 7 runners (35 context JVMs) started at once, start-run refused contexts-not-responding naming specification and cycle-preparation after ~100s; reran at 3-4 runners each, all fine. Load-sensitive context responsiveness timeout."
+ },
+ {
+  "item": "06-023",
+  "note": "candidate-regenerated event carries no mounted-evidence field; the mount is visible only in the effect's detail text and the builder room."
+ },
+ {
+  "item": "06-008",
+  "note": "An empty plan's stamp effect is recorded with zero events (stamp-slice with nothing to stamp)."
+ },
+ {
+  "item": "general",
+  "note": "Stamp events' source is the runner's stripped copy under runs/R-1/plan/<slice>/spec.feature (absolute); checklist source is docs/plan/<slice>/spec.feature:<line> with the line shifted by the tag line."
+ },
+ {
+  "item": "06-046",
+  "note": "A second runner process on the same LOYLY_GRAIN_STORE listed R-1 and started R-2 normally."
+ }
+]
