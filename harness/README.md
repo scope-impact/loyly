@@ -402,3 +402,9 @@ other approved grader's scenarios changed. `prompt.clj`'s slice-06 list of hande
 names `LOYLY_BUILDER_IMAGES` and `LOYLY_MEASUREMENT_STORE`, so it stays the seam's list;
 `probe-06.sh` is unchanged, because with `BUILDER_IMAGE` and the history store absent the runner
 behaves as before.
+
+**2026-11-09: self-hosting stopped.** The product owner stopped the harness rebuilding its own
+contexts (`.pi/spec/decisions.md`, "Self-hosting stopped"). The harness builds Löyly: runner
+cycle 05 in `harness-impl/` gates over HTTP when `APP_SEAM` is unset, and its stdio gate stays
+built in but unused. Spec round 10 was not applied; nothing in the spec, the golden or any grader
+changed. The next work is Löyly cycles.

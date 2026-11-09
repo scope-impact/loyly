@@ -125,6 +125,5 @@ context: a fenced clean room, a fresh builder, the gate, grading, the score. Nev
   regression (runner cycle 04, `@item-06-018`; `.pi/spec/decisions.md`, "Spec round 8b").
 - **The builder never sees `harness-impl/`**: `harness/config.sh` fences it from every clean
   room.
-- **Self-hosting is not done yet**: the runner's gate speaks only the HTTP app contract, so the
-  harness's own stdio contexts are still gated by `harness/v2/gate.sh` until the runner gains
-  that contract (`.pi/spec/decisions.md`, "The switch to the new harness", Self-hosting).
+- **Self-hosting is stopped** (`.pi/spec/decisions.md`, "Self-hosting stopped"): the harness
+  builds Löyly and is not asked to rebuild itself.

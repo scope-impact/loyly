@@ -1268,3 +1268,25 @@ description in `cycle-run.edn` changed). The product owner accepted the triage a
 
 The slice-06 grader grows by these three items ("spec grew", additions only). The checklist golden
 grows 197 → 200. `@item-06-049` to `@item-06-051` are the next cycle's untuned holdout.
+
+## Self-hosting stopped (decided 2026-11-09)
+
+The product owner stopped the self-hosting work: the harness rebuilding its own contexts. The
+harness was good enough at the switch (commit `e1c08fd`, "The switch to the new harness"), and
+everything after it served self-hosting: spec rounds 8, 8b and 9, `selfhost-01` (slice 05 rebuilt,
+4/4, in `harness-impl/05-cycle-preparation`) and `selfhost-02` (the runner rebuilt, 34/51, not
+accepted, `harness/v2/cycles/06/06`).
+
+1. **Kept.**
+   - The working harness, `harness-impl/` with runner cycle 05. Its gate uses the HTTP contract
+     when `APP_SEAM` is unset, so Löyly runs as at the switch. The stdio gate (spec round 8) stays
+     built in but is not used.
+   - Grading in the gate room (spec round 9, D5).
+   - The `builder-clojure` image with Java (spec round 9, D4).
+   - Spec review in a private Claude artifact, with gh-pages as the sealed record after agreement,
+     and the page tool `tools/spec/views`.
+2. **Dropped.** Further self-hosting runs, and spec round 10 with its D2.
+3. **Round 10 was not applied.** It was drafted to fix `selfhost-02`; its drafts stay uncommitted
+   in `.pi/harness/.state/rounds/10` and `.pi/harness/.state/rounds/10a`. No spec, item or golden
+   changed.
+4. **Next.** Löyly cycles on the current harness.

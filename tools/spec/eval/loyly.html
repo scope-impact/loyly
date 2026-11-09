@@ -497,7 +497,7 @@ footer { margin-top: 48px; padding-top: 14px; border-top: 1px solid var(--rule);
 <h2><span class="n">7</span>Limits and open items</h2>
 <div class="chips">
   <span class="chip">HTTP app contract only</span>
-  <span class="chip">Not self-hosting yet</span>
+  <span class="chip">Self-hosting stopped</span>
   <span class="chip"><code>LOYLY_*</code> naming</span>
   <span class="chip">Grading is a black-box agent</span>
   <span class="chip">The 01-011 conflict</span>
@@ -507,8 +507,8 @@ footer { margin-top: 48px; padding-top: 14px; border-top: 1px solid var(--rule);
 </div>
 <details class="more"><summary>Each limit in full</summary><div class="in">
 <ul>
-  <li><b>The HTTP app contract only.</b> The runner’s gate is legacy <code>verify.sh</code>’s contract: <code>test.sh</code>, <code>start.sh PORT</code>, an HTTP GET, the marker, and <code>APP_PROBE URL</code>. The harness is proved on HTTP apps like Löyly, not on JSON-RPC-over-stdio services.</li>
-  <li><b>Not self-hosting yet.</b> The harness’s own six contexts are stdio services, still gated by <code>harness/v2/gate.sh</code>. Spec round 8 specifies the second contract, but until its build is cross-checked and promoted, the old gate stays in place.</li>
+  <li><b>The HTTP app contract only.</b> The runner’s gate, with <code>APP_SEAM</code> unset, is legacy <code>verify.sh</code>’s contract: <code>test.sh</code>, <code>start.sh PORT</code>, an HTTP GET, the marker, and <code>APP_PROBE URL</code>. The harness is proved on HTTP apps like Löyly; its built-in stdio gate is unused, so it is not proved on JSON-RPC-over-stdio services.</li>
+  <li><b>Self-hosting stopped.</b> The user stopped self-hosting on 2026-11-09. The harness builds Löyly over its HTTP contract. The stdio gate is specified (spec round 8) and built into runner c05, but not used. Spec round 10 was not applied.</li>
   <li><b><code>LOYLY_*</code> naming.</b> Beyond the gate contract, the coupling to Löyly is cosmetic: the configuration variables are named <code>LOYLY_*</code>.</li>
   <li><b>Grading is a black-box agent.</b> Verdicts came from a grading session driving the app over HTTP (grader digest recorded as <code>shadow-0N-grading-subagent</code>), not from a sealed, calibrated, approved digest. A sealed Löyly grader (OG1) and the product Grader are not built.</li>
   <li><b>The 01-011 conflict.</b> The final judge judged <code>@item-01-011</code> after seeing a spec comment hinting at the answer. The conflict is declared in each verdict but not removed.</li>
