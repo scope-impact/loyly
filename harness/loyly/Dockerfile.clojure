@@ -1,0 +1,54 @@
+# Builder image for Clojure slices (`pi-harness/builder-clojure:oci`; spec round 9, D4): the
+# toolchain the gate's host runs a Clojure candidate with, so a builder never installs its own.
+# JDK 21 from `pi-harness/java:21-web` (no newer than the host's, so bytecode built here runs
+# there), the Clojure CLI at the host's version, babashka, and git. Babashka publishes only one
+# aarch64 Linux build, `-static`, and it still loads glibc's `ld-linux-aarch64.so.1`, so gcompat
+# provides that loader on Alpine (without it `bb` exits 127).
+# A Gondolin guest does not keep the image's ENV: its PATH is /usr/sbin:/usr/bin:/sbin:/bin, with
+# no JAVA_HOME. So every tool goes in /usr/bin (the JDK's as links), and a login shell also gets
+# JAVA_HOME from /etc/profile.d.
+# The guest reaches the network through Gondolin's TLS proxy, whose CA its init adds with
+# update-ca-certificates at boot. Java does not read that PEM bundle, so java-cacerts's hook
+# regenerates /etc/ssl/certs/java/cacerts then, and the JDK's own cacerts links to it; without
+# this, the Clojure CLI cannot fetch a dependency in the guest (PKIX path building failed).
+FROM pi-harness/java:21-web
+
+ARG CLOJURE_VERSION=1.12.6.1673
+ARG CLOJURE_INSTALLER_SHA256=5ae63b082ed33bf4c29bf1a8317c5c15249d1bc753676b2f5177fb3804ad6f77
+ARG BB_VERSION=1.13.226
+ARG BB_SHA256=85d62914ce1183634e9f81db67ec8e4db41f927ab8caf5b92076da9e46fda679
+
+RUN apk add --no-cache \
+    bash \
+    ca-certificates \
+    curl \
+    gcompat \
+    java-cacerts \
+    git \
+    rlwrap \
+ && ln -s /opt/java/openjdk/bin/* /usr/bin/ \
+ && ln -sf /etc/ssl/certs/java/cacerts /opt/java/openjdk/lib/security/cacerts \
+ && printf '%s\n' 'export JAVA_HOME=/opt/java/openjdk' > /etc/profile.d/java.sh
+
+# The installer checks the tools tarball's own sha256.
+RUN cd /tmp \
+ && curl -fsSL -o linux-install.sh \
+    https://github.com/clojure/brew-install/releases/download/${CLOJURE_VERSION}/linux-install.sh \
+ && echo "${CLOJURE_INSTALLER_SHA256}  linux-install.sh" | sha256sum -c - \
+ && bash linux-install.sh --prefix /usr \
+ && rm linux-install.sh
+
+RUN cd /tmp \
+ && curl -fsSL -o bb.tar.gz \
+    https://github.com/babashka/babashka/releases/download/v${BB_VERSION}/babashka-${BB_VERSION}-linux-aarch64-static.tar.gz \
+ && echo "${BB_SHA256}  bb.tar.gz" | sha256sum -c - \
+ && tar -xzf bb.tar.gz -C /usr/bin bb \
+ && rm bb.tar.gz
+
+# Prove the toolchain under the guest's PATH. (Nothing is cached: the guest's /root is a tmpfs.)
+RUN export PATH=/usr/sbin:/usr/bin:/sbin:/bin && unset JAVA_HOME \
+ && java -version \
+ && clojure -Sdescribe \
+ && clojure -M -e '(println :ok)' \
+ && bb --version \
+ && git --version

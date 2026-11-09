@@ -14,6 +14,13 @@ APP_DIR=harness-impl
 # care, which is the point of the two-script contract.
 APP_STACK="Clojure (deps.edn, Clojure CLI) on the ORC workflow engine with Grain for the event store, both fetched by git coordinate"
 
+# The builder image for that stack: a folder of LOYLY_BUILDER_IMAGES (.pi/harness/.state/assets,
+# built by harness/Makefile from harness/loyly/Dockerfile.clojure), handed to LOYLY_BUILDER_CMD
+# as its third argument (.pi/spec/cycle-runner/seam.md, "Handed in"; .pi/spec/decisions.md,
+# "Spec round 9" D1, D4). It carries a JDK, the Clojure CLI, git and bb, so a builder never
+# installs its own. Every slice of spec v2 is Clojure, so it does not change per slice.
+BUILDER_IMAGE=builder-clojure
+
 # The spec root. harness/hjson.clj reads this line, so the tools and modules.sh agree.
 PLAN_DIR=.pi/plan
 

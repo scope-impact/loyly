@@ -10,27 +10,36 @@ ARCH := linux/arm64
 PROJECT ?= loyly
 PROJECT_ROOT := $(CURDIR)/$(PROJECT)
 
-.PHONY: bootstrap check-project runtime-images verify-platforms
+.PHONY: bootstrap builder-clojure check-project runtime-images verify-platforms
 bootstrap: check-project runtime-images
 	cd $(PI_HARNESS) && npm ci
 	docker build -f $(PROJECT_ROOT)/Dockerfile.typescript -t pi-harness/builder-typescript:oci $(PROJECT_ROOT)
 	docker build -f $(PROJECT_ROOT)/Dockerfile.rust -t pi-harness/builder-rust:oci $(PROJECT_ROOT)
 	docker build -f $(PROJECT_ROOT)/Dockerfile.java -t pi-harness/builder-java:oci $(PROJECT_ROOT)
 	docker build -f $(PROJECT_ROOT)/Dockerfile.rails -t pi-harness/builder-rails:oci $(PROJECT_ROOT)
+	docker build -f $(PROJECT_ROOT)/Dockerfile.clojure -t pi-harness/builder-clojure:oci $(PROJECT_ROOT)
 	docker build -f $(PROJECT_ROOT)/Dockerfile -t pi-harness/grader:oci $(PROJECT_ROOT)
 	$(GONDOLIN) build --config $(CONFIG)/gondolin.builder.json --output $(ASSETS)/builder
 	$(GONDOLIN) build --config $(BUILD_CONFIG)/builder-rust.json --output $(ASSETS)/builder-rust
 	$(GONDOLIN) build --config $(BUILD_CONFIG)/builder-java.json --output $(ASSETS)/builder-java
 	$(GONDOLIN) build --config $(BUILD_CONFIG)/builder-rails.json --output $(ASSETS)/builder-rails
+	$(GONDOLIN) build --config $(BUILD_CONFIG)/builder-clojure.json --output $(ASSETS)/builder-clojure
 	$(GONDOLIN) build --config $(PROJECT_ROOT)/gondolin.json --output $(ASSETS)/grader
-	@set -eu; for asset in builder builder-rust builder-java builder-rails grader; do \
+	@set -eu; for asset in builder builder-rust builder-java builder-rails builder-clojure grader; do \
 		$(GONDOLIN) build --verify $(ASSETS)/$$asset; \
 	done
 	$(MAKE) verify-platforms
 
+# The Clojure builder image alone (spec round 9, D4), for a checkout whose other images are
+# built: it needs `pi-harness/java:21-web` from runtime-images.
+builder-clojure: check-project
+	docker build -f $(PROJECT_ROOT)/Dockerfile.clojure -t pi-harness/builder-clojure:oci $(PROJECT_ROOT)
+	$(GONDOLIN) build --config $(BUILD_CONFIG)/builder-clojure.json --output $(ASSETS)/builder-clojure
+	$(GONDOLIN) build --verify $(ASSETS)/builder-clojure
+
 check-project:
 	@case '$(PROJECT)' in ''|.|..|*[!A-Za-z0-9._-]*) echo "invalid PROJECT: $(PROJECT)" >&2; exit 2;; esac
-	@set -eu; for file in Dockerfile Dockerfile.typescript Dockerfile.rust Dockerfile.java Dockerfile.rails \
+	@set -eu; for file in Dockerfile Dockerfile.typescript Dockerfile.rust Dockerfile.java Dockerfile.rails Dockerfile.clojure \
 		Dockerfile.rails-offline Dockerfile.rust-offline Dockerfile.java-offline \
 		Dockerfile.typescript-postgres gondolin.json; do \
 		test -f "$(PROJECT_ROOT)/$$file" || { echo "missing harness/$(PROJECT)/$$file" >&2; exit 2; }; \

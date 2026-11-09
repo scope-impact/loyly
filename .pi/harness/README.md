@@ -51,3 +51,19 @@ pi -e <gondolin extension> --model openai-codex/gpt-6.1-sol --thinking high --no
   It routes pi's built-in tools into the Gondolin VM.
 - The wrapper only recorded the launch (the instruction's digest, start, end, exit code) and
   pi's output beside the run's evidence; it changed nothing pi saw.
+
+The maintained wrapper is [`bin/builder.sh`](bin/builder.sh) (spec round 9, D4 O5;
+`../spec/decisions.md`, "Spec round 9"). It is the shadow runs' wrapper with its paths taken
+from the environment (`PI_GONDOLIN_EXTENSION`, `BUILDER_EVIDENCE_DIR`, `PI_HARNESS_STATE_ROOT`)
+and one change: a third argument, `<builder-image>`, which the runner hands in when the
+configuration names `BUILDER_IMAGE`, becomes `GONDOLIN_GUEST_DIR`; without it the guest is
+`assets/builder` as before. `harness/config.sh` names `BUILDER_IMAGE=builder-clojure` for every
+spec-v2 slice, so the runner's environment gains `LOYLY_BUILDER_IMAGES=$PI_HARNESS_STATE_ROOT/assets`
+(and, for D6, `LOYLY_MEASUREMENT_STORE`, one file outside the repository, for example
+`.pi/harness/.state/measurement.sqlite`).
+
+`assets/builder-clojure` is built by `make -C ../../harness builder-clojure` from
+`harness/loyly/Dockerfile.clojure`: `pi-harness/java:21-web` (JDK 21) with the Clojure CLI
+1.12.6.1673, babashka 1.13.226 and git, all in `/usr/bin`, because a Gondolin guest keeps none
+of the image's `ENV` (its `PATH` is `/usr/sbin:/usr/bin:/sbin:/bin`, and `/root` is a tmpfs).
+Java trusts Gondolin's TLS proxy through `java-cacerts`, regenerated when the guest boots.
