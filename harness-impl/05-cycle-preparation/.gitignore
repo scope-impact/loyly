@@ -1,2 +1,11 @@
 .cpcache/
+.gitlibs/
+.m2/
+.runtime/
+.tools/
+.home/
+.test-state/
+.tmp/
+classes/
 target/
+product.jar
