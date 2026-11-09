@@ -468,3 +468,38 @@ details.hood > summary .muted, .c2-h h3, .file-h, .rule-list, .chg-ctx li, .sc-h
 .gw, .gw > *, .spec-h, .spec-tags, details.ex > summary { min-width: 0; overflow-wrap: anywhere; }
 .hood-body .spec { padding: 12px; }
 details.src > summary { overflow-wrap: anywhere; min-width: 0; }
+/* L2: the rule as a skeleton, Given / When / Only if / Then, in plain words */
+.skel { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 8px 14px; align-items: baseline; padding: 10px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; font-size: 14px; }
+.sk-k { font: 600 10.5px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.skel > div { min-width: 0; overflow-wrap: anywhere; }
+.sk-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.sk-list li { display: flex; flex-wrap: wrap; gap: 3px 8px; align-items: baseline; min-width: 0; }
+.sk-list li.marked { box-shadow: -8px 0 0 -5px var(--chg); }
+.sk-t { min-width: 0; flex: 1 1 14em; overflow-wrap: anywhere; }
+.sk-t .chg { margin-left: 6px; }
+.skel .who { font: 600 12px var(--font-body); padding: 1px 7px; border-radius: 3px; background: var(--scr); color: var(--scr-ink); }
+.sk-req .dot { font: 700 12px/1.2 var(--font-mono); width: 16px; text-align: center; flex: none; }
+.dot.d-spec { color: var(--accent); } .dot.d-draft { color: var(--warn); } .dot.d-none { color: var(--fail-ink); } .dot.d-unit, .dot.d-gate { color: var(--muted); }
+.sk-lead { font-size: 12.5px; }
+.sk-cov { font: 10.5px var(--font-mono); color: var(--muted); white-space: nowrap; margin-left: auto; }
+.sk-cov a { color: var(--accent); }
+.sk-then .verb { min-width: 0; flex: none; font-size: 9.5px; padding: 1px 6px; }
+.verb.updates { background: var(--cmd); color: var(--cmd-ink); }
+.sk-then .to { font: 600 11.5px var(--font-body); color: var(--arrow); white-space: nowrap; }
+.skel code.cl { font-size: 11.5px; padding: 1px 5px; white-space: normal; }
+.ex-k { margin-top: 2px; }
+@media (max-width: 520px) { .skel { grid-template-columns: minmax(0, 1fr); gap: 2px; } .skel > .sk-k:not(:first-child) { margin-top: 8px; } }
+/* a scenario's obligations, folded into one chip */
+.obl-chip { display: inline-block; }
+.obl-chip > summary { cursor: pointer; list-style: none; font: 10.5px var(--font-mono); padding: 0 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.obl-chip > summary::-webkit-details-marker { display: none; }
+.obl-chip[open] > summary { color: var(--accent); border-color: var(--accent); }
+.obl-chip ul { margin: 4px 0 2px; padding-left: 14px; font: 11.5px var(--font-body); color: var(--fg); }
+.obl-chip .ob-k { font: 600 10px var(--font-mono); text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.sc-meta .obl-chip[open] { flex-basis: 100%; }
+/* under the hood: the Allium and Grain panels scroll or wrap inside their own boxes */
+details.src .pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 860px) { details.src .pair { grid-template-columns: minmax(0, 1fr); } }
+details.src .pair > *, .spec-grid > div, .edn, .edn-grid > div { min-width: 0; max-width: 100%; }
+.edn-grid > div:has(> table.schema) { overflow-x: auto; }
+pre.code { max-width: 100%; }

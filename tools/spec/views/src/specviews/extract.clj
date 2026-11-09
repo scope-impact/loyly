@@ -39,6 +39,13 @@
   (when-let [i (str/index-of src whole)]
     (->> (str/split-lines (subs src 0 i)) reverse (take-while #(str/starts-with? % "--"))
          reverse (map #(str/trim (str/replace % #"^--" ""))) (remove #(re-find #"^-+$" %)) (str/join " ") str/trim not-empty)))
+(defn requires-docs   ; the -- comment right above each requires: of a rule, "1. " dropped, one per requires
+  [body]
+  (first (reduce (fn [[out buf] l]
+                   (cond (re-find #"^\s+--" l) [out (conj buf (str/trim (str/replace l #"^\s*--" "")))]
+                         (re-find #"^\s+requires:" l) [(conj out (some-> (not-empty (str/join " " (remove str/blank? buf))) (str/replace #"^\d+\.\s*" ""))) []]
+                         :else [out []]))
+                 [[] []] (str/split-lines body))))
 (defn prose [p] (str/join " " (map #(str/trim (str/replace % #"^\s*--" "")) (str/split-lines p))))
 (defn parse-allium [ctx f]
   (let [src (slurp (str spec-dir "/" ctx "/" (:allium FL) "/" f))]
@@ -49,7 +56,7 @@
      :actors (vec (map :name (blocks src "actor")))
      :enums (vec (for [[_ n vs] (re-seq #"(?m)^enum (\w+) \{([^}]*)\}" src)] {:name n :values (mapv str/trim (str/split vs #"\|"))}))
      :rules (vec (for [{n :name s :src} (blocks src "rule")]
-                   {:name n :src s :doc (doc-before src s) :when (first (clauses s "when")) :requires (vec (clauses s "requires")) :emits (emits s)}))
+                   {:name n :src s :doc (doc-before src s) :when (first (clauses s "when")) :requires (vec (clauses s "requires")) :requires-doc (requires-docs s) :emits (emits s)}))
      :invariants (vec (for [b (blocks src "invariant")] (assoc b :doc (doc-before src (:src b)))))
      :contracts (vec (for [{n :name s :src} (blocks src "contract")]
                        {:name n :src s

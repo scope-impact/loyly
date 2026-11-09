@@ -44,7 +44,9 @@
         r (into {} (for [k (keys now)] [k (compare-maps (now k) (base k))]))]
     (merge {:base (:ref base-world) :base-commit (:ref-commit base-world)}
            (into {} (for [[k v] r] [k (:marks v)]))
-           {:removed (into {} (for [[k v] r] [k (:removed v)]))})))
+           {:removed (into {} (for [[k v] r] [k (:removed v)]))}
+           ;; the base's rules themselves, so a card can mark the requires and ensures lines that changed
+           {:base-rules (into {} (for [c (:contexts base-world) m (vals (:modules c)) r (:rules m)] [[(:id c) (:name r)] (select-keys r [:src :requires :requires-doc])]))})))
 
 (println "changes since" (:base CHG) (str "(" (:base-commit CHG) "):")
          (str/join ", " (for [k [:scen :rules :props :blocks :flows]] (str (name k) " " (count (get CHG k)))))

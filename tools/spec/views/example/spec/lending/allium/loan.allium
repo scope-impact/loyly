@@ -25,10 +25,21 @@ rule LendBook {
         BookLent(book_id: book_id, member_id: member_id)
 }
 
--- The member's desk: lend a book.
+-- Take a book back. Whoever brings it back, nothing refuses it: a book returned twice stays
+-- returned.
+rule ReturnBook {
+    when: ReturnBook(member, book_id)
+    let loan = Loan{book_id: book_id}
+    ensures:
+        loan.status = returned
+        BookReturned(book_id: book_id)
+}
+
+-- The member's desk: lend a book, return one.
 surface Desk {
     facing member: Member
 
     provides:
         LendBook(member, book_id, member_id)
+        ReturnBook(member, book_id)
 }

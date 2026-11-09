@@ -175,7 +175,7 @@
                             lines (if orch? (wrap (:name e) 12 2) (wrap (:name e) 12 4)) m (:mark e)
                             hint (when-not orch? (hint-lines e))
                             cx (+ x (/ SW 2.0))]]
-             (str "<a href=\"" (esc (:href e)) "\" class=\"" (str/join " " (remove nil? ["ev" (when (unhappy? e) "un") (when m "marked")])) "\" data-event=\"" (esc (:key e)) "\"" (when m (str " data-change=\"" (name m) "\"")) ">"
+             (str "<a" (when-not standalone? (str " id=\"" (sticky-id (:key e)) "\"")) " href=\"" (esc (:href e)) "\" class=\"" (str/join " " (remove nil? ["ev" (when (unhappy? e) "un") (when m "marked")])) "\" data-event=\"" (esc (:key e)) "\"" (when m (str " data-change=\"" (name m) "\"")) ">"
                   "<title>" (esc (str (:name e) (when (:desc e) (str ": " (:desc e))) (let [t (str/join " · " (remove nil? [(:actor e) (:cmd e)]))] (when (seq t) (str " (" t ")"))))) "</title>"
                   "<rect class=\"sk\" x=\"" (f x) "\" y=\"" (f y) "\" width=\"" SW "\" height=\"" sh "\" rx=\"2\"/>"
                   (str/join (map-indexed (fn [j t] (str "<text class=\"sk-t\" x=\"" (f cx) "\" y=\"" (f (+ y (/ sh 2.0) (- (* 6.25 (dec (count lines)))) 4 (* j 12.5))) "\" text-anchor=\"middle\">" (esc t) "</text>")) lines))

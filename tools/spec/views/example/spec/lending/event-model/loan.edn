@@ -2,20 +2,28 @@
  {:description "Lending: who has which book."
   :screens
   {:lending/desk {:description "The member's desk: lend a book, see the loans."
-                  :queries #{:lending/loans} :commands #{:lending/lend-book}}}
+                  :queries #{:lending/loans} :commands #{:lending/lend-book :lending/return-book}}}
   :commands
   {:lending/lend-book
    {:description "Lend a book to a member. Issued by: member."
     :grain/allium [{:spec "spec/lending/allium/loan.allium" :kind :rule :name "LendBook"}]
     :schema [:map [:book-id :string] [:member-id :string]]
     :reads #{:lending/loans}
-    :produces #{:lending/book-lent}}}
+    :produces #{:lending/book-lent}}
+   :lending/return-book
+   {:description "Take a book back. Issued by: member."
+    :grain/allium [{:spec "spec/lending/allium/loan.allium" :kind :rule :name "ReturnBook"}]
+    :schema [:map [:book-id :string]]
+    :produces #{:lending/book-returned}}}
   :events
   {:lending/book-lent
    {:description "A book was lent to a member."
-    :schema [:map [:book-id :string] [:member-id :string]]}}
+    :schema [:map [:book-id :string] [:member-id :string]]}
+   :lending/book-returned
+   {:description "A book came back to the shelf."
+    :schema [:map [:book-id :string]]}}
   :read-models
-  {:lending/loans {:description "Every active loan." :consumes #{:lending/book-lent}
+  {:lending/loans {:description "Every active loan." :consumes #{:lending/book-lent :lending/book-returned}
                    :schema [:map [:book-id :string] [:member-id :string]]}}
   :queries
   {:lending/loans {:description "The active loans." :schema [:map] :reads #{:lending/loans}}}
@@ -26,4 +34,9 @@
             {:from [:command :lending/lend-book] :to [:event :lending/book-lent]}
             {:from [:event :lending/book-lent] :to [:read-model :lending/loans]}
             {:from [:read-model :lending/loans] :to [:query :lending/loans]}
-            {:from [:query :lending/loans] :to [:screen :lending/desk]}]}}}}
+            {:from [:query :lending/loans] :to [:screen :lending/desk]}]}
+   :lending/return
+   {:description "A member returns a book, and it leaves the loans."
+    :steps [{:from [:screen :lending/desk] :to [:command :lending/return-book]}
+            {:from [:command :lending/return-book] :to [:event :lending/book-returned]}
+            {:from [:event :lending/book-returned] :to [:read-model :lending/loans]}]}}}}

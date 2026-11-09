@@ -15,3 +15,12 @@ Feature: Lending
       Given book B-1 is lent to member M-1
       When member M-2 borrows book B-1
       Then the loan is refused
+
+  Rule: A book comes back whoever returns it
+
+    @minimum @allium-rule-success.ReturnBook
+    @item-01-003
+    Scenario: A member returns a book
+      Given book B-1 is lent to member M-1
+      When member M-1 returns book B-1
+      Then book B-1 is back on the shelf

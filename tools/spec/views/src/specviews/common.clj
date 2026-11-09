@@ -16,6 +16,7 @@
              (when (next w) (str " " (str/join " " (rest w))))))))
 (defn kebab [n] (str/lower-case (str/replace (str n) #"([a-z0-9])([A-Z])" "$1-$2")))
 (defn snake [n] (str/lower-case (str/replace (str n) #"([a-z0-9])([A-Z])" "$1_$2")))
+(defn sticky-id [key] (str "ev-" (str/replace (str key) #"[^A-Za-z0-9]" "-")))   ; an event's sticky in the event storm (L0)
 (defn plural [n w] (str n " " w (when (not= n 1) "s")))
 (defn ordered-groups [f xs] (for [k (distinct (map f xs))] [k (filter #(= k (f %)) xs)]))
 

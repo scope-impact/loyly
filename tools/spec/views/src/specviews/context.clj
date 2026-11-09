@@ -253,7 +253,7 @@
       (for [{:keys [t ind]} (first stmts) :let [d (max 0 (Math/round (/ ind 4.0)))]]
         (if-let [[_ e] (re-find #"^(?:\w+[./])?([A-Z]\w*)\.created\(" t)] ["creates" e d]
           (if-let [[_ q e] (re-find #"^(?:(\w+)[./])?([A-Z]\w*)\(" t)] ["emits" (str (when (and q (re-find #"^[a-z]" q)) (str q ".")) e) d]
-            (if-let [[_ _ f v] (re-find #"^([\w.]+)\.(\w+)\s*=\s*(.+)$" t)] ["sets" (str f " = " v) d]
+            (if-let [[_ p f v] (re-find #"^([\w.]+)\.(\w+)\s*=\s*(.+)$" t)] ["sets" (str f " = " v) d {:path p :field f :value (str/trim v)}]
               (if-let [[_ w] (re-find #"^(if|else|for|let)\b" t)]
                 [(get {"else" "otherwise" "for" "for each" "let" "let"} w "if") (-> t (str/replace #"^(if|else|for|let)\s*" "") (str/replace #":$" "")) d]
                 ["also" t d]))))))))
@@ -262,7 +262,7 @@
     (fn [r]
       (let [s (get STATES (:name r) {:needs [] :sets []}) others (remove #(= (:name r) (:name %)) rule-list)
             given (for [[E f v] (:needs s) :let [prods (filter #(some #{[E f v]} (:sets (STATES (:name %)))) others)]]
-                    {:state (st-label [E f v]) :by (map :name prods)
+                    {:state (st-label [E f v]) :need [E f v] :by (map :name prods)
                      :events (distinct (mapcat #(if (seq (:emits %)) (map last-seg (:emits %)) (keep identity [(trig %)])) prods))})
             t (trig r) blk (rule-block r) actor (actor-of r)
             trig-event? (and t (some (fn [o] (some #(= t (last-seg %)) (:emits o))) others))]
@@ -401,16 +401,28 @@
 (defn ctx-name [c] (human c))
 
 ;; ---------- L2: a scenario, as a reader reads it ----------
-(defn scenario-plain [s]
+(defn ob-plain   ; an @allium- obligation tag, in words: [kind what]
+  [t]
+  (let [id (str/replace t #"^@allium-" "")]
+    (if-let [[_ k n i] (re-find #"^rule-(success|failure)\.(\w+)(?:\.(\d+))?$" id)]
+      [(if (= k "success") "success" (str "refusal " i)) (human n)]
+      (let [[k n] (str/split id #"\." 2)] [k (human (or n ""))]))))
+(defn ob-chip [s]   ; the scenario's @allium- tags, folded into one chip
+  (let [obs (filter #(str/starts-with? % "@allium-") (:tags s))]
+    (when (seq obs)
+      [:details.obl-chip [:summary (str "covers " (plural (count obs) "obligation"))]
+       [:ul (for [t obs :let [[k n] (ob-plain t)]] [:li [:span.ob-k k] " " n])]])))
+(defn sc-anchor [card-id s] (str card-id "--sc-" (if (= "spec" (:kind s)) (:item s) (str/replace (str/lower-case (:title s)) #"[^a-z0-9]+" "-"))))
+(defn scenario-plain [s & [id]]
   (let [m (scen-mark s) draft? (= "drafts" (:kind s))]
-    [:div {:class ["sc" (when draft? "draft") (when m "marked")] :data-scenario (or (:item s) (:title s))}
+    [:div {:class ["sc" (when draft? "draft") (when m "marked")] :id id :data-scenario (or (:item s) (:title s))}
      [:div.sc-h [:b (:title s)] (when draft? [:span.draft-tag "draft"]) (chg-badge m)]
      [:div.sc-steps
       (for [l (:steps s) :let [[w more] (str/split l #" " 2)]]
         (if (or (str/starts-with? l "|") (str/starts-with? l "Examples:"))
           [:div.sc-row l]
           [:div.sc-step [:span {:class ["kw" (kw-class w)]} w] " " more]))]
-     [:div.sc-meta (if draft? (muted "draft, not stamped") [:span.item (str (:item-tag cfg) (:item s))]) (tier-chip (:tier s)) [:span.from (:file s) ":" (:line s)]
+     [:div.sc-meta (ob-chip s) (if draft? (muted "draft, not stamped") [:span.item (str (:item-tag cfg) (:item s))]) (tier-chip (:tier s)) [:span.from (:file s) ":" (:line s)]
       (if draft? (review (str "draft:" (:slice s) ":" (:title s)) "accept" "comment") (review (str "scenario:" (:item s)) "comment"))]]))
 (defn scenarios-of [covs]   ; the distinct scenarios of some obligations, accepted first
   (let [ss (distinct (mapcat :sc covs))] (concat (filter #(= "spec" (:kind %)) ss) (remove #(= "spec" (:kind %)) ss))))
@@ -421,10 +433,86 @@
     {:rules g :doc (:doc r)}))
 (defn rule-mark [r] (merge-marks (cons (mark :rules [CX (:name r)]) (map scen-mark (scenarios-of (rule-covs r))))))
 
+;; ---------- L2: the rule as a skeleton, Given / When / Only if / Then, in plain words ----------
+;; All of it from the Allium rule and the Event Model: the trigger and who issues it, the command,
+;; each requires (its comment, else its condition) with the coverage of its refusal, and what the
+;; rule ensures as typed verbs; an event another context reads is marked with that context.
+(declare handoff-to)
+(defn plain-val [v] (str/replace (str v) "_" " "))
+(defn plain-state [[E f v]] (str (human E) " " (str/lower-case (human f)) " is " (plain-val v)))
+(defn cap [t] (if (seq t) (str (str/upper-case (subs t 0 1)) (subs t 1)) t))
+(defn issuer [r] (let [a (actor-of r)] (when-not (#{"" "on event" "on state change" "time"} a) a)))
+(defn event-key [e]   ; an emitted Allium event, to its Event Model key (this context's first)
+  (let [n (kebab (last-seg e)) ks (filter #(= n (short %)) (keys (:events WALL)))]
+    (or (first (filter #(= MAIN (ns-of %)) ks)) (first ks))))
+(defn then-items [r]
+  (let [items (for [[k t d x] (ensures-parts (:src r)) :when (#{"creates" "emits" "sets"} k)]
+                (case k
+                  "creates" {:verb "creates" :label (human t) :d d}
+                  "sets" (let [{:keys [path field value]} x E (entity-of-var r (last-seg path))]
+                           {:verb "updates" :d d
+                            :label (str (human (or E (last-seg path))) " " (str/lower-case (human field)) (when (re-matches #"[\w-]+" value) (str " → " (plain-val value))))})
+                  "emits" (let [key (event-key t)] {:verb "emits" :label (human t) :key key :to (when key (vec (distinct (handoff-to key)))) :d d})))]
+    (vals (reduce (fn [m i] (let [k [(:verb i) (:label i)]] (if (m k) m (assoc m k i)))) (array-map) items))))
+(defn base-rule [r] (get-in CHG [:base-rules [CX (:name r)]]))
+(defn line-mark   ; a skeleton line's mark since --base: every line of a new rule is new; a line its base lacks, changed
+  [r in-base?] (when CHG (cond (nil? (base-rule r)) :new (not in-base?) :changed)))
+(defn ws [t] (str/replace (str/trim (str t)) #"\s+" " "))
+(def DOTS {"spec" ["✓" "covered by an accepted scenario"] "draft" ["○" "covered only by a draft"] "none" ["✗" "uncovered"]
+           "unit" ["◇" "checked by a unit test"] "gate" ["◇" "checked by a gate"]})
+(defn req-cov   ; a refusal's coverage; with no coverage report, read from the scenarios tagged with it
+  [id]
+  (let [cv (cov id) ss (:sc cv)]
+    (cond (:o cv) cv
+          (some #(= "spec" (:kind %)) ss) (assoc cv :k "spec" :t (plural (count (filter #(= "spec" (:kind %)) ss)) "scenario"))
+          (seq ss) (assoc cv :k "draft" :t "draft")
+          :else (assoc cv :t "uncovered"))))
+(defn skeleton [r card-id]
+  (let [g (gwt-of r) blk (rule-block r) t (trig r) who (issuer r) b (base-rule r)
+        given (concat (for [x (:given g)]
+                        (if (seq (:events x))
+                          (list (interpose " or " (for [e (:events x)] [:b (human e)])) " " (muted "(" (plain-state (:need x)) ")"))
+                          (muted (cap (plain-state (:need x))))))
+                      (when (:trigger g) [(list [:b (human (:trigger g))] " " (muted "(triggers it)"))])
+                      (when who [(list (if (and t (not (and blk (= :commands (second blk))))) "Handed in by " "Issued by ") [:span.who who])]))
+        when-line (cond (timed? r) (list "Time passes " (muted "(a deadline is reached)"))
+                        (and blk (= :commands (second blk))) [:b (human (short (first blk)))]
+                        (re-find #"\bbecomes\b" (or (:when r) "")) (if-let [[_ _ E f v] (re-find #"(\w+):\s*(?:\w+[./])?([A-Z]\w*)\.(\w+)\s+becomes\s+(\w+)" (:when r))]
+                                                                     (list [:b (plain-state [E f v])] " " (muted "(a state change)")) (muted "a state change"))
+                        t (list [:b (human t)] " " (muted "(the event arrives)"))
+                        :else [:b (human (:name r))])
+        base-req (set (map (fn [q d] [(ws q) (ws d)]) (:requires b) (concat (:requires-doc b) (repeat nil))))
+        reqs (map-indexed (fn [i q] (let [n (inc i) d (get (:requires-doc r) i) cv (req-cov (str "rule-failure." (:name r) "." n))
+                                          [sym tt] (DOTS (:k cv) (DOTS "none"))
+                                          sc (first (:sc cv)) m (line-mark r (base-req [(ws q) (ws d)]))]
+                                      [:li {:class ["sk-req" (when m "marked")]}
+                                       [:span {:class ["dot" (str "d-" (:k cv))] :title tt :aria-label tt} sym]
+                                       [:span.sk-t (if (seq d) (cap d) (list (muted "requires ") [:code.cl q])) (chg-badge m)]
+                                       [:span.sk-cov (cond sc [:a {:href (str "#" (sc-anchor card-id sc))} (if (= "spec" (:kind sc)) (str "item " (:item sc)) "draft")]
+                                                           (= "gate" (:k cv)) (str "gate " (:gate (:o cv)))
+                                                           :else (:t cv))]]))
+                          (requires-of r))
+        base-then (when b (set (map (juxt :verb :label) (then-items (assoc r :src (:src b))))))
+        thens (for [{:keys [verb label key to d]} (then-items r)
+                    :let [m (line-mark r (contains? base-then [verb label]))
+                          href (cond (and (seq to) key) (str "#" (sticky-id key))
+                                     (and key (WBLK (blk-hash key :events))) (str "#" (blk-hash key :events)))]]
+                [:li {:class ["sk-then" (when m "marked")]}
+                 [:span {:class ["verb" verb]} verb]
+                 [:span.sk-t (if href [:a {:href href} label] label)
+                  (when (seq to) (list " " [:span.to {:title "a handoff: another context reads it"} "→ " (str/join ", " (map human to))]))
+                  (when (pos? d) (list " " (muted "(in some cases)")))
+                  (chg-badge m)]])]
+    [:div.skel
+     [:div.sk-k "Given"] [:div (if (seq given) [:ul.sk-list (for [l given] [:li l])] (muted "nothing before it: it starts the lifecycle"))]
+     [:div.sk-k "When"] [:div when-line]
+     [:div.sk-k "Only if"] [:div (if (seq reqs) [:ul.sk-list (when (some seq (:requires-doc r)) [:li.sk-lead (muted "It is refused when:")]) reqs] (muted "nothing can refuse it"))]
+     [:div.sk-k "Then"] [:div (if (seq thens) [:ul.sk-list thens] (muted "no effect stated"))]]))
+
 (defn spec-card
-  "The review unit (L2): a title, the rule in plain words, its scenarios readable, and L3 (`hood`)
-  collapsed beneath."
-  [{:keys [id kind title plain doc who scs badge m hood hood-title]}]
+  "The review unit (L2): a title, the rule in plain words, its skeleton (a rule's Given / When /
+  Only if / Then), its scenarios readable, and L3 (`hood`) collapsed beneath."
+  [{:keys [id kind title plain doc who skel scs badge m hood hood-title]}]
   (let [nd (count (filter #(= "drafts" (:kind %)) scs)) ns (- (count scs) nd)]
     [:article {:class ["card2" (when m "marked")] :id id :data-card kind}
      [:header.c2-h [:div [:span.lbl kind] [:h3 title (chg-badge m)]]
@@ -432,13 +520,15 @@
      (when (seq plain) [:div.plain (for [p plain] [:p p])])
      (when doc [:p.doc doc])
      (when who [:p.who who])
-     (if (seq scs) [:div.scs (map scenario-plain scs)] (none "No scenario yet."))
+     skel
+     (when skel [:div.sk-k.ex-k "Examples"])
+     (if (seq scs) [:div.scs (for [s scs] (scenario-plain s (when skel (sc-anchor id s))))] (none "No scenario yet."))
      [:details.hood [:summary [:span "Under the hood"] [:span.muted hood-title]] [:div.hood-body hood]]]))
 
 (defn rule-spec-card [r]
-  (let [{:keys [rules doc]} (rule-plain r) g (gwt-of r) a (actor-of r)]
-    (spec-card {:id (rid (:name r)) :kind "rule" :title (human (:name r)) :plain rules :doc doc
-                :who (list "Triggered by " [:b (:when g)])
+  (let [{:keys [rules doc]} (rule-plain r) id (rid (:name r))]
+    (spec-card {:id id :kind "rule" :title (human (:name r)) :plain rules :doc doc
+                :skel (skeleton r id)
                 :scs (scenarios-of (rule-covs r)) :badge (badge (cov (str "rule-success." (:name r)))) :m (rule-mark r)
                 :hood-title (str "Allium rule " (:name r) ", its refusals, its Grain block")
                 :hood (rule-card r true false)})))

@@ -1,4 +1,4 @@
-;; A minimal project for tools/spec/views: one context, one rule, two scenarios. check.sh builds
+;; A minimal project for tools/spec/views: one context, two rules (one nothing refuses), three scenarios. check.sh builds
 ;; it to prove the page code holds no Löyly assumption. No plan, no coverage tool, no
 ;; architecture file, no handoffs: those sections switch off.
 {:title "Lending library"
@@ -12,6 +12,6 @@
  :item-tag "@item-"
  :tiers ["@minimum"]
  :out-dir "dist"
- :story {:unhappy "refused"}
+ :story {:unhappy "refused" :after [[:lending/book-lent :lending/book-returned]]}
  :text {:summary "A lending library lends its books to members, one member at a time per book, and takes them back."
         :intro "A lending library, specified as {contexts} bounded context."}}
