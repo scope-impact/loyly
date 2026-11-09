@@ -1,0 +1,63 @@
+[
+ {
+  "id": "S1",
+  "items": [
+   "06-014",
+   "06-035"
+  ],
+  "surprise": "The builder's suite was green in its Linux VM and red on the macOS gate host twice. Attempt 1 (room 06-c7) failed 06-014: a fixture builder wrote its launch log with GNU `stat -c '%a'`, which macOS's BSD stat refuses, so the second launch never wrote \"end\" (expected begin/end/begin/end, got begin/end/begin). Attempt 2 (room 06-c7-a2) failed 06-035: reading a run's progress counted 148 events where 146 were expected, because Grain/ORC processors were still writing asynchronously after the command returned. The prompt does not say the gate runs on macOS, so a builder cannot know its VM differs from the gate host. Attempt 3 (room 06-c7-a3) passed."
+ },
+ {
+  "id": "S2",
+  "items": [
+   "06-035"
+  ],
+  "surprise": "The attempt-2 repair (src/runner/runtime.clj await-idle!) makes every command wait, polling every 10 ms for up to 30 s, until Grain's processors have checkpointed and ORC's ticks have completed, and throws \"Grain processors did not finish before the command response\" past that. Commands are now synchronous with their processors; a slow host turns the 30 s barrier into a command failure. The spec names no such deadline."
+ },
+ {
+  "id": "S3",
+  "items": [],
+  "surprise": "Grader wording ambiguity 1: LOYLY_BUILDER_INSTRUCTION is described as the instruction \"text\", but the runner reads it as a path to a file holding the text."
+ },
+ {
+  "id": "S4",
+  "items": [
+   "06-011",
+   "06-038"
+  ],
+  "surprise": "Grader wording ambiguity 2: \"the detail names the skipped check\" is ambiguous between the event's detail field and its skipped-checks list."
+ },
+ {
+  "id": "S5",
+  "items": [
+   "06-013"
+  ],
+  "surprise": "Grader wording ambiguity 3: the configuration must be committed in the cut for the builder's clean room to see it; the scenario does not say so."
+ },
+ {
+  "id": "S6",
+  "items": [
+   "06-046"
+  ],
+  "surprise": "Grader wording ambiguity 4: the store-check command is resolved on PATH, and the harness digest covers the command's text only, not the program it resolves to."
+ },
+ {
+  "id": "S7",
+  "items": [
+   "06-007"
+  ],
+  "surprise": "Grader wording ambiguity 5: the relay order across consumers is not fixed; only each producer's order is."
+ },
+ {
+  "id": "S8",
+  "items": [],
+  "surprise": "Grader wording ambiguity 6: the literal commit hashes in the Givens cannot be reproduced; a grader must build its own commits and read the hashes as placeholders."
+ },
+ {
+  "id": "S9",
+  "items": [
+   "06-045"
+  ],
+  "surprise": "As in cycle 06 (S5), when the store-check command cannot be started the identity probe still runs before the run halts at the gate. The seam allows it, but the missing store check could be found before anything is booted."
+ }
+]

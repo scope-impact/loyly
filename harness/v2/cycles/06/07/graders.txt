@@ -1,0 +1,2 @@
+verdicts: sha256:62677f5c128fe7fea5ed6210f6cb9dd9d6868aeee0134e427307bb0875d0054d verdicts.json
+by: 06-c7-grading-subagent (black-box, gate room)
