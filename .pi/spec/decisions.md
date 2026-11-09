@@ -1290,3 +1290,35 @@ accepted, `harness/v2/cycles/06/06`).
    in `.pi/harness/.state/rounds/10` and `.pi/harness/.state/rounds/10a`. No spec, item or golden
    changed.
 4. **Next.** Löyly cycles on the current harness.
+
+## Spec round 11 (decided 2026-11-09)
+
+Why: Löyly run-01 failed under runner cycle 05, `identity-probe-failed` on all three attempts
+(evidence `.pi/harness/.state/loyly/run-01`). Each suite ran green and each probe was reached. The
+runner ran the identity probe from a copy in the run's directory, `runs/<run>/probe/probe.sh`,
+where Löyly's probe could not find the `../harness/config.sh` it reads. The spec did not say
+where the http probe runs. The product owner decided D1, D2 and D3 "as close to legacy".
+
+1. **D1, the http gate runs the probe in the gated tree, as legacy `verify.sh`** (`seam.md`, E5
+   `install` and `gate` (`http`); `allium/context.allium`, `TheGateRoomHoldsTheCleanRoom`). For
+   either seam the gate room is a copy of the gated tree: the clean room's files plus the
+   candidate's copy at `APP_DIR`. The gate room is `ROOT` (`verify.sh` line 23). The probe is
+   `$ROOT/$APP_PROBE`, checked executable (line 36) and run as `"$ROOT/$APP_PROBE" "$URL"` (line
+   154), with no change of directory and nothing else added. The clean room's probe is the cut's:
+   the fence removes only `FENCED_PATHS`. The stdio gate is unchanged. A grader of a passed
+   attempt drives the candidate in a room built the same way, for either seam. This replaces round
+   8's "the HTTP gate room is unchanged".
+2. **D2, one new item, `@item-06-052`**, `@minimum`, appended at the end of
+   `cycle-runner/spec.feature` under a repeat of its Rule: an identity probe that reads a file
+   beside it in the cut, by its own location, passes a candidate that serves the marker. The
+   grader fixtures gain such a probe. Cycle-runner goes from 51 to 52 items.
+3. **D3, instants in a relayed handoff** (`seam.md`, E8 and the candidate's own suite): round 10's
+   two bullets, without its halt-reason narrowing. A relayed handoff's `inst?` fields travel as
+   ISO-8601 UTC text, whichever type the producer's store gives back, and the suite's stand-ins
+   write both types. No item and no golden change.
+4. **Not addressed.** The candidate's own `test.sh` and `start.sh` run in the writable gate room
+   before the probe runs, so they could rewrite the probe there. That is as in legacy `verify.sh`.
+   Checking the probe's digest before running it would close the gap.
+
+The slice-06 grader grows by `@item-06-052` ("spec grew", additions only). The checklist golden
+grows 200 → 201. `@item-06-052` is the next cycle's untuned holdout.

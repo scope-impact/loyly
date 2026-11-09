@@ -572,3 +572,17 @@ Feature: Cycle runner
       When the operator starts run R-2 of cycle C-2 at source cut K-2, everything else the same, and hands in its verdicts
       Then Measurement's scoreboard of cycle C-2, read from H through Measurement's own seam after run R-2 ended, has the previous cycle C-1
       And run R-2's relayed handoffs from measurement are one measurement/measurement-filed and one measurement/scoreboard-reported, each to regeneration-cycle
+
+  Rule: The gate grades a copy of the candidate on the host, in legacy verify.sh's order
+
+    # context.allium, contract GateOnTheHost, invariant TheGateRoomHoldsTheCleanRoom
+    # Legacy: verify.sh [4] runs "$ROOT/$APP_PROBE" "$URL" in the tree it gates (lines 23, 36, 154), and Löyly's harness/probe.sh sources "$ROOT/harness/config.sh", ROOT its own directory's parent; Löyly run-01 (runner c05) failed "identity-probe-failed" on all 3 attempts, decisions.md "Spec round 11"
+    @minimum @allium-boundary.TheGateRoomHoldsTheCleanRoom
+    @item-06-052
+    Scenario: An identity probe that reads a file beside it in the cut passes a candidate that serves the marker
+      Given the cut's identity probe is "harness/probe.sh", and it reads the marker from "harness/config.sh" by its path relative to the probe's own location, never from its working directory or its environment
+      And it exits 0 only when it can read that file and the page at its one argument carries the marker read there, and exits 1 otherwise
+      And the stub builder leaves a candidate whose suite is green and whose launch entrypoint serves the marker on the port
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then the gate effect of run R-1 for attempt 1 was recorded with the event "regeneration-cycle/gate-attempt-passed"
+      And the install effect's candidate digest is the regenerate effect's

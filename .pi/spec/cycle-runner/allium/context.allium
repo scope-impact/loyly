@@ -181,11 +181,14 @@ contract GateOnTheHost {
         -- harness/v2/gate.sh's does.
 
     @invariant TheGateRoomHoldsTheCleanRoom
-        -- For the stdio seam the gate room is a copy of the clean room's files with the
-        -- candidate's copy at its scope, so the candidate reads the spec beside it as in
-        -- its builder room (harness/v2/gate.sh gates a candidate inside its room). The
-        -- candidate digest is still its scope's alone. The http seam's gate room is as
-        -- TheGateGradesACopy states.
+        -- For either seam the gate room is a copy of the gated tree: the clean room's
+        -- files plus the candidate's copy at its scope, so the candidate reads the spec
+        -- beside it as in its builder room (harness/v2/gate.sh gates a candidate inside
+        -- its room). For the http seam the gate room is legacy verify.sh's ROOT (line 23):
+        -- the probe is checked -x "$ROOT/$APP_PROBE" (line 36) and run as
+        -- "$ROOT/$APP_PROBE" "$URL" (line 154), with no change of directory and nothing
+        -- else added (decisions.md, "Spec round 11"). The candidate digest is still its
+        -- scope's alone.
 
     @invariant TheHarnessDigestCoversTheStoreCheck
         -- For the stdio seam the harness digest covers the store-check command too, after
