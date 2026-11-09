@@ -10,18 +10,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #f7f5f0;
-  --surface: #ffffff;
-  --surface-2: #f0ede5;
-  --ink: #1d1b17;
-  --ink-2: #4a463e;
-  --ink-3: #7a756a;
-  --rule: #dcd7cb;
+  --bg: #f7f5f0; --surface: #ffffff; --surface-2: #f0ede5;
+  --ink: #1d1b17; --ink-2: #4a463e; --ink-3: #7a756a; --rule: #dcd7cb;
   --accent: #9a3b1c;
-  --ok-bg: #e2f1e4; --ok-ink: #1f5f2c;
-  --bad-bg: #f8e0dc; --bad-ink: #8e2416;
+  --ok-bg: #e2f1e4; --ok-ink: #1f5f2c; --ok-fill: #3f8f50;
+  --bad-bg: #f8e0dc; --bad-ink: #8e2416; --bad-fill: #c2412b;
   --na-bg: #ebe8e1; --na-ink: #5d584e;
-  --warn-bg: #f7ecd2; --warn-ink: #7a5208;
+  --warn-bg: #f7ecd2; --warn-ink: #7a5208; --warn-fill: #c48a1a;
+  --bar: #b9b2a3;
   --display: "Fraunces", Georgia, serif;
   --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -32,10 +28,11 @@
     --bg: #161512; --surface: #1f1d19; --surface-2: #29261f;
     --ink: #ece8df; --ink-2: #c3bdb0; --ink-3: #8f897c; --rule: #3a362e;
     --accent: #e08a62;
-    --ok-bg: #1d3524; --ok-ink: #9fd8aa;
-    --bad-bg: #3d1f1a; --bad-ink: #f2a596;
+    --ok-bg: #1d3524; --ok-ink: #9fd8aa; --ok-fill: #5fb072;
+    --bad-bg: #3d1f1a; --bad-ink: #f2a596; --bad-fill: #e0644c;
     --na-bg: #2c2a25; --na-ink: #b4aea2;
-    --warn-bg: #3a2f17; --warn-ink: #e9c47a;
+    --warn-bg: #3a2f17; --warn-ink: #e9c47a; --warn-fill: #d9a43a;
+    --bar: #5a554b;
     color-scheme: dark;
   }
 }
@@ -43,68 +40,157 @@
   --bg: #161512; --surface: #1f1d19; --surface-2: #29261f;
   --ink: #ece8df; --ink-2: #c3bdb0; --ink-3: #8f897c; --rule: #3a362e;
   --accent: #e08a62;
-  --ok-bg: #1d3524; --ok-ink: #9fd8aa;
-  --bad-bg: #3d1f1a; --bad-ink: #f2a596;
+  --ok-bg: #1d3524; --ok-ink: #9fd8aa; --ok-fill: #5fb072;
+  --bad-bg: #3d1f1a; --bad-ink: #f2a596; --bad-fill: #e0644c;
   --na-bg: #2c2a25; --na-ink: #b4aea2;
-  --warn-bg: #3a2f17; --warn-ink: #e9c47a;
+  --warn-bg: #3a2f17; --warn-ink: #e9c47a; --warn-fill: #d9a43a;
+  --bar: #5a554b;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body {
-  margin: 0; background: var(--bg); color: var(--ink);
-  font-family: var(--body); font-size: 16px; line-height: 1.6;
-  font-variant-numeric: tabular-nums;
-}
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.55; font-variant-numeric: tabular-nums; }
 .wrap { max-width: 980px; margin: 0 auto; padding: 0 16px 64px; }
-header.top { padding: 48px 0 24px; border-bottom: 1px solid var(--rule); margin-bottom: 8px; }
+header.top { padding: 40px 0 20px; border-bottom: 1px solid var(--rule); margin-bottom: 8px; }
 .eyebrow { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 8px; }
-h1 { font-family: var(--display); font-weight: 600; font-size: clamp(32px, 6vw, 48px); line-height: 1.1; margin: 0 0 12px; letter-spacing: -.01em; }
-h2 { font-family: var(--display); font-weight: 600; font-size: 26px; line-height: 1.25; margin: 48px 0 12px; }
+h1 { font-family: var(--display); font-weight: 600; font-size: clamp(32px, 6vw, 48px); line-height: 1.1; margin: 0 0 10px; letter-spacing: -.01em; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 24px; line-height: 1.25; margin: 44px 0 8px; }
 h2 .n { color: var(--accent); margin-right: 8px; }
-h3 { font-size: 16px; font-weight: 600; margin: 24px 0 8px; }
+h3 { font-size: 15px; font-weight: 600; margin: 20px 0 8px; }
 p { margin: 0 0 12px; }
-.lede { font-size: 18px; color: var(--ink-2); max-width: 70ch; }
-.meta { font-size: 14px; color: var(--ink-3); margin-top: 12px; }
+.lede { font-size: 18px; color: var(--ink-2); max-width: 62ch; }
+.sub { color: var(--ink-2); max-width: 70ch; }
 a { color: var(--accent); }
 code, .mono { font-family: var(--mono); font-size: .86em; overflow-wrap: anywhere; }
 ul, ol { padding-left: 22px; margin: 0 0 12px; }
 li { margin-bottom: 6px; }
-.source { font-size: 13px; color: var(--ink-3); border-left: 2px solid var(--rule); padding: 2px 0 2px 10px; margin: 16px 0 0; overflow-wrap: anywhere; }
-.source b { font-weight: 600; color: var(--ink-2); }
-.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 20px 0; }
-.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 16px; }
-.card .k { font-size: 13px; color: var(--ink-3); margin-bottom: 4px; }
-.card .v { font-family: var(--display); font-size: 24px; font-weight: 600; line-height: 1.2; }
-.card .s { font-size: 13px; color: var(--ink-2); margin-top: 4px; }
-.verdict { background: var(--surface); border: 1px solid var(--rule); border-left: 4px solid var(--ok-ink); border-radius: 8px; padding: 16px 18px; margin: 20px 0; }
-.verdict p:last-child { margin-bottom: 0; }
-.tbl { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); margin: 16px 0; }
-table { border-collapse: collapse; width: 100%; font-size: 14px; }
-th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--rule); }
-thead th { background: var(--surface-2); font-weight: 600; font-size: 13px; color: var(--ink-2); white-space: nowrap; }
-tbody tr:last-child td, tbody tr:last-child th { border-bottom: 0; }
-tbody th { font-weight: 600; white-space: nowrap; }
-td.num { text-align: right; white-space: nowrap; }
-table.cmp td:nth-child(2), table.cmp td:nth-child(3) { min-width: 210px; }
-table.cmp th:first-child { width: 1%; }
-.why { display: block; font-size: 12.5px; color: var(--ink-2); margin-top: 6px; min-width: 150px; }
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 16px; }
+.theme-toggle { float: right; margin-top: -4px; font: inherit; font-size: 13px; color: var(--ink-2); background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+
+/* verdict strip */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 20px 0 12px; }
+.tile { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; }
+.tile .v { font-family: var(--display); font-size: 36px; font-weight: 600; line-height: 1.05; }
+.tile .k { font-size: 13px; font-weight: 600; color: var(--ink-2); margin-top: 4px; }
+.tile .s { font-size: 12.5px; color: var(--ink-3); }
+.tile.good .v { color: var(--ok-ink); }
+.banner { display: flex; gap: 12px; align-items: flex-start; background: var(--ok-bg); color: var(--ok-ink); border-radius: 8px; padding: 12px 14px; font-weight: 500; }
+.banner b { font-weight: 600; }
+.banner .ic { font-size: 20px; line-height: 1.2; }
+
+/* marks */
+.m { display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 34px; border-radius: 6px; font-weight: 600; font-size: 15px; }
+.m.ok { background: var(--ok-bg); color: var(--ok-ink); }
+.m.bad { background: var(--bad-bg); color: var(--bad-ink); }
+.m.warn { background: var(--warn-bg); color: var(--warn-ink); }
+.m.na { background: var(--na-bg); color: var(--na-ink); }
 .pill { display: inline-block; font-size: 12px; font-weight: 600; line-height: 1; padding: 5px 8px; border-radius: 999px; white-space: nowrap; }
 .ok { background: var(--ok-bg); color: var(--ok-ink); }
 .bad { background: var(--bad-bg); color: var(--bad-ink); }
 .na { background: var(--na-bg); color: var(--na-ink); }
 .warn { background: var(--warn-bg); color: var(--warn-ink); }
-.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; color: var(--ink-2); margin: 8px 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--ink-2); margin: 8px 0 10px; }
 .legend span { display: inline-flex; gap: 6px; align-items: center; }
-blockquote { margin: 12px 0; padding: 12px 16px; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; font-size: 15px; }
-blockquote .who { display: block; font-size: 12.5px; color: var(--ink-3); margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
-.two { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.legend i { font-style: normal; display: inline-flex; width: 22px; height: 22px; border-radius: 5px; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; }
+
+/* stage grid */
+.sgrid { display: grid; grid-template-columns: 34px repeat(6, minmax(0, 1fr)) minmax(0, 1.7fr); gap: 4px; align-items: center; }
+.sgrid .h { font-size: 11.5px; font-weight: 600; color: var(--ink-3); text-align: center; overflow-wrap: anywhere; hyphens: manual; line-height: 1.2; padding-bottom: 2px; }
+.sgrid .h.cl { text-align: left; }
+.sgrid .rn { font-family: var(--display); font-weight: 600; font-size: 18px; text-align: center; }
+.sgrid .cl { font-size: 12.5px; color: var(--ink-2); line-height: 1.3; padding-left: 6px; overflow-wrap: anywhere; }
+.sgrid .cl.pass { color: var(--ok-ink); font-weight: 600; }
+.sgrid .gap { grid-column: 1 / -1; height: 4px; }
+@media (max-width: 620px) {
+  .sgrid { grid-template-columns: 30px repeat(6, minmax(0, 1fr)); }
+  .sgrid .h.cl { display: none; }
+  .sgrid .cl { grid-column: 2 / -1; padding: 0 0 6px 2px; }
+}
+
+/* timeline */
+.tl { list-style: none; padding: 0; margin: 12px 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; position: relative; }
+.tl li { position: relative; padding: 30px 10px 0 0; margin: 0; font-size: 13px; line-height: 1.35; }
+.tl li::before { content: ""; position: absolute; top: 9px; left: 0; right: 0; height: 2px; background: var(--rule); }
+.tl li:last-child::before { right: auto; width: 20px; }
+.tl .dot { position: absolute; top: 0; left: 0; width: 20px; height: 20px; border-radius: 50%; border: 3px solid var(--bg); }
+.tl .dot.bad { background: var(--bad-fill); } .tl .dot.warn { background: var(--warn-fill); } .tl .dot.ok { background: var(--ok-fill); }
+.tl .r { font-weight: 600; display: block; }
+.tl .c { color: var(--ink-3); font-size: 12px; display: block; }
+.tl .what { display: block; margin: 4px 0; color: var(--ink-2); }
+.tl .fix { display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 7px; border-radius: 999px; }
+@media (max-width: 620px) {
+  .tl { grid-template-columns: 1fr; }
+  .tl li { padding: 0 0 14px 32px; }
+  .tl li::before { top: 0; bottom: 0; left: 9px; right: auto; width: 2px; height: auto; }
+  .tl li:last-child::before { display: none; }
+  .tl .dot { top: 0; }
+}
+
+/* bars */
+.bars { display: grid; gap: 6px; margin: 10px 0; }
+.bar { display: grid; grid-template-columns: 6.6em minmax(0, 1fr) 3.4em; gap: 8px; align-items: center; font-size: 13px; }
+.bar .lab { color: var(--ink-2); white-space: nowrap; }
+.bar .lab b { color: var(--ink); }
+.bar .track { height: 14px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+.bar .fill { height: 100%; background: var(--ok-fill); border-radius: 3px; }
+.bar .val { text-align: right; font-weight: 600; white-space: nowrap; }
+
+/* item matrix */
+.matrix { max-width: 620px; display: grid; grid-template-columns: 4.2em minmax(0, 1fr) repeat(3, 34px); gap: 3px 6px; align-items: center; font-size: 13px; }
+.matrix .h { font-size: 11.5px; font-weight: 600; color: var(--ink-3); text-align: center; }
+.matrix .id { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+.matrix .sc { color: var(--ink); overflow-wrap: anywhere; line-height: 1.3; }
+.matrix .d { justify-self: center; width: 20px; height: 20px; border-radius: 50%; background: var(--ok-fill); }
+.matrix .d.ms { background: transparent; border: 4px solid var(--ok-fill); }
+.matrix .rule { grid-column: 1 / -1; height: 1px; background: var(--rule); margin: 2px 0; }
+
+/* apps */
+.apps { display: grid; grid-template-columns: 34px repeat(3, minmax(0, 1fr)) minmax(0, .9fr); gap: 8px 10px; align-items: end; font-size: 12.5px; }
+.apps .h { font-size: 11.5px; font-weight: 600; color: var(--ink-3); }
+.apps .rn { font-family: var(--display); font-weight: 600; font-size: 18px; text-align: center; align-self: center; }
+.apps .cell span { display: block; white-space: nowrap; color: var(--ink-2); }
+.apps .mini { height: 8px; background: var(--surface-2); border-radius: 2px; margin-top: 3px; overflow: hidden; }
+.apps .mini i { display: block; height: 100%; background: var(--bar); }
+.apps .su { align-self: center; font-weight: 600; overflow-wrap: anywhere; line-height: 1.25; }
+.apps .su small { display: block; font-weight: 400; color: var(--bad-ink); }
+
+/* flow */
+.flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0; font-size: 13px; }
+.flow .b { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 6px 9px; line-height: 1.3; }
+.flow .b small { display: block; color: var(--ink-3); font-size: 11.5px; }
+.flow .ar { color: var(--ink-3); }
+
+/* findings */
+.two { display: grid; grid-template-columns: 1fr; gap: 14px; }
 @media (min-width: 760px) { .two { grid-template-columns: 1fr 1fr; } }
-.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 16px 18px; }
 .panel h3 { margin-top: 0; }
-.panel ul { margin-bottom: 0; }
-.theme-toggle { float: right; margin-top: -4px; font: inherit; font-size: 13px; color: var(--ink-2); background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
-footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule); font-size: 13px; color: var(--ink-3); }
+.rows { list-style: none; padding: 0; margin: 0; font-size: 14px; }
+.rows li { display: flex; gap: 8px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--rule); margin: 0; }
+.rows li:first-child { border-top: 0; }
+.rows .t { flex: 0 0 auto; font-size: 11.5px; font-weight: 600; color: var(--ink-3); min-width: 4.4em; }
+.rows .x { flex: 1 1 auto; min-width: 0; }
+.rows .f { flex: 0 0 auto; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.chip { font-size: 13px; background: var(--surface); border: 1px solid var(--rule); border-radius: 999px; padding: 4px 10px; }
+
+/* details */
+details.more { margin: 12px 0 0; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+details.more > summary { cursor: pointer; padding: 8px 12px; font-size: 13.5px; font-weight: 600; color: var(--ink-2); list-style-position: inside; }
+details.more[open] > summary { border-bottom: 1px solid var(--rule); }
+details.more > .in { padding: 12px 14px 4px; font-size: 14px; }
+details.more h4 { font-size: 14px; margin: 14px 0 6px; }
+details.more h4:first-child { margin-top: 0; }
+.tbl { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--rule); border-radius: 6px; margin: 8px 0 12px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; vertical-align: top; padding: 7px 9px; border-bottom: 1px solid var(--rule); }
+thead th { background: var(--surface-2); font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+tbody tr:last-child td, tbody tr:last-child th { border-bottom: 0; }
+tbody th { font-weight: 600; white-space: nowrap; }
+blockquote { margin: 8px 0; padding: 8px 12px; border-left: 3px solid var(--rule); font-size: 14px; }
+blockquote .who { display: block; font-size: 12px; color: var(--ink-3); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+.source { font-size: 12.5px; color: var(--ink-3); border-left: 2px solid var(--rule); padding: 2px 0 2px 10px; margin: 10px 0; overflow-wrap: anywhere; }
+.source b { font-weight: 600; color: var(--ink-2); }
+footer { margin-top: 48px; padding-top: 14px; border-top: 1px solid var(--rule); font-size: 13px; color: var(--ink-3); }
 </style>
 </head>
 <body>
@@ -114,52 +200,238 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule);
   <button class="theme-toggle" type="button" id="theme">Theme</button>
   <p class="eyebrow">Löyly spec v2 · evaluation snapshot · 2026-11-09</p>
   <h1>Löyly harness evaluation</h1>
-  <p class="lede">Can the new spec-v2 harness be trusted to rebuild a real app? Five shadow runs had it regenerate the full Löyly booking app beside the legacy harness. Both harnesses got the same inputs, and the operating session judged every stage.</p>
-  <p class="meta">Evidence from <code>.pi/harness/.state/shadow/run-01</code> to <code>run-05</code> (git-ignored run state) and <code>.pi/spec/decisions.md</code>, as of branch <code>spec-v2</code>.</p>
+  <p class="lede">Can the new spec-v2 harness be trusted to rebuild a real app? Five shadow runs regenerated the full Löyly booking app beside the legacy harness, on the same inputs.</p>
 </header>
 
 <section id="summary">
-<h2><span class="n">1</span>Summary</h2>
+<div class="tiles">
+  <div class="tile"><div class="v">11</div><div class="k">checklist items</div><div class="s">one slice, <code>01-booking-core</code></div></div>
+  <div class="tile good"><div class="v">11/11</div><div class="k">legacy score</div><div class="s">runs 4 and 5 · 100.0%</div></div>
+  <div class="tile good"><div class="v">11/11</div><div class="k">new-harness score</div><div class="s">runs 4 and 5 · 100.0%</div></div>
+  <div class="tile"><div class="v">2 of 5</div><div class="k">shadow runs accepted</div><div class="s">at every stage (runs 4, 5)</div></div>
+  <div class="tile"><div class="v">2 + 1</div><div class="k">harness defects found</div><div class="s">2 gate (rounds 7c, 7d) + 1 procedure</div></div>
+</div>
+<div class="banner"><span class="ic" aria-hidden="true">✓</span><div><b>Switch accepted after runs 4 and 5:</b> two consecutive runs agreed at every stage and ended <code>cycle-passed</code>; the operator confirmed.</div></div>
+<details class="more"><summary>What was evaluated, the switch rule, and the limits</summary><div class="in">
 <p><b>What was evaluated.</b> The new spec-v2 harness is the slice-06 cycle-runner driving the five Grain contexts of slices 01–05. It was set the job of regenerating the full Löyly app from its spec, in shadow beside the legacy Löyly harness. In each shadow run both harnesses ran the whole cycle end to end: fence, checklist, gate, verdicts filed, score and scoreboard. They worked on shared input: one builder run (<code>pi</code> with its Gondolin backend) produced the candidate both gates judged, and one verdicts file was filed into both scorers. The operating session, the final judge, compared the two sides at each stage.</p>
-<div class="verdict">
-<p><b>Verdict: the switch was accepted after runs 4 and 5.</b> The switch rule was two consecutive shadow runs that the judge accepts at every stage. Runs 4 and 5 met it: both sides agreed at every stage, both scored 11/11, and the cycle ended <code>cycle-passed</code>. Runs 1 and 2 each found a gate defect in the new harness, and spec rounds 7c and 7d fixed them. Run 3 agreed through the gate, but its score could not be compared. The operator confirmed the switch.</p>
-</div>
-<p><b>Limits, in one line:</b> this proves the harness only on HTTP apps (not yet on its own stdio contexts), on one 11-item benchmark, with verdicts from a grading session instead of a sealed grader, and with a run that cannot resume after a runner restart.</p>
-<div class="cards">
-  <div class="card"><div class="k">Shadow runs</div><div class="v">5</div><div class="s">2 accepted at every stage (runs 4, 5)</div></div>
-  <div class="card"><div class="k">Defects found in the harness</div><div class="v">2 + 1</div><div class="s">2 gate defects fixed by spec rounds 7c and 7d; 1 procedure fix (keep the runner alive)</div></div>
-  <div class="card"><div class="k">Score, runs 4 and 5</div><div class="v">11/11</div><div class="s">Same on both sides, 100.0%</div></div>
-  <div class="card"><div class="k">Builder time per run</div><div class="v">7m22s – 9m56s</div><div class="s">One <code>pi</code> session, 21–43 tool calls</div></div>
-</div>
-<p class="source"><b>Source:</b> <code>.pi/spec/decisions.md</code>, “The switch to the new harness (decided 2026-11-08)”, items 1, 3, 4 and 6; <code>shadow/run-0N/evidence/builder/summary.txt</code>.</p>
+<p><b>The switch rule</b> was two consecutive shadow runs that the judge accepts at every stage. Runs 4 and 5 met it: both sides agreed at every stage, both scored 11/11, and the cycle ended <code>cycle-passed</code>. Runs 1 and 2 each found a gate defect in the new harness, and spec rounds 7c and 7d fixed them. Run 3 agreed through the gate, but its score could not be compared. The 1 procedure fix: keep the runner alive.</p>
+<p><b>Limits, in one line:</b> this proves the harness only on HTTP apps (not yet on its own stdio contexts), on one 11-item benchmark, with verdicts from a grading session instead of a sealed grader, and with a run that cannot resume after a runner restart (§7).</p>
+<p class="source"><b>Evidence:</b> <code>.pi/harness/.state/shadow/run-01</code> to <code>run-05</code> (git-ignored run state) and <code>.pi/spec/decisions.md</code>, as of branch <code>spec-v2</code>. <b>Source:</b> decisions.md, “The switch to the new harness (decided 2026-11-08)”, items 1, 3, 4 and 6; <code>shadow/run-0N/evidence/builder/summary.txt</code>.</p>
+</div></details>
 </section>
 
-<section id="benchmark">
-<h2><span class="n">2</span>The benchmark</h2>
-<p>The benchmark is the full Löyly app: the main repository’s <code>docs/plan</code> at the frozen commit <code>6d42c8e</code>, unchanged. It is one slice, <code>01-booking-core</code>, with 11 checklist items: a weekly standing-slot booking app for one sauna (sauna F) with two dressing rooms, pukuhuone 8 and pukuhuone 9. Both sides fence the same cut, <code>249a90b</code>. That is a scratch commit on <code>6d42c8e</code> whose <code>harness/</code> holds the archived legacy harness with the benchmark configuration, <code>FENCED_PATHS="impl .pi archive/legacy-harness/cycles"</code>. Its <code>docs/</code> is identical to <code>6d42c8e</code>’s.</p>
+<section id="results">
+<h2><span class="n">1</span>Stage by stage, legacy vs new</h2>
+<p class="sub">Each cell is the judge’s comparison of the two harnesses at one stage of one run.</p>
+<div class="legend">
+  <span><i class="ok">✓</i>agree</span>
+  <span><i class="bad">✗</i>disagree (new harness wrong)</span>
+  <span><i class="warn">○</i>not compared (one side only)</span>
+  <span><i class="na">–</i>not reached</span>
+</div>
+<div class="sgrid" role="table" aria-label="Stage comparison per shadow run">
+  <div class="h">Run</div><div class="h">Fence</div><div class="h">Check&shy;list</div><div class="h">Gate</div><div class="h">Ver&shy;dicts</div><div class="h">Score</div><div class="h">Score&shy;board</div><div class="h cl">Cycle conclusion</div>
+
+  <div class="rn">1</div><div class="m ok" title="agree">✓</div><div class="m ok" title="agree">✓</div><div class="m bad" title="disagree">✗</div><div class="m na" title="not reached">–</div><div class="m na" title="not reached">–</div><div class="m na" title="not reached">–</div><div class="cl">failed at gate, <code>gate-attempts-exhausted</code></div>
+  <div class="rn">2</div><div class="m ok" title="agree">✓</div><div class="m ok" title="agree">✓</div><div class="m bad" title="disagree">✗</div><div class="m na" title="not reached">–</div><div class="m na" title="not reached">–</div><div class="m na" title="not reached">–</div><div class="cl">failed at gate, <code>gate-attempts-exhausted</code></div>
+  <div class="rn">3</div><div class="m ok" title="agree">✓</div><div class="m ok" title="agree">✓</div><div class="m ok" title="agree">✓</div><div class="m warn" title="not compared">○</div><div class="m warn" title="not compared">○</div><div class="m warn" title="not compared">○</div><div class="cl">halted, no conclusion</div>
+  <div class="rn">4</div><div class="m ok" title="agree">✓</div><div class="m ok" title="agree">✓</div><div class="m ok" title="agree">✓</div><div class="m ok" title="agree">✓</div><div class="m ok" title="agree">✓</div><div class="m ok" title="agree">✓</div><div class="cl pass"><code>cycle-passed</code></div>
+  <div class="rn">5</div><div class="m ok" title="agree">✓</div><div class="m ok" title="agree">✓</div><div class="m ok" title="agree">✓</div><div class="m ok" title="agree">✓</div><div class="m ok" title="agree">✓</div><div class="m ok" title="agree">✓</div><div class="cl pass"><code>cycle-passed</code></div>
+</div>
+
+<details class="more"><summary>What each side reported, per stage and run</summary><div class="in">
+<h4>Same in all five runs</h4>
 <div class="tbl"><table>
-<thead><tr><th>Item</th><th>Rule</th><th>Scenario</th></tr></thead>
+<thead><tr><th>Stage</th><th>Legacy harness</th><th>New harness</th></tr></thead>
 <tbody>
-<tr><th>01-001</th><td rowspan="2">Availability is per dressing room, per weekday</td><td>The weekly schedule shows each dressing room’s own sauna days</td></tr>
-<tr><th>01-002</th><td>A standing slot cannot be requested on a closed day</td></tr>
-<tr><th>01-003</th><td rowspan="2">A slot is confirmed against availability and held by one household</td><td>A requested slot on an open day is confirmed</td></tr>
-<tr><th>01-004</th><td>A held slot cannot be confirmed for another household</td></tr>
-<tr><th>01-005</th><td rowspan="2">A household may hold a second standing slot when there is room</td><td>A second standing slot is granted while there is room</td></tr>
-<tr><th>01-006</th><td>A second standing slot is refused when the schedule is full</td></tr>
-<tr><th>01-007</th><td rowspan="2">One booking is the single source of truth for the list, the timer and the billing</td><td>Confirming a booking updates all three derived views together</td></tr>
-<tr><th>01-008</th><td>Giving up a slot leaves no derived view still claiming it</td></tr>
-<tr><th>01-009</th><td rowspan="2">Two households requesting one free slot leave exactly one holder</td><td>Two households request the same free slot with neither request answered</td></tr>
-<tr><th>01-010</th><td>The race is run one hundred times and never confirms twice</td></tr>
+<tr><th>Fence</th><td><code>fence.sh</code> exit 0, “fence OK”: single-commit room, tree <code>ce2a1ebd…</code> (98 paths), no fenced path</td><td><code>clean-room-proved</code>: single-commit room, tree <code>ce2a1ebd…</code> (98 paths), fenced paths <code>impl .pi archive/legacy-harness/cycles</code> absent</td></tr>
+<tr><th>Checklist</th><td><code>gen_checklist.clj</code>: 11 items</td><td><code>checklist-derived</code>: 11 items. Projection digest <code>5cde9808…</code> on both, 0 items differ</td></tr>
+<tr><th>Cycle conclusion</th><td>(legacy records no cycle conclusion)</td><td>see each run below</td></tr>
+</tbody></table></div>
+<h4>Run 1 · candidate <code>cf3061ad…</code> · runner cycle 01</h4>
+<div class="tbl"><table>
+<thead><tr><th>Stage</th><th>Legacy</th><th>New</th><th>Result</th></tr></thead>
+<tbody>
+<tr><th>Gate</th><td><code>verify.sh</code>: “verify OK”, exit 0. Suite 20/20, boot on poll 2, probe PASS on <code>http://127.0.0.1:8901</code></td><td><code>gate-attempt-failed</code>, <code>identity-probe-failed</code>: suite 20/20, boot on poll 1, probe FAIL, because it was run as <code>probe.sh 8901</code></td><td><span class="pill bad">disagree</span> new harness wrong → round 7c</td></tr>
+<tr><th>Verdicts, score, scoreboard</th><td>not run: no grading after a failed gate</td><td>not reached</td><td><span class="pill na">not reached</span></td></tr>
+<tr><th>Conclusion</th><td>—</td><td>cycle failed at stage gate, <code>gate-attempts-exhausted</code> (limit 1)</td><td><span class="pill bad">failed</span></td></tr>
+</tbody></table></div>
+<h4>Run 2 · candidate <code>109c7f1f…</code> · runner cycle 02</h4>
+<div class="tbl"><table>
+<thead><tr><th>Stage</th><th>Legacy</th><th>New</th><th>Result</th></tr></thead>
+<tbody>
+<tr><th>Gate</th><td><code>verify.sh</code>: “verify OK”, exit 0. Suite 16/16 in a writable <code>impl/</code>, boot on poll 2, marker carried</td><td><code>gate-attempt-failed</code>, <code>suite-red</code>: suite 0/16, every test <code>EACCES</code> in the read-only <code>impl/</code>; boot and probe not reached</td><td><span class="pill bad">disagree</span> new harness wrong → round 7d</td></tr>
+<tr><th>Verdicts, score, scoreboard</th><td>not run: no grading after a failed gate</td><td>not reached</td><td><span class="pill na">not reached</span></td></tr>
+<tr><th>Conclusion</th><td>—</td><td>cycle failed at stage gate, <code>gate-attempts-exhausted</code> (limit 1)</td><td><span class="pill bad">failed</span></td></tr>
+</tbody></table></div>
+<h4>Run 3 · candidate <code>43151852…</code> · runner cycle 03</h4>
+<div class="tbl"><table>
+<thead><tr><th>Stage</th><th>Legacy</th><th>New</th><th>Result</th></tr></thead>
+<tbody>
+<tr><th>Gate</th><td><code>verify.sh</code>: “verify OK”, exit 0. Suite 17/17, boot on poll 2 of 20, marker “sauna” carried</td><td><code>gate-attempt-passed</code>: suite 17/17, boot on poll 2, identity probe exit 0 (“suite green, booted on poll 2, identity proved”)</td><td><span class="pill ok">agree</span> digest unchanged after both gates</td></tr>
+<tr><th>Verdicts</th><td><code>score.clj</code> filed the verdicts file (<code>54ea3351…</code>): 11 pass</td><td><code>hand-in-verdicts</code> accepted (11 verdicts), then the run halted with <code>context-did-not-respond</code>; nothing filed</td><td><span class="pill warn">not compared</span> runner restarted between gate and grading, and a run cannot resume in a restarted runner → keep it alive</td></tr>
+<tr><th>Score</th><td>“scored cycle 01: 11/11 pass” = 100.0%</td><td>no score filed</td><td><span class="pill warn">not compared</span></td></tr>
+<tr><th>Scoreboard</th><td>baseline cycle</td><td>no Measurement reported</td><td><span class="pill warn">not compared</span></td></tr>
+<tr><th>Conclusion</th><td>—</td><td>run <code>halted</code>; no conclusion</td><td><span class="pill warn">halted</span></td></tr>
+</tbody></table></div>
+<h4>Runs 4 and 5 · candidates <code>756829d1…</code> and <code>11456ad8…</code> · runner cycle 03</h4>
+<div class="tbl"><table>
+<thead><tr><th>Stage</th><th>Legacy</th><th>New</th><th>Result</th></tr></thead>
+<tbody>
+<tr><th>Gate</th><td><code>verify.sh</code>: “verify OK”, exit 0. Suite 15/15 (run 4), 17/17 (run 5), boot on poll 2 of 20, marker “sauna” carried</td><td><code>gate-attempt-passed</code>: same suite, boot on poll 2, identity probe exit 0 (“suite green, booted on poll 2, identity proved”)</td><td><span class="pill ok">agree</span> digest unchanged after both gates</td></tr>
+<tr><th>Verdicts</th><td><code>score.clj</code> filed the verdicts file (run 4 <code>bdb76215…</code>, run 5 <code>14cf771b…</code>): 11 pass</td><td><code>item-verdicts-filed</code> from the same file: 11 pass</td><td><span class="pill ok">agree</span> 11/11 same verdict and evidence (run 5: evidence byte-equal)</td></tr>
+<tr><th>Score</th><td>“scored cycle 01: 11/11 pass” = 100.0%</td><td><code>measurement-filed</code>: passes 11, total 11, unreached 0; rate “100.0%”</td><td><span class="pill ok">agree</span></td></tr>
+<tr><th>Scoreboard</th><td>“cycle 01: 11/11 checklist items pass”, “no previous cycle to diff against: baseline cycle.”</td><td><code>scoreboard-reported</code>: 11/11, previous cycle nil, new and dropped items []: baseline</td><td><span class="pill ok">agree</span> differ in form only</td></tr>
+<tr><th>Conclusion</th><td>—</td><td>run <code>passed</code>; <code>cycle-passed</code> on candidate <code>756829d1…</code> (run 4) and <code>11456ad8…</code> (run 5)</td><td><span class="pill ok">concluded</span></td></tr>
+</tbody></table></div>
+<p class="source"><b>Source:</b> <code>shadow/run-0N/evidence/fence/summary.txt</code> and <code>legacy-fence.log</code>, <code>checklist/digests.txt</code>, <code>gate/legacy-verify.log</code>, <code>gate/side-by-side.txt</code>, <code>score/side-by-side.txt</code> (runs 3–5), <code>runner.txt</code>; decisions.md, “The switch”, table in item 3; rounds 7c and 7d, item 1.</p>
+</div></details>
+</section>
+
+<section id="timeline">
+<h2><span class="n">2</span>Five shadow runs</h2>
+<p class="sub">Each failing run was fixed in the spec before the next.</p>
+<ol class="tl">
+  <li><span class="dot bad"></span><span class="r">Run 1</span><span class="c">runner cycle 01</span><span class="what">Gate: probe got the port, not the URL</span><span class="fix bad">→ round 7c</span></li>
+  <li><span class="dot bad"></span><span class="r">Run 2</span><span class="c">runner cycle 02</span><span class="what">Gate room read-only: suite 0/16</span><span class="fix bad">→ round 7d</span></li>
+  <li><span class="dot warn"></span><span class="r">Run 3</span><span class="c">runner cycle 03</span><span class="what">Runner restarted; run halted</span><span class="fix warn">→ keep it alive</span></li>
+  <li><span class="dot ok"></span><span class="r">Run 4</span><span class="c">runner cycle 03</span><span class="what">All stages agree, 11/11</span><span class="fix ok">accepted</span></li>
+  <li><span class="dot ok"></span><span class="r">Run 5</span><span class="c">runner cycle 03</span><span class="what">All stages agree, 11/11</span><span class="fix ok">accepted → switch</span></li>
+</ol>
+</section>
+
+<section id="items">
+<h2><span class="n">3</span>Per-item verdicts</h2>
+<p class="sub">All 11 items passed in runs 3–5; runs 1 and 2 stopped at the gate and wrote none.</p>
+<div class="legend"><span><i style="background:var(--ok-fill);border-radius:50%;width:16px;height:16px"></i>pass, grading session</span><span><i style="border:4px solid var(--ok-fill);border-radius:50%;width:16px;height:16px"></i>pass, main session (01-011)</span></div>
+<div class="matrix" role="table" aria-label="Per-item verdicts, runs 3 to 5">
+  <div class="h"></div><div class="h" style="text-align:left">Scenario</div><div class="h">Run 3</div><div class="h">Run 4</div><div class="h">Run 5</div>
+  <div class="id">01-001</div><div class="sc">Each dressing room’s own sauna days</div><div class="d"></div><div class="d"></div><div class="d"></div>
+  <div class="id">01-002</div><div class="sc">No request on a closed day</div><div class="d"></div><div class="d"></div><div class="d"></div>
+  <div class="rule"></div>
+  <div class="id">01-003</div><div class="sc">Open-day request is confirmed</div><div class="d"></div><div class="d"></div><div class="d"></div>
+  <div class="id">01-004</div><div class="sc">Held slot not confirmed for another</div><div class="d"></div><div class="d"></div><div class="d"></div>
+  <div class="rule"></div>
+  <div class="id">01-005</div><div class="sc">Second slot granted while there is room</div><div class="d"></div><div class="d"></div><div class="d"></div>
+  <div class="id">01-006</div><div class="sc">Second slot refused when full</div><div class="d"></div><div class="d"></div><div class="d"></div>
+  <div class="rule"></div>
+  <div class="id">01-007</div><div class="sc">Three derived views update together</div><div class="d"></div><div class="d"></div><div class="d"></div>
+  <div class="id">01-008</div><div class="sc">Give-up leaves no view claiming it</div><div class="d"></div><div class="d"></div><div class="d"></div>
+  <div class="rule"></div>
+  <div class="id">01-009</div><div class="sc">Two unanswered requests, one holder</div><div class="d"></div><div class="d"></div><div class="d"></div>
+  <div class="id">01-010</div><div class="sc">The race ×100 never confirms twice</div><div class="d"></div><div class="d"></div><div class="d"></div>
+  <div class="rule"></div>
+  <div class="id">01-011</div><div class="sc">Closed-day refusal is usable</div><div class="d ms"></div><div class="d ms"></div><div class="d ms"></div>
+</div>
+
+<details class="more"><summary>The benchmark: rules and scenarios</summary><div class="in">
+<p>The benchmark is the full Löyly app: the main repository’s <code>docs/plan</code> at the frozen commit <code>6d42c8e</code>, unchanged. It is one slice, <code>01-booking-core</code>, with 11 checklist items: a weekly standing-slot booking app for one sauna (sauna F) with two dressing rooms, pukuhuone 8 and pukuhuone 9. Both sides fence the same cut, <code>249a90b</code>: a scratch commit on <code>6d42c8e</code> whose <code>harness/</code> holds the archived legacy harness with the benchmark configuration, <code>FENCED_PATHS="impl .pi archive/legacy-harness/cycles"</code>. Its <code>docs/</code> is identical to <code>6d42c8e</code>’s.</p>
+<div class="tbl"><table>
+<thead><tr><th>Items</th><th>Rule</th><th>Scenarios</th></tr></thead>
+<tbody>
+<tr><th>01-001, 01-002</th><td>Availability is per dressing room, per weekday</td><td>The weekly schedule shows each dressing room’s own sauna days · A standing slot cannot be requested on a closed day</td></tr>
+<tr><th>01-003, 01-004</th><td>A slot is confirmed against availability and held by one household</td><td>A requested slot on an open day is confirmed · A held slot cannot be confirmed for another household</td></tr>
+<tr><th>01-005, 01-006</th><td>A household may hold a second standing slot when there is room</td><td>A second standing slot is granted while there is room · A second standing slot is refused when the schedule is full</td></tr>
+<tr><th>01-007, 01-008</th><td>One booking is the single source of truth for the list, the timer and the billing</td><td>Confirming a booking updates all three derived views together · Giving up a slot leaves no derived view still claiming it</td></tr>
+<tr><th>01-009, 01-010</th><td>Two households requesting one free slot leave exactly one holder</td><td>Two households request the same free slot with neither request answered · The race is run one hundred times and never confirms twice</td></tr>
 <tr><th>01-011</th><td>A refusal is judged by whether a resident can act on it without asking again</td><td>The refusal for a closed day is judged usable</td></tr>
 </tbody></table></div>
 <p class="source"><b>Source:</b> <code>docs/plan/01-booking-core/spec.feature</code> at <code>6d42c8e</code> (main repository); cut and configuration from <code>shadow/run-01/evidence/inputs.txt</code> and decisions.md, “The switch”, item 2.</p>
+</div></details>
+
+<details class="more"><summary>Race evidence (01-009, 01-010)</summary><div class="in">
+<div class="tbl"><table>
+<thead><tr><th>Run</th><th>01-009: two requests, neither answered</th><th>01-010: repeated races</th></tr></thead>
+<tbody>
+<tr><th>3</th><td>Raw-socket race, each request held back by its final byte. 10 runs: each had exactly one 200 confirmed and one 409 “already held”.</td><td>100/100 exactly one confirmed (apartment 12 won 51, apartment 3 won 49); 0 both confirmed, 0 both refused, 0 view disagreements. Also 100 runs of a 10-household race: 100/100 a single holder.</td></tr>
+<tr><th>4</th><td>Final bytes released in the same tick. Every run had exactly one confirmed and one 409 “already held”. Also 5 runs of 10 concurrent households: 1×201, 9×409.</td><td>500 runs, 0 bad (100 form, 100 JSON, 100 mixed, 100 mixed on a second slot, 100 with a fresh restart each run).</td></tr>
+<tr><th>5</th><td>500 runs: 200 “ordered”, 100 “split”, 200 barrier-released. Every run had exactly one 201 and one 409; barrier winners varied (apartment 12: 103, apartment 3: 97).</td><td>500/500 exactly one household confirmed, 0 both-confirmed, 0 both-refused. Also a 20-way barrier stress on 4 slots.</td></tr>
+</tbody></table></div>
+</div></details>
+
+<details class="more"><summary>The 01-011 refusals, quoted, and the declared conflict</summary><div class="in">
+<p>The request in each run: household 12 asks for pukuhuone 9 on Tuesday at 17:00 on a freshly started app, and gets <code>409 Conflict</code>. The notice text is quoted from the raw response (en dashes as served).</p>
+<blockquote><span class="who">Run 3</span>“pukuhuone 9 has no sauna day on Tuesday. It opens on Thursday, Friday, Saturday. You can request pukuhuone 8 on Tuesday at 17:00–18:30; it is currently free and repeats every week. Request it using the form below. Availability is checked again when you submit.”</blockquote>
+<blockquote><span class="who">Run 4</span>“Request refused · pukuhuone 9 has no sauna day on Tuesday. It opens on Thursday, Friday, Saturday. You can request pukuhuone 8 on Tuesday at 17:00 to 18:30 for apartment 12, every week. This slot is free now; confirmation checks availability again.”</blockquote>
+<blockquote><span class="who">Run 5</span>“Request refused. pukuhuone 9 has no sauna day on Tuesday. It opens on Thursday, Friday, Saturday. Configured starts: 17:00, 18:30. You can request pukuhuone 9 on Thursday at 17:00–18:30 (currently free, repeats every week).”</blockquote>
+<p>The judge’s reasoning was the same each time: a resident can name an accepted request from the refusal alone. The conflict is declared in every 01-011 verdict, because the judge had seen a spec comment hinting at an alternative (pukuhuone 8, Tuesday). Run 5’s refusal named a different alternative (pukuhuone 9, Thursday) and passed on its own text.</p>
+<p>Run 3’s verdicts were filed only on the legacy side (§1). In runs 3–5 the grading session passed items 01-001 to 01-010, and the main session passed 01-011 from the refusal text.</p>
+<p class="source"><b>Source:</b> <code>shadow/run-0{3,4,5}/verdicts-final.json</code>; <code>grading/verdicts.json</code> (10 items from the grading session); <code>grading/refusal-01-011.txt</code>; race logs <code>run-03/grading/race-01-009.jsonl</code> (10 lines), <code>race-01-010.jsonl</code> (100), <code>race-10way.jsonl</code> (100), <code>run-04/grading/race-log.txt</code>, <code>run-05/grading/race-log.jsonl</code> (200 ordered, 100 split, 200 barrier).</p>
+</div></details>
+</section>
+
+<section id="apps">
+<h2><span class="n">4</span>The regenerated apps</h2>
+<p class="sub">Five independently written Node.js apps from one spec; every builder stayed in its room.</p>
+<div class="apps" role="table" aria-label="Builder runs">
+  <div class="h">Run</div><div class="h">Builder time</div><div class="h">Tool calls</div><div class="h">Files</div><div class="h">Gate suite</div>
+  <div class="rn">1</div>
+  <div class="cell"><span>9 min 56 s</span><div class="mini"><i style="width:100%"></i></div></div>
+  <div class="cell"><span>27</span><div class="mini"><i style="width:62.8%"></i></div></div>
+  <div class="cell"><span>24</span><div class="mini"><i style="width:80%"></i></div></div>
+  <div class="su">20/20</div>
+  <div class="rn">2</div>
+  <div class="cell"><span>7 min 22 s</span><div class="mini"><i style="width:74.2%"></i></div></div>
+  <div class="cell"><span>30</span><div class="mini"><i style="width:69.8%"></i></div></div>
+  <div class="cell"><span>27</span><div class="mini"><i style="width:90%"></i></div></div>
+  <div class="su">16/16<small>runner 0/16</small></div>
+  <div class="rn">3</div>
+  <div class="cell"><span>9 min 14 s</span><div class="mini"><i style="width:93%"></i></div></div>
+  <div class="cell"><span>37</span><div class="mini"><i style="width:86%"></i></div></div>
+  <div class="cell"><span>27</span><div class="mini"><i style="width:90%"></i></div></div>
+  <div class="su">17/17</div>
+  <div class="rn">4</div>
+  <div class="cell"><span>9 min 50 s</span><div class="mini"><i style="width:99%"></i></div></div>
+  <div class="cell"><span>43</span><div class="mini"><i style="width:100%"></i></div></div>
+  <div class="cell"><span>21</span><div class="mini"><i style="width:70%"></i></div></div>
+  <div class="su">15/15</div>
+  <div class="rn">5</div>
+  <div class="cell"><span>7 min 42 s</span><div class="mini"><i style="width:77.5%"></i></div></div>
+  <div class="cell"><span>21</span><div class="mini"><i style="width:48.8%"></i></div></div>
+  <div class="cell"><span>30</span><div class="mini"><i style="width:100%"></i></div></div>
+  <div class="su">17/17</div>
+</div>
+
+<details class="more"><summary>Tool-call mix, stacks, digests and the room-isolation evidence</summary><div class="in">
+<div class="tbl"><table>
+<thead><tr><th>Run</th><th>Tool calls</th><th>Stayed in its room?</th><th>Stack (by extension)</th><th>Candidate digest</th></tr></thead>
+<tbody>
+<tr><th>1</th><td>27 (all bash)</td><td>yes, by evidence</td><td>Node <code>.mjs</code> ×5, <code>.sh</code> ×2, <code>.css</code>, <code>.md</code> ×3, <code>.log</code> ×12</td><td><code>cf3061ad…</code></td></tr>
+<tr><th>2</th><td>30 (21 bash, 9 edit)</td><td>yes, by evidence</td><td>Node <code>.mjs</code> ×5, <code>.js</code>, <code>.sh</code> ×2, <code>.html</code> ×2, <code>.css</code>, <code>.json</code>, <code>.md</code> ×3, <code>.log</code> ×11</td><td><code>109c7f1f…</code></td></tr>
+<tr><th>3</th><td>37 (25 bash, 12 edit)</td><td>yes, by evidence</td><td>Node <code>.cjs</code> ×4, <code>.sh</code> ×2, <code>.html</code>, <code>.css</code>, <code>.md</code> ×5, <code>.log</code> ×13</td><td><code>43151852…</code></td></tr>
+<tr><th>4</th><td>43 (30 bash, 10 edit, 3 write)</td><td>yes, by evidence</td><td>Node <code>.mjs</code> ×4, <code>.sh</code> ×2, <code>.html</code>, <code>.md</code> ×2, <code>.log</code> ×12</td><td><code>756829d1…</code></td></tr>
+<tr><th>5</th><td>21 (all bash)</td><td>yes, by evidence</td><td>Node <code>.mjs</code> ×7, <code>.sh</code> ×2, <code>.html</code>, <code>.md</code> ×3, <code>.log</code> ×16</td><td><code>11456ad8…</code></td></tr>
+</tbody></table></div>
+<p>All five are Node.js with no dependencies, and all five recorded <code>@item-01-011</code> as pending human review in <code>impl/UNCARRIED.md</code>. Run 2’s 16/16 is legacy’s; the runner’s was 0/16 in the read-only room.</p>
+<p><b>“Stayed in its room” is a claim from evidence.</b> The Gondolin VM mounted only the builder room at <code>/workspace</code>. No tool-call argument named an absolute host path; the few <code>../</code> and <code>/home</code> pattern hits were in-candidate relative imports and <code>impl/evidence/home.html</code>. After every run, <code>git status --ignored</code> in the builder room showed only <code>?? impl/</code>. In run 5 a candidate test reads <code>../../docs/plan/01-booking-core/spec.feature</code> at test time. The spec is present in both gate rooms, so the gates were unaffected.</p>
+<p>Many of the files are the builder’s own evidence, such as <code>red-*.log</code> TDD logs and server logs, which it left inside <code>impl/</code>. File counts and extensions are listed from the candidate directories only; no source was read for this report.</p>
+<p class="source"><b>Source:</b> <code>shadow/run-0N/evidence/builder/summary.txt</code> (time, tool calls, room, suite claims), <code>evidence/gate/side-by-side.txt</code> (suite, digest), file counts from <code>shadow/run-0{2..5}/candidate/</code> and, for run 1 (no <code>candidate/</code> kept), <code>shadow/run-01/legacy-gate-room/impl/</code> excluding the <code>data/</code> the app wrote while gated.</p>
+</div></details>
 </section>
 
 <section id="method">
-<h2><span class="n">3</span>Method</h2>
-<p><b>What “legacy” is.</b> The legacy side is the archived Löyly harness, <code>archive/legacy-harness</code>: <code>fence.sh</code>, <code>verify.sh</code> (with <code>check.sh</code> and <code>probe.sh</code>), <code>gen_checklist.clj</code>, <code>score.clj</code> and <code>scoreboard.clj</code>. In each run it ran in a scratch checkout of the same cut, <code>249a90b</code>. No legacy cycle of this benchmark had been recorded before, so the comparison was live: in every run both harnesses ran the whole cycle end to end, and every stage was compared side by side. The stages are fence, checklist, gate, verdicts filed, score and scoreboard. On the new side the cycle also concluded. Legacy started from a fresh <code>cycle 01</code> each time, with <code>harness/cycles/</code> absent beforehand.</p>
-<p><b>Shared inputs, by design.</b> The switch rule compares each stage “on shared input”. So each run’s one builder run produced the candidate that both gates judged, byte for byte, and one verdicts file was filed into both scorers. Builders and graders are non-deterministic, so sharing their output makes any difference between the two sides the harness’s own.</p>
-<p>Every shadow run follows the same procedure, so that any difference comes from a harness and not from its input.</p>
+<h2><span class="n">5</span>How each run was set up</h2>
+<p class="sub">Both harnesses got the same input, so any difference is the harness’s own.</p>
+<div class="flow" aria-label="Shared inputs flow">
+  <div class="b">Same cut <code>249a90b</code><small>config, instruction, contexts map</small></div><span class="ar">→</span>
+  <div class="b">1 builder run<small><code>pi</code> + Gondolin</small></div><span class="ar">→</span>
+  <div class="b">1 candidate, byte-identical<small>legacy gate · new gate</small></div><span class="ar">→</span>
+  <div class="b">1 verdicts file<small>legacy scorer · new scorer</small></div><span class="ar">→</span>
+  <div class="b">Judge compares<small>each stage</small></div>
+</div>
+<p class="sub" style="font-size:14px">The new side ran the promoted builds below: cycle-runner plus five contexts, all green.</p>
+<div class="bars" aria-label="Promoted builds the runner drove">
+  <div class="bar"><span class="lab"><b>06</b> runner c03</span><span class="track"><span class="fill" style="display:block;width:50%"></span></span><span class="val">38/38</span></div>
+  <div class="bar"><span class="lab"><b>01</b> cycle 02</span><span class="track"><span class="fill" style="display:block;width:19.7%"></span></span><span class="val">15/15</span></div>
+  <div class="bar"><span class="lab"><b>02</b> cycle 05</span><span class="track"><span class="fill" style="display:block;width:56.6%"></span></span><span class="val">43/43</span></div>
+  <div class="bar"><span class="lab"><b>03</b> cycle 05</span><span class="track"><span class="fill" style="display:block;width:14.5%"></span></span><span class="val">11/11</span></div>
+  <div class="bar"><span class="lab"><b>04</b> cycle 05</span><span class="track"><span class="fill" style="display:block;width:100%"></span></span><span class="val">76/76</span></div>
+  <div class="bar"><span class="lab"><b>05</b> cycle 01</span><span class="track"><span class="fill" style="display:block;width:5.3%"></span></span><span class="val">4/4</span></div>
+</div>
+
+<details class="more"><summary>Full method: what “legacy” is, digests, builder, judging</summary><div class="in">
+<p><b>What “legacy” is.</b> The legacy side is the archived Löyly harness, <code>archive/legacy-harness</code>: <code>fence.sh</code>, <code>verify.sh</code> (with <code>check.sh</code> and <code>probe.sh</code>), <code>gen_checklist.clj</code>, <code>score.clj</code> and <code>scoreboard.clj</code>. In each run it ran in a scratch checkout of the same cut, <code>249a90b</code>. No legacy cycle of this benchmark had been recorded before, so the comparison was live: in every run both harnesses ran the whole cycle end to end, and every stage was compared side by side. On the new side the cycle also concluded. Legacy started from a fresh <code>cycle 01</code> each time, with <code>harness/cycles/</code> absent beforehand.</p>
+<p><b>Shared inputs, by design.</b> The switch rule compares each stage “on shared input”. Builders and graders are non-deterministic, so sharing their output makes any difference between the two sides the harness’s own.</p>
 <ol>
   <li><b>Shared inputs, checked by digest.</b> Every run used the same configuration (<code>benchmark-config.sh</code>, <code>sha256:51288e81…</code>, equal to the cut’s <code>harness/config.sh</code>), the same builder instruction (<code>sha256:d72223df…</code>), the same contexts map (<code>sha256:debea8ae…</code>) and the same cut, <code>249a90b</code>. Every run started on a fresh runner store, fresh legacy rooms and fresh run directories.</li>
   <li><b>One builder run per shadow run.</b> <code>pi</code> 1.4.0 with its Gondolin extension (model <code>openai-codex/gpt-6.1-sol</code>, high thinking, skills and templates off) built in a room that mounted only the builder room at <code>/workspace</code>. The run was given a gate-attempt limit of 1, so there were no repair attempts.</li>
@@ -168,194 +440,46 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule);
   <li><b><code>@item-01-011</code> judged by the main session</b> from the raw refusal text alone (runs 3–5), <b>with a conflict declared</b>: the judge had seen a spec comment that hints at an alternative slot.</li>
   <li><b>Per-stage comparison.</b> The judge compared fence trees (<code>ls-tree</code> diff), checklists (projection onto <code>{id, title, rule, source}</code>), gate verdicts, per-item verdicts, scores and scoreboards. It accepted a stage or traced a disagreement to its cause.</li>
 </ol>
-<p>Which runner ran: run 1 used the cycle-runner from cycle 01 (<code>rooms/c1/slice06</code>), run 2 the one from cycle 02, and runs 3–5 the cycle 03 candidate, the build now promoted at <code>harness-impl/06-cycle-runner</code> (spec at <code>ab5d23c</code>, round 7d; gate passed on attempt 1; score 38/38). The five contexts it drove are the promoted builds of slices 01 (cycle 02, 15/15), 02 (cycle 05, 43/43), 03 (cycle 05, 11/11), 04 (cycle 05, 76/76) and 05 (cycle 01, 4/4).</p>
+<p><b>Which runner ran:</b> run 1 used the cycle-runner from cycle 01 (<code>rooms/c1/slice06</code>), run 2 the one from cycle 02, and runs 3–5 the cycle 03 candidate, the build now promoted at <code>harness-impl/06-cycle-runner</code> (spec at <code>ab5d23c</code>, round 7d; gate passed on attempt 1; score 38/38). The five contexts it drove are the promoted builds of slices 01 (cycle 02, 15/15), 02 (cycle 05, 43/43), 03 (cycle 05, 11/11), 04 (cycle 05, 76/76) and 05 (cycle 01, 4/4). Builder time per run ranged 7m22s – 9m56s, one <code>pi</code> session each, 21–43 tool calls.</p>
 <p class="source"><b>Source:</b> <code>shadow/run-0N/evidence/inputs.txt</code> (digests, runner room, start-run params); <code>evidence/gate/side-by-side.txt</code>; <code>verdicts-final.json</code>; <code>harness-impl/*/PROVENANCE.md</code>; decisions.md, “The builder command the shadow runs used”.</p>
-</section>
-
-<section id="results">
-<h2><span class="n">4</span>Results: legacy and new, run by stage</h2>
-<p>At a glance first, then each run’s stages with the legacy result and the new-harness result side by side.</p>
-<div class="legend">
-  <span><span class="pill ok">agree</span> both harnesses reached the same result</span>
-  <span><span class="pill bad">disagree</span> the new harness was wrong</span>
-  <span><span class="pill warn">not compared</span> reached on one side only</span>
-  <span><span class="pill na">not reached</span> the cycle stopped earlier</span>
-</div>
-<div class="tbl"><table>
-<thead><tr><th>Run</th><th>Fence</th><th>Checklist</th><th>Gate</th><th>Verdicts</th><th>Score</th><th>Scoreboard</th><th>Cycle conclusion</th></tr></thead>
-<tbody>
-<tr><th>1</th>
-  <td><span class="pill ok">agree</span></td>
-  <td><span class="pill ok">agree</span></td>
-  <td><span class="pill bad">disagree</span><span class="why">Legacy passed. The runner failed <code>identity-probe-failed</code> because it handed the probe the port <code>8901</code>, not the URL. Fixed by spec round 7c.</span></td>
-  <td><span class="pill na">not reached</span></td>
-  <td><span class="pill na">not reached</span></td>
-  <td><span class="pill na">not reached</span></td>
-  <td>failed at gate, <code>gate-attempts-exhausted</code></td></tr>
-<tr><th>2</th>
-  <td><span class="pill ok">agree</span></td>
-  <td><span class="pill ok">agree</span></td>
-  <td><span class="pill bad">disagree</span><span class="why">Legacy suite 16/16. The runner’s was 0/16 (<code>EACCES</code>) because the gate room was read-only. Fixed by spec round 7d.</span></td>
-  <td><span class="pill na">not reached</span></td>
-  <td><span class="pill na">not reached</span></td>
-  <td><span class="pill na">not reached</span></td>
-  <td>failed at gate, <code>gate-attempts-exhausted</code></td></tr>
-<tr><th>3</th>
-  <td><span class="pill ok">agree</span></td>
-  <td><span class="pill ok">agree</span></td>
-  <td><span class="pill ok">agree</span><span class="why">Both passed, suite 17/17.</span></td>
-  <td><span class="pill warn">not compared</span><span class="why">The runner was stopped between gate and grading, and a run cannot resume in a restarted runner. It halted with <code>context-did-not-respond</code>. Fix: keep the runner alive.</span></td>
-  <td><span class="pill warn">not compared</span><span class="why">Legacy 11/11; the new side filed nothing.</span></td>
-  <td><span class="pill warn">not compared</span><span class="why">Legacy baseline; no Measurement reported.</span></td>
-  <td>halted, no conclusion</td></tr>
-<tr><th>4</th>
-  <td><span class="pill ok">agree</span></td>
-  <td><span class="pill ok">agree</span></td>
-  <td><span class="pill ok">agree</span><span class="why">Both passed, suite 15/15.</span></td>
-  <td><span class="pill ok">agree</span><span class="why">11/11 equal, evidence equal.</span></td>
-  <td><span class="pill ok">agree</span><span class="why">11/11 = 100.0% on both sides.</span></td>
-  <td><span class="pill ok">agree</span><span class="why">Both baseline.</span></td>
-  <td><span class="pill ok">cycle-passed</span></td></tr>
-<tr><th>5</th>
-  <td><span class="pill ok">agree</span></td>
-  <td><span class="pill ok">agree</span></td>
-  <td><span class="pill ok">agree</span><span class="why">Both passed, suite 17/17.</span></td>
-  <td><span class="pill ok">agree</span><span class="why">11/11 equal, evidence byte-equal.</span></td>
-  <td><span class="pill ok">agree</span><span class="why">11/11 = 100.0% on both sides.</span></td>
-  <td><span class="pill ok">agree</span><span class="why">Both baseline.</span></td>
-  <td><span class="pill ok">cycle-passed</span></td></tr>
-</tbody></table></div>
-
-<h3 style="margin-top:32px">Legacy and new, stage by stage</h3>
-<p>Each table shows what each harness reported at each stage of one run, on the shared input. “Result” is the judge’s comparison of the two.</p>
-<h3>Run 1 · candidate <code>cf3061ad…</code> · runner cycle 01</h3>
-<div class="tbl"><table class="cmp">
-<thead><tr><th>Stage</th><th>Legacy harness</th><th>New harness</th><th>Result</th></tr></thead>
-<tbody>
-<tr><th>Fence</th><td><code>fence.sh</code> exit 0, “fence OK”: single-commit room, tree <code>ce2a1ebd…</code> (98 paths), no fenced path</td><td><code>clean-room-proved</code>: single-commit room, tree <code>ce2a1ebd…</code> (98 paths), fenced paths <code>impl .pi archive/legacy-harness/cycles</code> absent</td><td><span class="pill ok">agree</span></td></tr>
-<tr><th>Checklist</th><td><code>gen_checklist.clj</code>: 11 items</td><td><code>checklist-derived</code>: 11 items</td><td><span class="pill ok">agree</span><span class="why">projection digest <code>5cde9808…</code> on both, 0 items differ</span></td></tr>
-<tr><th>Gate</th><td><code>verify.sh</code>: “verify OK”, exit 0. Suite 20/20, boot on poll 2, probe PASS on <code>http://127.0.0.1:8901</code></td><td><code>gate-attempt-failed</code>, <code>identity-probe-failed</code>: suite 20/20, boot on poll 1, probe FAIL, because it was run as <code>probe.sh 8901</code></td><td><span class="pill bad">disagree</span><span class="why">new harness wrong → round 7c</span></td></tr>
-<tr><th>Verdicts, score, scoreboard</th><td>not run: no grading after a failed gate</td><td>not reached</td><td><span class="pill na">not reached</span></td></tr>
-<tr><th>Cycle conclusion</th><td>(legacy records no cycle conclusion)</td><td>cycle failed at stage gate, <code>gate-attempts-exhausted</code> (limit 1)</td><td><span class="pill bad">failed</span></td></tr>
-</tbody></table></div>
-<h3>Run 2 · candidate <code>109c7f1f…</code> · runner cycle 02</h3>
-<div class="tbl"><table class="cmp">
-<thead><tr><th>Stage</th><th>Legacy harness</th><th>New harness</th><th>Result</th></tr></thead>
-<tbody>
-<tr><th>Fence</th><td><code>fence.sh</code> exit 0, “fence OK”: single-commit room, tree <code>ce2a1ebd…</code> (98 paths), no fenced path</td><td><code>clean-room-proved</code>: single-commit room, tree <code>ce2a1ebd…</code> (98 paths), fenced paths <code>impl .pi archive/legacy-harness/cycles</code> absent</td><td><span class="pill ok">agree</span></td></tr>
-<tr><th>Checklist</th><td><code>gen_checklist.clj</code>: 11 items</td><td><code>checklist-derived</code>: 11 items</td><td><span class="pill ok">agree</span><span class="why">projection digest <code>5cde9808…</code> on both, 0 items differ</span></td></tr>
-<tr><th>Gate</th><td><code>verify.sh</code>: “verify OK”, exit 0. Suite 16/16 in a writable <code>impl/</code>, boot on poll 2, marker carried</td><td><code>gate-attempt-failed</code>, <code>suite-red</code>: suite 0/16, every test <code>EACCES</code> in the read-only <code>impl/</code>; boot and probe not reached</td><td><span class="pill bad">disagree</span><span class="why">new harness wrong → round 7d</span></td></tr>
-<tr><th>Verdicts, score, scoreboard</th><td>not run: no grading after a failed gate</td><td>not reached</td><td><span class="pill na">not reached</span></td></tr>
-<tr><th>Cycle conclusion</th><td>(legacy records no cycle conclusion)</td><td>cycle failed at stage gate, <code>gate-attempts-exhausted</code> (limit 1)</td><td><span class="pill bad">failed</span></td></tr>
-</tbody></table></div>
-<h3>Run 3 · candidate <code>43151852…</code> · runner cycle 03</h3>
-<div class="tbl"><table class="cmp">
-<thead><tr><th>Stage</th><th>Legacy harness</th><th>New harness</th><th>Result</th></tr></thead>
-<tbody>
-<tr><th>Fence</th><td><code>fence.sh</code> exit 0, “fence OK”: single-commit room, tree <code>ce2a1ebd…</code> (98 paths), no fenced path</td><td><code>clean-room-proved</code>: single-commit room, tree <code>ce2a1ebd…</code> (98 paths), fenced paths <code>impl .pi archive/legacy-harness/cycles</code> absent</td><td><span class="pill ok">agree</span></td></tr>
-<tr><th>Checklist</th><td><code>gen_checklist.clj</code>: 11 items</td><td><code>checklist-derived</code>: 11 items</td><td><span class="pill ok">agree</span><span class="why">projection digest <code>5cde9808…</code> on both, 0 items differ</span></td></tr>
-<tr><th>Gate</th><td><code>verify.sh</code>: “verify OK”, exit 0. Suite 17/17, boot on poll 2 of 20, marker “sauna” carried</td><td><code>gate-attempt-passed</code>: suite 17/17, boot on poll 2, identity probe exit 0 (“suite green, booted on poll 2, identity proved”)</td><td><span class="pill ok">agree</span><span class="why">digest unchanged after both gates</span></td></tr>
-<tr><th>Verdicts</th><td><code>score.clj</code> filed the verdicts file (<code>54ea3351…</code>): 11 pass</td><td><code>hand-in-verdicts</code> accepted (11 verdicts), then the run halted with <code>context-did-not-respond</code>; nothing filed</td><td><span class="pill warn">not compared</span><span class="why">runner restarted between gate and grading → keep it alive</span></td></tr>
-<tr><th>Score</th><td>“scored cycle 01: 11/11 pass” = 100.0%</td><td>no score filed</td><td><span class="pill warn">not compared</span></td></tr>
-<tr><th>Scoreboard</th><td>baseline cycle</td><td>no Measurement reported</td><td><span class="pill warn">not compared</span></td></tr>
-<tr><th>Cycle conclusion</th><td>(legacy records no cycle conclusion)</td><td>run <code>halted</code>; no conclusion</td><td><span class="pill warn">halted</span></td></tr>
-</tbody></table></div>
-<h3>Run 4 · candidate <code>756829d1…</code> · runner cycle 03</h3>
-<div class="tbl"><table class="cmp">
-<thead><tr><th>Stage</th><th>Legacy harness</th><th>New harness</th><th>Result</th></tr></thead>
-<tbody>
-<tr><th>Fence</th><td><code>fence.sh</code> exit 0, “fence OK”: single-commit room, tree <code>ce2a1ebd…</code> (98 paths), no fenced path</td><td><code>clean-room-proved</code>: single-commit room, tree <code>ce2a1ebd…</code> (98 paths), fenced paths <code>impl .pi archive/legacy-harness/cycles</code> absent</td><td><span class="pill ok">agree</span></td></tr>
-<tr><th>Checklist</th><td><code>gen_checklist.clj</code>: 11 items</td><td><code>checklist-derived</code>: 11 items</td><td><span class="pill ok">agree</span><span class="why">projection digest <code>5cde9808…</code> on both, 0 items differ</span></td></tr>
-<tr><th>Gate</th><td><code>verify.sh</code>: “verify OK”, exit 0. Suite 15/15, boot on poll 2 of 20, marker “sauna” carried</td><td><code>gate-attempt-passed</code>: suite 15/15, boot on poll 2, identity probe exit 0 (“suite green, booted on poll 2, identity proved”)</td><td><span class="pill ok">agree</span><span class="why">digest unchanged after both gates</span></td></tr>
-<tr><th>Verdicts</th><td><code>score.clj</code> filed the verdicts file (<code>bdb76215…</code>): 11 pass</td><td><code>item-verdicts-filed</code> from the same file: 11 pass</td><td><span class="pill ok">agree</span><span class="why">11/11 same verdict and evidence</span></td></tr>
-<tr><th>Score</th><td>“scored cycle 01: 11/11 pass” = 100.0%</td><td><code>measurement-filed</code>: passes 11, total 11, unreached 0; rate “100.0%”</td><td><span class="pill ok">agree</span></td></tr>
-<tr><th>Scoreboard</th><td>“cycle 01: 11/11 checklist items pass”, “no previous cycle to diff against: baseline cycle.”</td><td><code>scoreboard-reported</code>: 11/11, previous cycle nil, new and dropped items []: baseline</td><td><span class="pill ok">agree</span><span class="why">differ in form only</span></td></tr>
-<tr><th>Cycle conclusion</th><td>(legacy records no cycle conclusion)</td><td>run <code>passed</code>; <code>cycle-passed</code> on candidate <code>756829d1…</code></td><td><span class="pill ok">concluded</span></td></tr>
-</tbody></table></div>
-<h3>Run 5 · candidate <code>11456ad8…</code> · runner cycle 03</h3>
-<div class="tbl"><table class="cmp">
-<thead><tr><th>Stage</th><th>Legacy harness</th><th>New harness</th><th>Result</th></tr></thead>
-<tbody>
-<tr><th>Fence</th><td><code>fence.sh</code> exit 0, “fence OK”: single-commit room, tree <code>ce2a1ebd…</code> (98 paths), no fenced path</td><td><code>clean-room-proved</code>: single-commit room, tree <code>ce2a1ebd…</code> (98 paths), fenced paths <code>impl .pi archive/legacy-harness/cycles</code> absent</td><td><span class="pill ok">agree</span></td></tr>
-<tr><th>Checklist</th><td><code>gen_checklist.clj</code>: 11 items</td><td><code>checklist-derived</code>: 11 items</td><td><span class="pill ok">agree</span><span class="why">projection digest <code>5cde9808…</code> on both, 0 items differ</span></td></tr>
-<tr><th>Gate</th><td><code>verify.sh</code>: “verify OK”, exit 0. Suite 17/17, boot on poll 2 of 20, marker “sauna” carried</td><td><code>gate-attempt-passed</code>: suite 17/17, boot on poll 2, identity probe exit 0 (“suite green, booted on poll 2, identity proved”)</td><td><span class="pill ok">agree</span><span class="why">digest unchanged after both gates</span></td></tr>
-<tr><th>Verdicts</th><td><code>score.clj</code> filed the verdicts file (<code>14cf771b…</code>): 11 pass</td><td><code>item-verdicts-filed</code> from the same file: 11 pass</td><td><span class="pill ok">agree</span><span class="why">11/11 same verdict and evidence</span></td></tr>
-<tr><th>Score</th><td>“scored cycle 01: 11/11 pass” = 100.0%</td><td><code>measurement-filed</code>: passes 11, total 11, unreached 0; rate “100.0%”</td><td><span class="pill ok">agree</span></td></tr>
-<tr><th>Scoreboard</th><td>“cycle 01: 11/11 checklist items pass”, “no previous cycle to diff against: baseline cycle.”</td><td><code>scoreboard-reported</code>: 11/11, previous cycle nil, new and dropped items []: baseline</td><td><span class="pill ok">agree</span><span class="why">differ in form only</span></td></tr>
-<tr><th>Cycle conclusion</th><td>(legacy records no cycle conclusion)</td><td>run <code>passed</code>; <code>cycle-passed</code> on candidate <code>11456ad8…</code></td><td><span class="pill ok">concluded</span></td></tr>
-</tbody></table></div>
-<p class="source"><b>Source:</b> <code>shadow/run-0N/evidence/fence/summary.txt</code> and <code>legacy-fence.log</code>, <code>checklist/digests.txt</code>, <code>gate/legacy-verify.log</code>, <code>gate/side-by-side.txt</code>, <code>score/side-by-side.txt</code> (runs 3–5), <code>runner.txt</code>; decisions.md, “The switch”, table in item 3; rounds 7c and 7d, item 1.</p>
-</section>
-
-<section id="apps">
-<h2><span class="n">5</span>The regenerated Löyly apps</h2>
-<p>Each run produced a different, independently written app from the same spec and instruction. All five are Node.js with no dependencies. All five recorded <code>@item-01-011</code> as pending human review in <code>impl/UNCARRIED.md</code>.</p>
-<div class="tbl"><table>
-<thead><tr><th>Run</th><th>Builder time</th><th>Tool calls</th><th>Stayed in its room?</th><th>Files</th><th>Stack (by extension)</th><th>Suite</th><th>Candidate digest</th></tr></thead>
-<tbody>
-<tr><th>1</th><td class="num">9 min 56 s</td><td>27 (all bash)</td><td>yes, by evidence</td><td class="num">24</td><td>Node <code>.mjs</code> ×5, <code>.sh</code> ×2, <code>.css</code>, <code>.md</code> ×3, <code>.log</code> ×12</td><td class="num">20/20</td><td><code>cf3061ad…</code></td></tr>
-<tr><th>2</th><td class="num">7 min 22 s</td><td>30 (21 bash, 9 edit)</td><td>yes, by evidence</td><td class="num">27</td><td>Node <code>.mjs</code> ×5, <code>.js</code>, <code>.sh</code> ×2, <code>.html</code> ×2, <code>.css</code>, <code>.json</code>, <code>.md</code> ×3, <code>.log</code> ×11</td><td class="num">16/16 <span class="why">legacy; runner 0/16, read-only room</span></td><td><code>109c7f1f…</code></td></tr>
-<tr><th>3</th><td class="num">9 min 14 s</td><td>37 (25 bash, 12 edit)</td><td>yes, by evidence</td><td class="num">27</td><td>Node <code>.cjs</code> ×4, <code>.sh</code> ×2, <code>.html</code>, <code>.css</code>, <code>.md</code> ×5, <code>.log</code> ×13</td><td class="num">17/17</td><td><code>43151852…</code></td></tr>
-<tr><th>4</th><td class="num">9 min 50 s</td><td>43 (30 bash, 10 edit, 3 write)</td><td>yes, by evidence</td><td class="num">21</td><td>Node <code>.mjs</code> ×4, <code>.sh</code> ×2, <code>.html</code>, <code>.md</code> ×2, <code>.log</code> ×12</td><td class="num">15/15</td><td><code>756829d1…</code></td></tr>
-<tr><th>5</th><td class="num">7 min 42 s</td><td>21 (all bash)</td><td>yes, by evidence</td><td class="num">30</td><td>Node <code>.mjs</code> ×7, <code>.sh</code> ×2, <code>.html</code>, <code>.md</code> ×3, <code>.log</code> ×16</td><td class="num">17/17</td><td><code>11456ad8…</code></td></tr>
-</tbody></table></div>
-<p><b>“Stayed in its room” is a claim from evidence.</b> The Gondolin VM mounted only the builder room at <code>/workspace</code>. No tool-call argument named an absolute host path; the few <code>../</code> and <code>/home</code> pattern hits were in-candidate relative imports and <code>impl/evidence/home.html</code>. After every run, <code>git status --ignored</code> in the builder room showed only <code>?? impl/</code>. In run 5 a candidate test reads <code>../../docs/plan/01-booking-core/spec.feature</code> at test time. The spec is present in both gate rooms, so the gates were unaffected.</p>
-<p>Many of the files are the builder’s own evidence, such as <code>red-*.log</code> TDD logs and server logs, which it left inside <code>impl/</code>. File counts and extensions are listed from the candidate directories only; no source was read for this report.</p>
-<p class="source"><b>Source:</b> <code>shadow/run-0N/evidence/builder/summary.txt</code> (time, tool calls, room, suite claims), <code>evidence/gate/side-by-side.txt</code> (suite, digest), file counts from <code>shadow/run-0{2..5}/candidate/</code> and, for run 1 (no <code>candidate/</code> kept), <code>shadow/run-01/legacy-gate-room/impl/</code> excluding the <code>data/</code> the app wrote while gated.</p>
-</section>
-
-<section id="items">
-<h2><span class="n">6</span>Per-item verdicts, runs 3–5</h2>
-<p>Runs 1 and 2 stopped at the gate, so no verdicts were written for them. In runs 3–5 the grading session passed items 01-001 to 01-010, and the main session passed 01-011 from the refusal text. Run 3’s verdicts were filed only on the legacy side (§4).</p>
-<div class="tbl"><table>
-<thead><tr><th>Item</th><th>Scenario</th><th>Run 3</th><th>Run 4</th><th>Run 5</th></tr></thead>
-<tbody>
-<tr><th>01-001</th><td>Each dressing room’s own sauna days</td><td><span class="pill ok">pass</span></td><td><span class="pill ok">pass</span></td><td><span class="pill ok">pass</span></td></tr>
-<tr><th>01-002</th><td>No request on a closed day</td><td><span class="pill ok">pass</span></td><td><span class="pill ok">pass</span></td><td><span class="pill ok">pass</span></td></tr>
-<tr><th>01-003</th><td>Open-day request is confirmed</td><td><span class="pill ok">pass</span></td><td><span class="pill ok">pass</span></td><td><span class="pill ok">pass</span></td></tr>
-<tr><th>01-004</th><td>Held slot not confirmed for another</td><td><span class="pill ok">pass</span></td><td><span class="pill ok">pass</span></td><td><span class="pill ok">pass</span></td></tr>
-<tr><th>01-005</th><td>Second slot granted while there is room</td><td><span class="pill ok">pass</span></td><td><span class="pill ok">pass</span></td><td><span class="pill ok">pass</span></td></tr>
-<tr><th>01-006</th><td>Second slot refused when full</td><td><span class="pill ok">pass</span></td><td><span class="pill ok">pass</span></td><td><span class="pill ok">pass</span></td></tr>
-<tr><th>01-007</th><td>Three derived views update together</td><td><span class="pill ok">pass</span></td><td><span class="pill ok">pass</span></td><td><span class="pill ok">pass</span></td></tr>
-<tr><th>01-008</th><td>Give-up leaves no view claiming it</td><td><span class="pill ok">pass</span></td><td><span class="pill ok">pass</span></td><td><span class="pill ok">pass</span></td></tr>
-<tr><th>01-009</th><td>Two unanswered requests, one holder</td><td><span class="pill ok">pass</span></td><td><span class="pill ok">pass</span></td><td><span class="pill ok">pass</span></td></tr>
-<tr><th>01-010</th><td>The race ×100 never confirms twice</td><td><span class="pill ok">pass</span></td><td><span class="pill ok">pass</span></td><td><span class="pill ok">pass</span></td></tr>
-<tr><th>01-011</th><td>Closed-day refusal is usable</td><td><span class="pill ok">pass</span><span class="why">main session</span></td><td><span class="pill ok">pass</span><span class="why">main session</span></td><td><span class="pill ok">pass</span><span class="why">main session</span></td></tr>
-</tbody></table></div>
-
-<h3>Race evidence (01-009, 01-010)</h3>
-<div class="tbl"><table>
-<thead><tr><th>Run</th><th>01-009: two requests, neither answered</th><th>01-010: repeated races</th></tr></thead>
-<tbody>
-<tr><th>3</th><td>Raw-socket race, each request held back by its final byte. 10 runs: each had exactly one 200 confirmed and one 409 “already held”.</td><td>100/100 exactly one confirmed (apartment 12 won 51, apartment 3 won 49); 0 both confirmed, 0 both refused, 0 view disagreements. Also 100 runs of a 10-household race: 100/100 a single holder.</td></tr>
-<tr><th>4</th><td>Final bytes released in the same tick. Every run had exactly one confirmed and one 409 “already held”. Also 5 runs of 10 concurrent households: 1×201, 9×409.</td><td>500 runs, 0 bad (100 form, 100 JSON, 100 mixed, 100 mixed on a second slot, 100 with a fresh restart each run).</td></tr>
-<tr><th>5</th><td>500 runs: 200 “ordered”, 100 “split”, 200 barrier-released. Every run had exactly one 201 and one 409; barrier winners varied (apartment 12: 103, apartment 3: 97).</td><td>500/500 exactly one household confirmed, 0 both-confirmed, 0 both-refused. Also a 20-way barrier stress on 4 slots.</td></tr>
-</tbody></table></div>
-
-<h3>The 01-011 refusals, quoted</h3>
-<p>The request in each run: household 12 asks for pukuhuone 9 on Tuesday at 17:00 on a freshly started app, and gets <code>409 Conflict</code>. The notice text is quoted from the raw response (en dashes as served).</p>
-<blockquote><span class="who">Run 3</span>“pukuhuone 9 has no sauna day on Tuesday. It opens on Thursday, Friday, Saturday. You can request pukuhuone 8 on Tuesday at 17:00–18:30; it is currently free and repeats every week. Request it using the form below. Availability is checked again when you submit.”</blockquote>
-<blockquote><span class="who">Run 4</span>“Request refused · pukuhuone 9 has no sauna day on Tuesday. It opens on Thursday, Friday, Saturday. You can request pukuhuone 8 on Tuesday at 17:00 to 18:30 for apartment 12, every week. This slot is free now; confirmation checks availability again.”</blockquote>
-<blockquote><span class="who">Run 5</span>“Request refused. pukuhuone 9 has no sauna day on Tuesday. It opens on Thursday, Friday, Saturday. Configured starts: 17:00, 18:30. You can request pukuhuone 9 on Thursday at 17:00–18:30 (currently free, repeats every week).”</blockquote>
-<p>The judge’s reasoning was the same each time: a resident can name an accepted request from the refusal alone. The conflict is declared in every 01-011 verdict, because the judge had seen a spec comment hinting at an alternative (pukuhuone 8, Tuesday). Run 5’s refusal named a different alternative (pukuhuone 9, Thursday) and passed on its own text.</p>
-<p class="source"><b>Source:</b> <code>shadow/run-0{3,4,5}/verdicts-final.json</code>; <code>grading/verdicts.json</code> (10 items from the grading session); <code>grading/refusal-01-011.txt</code>; race logs <code>run-03/grading/race-01-009.jsonl</code> (10 lines), <code>race-01-010.jsonl</code> (100), <code>race-10way.jsonl</code> (100), <code>run-04/grading/race-log.txt</code>, <code>run-05/grading/race-log.jsonl</code> (200 ordered, 100 split, 200 barrier).</p>
+</div></details>
 </section>
 
 <section id="findings">
-<h2><span class="n">7</span>What the evaluation found</h2>
-<p>The harness findings and the app findings are kept apart. Harness defects were fixed through spec rounds. App surprises are behaviour the spec does not decide; none of them failed an item.</p>
+<h2><span class="n">6</span>What the evaluation found</h2>
+<p class="sub">Harness defects were fixed through spec rounds; app surprises are behaviour the spec does not decide, and none failed an item.</p>
 <div class="two">
 <div class="panel">
-<h3>In the harness (fixed)</h3>
+<h3>In the harness</h3>
+<ul class="rows">
+  <li><span class="t">Run 1</span><span class="x">Probe got the port, not the URL</span><span class="f pill ok">7c</span></li>
+  <li><span class="t">Run 2</span><span class="x">Gate room was read-only</span><span class="f pill ok">7d</span></li>
+  <li><span class="t">Run 2</span><span class="x">SKIP lines read by first word</span><span class="f pill ok">7d</span></li>
+  <li><span class="t">Run 3</span><span class="x">No resume after a restart</span><span class="f pill warn">open</span></li>
+</ul>
+</div>
+<div class="panel">
+<h3>In the regenerated app</h3>
+<ul class="rows">
+  <li><span class="t">Runs 3–5</span><span class="x">Free-text households, no authentication</span></li>
+  <li><span class="t">Runs 3–5</span><span class="x">Open configuration over HTTP</span></li>
+  <li><span class="t">Runs 3–5</span><span class="x">A third slot is granted</span></li>
+  <li><span class="t">Runs 3, 5</span><span class="x">Spoofable give-up</span></li>
+  <li><span class="t">Runs 4, 5</span><span class="x">Invoicing “signals” are a current-state readout</span></li>
+  <li><span class="t">Run 5</span><span class="x">“No room” wins the refusal ordering</span></li>
+  <li><span class="t">Run 4</span><span class="x">Unlinked JSON API; deterministic race order</span></li>
+</ul>
+</div>
+</div>
+<details class="more"><summary>Each finding in full</summary><div class="in">
+<h4>In the harness (fixed)</h4>
 <ul>
   <li><b>The probe got the port, not the URL</b> (run 1). The runner ran <code>harness/probe.sh 8901</code>, where legacy runs <code>APP_PROBE URL</code>. A logging-curl replay confirmed it, and the legacy probe passed 100/100 on the same candidate. Spec gap in <code>cycle-runner/seam.md</code> E5. <b>Round 7c</b> stated every legacy argument and added <code>@item-06-036</code>.</li>
   <li><b>The gate room was read-only</b> (run 2). The candidate’s suite creates temp directories inside <code>impl/</code>, so it went 0/16 with <code>EACCES</code>; a writable copy went 16/16. <b>Round 7d</b> made the gate room writable by the candidate’s own scripts, with the digest taken at install, and added <code>@item-06-037</code>.</li>
   <li><b>SKIP lines were read by their first word</b> (run 2). The runner recorded skipped checks as “no”, “the”, and so on. <b>Round 7d</b> records the whole text after <code>SKIP</code> and added <code>@item-06-038</code>. Run 3 recorded whole sentences.</li>
-  <li><b>No resume after a restart</b> (run 3). Verdicts handed to a restarted runner halted the run (<code>context-did-not-respond</code>). Procedure until fixed: <b>keep the runner alive</b> from start to the filed score. Still open (§8).</li>
+  <li><b>No resume after a restart</b> (run 3). Verdicts handed to a restarted runner halted the run (<code>context-did-not-respond</code>). Procedure until fixed: <b>keep the runner alive</b> from start to the filed score. Still open (§7).</li>
 </ul>
-</div>
-<div class="panel">
-<h3>In the regenerated app (surprises)</h3>
+<h4>In the regenerated app (surprises)</h4>
 <ul>
   <li><b>Free-text households</b>: “Apartment 12” was accepted as a household distinct from “12” (run 3). There is no authentication; anyone can book for any apartment (runs 4, 5).</li>
   <li><b>Open configuration</b>: <code>/settings</code> and <code>/configure</code> change the sauna days over HTTP with no access control (runs 3–5).</li>
@@ -365,13 +489,23 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule);
   <li><b>Refusal ordering</b>: when the schedule is full, “no room” wins over the closed-day and held reasons (run 5).</li>
   <li><b>Unlinked JSON API</b> (<code>/api/*</code>), found by probing (run 4). Also a deterministic race order, where the last byte written first wins (run 4).</li>
 </ul>
-</div>
-</div>
 <p class="source"><b>Source:</b> decisions.md, rounds 7c and 7d (items 1–4) and “The switch”, item 7; <code>shadow/run-0{1,2}/evidence/gate/side-by-side.txt</code>; <code>shadow/run-03/evidence/score/side-by-side.txt</code>; <code>shadow/run-0{3,4,5}/grading/surprises.json</code>.</p>
+</div></details>
 </section>
 
 <section id="limits">
-<h2><span class="n">8</span>Limits and open items</h2>
+<h2><span class="n">7</span>Limits and open items</h2>
+<div class="chips">
+  <span class="chip">HTTP app contract only</span>
+  <span class="chip">Not self-hosting yet</span>
+  <span class="chip"><code>LOYLY_*</code> naming</span>
+  <span class="chip">Grading is a black-box agent</span>
+  <span class="chip">The 01-011 conflict</span>
+  <span class="chip">No resume after a restart</span>
+  <span class="chip">Narrow benchmark</span>
+  <span class="chip">Room isolation enforced, not specified</span>
+</div>
+<details class="more"><summary>Each limit in full</summary><div class="in">
 <ul>
   <li><b>The HTTP app contract only.</b> The runner’s gate is legacy <code>verify.sh</code>’s contract: <code>test.sh</code>, <code>start.sh PORT</code>, an HTTP GET, the marker, and <code>APP_PROBE URL</code>. The harness is proved on HTTP apps like Löyly, not on JSON-RPC-over-stdio services.</li>
   <li><b>Not self-hosting yet.</b> The harness’s own six contexts are stdio services, still gated by <code>harness/v2/gate.sh</code>. Spec round 8 specifies the second contract, but until its build is cross-checked and promoted, the old gate stays in place.</li>
@@ -383,6 +517,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule);
   <li><b>Room isolation is enforced, not specified.</b> Gondolin keeps builders in their room today, but the spec does not yet state it.</li>
 </ul>
 <p class="source"><b>Source:</b> decisions.md, “The switch”, items 5–7 (open items, self-hosting); AGENTS.md, “How the harness improves itself”; <code>score/side-by-side.txt</code> (grader digests).</p>
+</div></details>
 </section>
 
 <footer>
