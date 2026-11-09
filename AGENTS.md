@@ -118,6 +118,11 @@ context: a fenced clean room, a fresh builder, the gate, grading, the score. Nev
   same candidates before it is used. The fence keeps the builder honest, not the judge: a gate
   bug would pass every later build, its own successor included. Shadow runs 1 and 2 are the
   precedent (a probe handed the port, not the URL; a read-only gate room).
+- **Clear contradictions before new items.** Before a spec round accepts new items for a
+  context, it clears that context's inbox items that are contradictions: two spec statements
+  that cannot both hold, within or across contexts. Readings and gaps may wait. Every cycle is
+  a fresh builder, so an open contradiction is decided again each cycle and becomes a
+  regression (runner cycle 04, `@item-06-018`; `.pi/spec/decisions.md`, "Spec round 8b").
 - **The builder never sees `harness-impl/`**: `harness/config.sh` fences it from every clean
   room.
 - **Self-hosting is not done yet**: the runner's gate speaks only the HTTP app contract, so the
