@@ -105,7 +105,8 @@ Actors: the **operator** starts a run and hands in its verdicts (`RunDesk`); the
 
 - `StartRun`: 1 run identity taken, 2 another run in progress, 3 the cycle was run before (these
   three unit level: guards of a creation), 4 not a commit of the project repository, 5 a context
-  not handed in or not responding.
+  not handed in or not responding, 6 the configured builder image not in the builder images
+  directory.
 - `HandInVerdicts`: 1 no such run, 2 the gate has not passed, 3 verdicts already handed in, 4 the
   run no longer awaits its verdicts (unit level), 5 grader digest not approved, 6 the file absent,
   blank or not a list of verdicts.
@@ -119,8 +120,9 @@ Actors: the **operator** starts a run and hands in its verdicts (`RunDesk`); the
 `@item-06-035` (`.pi/plan/06-cycle-runner`): 21 minimum, 14 balance. Three were reworded so each
 step is observable through the seam or carries a decision (`../decisions.md`, "Spec round 7b" 1).
 Spec round 7c appended `@item-06-036`, spec round 7d `@item-06-037` and `@item-06-038`, and spec
-round 8 `@item-06-039` to `@item-06-048` (the stdio gate and the plan's slices), all minimum: 48
-items. `drafts.feature` holds none. Of the 46 must-cover obligations
+round 8 `@item-06-039` to `@item-06-048` (the stdio gate and the plan's slices), and spec round 9
+`@item-06-049` to `@item-06-051` (the builder image, its refusal, Measurement's history), all
+minimum: 51 items. `drafts.feature` holds none. Of the 49 must-cover obligations
 (`tools/spec/v2/coverage.py`), 7 are unit level and 1 gate-verified (`TheGateRoomIsNotTheBuilders`, planned `room-policy`).
 
 ## Decided questions (spec round 7b)

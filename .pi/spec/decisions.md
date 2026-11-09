@@ -16,6 +16,7 @@ The record of the product owner's decisions on spec v2, in the order they were t
 | Spec rounds 7c, 7d | 2026-11-08 | the shadow runs' gate gaps |
 | The switch to the new harness | 2026-11-08 | the new harness runs the regeneration cycles; legacy is the reference |
 | Spec round 8 | 2026-11-08 | the runner gains the stdio gate contract, to gate the harness's own contexts |
+| Spec rounds 8b, 9 | 2026-11-09 | the self-check stands after a refusal; the builder image per stack and Measurement's history |
 
 **How spec-v2 cycles are scored.** From 2026-11-07 (after Spec round 2), spec-v2 cycles are
 scored the legacy way, the legacy README's step 5: a black-box grading agent drives the
@@ -978,9 +979,14 @@ the switch and of what it leaves open.
    start to the filed score.
 7. **Open, for later rounds.**
    - *Resume a run after a runner restart*: run 3 halted (`context-did-not-respond`) when its
-     verdicts reached a restarted runner; deferred to the inbox.
-   - *Room isolation as spec*: Gondolin enforces it for builders today; the spec does not yet
-     state it.
+     verdicts reached a restarted runner; deferred to the inbox. Still open after "Spec round 9".
+   - *Room isolation and network egress as spec*: Gondolin enforces isolation for builders today;
+     the spec does not yet state it, nor the glossary's "no network egress" for a builder room,
+     which `selfhost-01`'s builder broke (it apk-installed and fetched dependencies). Still open
+     after "Spec round 9".
+   - *The repair's paths* (from "Spec round 9"): seam E6 names the previous candidate and the gate
+     evidence as host paths; inside the VM they are elsewhere, and the builder found them by
+     relative path. Optional wording: name them relative to the builder room.
    - *A sealed Löyly grader (OG1) and the product Grader*: the shadow runs' verdicts came from
      a grading session, not a sealed, approved digest.
    - *The spec-round inbox*: the surprises recorded in `cycles/0{2,3,4}/05` and
@@ -1165,3 +1171,100 @@ stays at 197.
    fails a run that halts after a refusal, and the denominator stays 48.
 7. **The rule** (AGENTS.md): before a spec round accepts new items for a context, it clears
    that context's inbox items that are contradictions; readings and gaps may wait.
+
+## Spec round 9 (decided 2026-11-09)
+
+A spec round on slice 06 only, from the first self-hosted cycle (`selfhost-01`: slice 05,
+cycle-preparation, run by the runner's cycle 05 build over the stdio gate; evidence kept, not
+committed, at `.pi/harness/.state/selfhost-01`, the triage at `.pi/harness/.state/rounds/09`). No
+other context's `spec.feature`, Allium `requires` or event-model schema changed; no existing
+scenario's text changed; the runner's event-model schema is unchanged (everything new travels in
+the configuration, the environment handed in and the `detail` `record-effect` already has; one
+description in `cycle-run.edn` changed). The product owner accepted the triage as recommended.
+
+1. **The evidence.** The wrapper `bin/builder.sh` launched builder 1 in `assets/builder`, the
+   TypeScript image with no JVM, for a Clojure slice. It installed an Alpine aarch64 JDK, bash and
+   git into its own scope, and gate attempt 1 was `suite-red` on the macOS host (`test.sh` exited
+   126, "cannot execute binary file"). The repair made `test.sh` and `start.sh` use the host's
+   tools, gate attempt 2 passed, and the judge accepted the candidate, 4/4, attempt 2 of 3
+   (`harness-impl/05-cycle-preparation/PROVENANCE.md`). Nothing in the run's evidence named the
+   image a builder ran in. The first grading copied the candidate out of its room, where it could
+   not boot, and was voided. The runner's scoreboard was a baseline (no previous cycle) where
+   legacy `scoreboard.clj`, on the same verdicts, compared with cycle 01.
+2. **Decided (D1 to D8):**
+   - *D1, the builder image per stack: accepted.* The configuration names the image,
+     `BUILDER_IMAGE` (beside `APP_STACK`), so the harness digest changes when the image does; the
+     environment names where images live, `LOYLY_BUILDER_IMAGES` (images are build products outside
+     the cut). The runner hands the image's path to `LOYLY_BUILDER_CMD` as a third argument and
+     names the image and its digest (the candidate digest's formula over the image's folder) in the
+     regenerate and repair effects' `detail`, never in the harness digest, so `@item-06-046` and
+     the self-check binding keep their meaning. Absent `BUILDER_IMAGE`, two arguments as before.
+     `@item-06-049`; `BuilderLaunch.TheBuilderRunsInTheConfiguredImage`; seam E4, E6, "Handed in".
+   - *D2, the image carries the stack's toolchain: accepted, as a contract.* `StartRun` requires 6:
+     a configured image that is not a folder of `LOYLY_BUILDER_IMAGES` refuses the start,
+     `builder-image-missing`, before anything is recorded (as `contexts-not-responding`). The
+     toolchain (a JDK, the Clojure CLI, git and bb, the tools the gate's host runs) is a plain
+     contract comment on `BuilderLaunch`, not an invariant: the runner never learns what a stack
+     needs; the provided image build proves it (D4). `@item-06-050`.
+   - *D3, a candidate that depends on the builder VM: left as it is.* The gate checks behaviour on
+     the host, and it caught attempt 1 as `suite-red`, the correct verdict; the repair fixed it in
+     one attempt, and D1 and D2 remove the cause. A foreign-executable gate rule would open
+     regeneration-cycle (its inbox still holds an undeclared read), is platform-specific, and would
+     have failed the accepted candidate, which still carries its unused `.runtime/`. A builder
+     instruction sentence stays the operator's fallback, in the instrument (spec round 8 D7).
+   - *D4, the image build stays provided: operator work, not spec* (AGENTS.md: the builder host
+     and Gondolin rooms are provided, never regenerated). The operator's follow-ups, in the main
+     repository: O1 `harness/loyly/Dockerfile.clojure` (JDK no newer than the host's, the Clojure CLI
+     pinned to the host's version, static bb, ending in a `RUN` of the four version commands);
+     O2 `.pi/harness/config/build/builder-clojure.json`; O3 `harness/Makefile` `bootstrap` builds
+     and verifies `builder-clojure`; O4 `harness/config.sh` `BUILDER_IMAGE=builder-clojure`; O5 the
+     `LOYLY_BUILDER_CMD` wrapper takes the third argument as its guest directory, and the runner's
+     environment gains `LOYLY_BUILDER_IMAGES` and `LOYLY_MEASUREMENT_STORE`.
+   - *D5, the grader gets the gate room, never a bare candidate: accepted, wording only.*
+     `cycle-runner/seam.md`'s live-benchmark paragraph: the grading subagent drives the gated
+     candidate in a room built as the install effect builds the passed attempt's gate room, from
+     fresh state (for `stdio`, the clean room's files with the gated candidate's copy at
+     `APP_DIR`), never a copy of the candidate alone. No item: nothing the runner does changes.
+   - *D6, the scoreboard had no previous cycle: accepted.* Measurement's spec is right ("the last
+     cycle whose measurement was filed before this one's, with the same `selection-id`", looked up
+     in its own store); the runner's was wrong: it started every context on a fresh store, so every
+     runner cycle was a baseline, against AGENTS.md ("compare with the previous cycle on shared
+     items") and the glossary's Scoreboard. **The premise corrected:** had cycle 01 been seen, its
+     4 items would have been *shared* (legacy: 0 newly passing, 0 newly failing), not new; the
+     holdout would be 0. What was wrong is the missing comparison, not the holdout count, and
+     Measurement needs no change. Now an optional `LOYLY_MEASUREMENT_STORE`: when set, Measurement
+     is started on that one file for every run and it is kept, the other four contexts stay fresh,
+     and the relay hands on only the handoffs appended during this run, positions counted from the
+     first of them. History starts at the first run on the file (slice 05's cycle 01 is in no
+     Measurement store); the operator keeps `selection-id` stable per selection and cut and cycle
+     ids unique across runs on one file. The grader may start the gated Measurement candidate on
+     its own history file after the run to read the scoreboard. `@item-06-051`;
+     `ContextSeams.MeasurementKeepsItsHistory`; `StartRun`, `RelayedHandoff.position`,
+     `InTheProducersOrder` wording; seam E8 and "Handed in". **D6 is the first scoreboard-stage
+     disagreement between the runner and the legacy harness since the switch** (shadow runs 4 and
+     5 were baseline on both sides).
+   - *D7, a refused pin still runs a full ORC workflow: left as it is.* `cycle-preparation/seam.md`
+     already allows it ("records nothing" means no event of `event-model/`; ORC's and Grain's own
+     run events may still be written), and the store check passed.
+   - *D8, a refusal's `message` is the bare refusal code: left as it is.* Only `data.refusal` (and
+     the few named messages) is the contract; `message` is free text, and the runner never reads it.
+3. **The inbox (cycle-runner)**, per AGENTS.md. The one contradiction, fresh stores per run
+   against the scoreboard's previous cycle (in effect across cycle-runner and measurement), is
+   cleared by D6; the gap "a builder room provisioned for the target stack" (glossary) is closed by
+   D1. The rest are gaps and wait: room isolation and network egress (the glossary's builder room
+   has "no network egress", while builder 1 apk-installed and fetched dependencies); the repair's
+   paths, which are host paths the builder found by relative path inside the VM; and resume after a
+   runner restart. Outside cycle-runner, not this round: `record-gate-attempt`'s undeclared read of
+   `instrument-goldens` (regeneration-cycle), `@item-03-010` and `@item-03-011` (grader-lifecycle).
+4. **Three new scenarios**, all `@minimum`, appended at the end of `cycle-runner/spec.feature`,
+   stamped `@item-06-049` to `@item-06-051`. Cycle-runner goes from 48 to 51 items and from 46 to
+   49 must-cover obligations.
+5. **Next.** Runner cycle 06 against this spec, gated by `harness/v2/gate.sh 06` until it is
+   cross-checked; the cross-check repeats spec round 8's C1 to C5 with `BUILDER_IMAGE` absent
+   (both builds must agree), and the two new behaviours alone on the new build. Then the operator
+   follow-ups O1 to O5 and `selfhost-02` (slice 05 in `builder-clojure`, with a history store), and
+   a `selfhost-03` of the same selection, the first runner scoreboard with a previous cycle.
+   Slices 01 to 05 need no cycle: their specs are untouched.
+
+The slice-06 grader grows by these three items ("spec grew", additions only). The checklist golden
+grows 197 → 200. `@item-06-049` to `@item-06-051` are the next cycle's untuned holdout.

@@ -60,6 +60,16 @@ contract ContextSeams {
         -- Every refusal of a recording is the context's reply, recorded as heard: the
         -- refusal code of its seam, never re-derived. The runner does not decide what a
         -- context would refuse, and does not skip a recording because it expects one.
+
+    @invariant MeasurementKeepsItsHistory
+        -- Each context is started for a run on a fresh store, except Measurement when a
+        -- measurement history store is handed in: Measurement is then started on that one
+        -- file for every run, and it is kept when the run ends, so its scoreboard compares
+        -- a cycle with the last measured cycle of the same selection across runs
+        -- (AGENTS.md, the scoreboard; measurement contract Comparison,
+        -- LastMeasuredCycleOfTheSameSelection). The relay hands on only the handoffs that
+        -- store gained during this run. With none handed in, Measurement too starts fresh
+        -- and every scoreboard is a baseline (decisions.md, "Spec round 9" D6).
 }
 
 -- The project repository of the benchmark: the cut's commit and its tree.
@@ -84,6 +94,8 @@ contract ProjectRepository {
 -- The builder: one pi session with its Gondolin backend, launched by the runner, which
 -- waits for it to end (decisions.md, "Slice 06 (draft)").
 contract BuilderLaunch {
+    builder_image_present: (run_id: String) -> Boolean
+
     @invariant OneFreshBuilderPerRegenerate
         -- Each regenerate and each repair launches one fresh builder session and waits
         -- for it; no builder session continues another, and one run has one builder at
@@ -99,6 +111,21 @@ contract BuilderLaunch {
         -- How a builder session ends is not evidence: the runner records the candidate
         -- the builder left in its candidate scope, and the gate decides whether it is
         -- done. A builder that leaves nothing in its candidate scope regenerated nothing.
+
+    @invariant TheBuilderRunsInTheConfiguredImage
+        -- When the configuration names a builder image, every builder of the run, fresh
+        -- and repair, is launched with that image: the folder of its name in the builder
+        -- images directory handed in, as the builder command's third argument. Each
+        -- regenerate and repair effect names the image and its digest in its detail. A
+        -- configuration that names none launches the builder with two arguments, as before
+        -- (decisions.md, "Spec round 9" D1).
+
+    -- The builder image named for a stack carries that stack's toolchain, the same tools
+    -- the gate's host runs the candidate with (for Clojure: a JDK, the Clojure CLI, git and
+    -- bb), so a builder never brings its own. Proving that is the provided image build's
+    -- (harness/Makefile), when it builds the image, never the runner's: the runner checks
+    -- only that the named image is there, and records which one each builder ran in
+    -- (decisions.md, "Spec round 9" D2, D4).
 }
 
 -- The gate, run on the host for stage 1. For the http seam (the default) in the order of
@@ -212,6 +239,9 @@ config {
     app_seam: AppSeam = http
     -- The selected slice numbers (spec round 8): empty, every slice of the plan.
     plan_slices: Set<String>
+    -- The builder image for the stack (spec round 9): a folder of the builder images
+    -- directory handed in. Empty, none: the builder command gets two arguments.
+    builder_image: String = ""
     -- Legacy verify.sh: ten seconds, twenty polls at half a second.
     boot_budget_seconds: Integer = 10
     boot_polls: Integer = 20

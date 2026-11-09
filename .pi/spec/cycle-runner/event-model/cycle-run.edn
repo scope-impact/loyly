@@ -10,7 +10,7 @@
 {:cycle-runner
  {:commands
   {:cycle-runner/start-run
-   {:description "Start a run of one cycle: the cut's commit, the selection, the budget and the approved grader digests. The five contexts' candidates are started for it, each on a fresh store, and the run performs its effects up to the gate's verdict before the method responds. Issued by: operator."
+   {:description "Start a run of one cycle: the cut's commit, the selection, the budget and the approved grader digests. The five contexts' candidates are started for it, each on a fresh store but Measurement on the measurement history store when one is handed in, and the run performs its effects up to the gate's verdict before the method responds. Issued by: operator."
     :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "StartRun"}]
     :schema [:map
              [:run-id :string]

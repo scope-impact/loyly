@@ -534,3 +534,41 @@ Feature: Cycle runner
       When the operator starts run R-1 of cycle C-1 at source cut K-1
       Then the stamp effects of run R-1 stamped slice 02 only
       And the checklist effect's events name the item 02-001 and no item of slice 01
+
+  Rule: A regenerate launches one fresh builder and records what it left in its candidate scope
+
+    # context.allium, contract BuilderLaunch, invariant TheBuilderRunsInTheConfiguredImage
+    # decisions.md "Spec round 9" D1: selfhost-01's builder 1 ran in the TypeScript image, installed a Linux toolchain into its scope, and gate attempt 1 was suite-red on the host
+    @minimum @allium-boundary.TheBuilderRunsInTheConfiguredImage
+    @item-06-049
+    Scenario: Each builder is handed the configured builder image, and each regenerate names the image and its digest
+      Given the configuration's builder image is "builder-clojure" and the builder images directory holds a folder of that name
+      And the stub builder records the arguments of each launch, and the candidate it leaves fails the gate once, then passes
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then each launch of the stub builder was handed three arguments: its builder room, its instruction file and the path of "builder-clojure" in the builder images directory
+      And the regenerate and repair effects of run R-1 each name in their detail the builder image "builder-clojure" and its digest
+
+  Rule: A run starts once, one at a time, on a commit of the project repository, with its five contexts responding
+
+    # cycle-run.allium, rule StartRun (requires 6)
+    # decisions.md "Spec round 9" D2: the runner checks only that the named builder image is there; its toolchain is the provided image build's
+    @minimum @allium-rule-failure.StartRun.6
+    @item-06-050
+    Scenario: A start whose configured builder image is not in the builder images directory is refused
+      Given the configuration's builder image is "builder-clojure" and the builder images directory holds no folder of that name
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then the start is refused "builder-image-missing"
+      And no run R-1 exists, and no builder was launched
+
+  Rule: Measurement keeps its history across runs when a history store is handed in, so a scoreboard compares a cycle with the last measured cycle of its selection
+
+    # context.allium, contract ContextSeams, invariant MeasurementKeepsItsHistory; cycle-run.allium, surface EffectNodes, guarantee InTheProducersOrder
+    # Legacy: scoreboard.clj compares a cycle with the previous cycle's committed scores; decisions.md "Spec round 9" D6: selfhost-01's scoreboard had no previous cycle, legacy's compared with cycle 01
+    @minimum @allium-boundary.MeasurementKeepsItsHistory
+    @item-06-051
+    Scenario: Two runs handed one measurement history store compare the second cycle with the first
+      Given the operator hands in the measurement history store H
+      And run R-1 of cycle C-1 at source cut K-1 was handed its verdicts and passed with its cycle
+      When the operator starts run R-2 of cycle C-2 at source cut K-2, everything else the same, and hands in its verdicts
+      Then Measurement's scoreboard of cycle C-2, read from H through Measurement's own seam after run R-2 ended, has the previous cycle C-1
+      And run R-2's relayed handoffs from measurement are one measurement/measurement-filed and one measurement/scoreboard-reported, each to regeneration-cycle

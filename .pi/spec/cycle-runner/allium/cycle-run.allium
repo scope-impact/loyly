@@ -93,7 +93,8 @@ entity RelayedHandoff {
     run: CycleRun
     handoff_type: String
     producer: String
-    -- The handoff's place among its producer's handoffs, in store order, from 1.
+    -- The handoff's place among its producer's handoffs of this run, in store order,
+    -- from 1: a handed-in history store's earlier handoffs are not this run's.
     position: Integer
     consumer: String
     outcome: ctx.RelayOutcome
@@ -105,8 +106,9 @@ entity RelayedHandoff {
 ------------------------------------------------------------
 
 -- Start a run of one cycle: the cut's commit, the selection, the budget and the approved
--- grader digests. The five contexts are started for it, each on a fresh store. Issued by
--- the operator.
+-- grader digests. The five contexts are started for it, each on a fresh store, but
+-- Measurement on the measurement history store when one is handed in
+-- (ctx.MeasurementKeepsItsHistory). Issued by the operator.
 rule StartRun {
     when: StartRun(operator, run_id, cycle_id, cut_id, commit, selection_id, budget, grader_digests)
     -- 1. the run identity is taken: a second start records nothing
@@ -119,6 +121,9 @@ rule StartRun {
     requires: is_commit(commit)
     -- 5. a context's candidate is not handed in, or does not respond on its seam
     requires: contexts_respond(run_id)
+    -- 6. the configuration names a builder image the builder images directory does not
+    --    hold (decisions.md, "Spec round 9" D2)
+    requires: builder_image_present(run_id)
     ensures:
         CycleRun.created(run_id: run_id, cycle_id: cycle_id, cut_id: cut_id, commit: commit, selection_id: selection_id, budget: budget, grader_digests: grader_digests, status: running, effects: 0, attempts: 0, candidate_digest: null, verdicts_digest: null, gate_passed: false, cycle_status: null)
         RunStarted(run_id: run_id, cycle_id: cycle_id, cut_id: cut_id, commit: commit, selection_id: selection_id)
@@ -378,7 +383,9 @@ surface EffectNodes {
         -- After every recording the runner takes the producer's new handoffs from the
         -- producer's own store, in store order, and hands each in unchanged to every
         -- consumer the event models name, before the next effect (decisions.md, "Spec
-        -- round 5" 1 and 2).
+        -- round 5" 1 and 2). New means appended during this run and not yet relayed: a
+        -- handed-in measurement history store's earlier handoffs are never relayed again
+        -- (decisions.md, "Spec round 9" D6).
 
     @guarantee TheGateRoomIsNotTheBuilders
         -- The gate room is the runner's, never the builder's. Verified by: gate
