@@ -3,9 +3,10 @@
 #
 #   tools/spec/publish.sh [remote] [--dry-run]     remote defaults to scope-impact
 #
-# Rebuilds and checks the page, then commits it as index.html (with .nojekyll) on top of the
-# remote's gh-pages, so every published version stays in that branch's history. --dry-run
-# makes the commit in a throwaway worktree and shows it, without pushing.
+# Rebuilds and checks the page, then commits it as index.html (with .nojekyll), and each
+# tools/spec/eval/*.html as eval/<name>.html, on top of the remote's gh-pages, so every
+# published version stays in that branch's history. --dry-run makes the commit in a throwaway
+# worktree and shows it, without pushing.
 set -euo pipefail
 REMOTE=scope-impact; DRY=0
 for a in "$@"; do case "$a" in --dry-run) DRY=1 ;; *) REMOTE="$a" ;; esac; done
@@ -26,8 +27,12 @@ cd "$wt"
 git rm -rqf . 2>/dev/null || true
 cp "$page" index.html; : > .nojekyll
 git add index.html .nojekyll
+for f in "$root"/tools/spec/eval/*.html; do
+  [ -e "$f" ] || continue
+  mkdir -p eval; cp "$f" "eval/$(basename "$f")"; git add "eval/$(basename "$f")"
+done
 git commit -q -m "Publish the Löyly spec v2 event model from $src"
-git log --oneline -1; git show --stat --format= HEAD | tail -3
+git log --oneline -1; git show --stat --format= HEAD
 if [ "$DRY" = 1 ]; then echo "dry run: not pushed to $REMOTE gh-pages"; exit 0; fi
 git push -q "$REMOTE" HEAD:gh-pages
 echo "pushed to $REMOTE gh-pages"
