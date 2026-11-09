@@ -1,262 +1,290 @@
 (ns loyly.cycle-runner.effects
-  "The effects in the real world (seam.md, The effects): the harness self-check, the fence
-   (legacy fence.sh's steps) and its probe, the builder launch, the install, and the gate on
-   the host in legacy verify.sh's order and arguments. Each returns what it found; the
-   advance-run processor records it into the context that owns it."
+  "The effects in the real world: the harness self-check, the fence and its
+   probe, the builder launch, the copy of the candidate, and the gate on the
+   host (legacy verify.sh for the http seam, harness/v2/gate.sh for stdio).
+   Each returns what happened; recording it is loyly.cycle-runner.advance's."
+  (:refer-clojure :exclude [run!])
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [loyly.cycle-runner.repo :as repo]
             [loyly.cycle-runner.util :as u])
-  (:import [java.net HttpURLConnection InetSocketAddress Socket URL]))
-
-(defn clean-env
-  "The environment of what the runner launches: its own, without any LOYLY_* value and
-   without a configuration value (legacy sources config.sh, it does not export it)."
-  []
-  (into {} (remove (fn [[k _]] (str/starts-with? k "LOYLY_"))) (System/getenv)))
+  (:import [java.net InetSocketAddress Socket URI]
+           [java.net.http HttpClient HttpRequest HttpResponse$BodyHandlers]
+           [java.time Duration]))
 
 ;; ---------------------------------------------------------------------------
-;; E2: the harness self-check
-;; ---------------------------------------------------------------------------
-
-(defn skipped-checks
-  "Each line starting SKIP names a skipped check: the rest of the line after SKIP and its
-   whitespace, trimmed."
-  [out]
-  (->> (u/lines out)
-       (keep #(when-let [[_ rest] (re-matches #"^SKIP(?:\s+(.*))?$" (str/trim %))]
-                (str/trim (or rest ""))))
-       (remove str/blank?)
-       vec))
+;; The harness self-check
 
 (defn self-check
-  "Run the self-check command in the project repository."
-  [{:keys [repo self-check-cmd]}]
-  (let [{:keys [exit out timed-out?]} (u/run-process ["sh" "-c" self-check-cmd]
-                                                     {:dir repo :env (clean-env) :timeout-ms 3600000})]
-    {:exit exit
-     :passed? (and (zero? exit) (not timed-out?))
-     :last-line (u/last-line out)
-     :skipped (skipped-checks out)
+  "LOYLY_SELF_CHECK_CMD run in the project repository: exit 0 passed; the last
+   line printed is the failing check; each line starting SKIP a skipped check."
+  [{:keys [self-check-cmd repo env]}]
+  (let [{:keys [exit out]} (u/run! (u/shell-argv self-check-cmd [])
+                                    {:dir repo :env (u/strip-env env) :timeout-ms (* 3600 1000)})
+        lines (str/split-lines (or out ""))
+        skipped (vec (for [l lines
+                           :let [t (str/triml l)]
+                           :when (str/starts-with? t "SKIP")]
+                       (str/trim (subs t 4))))
+        last-line (u/last-line out)]
+    {:passed? (zero? exit)
+     :exit exit
+     :skipped skipped
+     :failing-check (or last-line (str "the self-check exited " exit))
      :out out}))
 
 ;; ---------------------------------------------------------------------------
-;; E3: the fence and its probe
-;; ---------------------------------------------------------------------------
+;; The fence: legacy fence.sh, then its probe.
 
-(defn- in-tree? [room path]
-  (let [p (str/replace path #"/+$" "")]
-    (seq (str/trim (or (repo/git-out room "ls-tree" "HEAD" "--" p) "")))))
+(defn- under? [p entry]
+  (let [e (str/replace entry #"/+$" "")]
+    (or (= p e) (str/starts-with? p (str e "/")))))
 
-(defn fence
-  "Legacy fence.sh, its one argument the clean room's path (which must not exist yet): a
-   file:// clone of depth 1 at the commit, each fenced path found or matching nothing,
-   removed, committed, squashed to one root commit, origin removed, reflog expired, pruned.
-   Then the probe."
-  [{:keys [repo commit config]} room]
-  (when (.exists (io/file room))
-    (throw (ex-info (str "The clean room " room " already exists.") {})))
-  (u/mkdirs room)
-  (let [g (fn [& args] (let [r (apply repo/git room args)]
-                         (when-not (zero? (:exit r))
-                           (throw (ex-info (str "git " (str/join " " args) " failed: " (:out r)) r)))
-                         (:out r)))
-        id ["-c" "user.name=cycle-runner" "-c" "user.email=cycle-runner@loyly.invalid"
-            "-c" "commit.gpgsign=false"]]
+(defn fence!
+  "Build the clean room of the commit at `room` (which must not exist yet):
+   a clone of depth 1, the fenced paths removed, one root commit, no origin,
+   reflog expired and pruned; then probe it."
+  [{:keys [repo commit fenced-paths]} room]
+  (when (u/exists? room)
+    (throw (ex-info (str "The clean room " room " exists already.") {})))
+  (u/mkdirs! room)
+  (let [g (fn [& args] (apply repo/git-ok room args))
+        gc (fn [& args] (apply g "-c" "user.name=cycle-runner" "-c" "user.email=cycle-runner@loyly.invalid"
+                               "-c" "commit.gpgsign=false" args))]
     (g "init" "-q")
-    (g "remote" "add" "origin" (str "file://" (u/abs-path repo)))
-    (g "fetch" "-q" "--depth" "1" "origin" commit)
-    (g "checkout" "-q" "-B" "main" "FETCH_HEAD")
-    (let [fenced (:fenced-paths config)
-          found (filterv #(in-tree? room %) fenced)
-          unmatched (filterv #(not (in-tree? room %)) fenced)]
-      (doseq [p found] (g "rm" "-r" "-q" "--" (str/replace p #"/+$" "")))
-      (doseq [p found] (u/delete-tree! (io/file room (str/replace p #"/+$" ""))))
-      (apply g (concat id ["commit" "-q" "--allow-empty" "-m" "fence"]))
-      (g "checkout" "-q" "--orphan" "clean")
-      (apply g (concat id ["commit" "-q" "--allow-empty" "-m" (str "clean room of " commit)]))
-      (g "branch" "-D" "main")
-      (g "branch" "-m" "main")
-      (g "remote" "remove" "origin")
-      (u/delete-tree! (io/file room ".git" "FETCH_HEAD"))
-      (u/delete-tree! (io/file room ".git" "shallow"))
+    (g "fetch" "-q" "--depth" "1" (str "file://" (u/abs-path repo)) commit)
+    (g "checkout" "-q" "--detach" "FETCH_HEAD")
+    (let [tree-paths (str/split-lines (g "ls-tree" "-r" "--name-only" "-t" "HEAD"))
+          found? (fn [entry] (some #(under? % entry) tree-paths))
+          unmatched (vec (remove found? fenced-paths))
+          matched (vec (filter found? fenced-paths))]
+      (doseq [entry matched]
+        (g "rm" "-r" "-q" "--cached" "--ignore-unmatch" "--" (str/replace entry #"/+$" ""))
+        (u/delete-tree! (str room "/" (str/replace entry #"/+$" ""))))
+      (gc "commit" "-q" "--allow-empty" "-m" "fence: remove fenced paths")
+      ;; squash to one root commit
+      (g "checkout" "-q" "--orphan" "clean-room")
+      (gc "commit" "-q" "--allow-empty" "-m" (str "clean room of " commit))
+      (doseq [b (remove str/blank? (map str/trim (str/split-lines (g "for-each-ref" "--format=%(refname)"))))
+              :when (not= b "refs/heads/clean-room")]
+        (g "update-ref" "-d" b))
+      (repo/git room "remote" "remove" "origin")
+      (doseq [f ["shallow" "FETCH_HEAD" "ORIG_HEAD"]]
+        (u/delete-tree! (str room "/.git/" f)))
       (g "reflog" "expire" "--expire=now" "--all")
       (g "gc" "-q" "--prune=now")
-      ;; The probe.
-      (let [roots (count (u/lines (g "rev-list" "--max-parents=0" "--all")))
-            commits (count (u/lines (g "rev-list" "--all")))
-            tree (u/lines (g "ls-tree" "-r" "--name-only" "HEAD"))
-            objects (keep #(second (str/split % #" " 2)) (u/lines (g "rev-list" "--objects" "--all")))
-            entry (fn [p] (str/replace p #"/+$" ""))
-            hit? (fn [paths p] (some #(or (= % (entry p)) (str/starts-with? % (str (entry p) "/"))) paths))
-            left (filterv #(or (hit? tree %) (.exists (io/file room (entry %)))) fenced)
-            reachable (filterv #(hit? objects %) fenced)]
-        {:room room
-         :clean-room-commit (str/trim (g "rev-parse" "HEAD"))
-         :fenced-paths fenced
-         :found found
-         :root-commits roots
+      ;; the probe
+      (let [roots (remove str/blank? (str/split-lines (g "rev-list" "--max-parents=0" "--all")))
+            commits (parse-long (str/trim (g "rev-list" "--all" "--count")))
+            tree-now (str/split-lines (g "ls-tree" "-r" "--name-only" "-t" "HEAD"))
+            objects (for [l (str/split-lines (g "rev-list" "--objects" "--all"))
+                          :let [[_ p] (str/split l #" " 2)]
+                          :when p]
+                      p)
+            left (vec (filter (fn [e] (some #(under? % e) tree-now)) matched))
+            reachable (vec (filter (fn [e] (some #(under? % e) objects)) fenced-paths))]
+        {:clean-room-commit (str/trim (g "rev-parse" "HEAD"))
+         :root-commits (count roots)
          :commits commits
          :unmatched-paths unmatched
          :paths-left-in-tree left
          :paths-reachable-in-object-graph reachable}))))
 
 ;; ---------------------------------------------------------------------------
-;; E4, E6: a builder room, the launch, the candidate left behind
-;; ---------------------------------------------------------------------------
+;; The builder
 
-(defn candidate-digest
-  "sha256 of one line per file of the candidate scope, <path> TAB <sha256 hex> LF, by path."
-  [dir]
-  (u/sha256-of-string
-   (apply str (map (fn [p] (str p "\t" (u/sha256-hex (u/file-bytes (io/file dir p))) "\n"))
-                   (u/files-under dir)))))
-
-(defn prepare-builder-room
+(defn builder-room!
   "A fresh builder room: a copy of the clean room and an empty candidate scope."
   [clean-room room app-dir]
+  (u/delete-tree! room)
   (u/copy-tree! clean-room room)
-  (u/delete-tree! (io/file room app-dir))
-  (u/mkdirs (io/file room app-dir))
+  (u/delete-tree! (str room "/" app-dir))
+  (u/mkdirs! (str room "/" app-dir))
   room)
 
-(defn launch-builder
-  "Launch `<cmd> <builder-room> <instruction-file>` and wait for it within timeout-seconds.
-   When it ends, take a copy of what it left in its candidate scope. Its exit is no verdict."
-  [{:keys [builder-cmd]} room instruction-file app-dir snapshot-dir timeout-seconds log-file]
-  (let [p (try (u/start-process ["sh" "-c" (str builder-cmd " \"$1\" \"$2\"") "sh" room instruction-file]
-                                {:dir room :env (clean-env) :out (io/file log-file)})
-               (catch Exception e e))]
-    (if (instance? Exception p)
-      {:could-not-run (str "The builder could not be started: " (.getMessage ^Exception p))}
-      (do
-        (.close (.getOutputStream ^Process p))
-        (let [done? (.waitFor ^Process p (long timeout-seconds) java.util.concurrent.TimeUnit/SECONDS)]
-          (if-not done?
-            (do (u/kill-tree! p)
-                {:timed-out? true :timeout-seconds timeout-seconds})
-            (let [exit (.exitValue ^Process p)
-                  scope (io/file room app-dir)]
-              ;; A builder that leaves processes behind is stopped with it.
-              (u/kill-tree! p)
-              (u/copy-tree! scope snapshot-dir)
-              (let [files (u/files-under snapshot-dir)]
-                {:exit exit
-                 :files (count files)
-                 :snapshot snapshot-dir
-                 :candidate-digest (when (seq files) (candidate-digest snapshot-dir))}))))))))
+(defn launch-builder!
+  "LOYLY_BUILDER_CMD <builder-room> <instruction-file>, waited for within the
+   timeout. Its exit status is no evidence."
+  [{:keys [builder-cmd env]} room instruction-file timeout-seconds log-file]
+  (let [{:keys [exit out timed-out?]}
+        (u/run! (u/shell-argv builder-cmd [room instruction-file])
+                {:env (u/strip-env env) :timeout-ms (* 1000 (long timeout-seconds)) :out-file log-file})]
+    {:exit exit :out out :timed-out? timed-out?}))
+
+(defn take-candidate!
+  "A copy of what the builder left in its candidate scope, and its digest."
+  [room app-dir copy]
+  (u/delete-tree! copy)
+  (u/mkdirs! copy)
+  (u/copy-tree! (str room "/" app-dir) copy)
+  {:files (count (u/regular-files copy))
+   :digest (u/tree-digest copy)})
+
+(defn gate-room!
+  "A fresh gate room for the attempt: the candidate's copy at APP_DIR; for the
+   stdio seam also the clean room's files (not its history)."
+  [{:keys [app-dir app-seam]} clean-room candidate-copy room]
+  (u/delete-tree! room)
+  (u/mkdirs! room)
+  (when (= "stdio" app-seam)
+    (u/copy-tree! clean-room room #(or (= % ".git") (str/starts-with? % ".git/"))))
+  (u/delete-tree! (str room "/" app-dir))
+  (u/copy-tree! candidate-copy (str room "/" app-dir))
+  room)
 
 ;; ---------------------------------------------------------------------------
-;; E5: install and gate
-;; ---------------------------------------------------------------------------
+;; The gate on the host
 
-(defn install
-  "A fresh gate room under the run's directory: the clean room and a copy of the candidate
-   as taken when its builder ended, writable by the candidate's own scripts. The digest is
-   the copy's as taken, before the gate runs."
-  [clean-room snapshot gate-room app-dir]
-  (u/copy-tree! clean-room gate-room)
-  (u/delete-tree! (io/file gate-room app-dir))
-  (u/copy-tree! snapshot (io/file gate-room app-dir))
-  {:gate-room gate-room :candidate-digest (candidate-digest (io/file gate-room app-dir))})
-
-(defn port-answers? [port]
+(defn- answering? [port]
   (try
     (with-open [s (Socket.)]
       (.connect s (InetSocketAddress. "127.0.0.1" (int port)) 500)
       true)
     (catch Exception _ false)))
 
-(defn http-get
-  "GET url like `curl -s`: {:status n :body text}, or nil when nothing answers."
-  [url]
+(defn- http-get [url]
   (try
-    (let [c ^HttpURLConnection (.openConnection (URL. url))]
-      (.setConnectTimeout c 1000)
-      (.setReadTimeout c 5000)
-      (let [status (.getResponseCode c)
-            body (try (slurp (if (< status 400) (.getInputStream c) (.getErrorStream c)))
-                      (catch Exception _ ""))]
-        {:status status :body (or body "")}))
+    (let [client (-> (HttpClient/newBuilder) (.connectTimeout (Duration/ofMillis 500)) .build)
+          req (-> (HttpRequest/newBuilder (URI. url)) (.timeout (Duration/ofSeconds 2)) .GET .build)
+          resp (.send client req (HttpResponse$BodyHandlers/ofString))]
+      {:status (.statusCode resp) :body (.body resp)})
     (catch Exception _ nil)))
 
-(defn gate
-  "Legacy verify.sh's order and arguments, on the host, in the gate room. Returns the
-   gate's result: {:outcome :reason :seam-answered-before-boot :identity-probe-present
-   :answered-on-poll :identity-probe-result :detail}; evidence written under evidence-root."
-  [{:keys [config]} gate-room evidence-root timeout-seconds]
-  (u/delete-tree! evidence-root)
-  (u/mkdirs evidence-root)
-  (let [{:keys [app-dir port app-marker app-probe boot-polls]} config
-        log (io/file evidence-root "gate.log")
-        note (fn [& xs] (spit log (str (apply str xs) "\n") :append true))
-        env (clean-env)
-        test-sh (io/file gate-room app-dir "test.sh")
-        start-sh (io/file gate-room app-dir "start.sh")
-        probe (io/file gate-room (or app-probe ""))
+(defn- write-evidence [dir name text]
+  (u/spit-utf8 (str dir "/" name) (or text "")))
+
+(defn- contract-missing [room app-dir]
+  (let [t (str room "/" app-dir "/test.sh") s (str room "/" app-dir "/start.sh")]
+    (cond-> []
+      (not (u/executable? t)) (conj (str app-dir "/test.sh"))
+      (not (u/executable? s)) (conj (str app-dir "/start.sh")))))
+
+(defn- run-suite [room app-dir env evidence]
+  (let [{:keys [exit out]} (u/run! [(str room "/" app-dir "/test.sh")]
+                                   {:dir room :env env :timeout-ms (* 3 3600 1000)})]
+    (write-evidence evidence "test.log" out)
+    {:exit exit :out out}))
+
+(defn gate-http
+  "Legacy verify.sh's order and arguments, in the gate room. Returns the gate's
+   result: {:refusal-kind ..} for a refusal to grade, else {:outcome ..}."
+  [{:keys [app-dir port app-marker env]} {:keys [room probe evidence]}]
+  (let [env (u/strip-env env)
         url (str "http://127.0.0.1:" port)
-        probe-present? (and app-probe (u/executable? probe))
-        result (fn [m] (note "verdict: " (u/->json m)) m)]
-    (note "gate room " gate-room "; URL " url)
-    (cond
-      (not (and (u/executable? test-sh) (u/executable? start-sh)))
-      (result {:outcome "failed" :reason "contract-missing" :identity-probe-present (boolean probe-present?)
-               :seam-answered-before-boot false
-               :detail (str app-dir "/test.sh and " app-dir "/start.sh must both be executable"
-                            (when-not (u/executable? start-sh) (str "; no executable " app-dir "/start.sh"))
-                            (when-not (u/executable? test-sh) (str "; no executable " app-dir "/test.sh")))})
+        base {:boot-budget-seconds 10 :boot-polls 20}]
+    (u/delete-tree! evidence)
+    (u/mkdirs! evidence)
+    (let [missing (contract-missing room app-dir)]
+      (cond
+        (seq missing)
+        (assoc base :outcome "failed" :reason "contract-missing"
+               :detail (str "contract-missing: not executable: " (str/join ", " missing)))
 
-      (not probe-present?)
-      (result {:outcome "failed" :reason "identity-probe-failed" :identity-probe-present false
-               :seam-answered-before-boot false
-               :detail (str "the identity probe " app-probe " is missing or not executable")})
+        (not (:present? probe))
+        (assoc base :refused "identity-probe-missing"
+               :detail (str "identity-probe-missing: " (:path probe) " is not present and executable at the cut"))
 
-      (port-answers? port)
-      (result {:outcome "failed" :reason "boot-budget-exhausted" :identity-probe-present true
-               :seam-answered-before-boot true
-               :detail (str "something already answers on port " port " before boot")})
+        (answering? port)
+        (assoc base :refused "seam-answered-before-boot"
+               :detail (str "seam-answered-before-boot: something answers on port " port " before boot"))
 
-      :else
-      (let [suite (u/run-process [(u/abs-path test-sh)] {:dir gate-room :env env
-                                                         :timeout-ms (* 1000 timeout-seconds)})]
-        (spit (io/file evidence-root "test.log") (:out suite))
-        (note "test.sh exit " (:exit suite) (when (:timed-out? suite) " (timed out)"))
-        (if-not (zero? (:exit suite))
-          (result {:outcome "failed" :reason "suite-red" :identity-probe-present true
-                   :seam-answered-before-boot false
-                   :detail (str "test.sh exited " (:exit suite)
-                                (when (:timed-out? suite) " (stopped at the gate timeout)")
-                                ": " (u/last-line (:out suite)))})
-          (let [server (u/start-process [(u/abs-path start-sh) (str port)]
-                                        {:dir gate-room :env env :out :discard})]
-            (try
-              (.close (.getOutputStream server))
-              (let [answered (loop [i 1]
-                               (cond
-                                 (let [r (http-get url)] (and r (< (:status r) 400))) i
-                                 (>= i boot-polls) nil
-                                 :else (do (Thread/sleep 500) (recur (inc i)))))]
-                (note "boot answered on poll " answered)
-                (if-not answered
-                  (result {:outcome "failed" :reason "boot-budget-exhausted" :identity-probe-present true
-                           :seam-answered-before-boot false
-                           :detail (str url " did not answer within " boot-polls " polls")})
-                  (let [page (:body (http-get url))]
-                    (spit (io/file evidence-root "page.html") (or page ""))
-                    (if-not (str/includes? (str/lower-case (or page "")) (str/lower-case (or app-marker "")))
-                      (result {:outcome "failed" :reason "identity-probe-failed" :identity-probe-present true
-                               :seam-answered-before-boot false :answered-on-poll answered
-                               :detail (str "the page at " url " does not carry the marker " app-marker)})
-                      (let [pr (u/run-process [(u/abs-path probe) url] {:dir gate-room :env env :timeout-ms 60000})
-                            line (u/last-line (:out pr))]
-                        (note "probe exit " (:exit pr) ": " line)
-                        (if (zero? (:exit pr))
-                          (result {:outcome "passed" :identity-probe-present true
-                                   :seam-answered-before-boot false :answered-on-poll answered
-                                   :identity-probe-result (if (str/blank? line) "identity proved" line)
-                                   :detail (str "suite green, booted on poll " answered ", identity proved")})
-                          (result {:outcome "failed" :reason "identity-probe-failed" :identity-probe-present true
-                                   :seam-answered-before-boot false :answered-on-poll answered
-                                   :identity-probe-result line
-                                   :detail (if (str/blank? line) (str "the identity probe exited " (:exit pr)) line)})))))))
-              (finally (u/kill-tree! server)))))))))
+        :else
+        (let [{:keys [exit]} (run-suite room app-dir env evidence)]
+          (if-not (zero? exit)
+            (assoc base :outcome "failed" :reason "suite-red"
+                   :detail (str "suite-red: " app-dir "/test.sh exited " exit))
+            (let [proc (u/spawn! [(str room "/" app-dir "/start.sh") (str port)] {:dir room :env env})]
+              (try
+                (let [answer (loop [poll 1]
+                               (if (> poll 20)
+                                 nil
+                                 (do (Thread/sleep 500)
+                                     (let [r (http-get url)]
+                                       (if (and r (< (:status r) 400))
+                                         (assoc r :poll poll)
+                                         (recur (inc poll)))))))]
+                  (cond
+                    (nil? answer)
+                    (assoc base :outcome "failed" :reason "boot-budget-exhausted"
+                           :detail (str "boot-budget-exhausted: " url " did not answer within 20 polls (10 seconds)"))
+
+                    (not (str/includes? (str/lower-case (or (:body answer) ""))
+                                        (str/lower-case (or app-marker ""))))
+                    (assoc base :outcome "failed" :reason "identity-probe-failed" :answered-on-poll (:poll answer)
+                           :detail (str "identity-probe-failed: the page at " url " does not carry the marker " app-marker))
+
+                    :else
+                    (let [{:keys [exit out]} (u/run! [(:path probe) url] {:dir room :env env :timeout-ms 120000})
+                          said (str/trim (or out ""))]
+                      (write-evidence evidence "probe.log" out)
+                      (if (zero? exit)
+                        (assoc base :outcome "passed" :answered-on-poll (:poll answer)
+                               :identity-probe-result (if (str/blank? said) "the identity probe exited 0" said)
+                               :detail (str "passed: answered on poll " (:poll answer) "; " said))
+                        (assoc base :outcome "failed" :reason "identity-probe-failed" :answered-on-poll (:poll answer)
+                               :detail (str "identity-probe-failed: " (or (u/last-line out) (str "the probe exited " exit))))))))
+                (finally (u/kill-tree! proc))))))))))
+
+(defn gate-stdio
+  "harness/v2/gate.sh's order and arguments: the contract, the probe at the
+   cut, the suite, the probe over the gate room's start.sh with the attempt's
+   gate store, then the event-store check of that store."
+  [{:keys [app-dir env store-check-cmd repo]} {:keys [room probe evidence]}]
+  (let [env (u/strip-env env)
+        base {:boot-budget-seconds 30 :boot-polls 1}
+        store (str evidence "/events.sqlite")]
+    (u/delete-tree! evidence)
+    (u/mkdirs! evidence)
+    (let [missing (contract-missing room app-dir)]
+      (cond
+        (seq missing)
+        (assoc base :outcome "failed" :reason "contract-missing"
+               :detail (str "contract-missing: not executable: " (str/join ", " missing)))
+
+        (not (:present? probe))
+        (assoc base :refused "identity-probe-missing"
+               :detail (str "identity-probe-missing: " (:path probe) " is not present and executable (100755) at the cut"))
+
+        :else
+        (let [{:keys [exit]} (run-suite room app-dir env evidence)]
+          (if-not (zero? exit)
+            (assoc base :outcome "failed" :reason "suite-red"
+                   :detail (str "suite-red: " app-dir "/test.sh exited " exit))
+            (let [start-sh (u/abs-path (str room "/" app-dir "/start.sh"))
+                  {:keys [exit out]} (u/run! [(:path probe) start-sh "30"]
+                                             {:dir room :env (assoc env "GATE_STORE" store)
+                                              :timeout-ms (* 300 1000)})
+                  probe-said (str/trim (or out ""))]
+              (write-evidence evidence "probe.log" out)
+              (if-not (zero? exit)
+                (assoc base :outcome "failed" :reason "identity-probe-failed"
+                       :detail (str "identity-probe-failed: " (if (str/blank? probe-said) (str "the probe exited " exit) probe-said)))
+                (if-not (u/program-runnable? store-check-cmd repo env)
+                  {:could-not-run (str "the store check " (pr-str (or store-check-cmd ""))
+                                       " cannot be started: no such executable program")}
+                  (let [{:keys [exit out]} (u/run! (u/shell-argv store-check-cmd [store])
+                                                   {:dir repo :env env :timeout-ms (* 600 1000)})
+                        said (str/trim (or out ""))]
+                    (write-evidence evidence "store-check.log" out)
+                    (if (zero? exit)
+                      (assoc base :outcome "passed" :answered-on-poll 1
+                             :identity-probe-result (if (str/blank? probe-said) "the identity probe exited 0" probe-said)
+                             :detail (str "passed: " probe-said (when-not (str/blank? said) (str "; store check: " said))))
+                      (assoc base :outcome "failed" :reason "identity-probe-failed"
+                             :detail (str "identity-probe-failed: the event-store check failed: "
+                                          (if (str/blank? said) (str "it exited " exit) said))))))))))))))
+
+(defn probe-at-cut!
+  "Take the identity probe APP_PROBE from the cut into the run's directory,
+   outside every room. Present means present and executable (git mode 100755)."
+  [{:keys [repo commit app-probe]} dir]
+  (let [bs (when-not (str/blank? app-probe) (repo/git-bytes repo commit app-probe))
+        mode (when bs (repo/mode-at repo commit app-probe))
+        target (str dir "/" (last (str/split (or app-probe "probe") #"/")))]
+    (u/mkdirs! dir)
+    (when bs
+      (io/copy bs (io/file target))
+      (when (= "100755" mode) (u/chmod-exec! target)))
+    {:path target
+     :bytes bs
+     :present? (boolean (and bs (= "100755" mode)))}))

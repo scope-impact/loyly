@@ -1,99 +1,89 @@
 (ns loyly.cycle-runner.gate-test
-  "Rule: The gate grades a copy of the candidate on the host, in legacy verify.sh's order."
-  (:require [clojure.java.io :as io]
-            [clojure.string :as str]
+  "Rule: The gate grades a copy of the candidate on the host, in legacy
+   verify.sh's order."
+  (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
-            [loyly.cycle-runner.fixtures :as f])
-  (:import [java.net ServerSocket InetAddress]))
+            [loyly.cycle-runner.harness :as h]
+            [loyly.cycle-runner.util :as u])
+  (:import [java.net InetAddress ServerSocket]))
 
-(defn- gate-results [run n] (filterv #(= n (:attempt %)) (f/results-of run "gate")))
+(defn- gate-rows [run attempt] (filterv #(= attempt (:attempt %)) (h/effect-rows run "gate")))
 
-(deftest item-06-018-something-answering-on-the-port-is-a-gate-refusal-three-fail-the-cycle
-  (let [base (f/temp-dir "cands")
-        marker (str base "/started")
-        w (f/world :candidates [(f/candidate! (str base "/good") :start-marker-file marker)])]
-    (with-open [_held (ServerSocket. (:port w) 50 (InetAddress/getByName "127.0.0.1"))]
-      (f/with-runner [sys w]
-        (f/start! sys w)
-        (let [run (f/progress sys "R-1")
-              gates (gate-results run 1)
-              rs (:effect-results run)]
-          (is (= 3 (count gates)))
-          (is (every? #(and (= "refused" (:outcome %)) (= "seam-answered-before-boot" (:refusal %))) gates))
-          (doseq [g gates]
-            (let [nxt (nth rs (:position g))]
-              (is (= ["gate-refusal" "recorded"] ((juxt :effect :outcome) nxt)))))
-          (is (= "failed" (:status run)))
-          (is (= ["gate" "infrastructure"] ((juxt :stage :reason) (get-in run [:cycle :failure]))))
-          (is (not (.exists (io/file marker))) "the candidate's launch entrypoint was never started"))))))
+(deftest item-06-018-something-answering-on-the-port-is-a-gate-refusal-and-three-in-a-row-fail-the-cycle
+  (h/with-product
+    (let [w (h/world! "06-018" {})]
+      (with-open [_ (ServerSocket. (int (:port w)) 50 (InetAddress/getByName "127.0.0.1"))]
+        (h/start-run w))
+      (let [run (h/progress "R-1")
+            gates (gate-rows run 1)
+            tail (drop-while #(not= "gate" (:effect %)) (:effect-results run))]
+        (is (= 3 (count gates)))
+        (is (every? #(= ["refused" "seam-answered-before-boot"] [(:outcome %) (:refusal %)]) gates))
+        (is (= (take 6 (map :effect tail)) ["gate" "gate-refusal" "gate" "gate-refusal" "gate" "gate-refusal"]))
+        (is (every? #(= "recorded" (:outcome %)) (h/effect-rows run "gate-refusal")))
+        (is (= "failed" (:status run)))
+        (is (= {:stage "gate" :reason "infrastructure"} (select-keys (get-in run [:cycle :failure]) [:stage :reason])))
+        (is (not (u/exists? (:ran-file w))) "the launch entrypoint was never started")))))
 
 (deftest item-06-019-a-red-suite-fails-the-attempt-before-the-candidate-is-booted
-  (let [base (f/temp-dir "cands")
-        marker (str base "/started")
-        w (f/world :candidates [(f/candidate! (str base "/red") :suite-exit 1 :start-marker-file marker)])]
-    (f/with-runner [sys w]
-      (f/start! sys w :budget (f/budget-with :limit 1))
-      (let [run (f/progress sys "R-1")
-            [g] (gate-results run 1)]
-        (is (= ["regeneration-cycle/gate-attempt-failed"] (f/event-types g)))
-        (is (= "suite-red" (get-in g [:events 0 :reason])))
-        (is (not (.exists (io/file marker))) "the launch entrypoint never ran")
-        (is (= "failed" (:status run)))
-        (is (= ["gate" "gate-attempts-exhausted"] ((juxt :stage :reason) (get-in run [:cycle :failure]))))))))
+  (h/with-product
+    (let [w (h/world! "06-019" {:candidates [{:suite-exit 1}]})
+          _ (h/start-run w :budget (assoc h/budget :gate-attempt-limit 1))
+          run (h/progress "R-1")
+          gate (first (gate-rows run 1))]
+      (is (= ["regeneration-cycle/gate-attempt-failed"] (h/event-types gate)))
+      (is (= "suite-red" (get-in gate [:events 0 :reason])))
+      (is (not (u/exists? (:ran-file w))))
+      (is (= "failed" (:status run)))
+      (is (= {:stage "gate" :reason "gate-attempts-exhausted"} (select-keys (get-in run [:cycle :failure]) [:stage :reason]))))))
 
-(deftest item-06-020-a-candidate-with-no-launch-entrypoint-fails-for-a-missing-contract
-  (let [base (f/temp-dir "cands")
-        w (f/world :candidates [(f/candidate! (str base "/nostart") :no-start true)])]
-    (f/with-runner [sys w]
-      (f/start! sys w :budget (f/budget-with :limit 1))
-      (let [[g] (gate-results (f/progress sys "R-1") 1)]
-        (is (= ["regeneration-cycle/gate-attempt-failed"] (f/event-types g)))
-        (is (= "contract-missing" (get-in g [:events 0 :reason])))))))
+(deftest item-06-020-a-candidate-with-no-launch-entrypoint-fails-the-attempt-for-a-missing-contract
+  (h/with-product
+    (let [w (h/world! "06-020" {:candidates [{:start? false}]})
+          _ (h/start-run w :budget (assoc h/budget :gate-attempt-limit 1))
+          gate (first (gate-rows (h/progress "R-1") 1))]
+      (is (= ["regeneration-cycle/gate-attempt-failed"] (h/event-types gate)))
+      (is (= "contract-missing" (get-in gate [:events 0 :reason]))))))
 
 (deftest item-06-021-a-served-page-without-the-marker-fails-the-attempt-for-its-identity
-  (let [base (f/temp-dir "cands")
-        w (f/world :candidates [(f/candidate! (str base "/nomarker") :page "<html><body>A gym</body></html>")])]
-    (f/with-runner [sys w]
-      (f/start! sys w :budget (f/budget-with :limit 1))
-      (let [[g] (gate-results (f/progress sys "R-1") 1)]
-        (is (= ["regeneration-cycle/gate-attempt-failed"] (f/event-types g)))
-        (is (= "identity-probe-failed" (get-in g [:events 0 :reason])))))))
+  (h/with-product
+    (let [w (h/world! "06-021" {:candidates [{:page "<html>a gym</html>"}]})
+          _ (h/start-run w :budget (assoc h/budget :gate-attempt-limit 1))
+          gate (first (gate-rows (h/progress "R-1") 1))]
+      (is (= ["regeneration-cycle/gate-attempt-failed"] (h/event-types gate)))
+      (is (= "identity-probe-failed" (get-in gate [:events 0 :reason])))
+      (is (u/exists? (:ran-file w)) "the candidate was booted"))))
 
 (deftest item-06-022-what-a-builder-writes-after-it-ended-does-not-reach-the-gate
-  (let [w (f/world :builder-opts {:after-exit "sleep 1; printf '#!/bin/bash\\nexit 1\\n' > \"$room/impl/test.sh\""})]
-    (f/with-runner [sys w]
-      (f/start! sys w)
-      (let [run (f/progress sys "R-1")
-            [g] (gate-results run 1)
-            [rg] (f/results-of run "regenerate")
-            [in] (f/results-of run "install")]
-        (is (= ["regeneration-cycle/gate-attempt-passed"] (f/event-types g)))
-        (is (= (get-in rg [:events 0 :candidate-digest]) (get-in in [:events 0 :candidate-digest])))
-        (Thread/sleep 1500)
-        (let [room (io/file (get-in in [:events 0 :gate-room]) ".." ".." "builder-rooms" "attempt-1")]
-          (is (str/includes? (slurp (io/file room "impl" "test.sh")) "exit 1")
-              "the builder did keep writing after it ended"))))))
+  (h/with-product
+    (let [w (h/world! "06-022" {:builder {:after-exit "printf '#!/bin/sh\\nexit 1\\n' > \"$room/impl/test.sh\""}})
+          _ (h/start-run w)
+          run (h/progress "R-1")
+          gate (first (gate-rows run 1))
+          regen (first (h/effect-rows run "regenerate"))
+          install (first (h/effect-rows run "install"))]
+      (Thread/sleep 2500)
+      (is (str/includes? (slurp (str (str/trim (slurp (str (:builder-dir w) "/room-1"))) "/impl/test.sh")) "exit 1")
+          "the builder did keep writing after it ended")
+      (is (= ["regeneration-cycle/gate-attempt-passed"] (h/event-types gate)))
+      (is (= (get-in regen [:events 0 :candidate-digest]) (get-in install [:events 0 :candidate-digest]))))))
 
 (deftest item-06-036-the-identity-probe-is-handed-the-served-url
-  (let [w (f/world)]
-    (f/with-runner [sys w]
-      (f/start! sys w)
-      (let [run (f/progress sys "R-1")
-            [g] (gate-results run 1)]
-        (is (= ["regeneration-cycle/gate-attempt-passed"] (f/event-types g)))
-        (is (= "this is the sauna" (get-in g [:events 0 :identity-probe-result])))
-        (is (= "awaiting-verdicts" (:status run)))))))
+  (h/with-product
+    (let [w (h/world! "06-036" {})
+          _ (h/start-run w)
+          run (h/progress "R-1")
+          gate (first (gate-rows run 1))]
+      (is (= ["regeneration-cycle/gate-attempt-passed"] (h/event-types gate)))
+      (is (= [(str "http://127.0.0.1:" (:port w))] (str/split-lines (slurp (str (:dir w) "/probe-log")))))
+      (is (= "awaiting-verdicts" (:status run))))))
 
 (deftest item-06-037-a-candidate-whose-suite-writes-inside-its-own-directory-passes-the-gate
-  (let [base (f/temp-dir "cands")
-        w (f/world :candidates [(f/candidate! (str base "/writer")
-                                              :test-text (str "#!/bin/bash\nset -e\nd=$(mktemp -d \"$(dirname \"$0\")/tmp.XXXXXX\")\n"
-                                                              "echo scratch > \"$d/f\"\nrm -rf \"$d\"\nexit 0\n"))])]
-    (f/with-runner [sys w]
-      (f/start! sys w)
-      (let [run (f/progress sys "R-1")
-            [g] (gate-results run 1)
-            [rg] (f/results-of run "regenerate")
-            [in] (f/results-of run "install")]
-        (is (= ["regeneration-cycle/gate-attempt-passed"] (f/event-types g)) (:detail g))
-        (is (= (get-in rg [:events 0 :candidate-digest]) (get-in in [:events 0 :candidate-digest])))))))
+  (h/with-product
+    (let [w (h/world! "06-037" {:candidates [{:suite-body "d=\"$(dirname \"$0\")/suite-tmp\"; mkdir \"$d\" && touch \"$d/x\" && rm -r \"$d\" || exit 1"}]})
+          _ (h/start-run w)
+          run (h/progress "R-1")
+          gate (first (gate-rows run 1))]
+      (is (= ["regeneration-cycle/gate-attempt-passed"] (h/event-types gate)))
+      (is (= (get-in (first (h/effect-rows run "regenerate")) [:events 0 :candidate-digest])
+             (get-in (first (h/effect-rows run "install")) [:events 0 :candidate-digest]))))))

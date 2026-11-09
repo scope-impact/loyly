@@ -12,7 +12,7 @@ harness"): this is the build that runs the regeneration cycles since then.
 | `03-grader-lifecycle/` | grader-lifecycle | 05 | 11/11 |
 | `04-regeneration-cycle/` | regeneration-cycle | 05 | 76/76 |
 | `05-cycle-preparation/` | cycle-preparation | 01 | 4/4 |
-| `06-cycle-runner/` | cycle-runner | 03 | 38/38 |
+| `06-cycle-runner/` | cycle-runner | 05 (stdio gate) | 48/48 |
 
 Each folder's `PROVENANCE.md` names the room it came from, its gate log and verdict, its score
 and cycle commit, the spec commit it was built from, and the digest of its source, which equals

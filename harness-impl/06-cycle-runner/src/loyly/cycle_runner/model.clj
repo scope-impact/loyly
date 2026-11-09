@@ -1,68 +1,87 @@
 (ns loyly.cycle-runner.model
-  "The room's Grain Event Model of the cycle runner, loaded as given from
-   .pi/spec/cycle-runner/event-model/*.edn (never copied or edited), merged and registered
-   with Grain. Every block's schema comes from here."
-  (:require [ai.obney.grain.event-model.interface :as event-model]
-            [ai.obney.grain.schema-util.interface :as schema-util]
-            [clojure.edn :as edn]
-            [clojure.java.io :as io]))
+  "The room's event models, read as given: this context's own (registered with
+   Grain) and the five contexts' contracts (their handoffs and consumers)."
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.string :as str]))
 
-(def area :cycle-runner)
-
-(defn model-dir
-  "The candidate runs at harness-impl/06-cycle-runner, so the model is two levels up."
+(defn home
+  "The candidate's own directory: harness-impl/06-cycle-runner."
   []
-  (or (System/getProperty "loyly.model.dir")
-      (str (.getCanonicalPath (io/file "../../.pi/spec/cycle-runner/event-model")))))
+  (or (System/getProperty "loyly.home")
+      (System/getenv "LOYLY_CYCLE_RUNNER_HOME")
+      (System/getProperty "user.dir")))
 
-(defn- merge-area [a b]
-  (merge-with (fn [x y]
-                (if (and (map? x) (map? y))
-                  (merge-with (fn [_ _] (throw (ex-info "Block defined twice" {}))) x y)
-                  y))
-              a b))
-
-(defn load-model
-  "Read every .edn fragment of the model directory and merge them into one model."
-  ([] (load-model (model-dir)))
-  ([dir]
-   (let [files (->> (.listFiles (io/file dir))
-                    (filter #(.endsWith (.getName ^java.io.File %) ".edn"))
-                    (sort-by #(.getName ^java.io.File %)))]
-     (when (empty? files)
-       (throw (ex-info (str "No event model found in " dir) {:dir dir})))
-     (reduce (fn [m f]
-               (merge-with merge-area m (edn/read-string (slurp f))))
-             {} files))))
-
-(defonce model* (atom nil))
-
-(defn model [] (or @model* (reset! model* (load-model))))
-
-(defn area-map [] (get (model) area))
-
-(defn block [kind k] (get-in (area-map) [kind k]))
-
-(defn schema-of [kind k] (:schema (block kind k)))
-
-(defn register-model!
-  "Register the area with Grain and every command, event and query schema in Grain's
-   schema registry, each under its block name, exactly as the model states it."
+(defn spec-root
+  "The room's spec, beside the candidate: ../../.pi/spec."
   []
-  (let [am (area-map)]
-    (event-model/register-event-model! area am)
-    (schema-util/register!
-     (merge (into {} (map (fn [[k b]] [k (:schema b)])) (:events am))
-            (into {} (map (fn [[k b]] [k (:schema b)])) (:commands am))
-            (into {} (map (fn [[k b]] [k (:schema b)])) (:queries am))))
-    am))
+  (str (.getCanonicalFile (io/file (home) ".." ".." ".pi" "spec"))))
 
-(defn flow-of-command
-  "The flows (ORC workflows) whose steps hold the command."
-  [command]
-  (->> (:flows (area-map))
-       (filter (fn [[_ f]] (some #(or (= [:command command] (:to %))
-                                       (= [:command command] (:from %)))
-                                 (:steps f))))
-       (map key)
-       set))
+(defn- deep-merge [& ms]
+  (apply merge-with (fn [a b] (if (and (map? a) (map? b)) (deep-merge a b) b)) ms))
+
+(defn read-fragments
+  "Every event-model/*.edn of a context, merged."
+  [context]
+  (let [dir (io/file (spec-root) context "event-model")
+        files (->> (.listFiles dir)
+                   (filter #(str/ends-with? (.getName ^java.io.File %) ".edn"))
+                   (sort-by #(.getName ^java.io.File %)))]
+    (when (empty? files)
+      (throw (ex-info (str "No event model found at " dir) {:dir (str dir)})))
+    (apply deep-merge (map #(edn/read-string (slurp %)) files))))
+
+(def model
+  "This context's event model, the room's cycle-runner/event-model/*.edn merged."
+  (delay (read-fragments "cycle-runner")))
+
+(defn area [] (:cycle-runner @model))
+
+(defn command-schema [k] (get-in (area) [:commands k :schema]))
+(defn event-schema [k] (get-in (area) [:events k :schema]))
+(defn query-schema [k] (get-in (area) [:queries k :schema]))
+(defn read-model-schema [k] (get-in (area) [:read-models k :schema]))
+(defn event-description [k] (get-in (area) [:events k :description]))
+
+(defn event-fields
+  "The top-level field names of an event's :schema, in order."
+  [schema]
+  (->> (rest schema)
+       (remove map?)
+       (mapv first)))
+
+;; ---------------------------------------------------------------------------
+;; The five contexts' contracts
+
+(def contexts
+  "The five contexts, in the order a relay visits producers."
+  ["specification" "cycle-preparation" "grader-lifecycle" "regeneration-cycle" "measurement"])
+
+(def ^:private context-models
+  (delay (into {} (for [c contexts] [c (read-fragments c)]))))
+
+(defn handoff-types
+  "The events a context hands to other contexts: its event-model/handoffs.edn."
+  [context]
+  (let [f (io/file (spec-root) context "event-model" "handoffs.edn")]
+    (if (.exists f)
+      (->> (edn/read-string (slurp f)) vals (mapcat (comp keys :events)) set)
+      #{})))
+
+(defn consumed-by
+  "The events a context's event model consumes: its read models' :consumes and
+   its processors' :subscribes."
+  [context]
+  (let [areas (vals (get @context-models context))]
+    (set (concat (mapcat :consumes (mapcat (comp vals :read-models) areas))
+                 (mapcat :subscribes (mapcat (comp vals :todo-processors) areas))))))
+
+(defn consumers
+  "Every context, other than the producer, whose event model consumes the
+   handoff, by name."
+  [producer handoff-type]
+  (->> contexts
+       (remove #{producer})
+       (filter #(contains? (consumed-by %) handoff-type))
+       sort
+       vec))

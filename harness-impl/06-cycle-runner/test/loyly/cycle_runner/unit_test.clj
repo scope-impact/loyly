@@ -1,44 +1,48 @@
 (ns loyly.cycle-runner.unit-test
-  "The runner's own readings (seam.md, Digests; E1, E2; Handed in), below the seam."
+  "The runner's own readings: the seam's error codes, the stripped copy, the
+   scenario and candidate digests, the configuration."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
-            [loyly.cycle-runner.effects :as fx]
-            [loyly.cycle-runner.fixtures :as f]
-            [loyly.cycle-runner.gherkin :as g]
+            [loyly.cycle-runner.harness :as h]
             [loyly.cycle-runner.repo :as repo]
             [loyly.cycle-runner.util :as u]))
 
-(deftest the-stripped-copy-loses-only-item-tags
-  (let [text "Feature: F\n\n  # keep me\n  @minimum @item-01-001\n  Scenario: A\n    Given a\n\n  @item-01-002\n  Scenario: B\n    Given b\n"
-        out (g/strip-item-tags text)]
-    (is (= "Feature: F\n\n  # keep me\n  @minimum\n  Scenario: A\n    Given a\n\n  Scenario: B\n    Given b\n" out))))
+(deftest the-seam-answers-errors-as-json-rpc
+  (h/with-product
+    (is (= -32601 (get-in (h/rpc "cycle-runner/halt-run" {}) [:error :code])))
+    (is (= -32601 (get-in (h/rpc "cycle-runner/relay-handoff" {}) [:error :code])))
+    (is (= -32602 (get-in (h/rpc "cycle-runner/start-run" {:run-id "R-1"}) [:error :code])))
+    (is (= -32700 (get-in (u/<-json (loyly.cycle-runner.seam/handle (:sys @h/product) "not json")) [:error :code])))
+    (is (= {:run nil} (:result (h/rpc "cycle-runner/run-progress" {:run-id "nope"}))))))
 
-(deftest the-scenario-digest-is-the-scenarios-lines-up-to-the-next-tag-line
-  (let [text "Feature: F\n  @item-01-001\n  Scenario: A\n    Given a\n    Then b\n\n\n  @item-01-002\n  Scenario: B\n    Given c\n"
-        [a b] (:scenarios (g/read-feature text))]
-    (is (= (u/sha256-of-string "  Scenario: A\n    Given a\n    Then b") (:digest a)))
-    (is (= (u/sha256-of-string "  Scenario: B\n    Given c") (:digest b)))
-    (is (= ["01-001" "01-002"] [(:item-id a) (:item-id b)]))))
+(deftest the-stamp-copy-loses-only-its-item-tags
+  (let [copy (repo/strip-item-tags h/spec-two)]
+    (is (not (str/includes? copy "@item-")))
+    (is (str/includes? copy "    @minimum\n    Scenario: A guest books a free slot"))
+    (is (str/includes? copy "@balance\n    Scenario: A guest cannot book"))
+    (is (str/includes? copy "# a comment above the scenario"))
+    (is (= 2 (count (:scenarios (repo/read-spec copy)))))
+    (is (every? nil? (map :item-id (:scenarios (repo/read-spec copy)))))))
 
-(deftest a-scenario-under-a-rule-names-its-rule
-  (let [[s] (:scenarios (g/read-feature f/two-scenarios))]
-    (is (= "A booking holds one slot" (:rule s)))
-    (is (= "A member books a free slot" (:title s)))))
+(deftest a-scenario-digest-is-its-lines-to-the-next-heading-or-tag-line
+  (let [s (first (:scenarios (repo/read-spec h/spec-two)))]
+    (is (= ["01-001" "A guest books a free slot" "A guest books a slot"] [(:item-id s) (:title s) (:rule s)]))
+    (is (= (u/sha256-of-text (str "    Scenario: A guest books a free slot\n"
+                                  "      Given a free slot at six\n"
+                                  "      When the guest books it\n"
+                                  "      Then the slot is booked"))
+           (:digest s)))))
 
-(deftest the-configuration-is-read-as-key-value-lines
-  (let [c (repo/parse-config "# c\nAPP_DIR=impl\nPORT=8901\nPLAN_DIR=docs/plan\nAPP_MARKER=sauna\nAPP_PROBE=harness/probe.sh\nFENCED_PATHS=\"impl harness-impl .pi\"\n  APP_DIR=indented\n")]
-    (is (= {:app-dir "impl" :port 8901 :plan-dir "docs/plan" :app-marker "sauna" :app-probe "harness/probe.sh"
-            :fenced-paths ["impl" "harness-impl" ".pi"]}
-           (select-keys c [:app-dir :port :plan-dir :app-marker :app-probe :fenced-paths])))))
+(deftest the-configuration-is-read-as-legacy-config-sh
+  (is (= {:app-dir "impl" :port 8901 :plan-dir "docs/plan" :app-marker "sauna" :app-probe "harness/probe.sh"
+          :fenced-paths ["impl" ".pi" "archive/legacy-harness/cycles"] :app-seam "http" :plan-slices []}
+         (repo/config-of "APP_DIR=impl\nPORT=8901\nPLAN_DIR=docs/plan\nAPP_MARKER=sauna\nAPP_PROBE=harness/probe.sh\nFENCED_PATHS=\"impl .pi archive/legacy-harness/cycles\"\n"))))
 
-(deftest a-skip-line-names-the-rest-of-the-line
-  (is (= ["bb-tools" "the oracle cannot judge this tree: a tool it grades is absent."]
-         (fx/skipped-checks "ok\nSKIP bb-tools\nSKIP  the oracle cannot judge this tree: a tool it grades is absent.\n"))))
-
-(deftest the-candidate-digest-is-one-line-per-file-by-path
-  (let [d (f/temp-dir "cand")]
-    (f/write! (str d "/b.txt") "b")
-    (f/write! (str d "/a/x.txt") "x")
-    (is (= (u/sha256-of-string (str "a/x.txt\t" (u/sha256-hex (u/utf8 "x")) "\n"
-                                    "b.txt\t" (u/sha256-hex (u/utf8 "b")) "\n"))
-           (fx/candidate-digest d)))))
+(deftest a-candidate-digest-is-one-line-per-file-by-path
+  (let [d (str (h/tmp-root) "/digest")]
+    (u/delete-tree! d)
+    (h/write! (str d "/b.txt") "b")
+    (h/write! (str d "/a/x.txt") "x")
+    (is (= (u/sha256-of-text (str "a/x.txt\t" (u/sha256-hex (u/utf8 "x")) "\n"
+                                  "b.txt\t" (u/sha256-hex (u/utf8 "b")) "\n"))
+           (u/tree-digest d)))))
