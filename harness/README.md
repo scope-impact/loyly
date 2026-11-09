@@ -408,3 +408,17 @@ contexts (`.pi/spec/decisions.md`, "Self-hosting stopped"). The harness builds L
 cycle 05 in `harness-impl/` gates over HTTP when `APP_SEAM` is unset, and its stdio gate stays
 built in but unused. Spec round 10 was not applied; nothing in the spec, the golden or any grader
 changed. The next work is Löyly cycles.
+
+**2026-11-09: the spec grew: spec round 11.** Löyly run-01 failed under runner cycle 05,
+`identity-probe-failed` on all three attempts: the runner ran the http identity probe from a copy
+outside the gated tree, where Löyly's `harness/probe.sh` could not find the `harness/config.sh`
+beside it. The product owner's spec round 11 (`.pi/spec/decisions.md`, "Spec round 11"), "as close
+to legacy", made the http gate room a copy of the gated tree (the clean room's files plus the
+candidate at `APP_DIR`), with the probe run as legacy `verify.sh` runs it, `"$ROOT/$APP_PROBE"
+"$URL"` with `ROOT` the gate room; it wrote down how a relayed handoff's instants travel; and it
+appended one stamped minimum item at the end of slice 06's `spec.feature`: `06-052`; the derived
+checklist is the 200 and that one. The spec grew (additions only), so the golden was re-recorded
+with `harness/oracle.sh record`; its diff is additions plus the one `total` line (200 → 201). The
+slice-06 grader grows by that item for the recorded reason "spec grew"; no other approved grader's
+scenarios changed. `prompt.clj` and `probe-06.sh` are unchanged: there is no new handed-in value,
+and the slice-06 probe asks nothing of where the http probe runs.

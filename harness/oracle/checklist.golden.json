@@ -1199,9 +1199,15 @@
    "name": "Two runs handed one measurement history store compare the second cycle with the first",
    "rule": "Measurement keeps its history across runs when a history store is handed in, so a scoreboard compares a cycle with the last measured cycle of its selection",
    "source": ".pi/plan/06-cycle-runner/spec.feature:569"
+  },
+  {
+   "id": "06-052",
+   "name": "An identity probe that reads a file beside it in the cut passes a candidate that serves the marker",
+   "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:582"
   }
  ],
  "counts": {
-  "total": 200
+  "total": 201
  }
 }
