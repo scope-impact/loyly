@@ -1,0 +1,242 @@
+[
+ {
+  "id": "06-001",
+  "verdict": "pass",
+  "evidence": "s/s1: start-run responded after the run awaited verdicts; effects 1-9 stamp,pin,checklist,self-check,fence,regenerate,install,self-check,gate all recorded; gate events [regeneration-cycle/gate-attempt-passed]."
+ },
+ {
+  "id": "06-002",
+  "verdict": "pass",
+  "evidence": "s/fence: R-1/C-1 failed at fence; start R-1/C-2 refused run-already-started; progress all lists R-1 once, cycle C-1."
+ },
+ {
+  "id": "06-003",
+  "verdict": "pass",
+  "evidence": "s/s1: with R-1 awaiting-verdicts, start R-2/C-2 refused run-in-progress; progress all holds only R-1, still awaiting-verdicts."
+ },
+ {
+  "id": "06-004",
+  "verdict": "pass",
+  "evidence": "s/s1: after R-1/C-1 passed, start R-2/C-1 refused cycle-already-run; no R-2 in progress."
+ },
+ {
+  "id": "06-005",
+  "verdict": "pass",
+  "evidence": "s/t005: commit deadbeef... refused not-a-commit; progress R-1 null, runs []; no builder launch recorded."
+ },
+ {
+  "id": "06-006",
+  "verdict": "pass",
+  "evidence": "s/t006: measurement entrypoint exits at once -> refused contexts-not-responding, data.contexts [measurement]; no R-1 (runs [])."
+ },
+ {
+  "id": "06-007",
+  "verdict": "pass",
+  "evidence": "s/s1: relays: scenario-stamped #1,#2 -> measurement, source-cut-pinned #1 -> measurement and regeneration-cycle, gate-attempt-passed #1 -> measurement once; all accepted."
+ },
+ {
+  "id": "06-008",
+  "verdict": "pass",
+  "evidence": "s/t008: checklist effect refused empty-checklist (measurement); halted at checklist, refused-before-the-cycle; effects=3, no self-check/fence."
+ },
+ {
+  "id": "06-009",
+  "verdict": "pass",
+  "evidence": "s/t009: stamp recorded (3 scenario-stamped events); halted at stamp, refused-before-the-cycle, detail plan [01-001 01-002] vs stamp [01-001 01-002 01-003]; effects=1, no pin/checklist."
+ },
+ {
+  "id": "06-010",
+  "verdict": "pass",
+  "evidence": "s/t010: run failed, cycle failure {stage fence, reason harness-self-check-failed, detail 'golden checklist differs'}; last effect pos 4 self-check; no fence/regenerate."
+ },
+ {
+  "id": "06-011",
+  "verdict": "pass",
+  "evidence": "s/t011: first self-check recorded harness-self-check-passed, skipped-checks ['bb-tools'], detail '...skipped checks: bb-tools'."
+ },
+ {
+  "id": "06-012",
+  "verdict": "pass",
+  "evidence": "s/fence (commit holds impl only): fence refused fenced-path-matched-nothing, fail-cycle recorded next, run failed at fence for fence-refused; no builder launch-count file."
+ },
+ {
+  "id": "06-013",
+  "verdict": "pass",
+  "evidence": "s/s1/launch-1: builder room held docs/plan/01-a/spec.feature, harness/config.sh, empty impl/; 1 commit, 1 root; no impl or harness/cycles path in tree or rev-list --objects --all."
+ },
+ {
+  "id": "06-014",
+  "verdict": "pass",
+  "evidence": "s/t014: red then green: launched twice (regenerate a1, repair a2); launch-1 ended 1794208638.68, launch-2 started 1794208642.61."
+ },
+ {
+  "id": "06-015",
+  "verdict": "pass",
+  "evidence": "s/t015: builder exits 1 leaving green candidate; regenerate recorded with digest sha256:0a20d6..., detail 'the builder exited 1'; run awaits verdicts."
+ },
+ {
+  "id": "06-016",
+  "verdict": "pass",
+  "evidence": "s/t016: empty scope: no regenerate effect, fail-cycle recorded; cycle failed at regenerate for candidate-not-regenerated."
+ },
+ {
+  "id": "06-017",
+  "verdict": "pass",
+  "evidence": "s/t017: regenerate timeout 2s, builder sleeps 30: builder pid dead when start responded and never woke (checked 32s later); cycle failed at regenerate for budget."
+ },
+ {
+  "id": "06-018",
+  "verdict": "pass",
+  "evidence": "s/t018: port 24118 held by grader: gate a1 refused seam-answered-before-boot 3x (pos 9,11,13), each followed by recorded gate-refusal (10,12,14); only one before-gate self-check (pos 8) for attempt 1; cycle failed at gate for infrastructure; candidate start.sh never ran (no start-ran.log)."
+ },
+ {
+  "id": "06-019",
+  "verdict": "pass",
+  "evidence": "s/t019: limit 1, red suite: gate a1 gate-attempt-failed reason suite-red; start.sh never ran; cycle failed at gate for gate-attempts-exhausted."
+ },
+ {
+  "id": "06-020",
+  "verdict": "pass",
+  "evidence": "s/t020: no start.sh: gate a1 gate-attempt-failed 'contract-missing: not executable: impl/start.sh'."
+ },
+ {
+  "id": "06-021",
+  "verdict": "pass",
+  "evidence": "s/t021: page without sauna: gate a1 gate-attempt-failed identity-probe-failed ('does not carry the marker sauna')."
+ },
+ {
+  "id": "06-022",
+  "verdict": "pass",
+  "evidence": "s/t022: builder's child keeps writing RED after exit; gate a1 gate-attempt-passed; install digest = regenerate digest (sha256:80a95f...)."
+ },
+ {
+  "id": "06-023",
+  "verdict": "pass",
+  "evidence": "s/t014: repair a2 recorded with detail 'mounted read-only: .repair/previous-candidate, .repair/gate-evidence-attempt-1' (parent digest = attempt 1); launch-2 saw clean room + previous candidate files + gate evidence test.log, both RO (PermissionError on write), clean room/impl writable."
+ },
+ {
+  "id": "06-024",
+  "verdict": "pass",
+  "evidence": "s/t024: always red: builder launched 3 times (launch-count 3), regenerate+2 repairs, cycle failed at gate for gate-attempts-exhausted."
+ },
+ {
+  "id": "06-025",
+  "verdict": "pass",
+  "evidence": "s/s1: hand-in r-1: file-verdicts and file-score recorded; measurement-filed passes 1 total 2, 01-001 pass 'booked', 01-002 fail 'judged by the main session'; run passed, cycle passed."
+ },
+ {
+  "id": "06-026",
+  "verdict": "pass",
+  "evidence": "s/s2: only 01-001 handed in: measurement-filed shows 01-002 fail reason unreached, passes 1/2; run passed."
+ },
+ {
+  "id": "06-027",
+  "verdict": "pass",
+  "evidence": "s/s1: hand-in R-9 refused no-run; progress R-9 null."
+ },
+ {
+  "id": "06-028",
+  "verdict": "pass",
+  "evidence": "s/t024: hand-in for failed run refused gate-not-passed; afterwards still failed, 17 effects, no file-verdicts."
+ },
+ {
+  "id": "06-029",
+  "verdict": "pass",
+  "evidence": "s/t032: after verdicts and cycle failed at score (score-stage-failed), second hand-in refused verdicts-already-handed-in; no regenerate/repair after verdicts (launch-count 1)."
+ },
+ {
+  "id": "06-030",
+  "verdict": "pass",
+  "evidence": "s/s1: hand-in with digest r-2 refused grader-not-approved; R-1 still awaiting-verdicts."
+ },
+ {
+  "id": "06-031",
+  "verdict": "pass",
+  "evidence": "s/s2: blank file (and whitespace-only) refused verdicts-not-readable; R-1 still awaiting-verdicts, 9 effects, no file-verdicts."
+ },
+ {
+  "id": "06-032",
+  "verdict": "pass",
+  "evidence": "s/t032: 01-001 + 09-001: file-verdicts refused unknown-item (measurement), fail-score-stage recorded; cycle failed at score for score-stage-failed; no launch after verdicts."
+ },
+ {
+  "id": "06-033",
+  "verdict": "pass",
+  "evidence": "s/t033: measurement wrapper exits on derive-checklist: halted at checklist, context-did-not-respond; effects=2, no checklist effect result."
+ },
+ {
+  "id": "06-034",
+  "verdict": "pass",
+  "evidence": "s/fence: R-1 failed and R-2 halted at checklist; reread 5.5s+ after starts: same status, effect results and relayed handoffs (equal JSON)."
+ },
+ {
+  "id": "06-035",
+  "verdict": "pass",
+  "evidence": "s/s1: two run-progress reads of awaiting R-1 have identical results; still awaiting-verdicts; runs-to-advance []."
+ },
+ {
+  "id": "06-036",
+  "verdict": "pass",
+  "evidence": "s/s1: probe recorded '1:http://127.0.0.1:24101' (fixture probe exits 1 for anything else, checks marker); gate-attempt-passed; awaits verdicts."
+ },
+ {
+  "id": "06-037",
+  "verdict": "pass",
+  "evidence": "s/t037: suite mkdir/rm inside its own dir, exit 0: gate-attempt-passed; install digest = regenerate digest."
+ },
+ {
+  "id": "06-038",
+  "verdict": "pass",
+  "evidence": "s/t038: first self-check harness-self-check-passed, skipped-checks ['the oracle cannot judge this tree: a tool it grades is absent.']."
+ },
+ {
+  "id": "06-039",
+  "verdict": "pass",
+  "evidence": "s/t039 (and t039b with inherited GATE_STORE): stdio gate-attempt-passed with boot-budget-seconds 30, boot-polls 1, answered-on-poll 1, identity-probe-result 'answered as the context'; no gate-refusal; awaiting-verdicts."
+ },
+ {
+  "id": "06-040",
+  "verdict": "pass",
+  "evidence": "s/t039 + t039b: probe argv = [<runs>/R-1/gate-rooms/attempt-1/impl/start.sh, 30]; GATE_STORE=<runs>/R-1/evidence/attempt-1/events.sqlite (under runs dir, outside gate room), no LOYLY_ vars; store check argv [same file]. With an unrelated GATE_STORE exported to the runner (t039b) the probe still got the attempt's own store and the suite/store check none."
+ },
+ {
+  "id": "06-041",
+  "verdict": "pass",
+  "evidence": "s/t041 + t041b (inherited GATE_STORE): gate-attempt-failed suite-red; suite env had no GATE_STORE and no LOYLY_ var in both; no probe-run or storecheck-run files."
+ },
+ {
+  "id": "06-042",
+  "verdict": "pass",
+  "evidence": "s/t042: gate-attempt-failed identity-probe-failed, detail 'identity-probe-failed: no response within the 30s boot budget'; no storecheck-run file."
+ },
+ {
+  "id": "06-043",
+  "verdict": "pass",
+  "evidence": "s/t043: gate-attempt-failed identity-probe-failed, detail carries 'FAIL event 7 was not written inside a run of the ORC workflow'; cycle failed at gate for gate-attempts-exhausted."
+ },
+ {
+  "id": "06-044",
+  "verdict": "pass",
+  "evidence": "s/t044: suite in gate room found docs/plan/01-a/spec.feature at room root; gate-attempt-passed; install digest = regenerate digest."
+ },
+ {
+  "id": "06-045",
+  "verdict": "pass",
+  "evidence": "s/t045 (absent program) and t045b (empty cmd): halted at gate, effect-could-not-run; effects=8, no gate effect result."
+ },
+ {
+  "id": "06-046",
+  "verdict": "pass",
+  "evidence": "s/t046: R-1 with 'check-store.sh one' and R-2 with 'check-store.sh two': both first self-checks harness-self-check-passed; harness digests sha256:97d796... vs sha256:769e9d... differ."
+ },
+ {
+  "id": "06-047",
+  "verdict": "pass",
+  "evidence": "s/t047: 01-a is a 120000 link to ../spec/a: stamp recorded, no halt (awaiting-verdicts); checklist items 01-001, 01-002 with sources docs/plan/01-a/spec.feature:7 and :13."
+ },
+ {
+  "id": "06-048",
+  "verdict": "pass",
+  "evidence": "s/t048: PLAN_SLICES=02: stamp stamped only 02-001 (slice 02); checklist items [02-001] only."
+ }
+]

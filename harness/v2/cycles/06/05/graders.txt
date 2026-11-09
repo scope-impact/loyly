@@ -1,0 +1,2 @@
+verdicts: sha256:40be5a6277ce6991c93aeacad712727bbd56d1006eee1dd6313d1d5f4356d4c8 verdicts.json
+by: legacy step 5: black-box grading subagent over the seam, against the promoted harness-impl/01-05

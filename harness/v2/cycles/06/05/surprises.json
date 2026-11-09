@@ -1,0 +1,22 @@
+[
+ {
+  "item": "06-022",
+  "note": "The builder's post-exit writer logged only 6 writes of 120 planned; the runner appears to stop the builder's process group or remove the room. Gate passed and digests matched either way."
+ },
+ {
+  "item": "06-046",
+  "note": "A second runner on the same Grain store sees R-1 from the first runner (progress all lists R-1 and R-2). Read as specified (decisions round 8b inbox)."
+ },
+ {
+  "item": "06-008/034",
+  "note": "An empty plan's stamp is recorded with zero events (a reading noted in round 8b)."
+ },
+ {
+  "item": "06-047",
+  "note": "Checklist source:line reads the original file's scenario line (:7), while the stamp's events give line 6 in the stripped copy."
+ },
+ {
+  "item": "general",
+  "note": "Each start-run took 50-110s with 4 runners in parallel; no contexts-not-responding observed under that load."
+ }
+]
