@@ -25,15 +25,27 @@ function drawStorms(root) {
     svg.innerHTML = out;
   });
 }
+// Mermaid cannot lay out a hidden diagram: draw those on screen now, and mark the ones folded
+// away under a closed <details> (under the hood) as deferred; they are drawn when it opens.
+function drawMermaid(root) {
+  const all = [...root.querySelectorAll("pre.mermaid:not([data-processed])")];
+  const shut = p => { for (let d = p.closest("details"); d; d = d.parentElement?.closest("details")) if (!d.open) return true; return false; };
+  all.forEach(p => p.toggleAttribute("data-deferred", shut(p)));
+  const now = all.filter(p => !p.hasAttribute("data-deferred"));
+  if (!window.mermaid || !now.length) return;
+  window.mermaid.run({ nodes: now }).catch(e => document.documentElement.setAttribute("data-js-error", "mermaid: " + (e?.message || e)));
+}
 function drawShown() {
   const t = document.getElementById(decodeURIComponent(location.hash.slice(1)));
   const v = t?.closest(".view") || document.getElementById("home");
   document.documentElement.dataset.view = v.id;
+  // a target folded under the hood (a refusal, a rule card's source) opens its <details>
+  for (let d = t?.parentElement?.closest("details"); d; d = d.parentElement?.closest("details")) d.open = true;
+  if (t && t !== v) requestAnimationFrame(() => t.scrollIntoView({ block: "start" }));
   requestAnimationFrame(() => drawStorms(v));
-  if (!window.mermaid) return;
-  window.mermaid.run({ nodes: v.querySelectorAll("pre.mermaid:not([data-processed])") })
-    .catch(e => document.documentElement.setAttribute("data-js-error", "mermaid: " + (e?.message || e)));
+  drawMermaid(v);
 }
+document.addEventListener("toggle", e => { const d = e.target; if (d.tagName === "DETAILS" && d.open) { drawMermaid(d); requestAnimationFrame(() => drawStorms(d)); } }, true);
 function mmSize(btn) {
   const m = btn.parentElement, svg = m.querySelector("svg"); if (!svg) return;
   const on = m.classList.toggle("full"), w = svg.viewBox?.baseVal?.width;

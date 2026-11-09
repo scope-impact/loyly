@@ -297,12 +297,12 @@
    [:div.from (:file s) ":" (:line s) (when (:rule s) (str " · Rule: " (:rule s)))]])
 (defn examples [list]
   (seq (for [s list] [:details {:class ["ex" (when (= "drafts" (:kind s)) "draft")]}
-                      [:summary (if (= "drafts" (:kind s)) "draft" (str "@item-" (:item s))) " · " (:title s) " " (tier-chip (:tier s))]
+                      [:summary (if (= "drafts" (:kind s)) "draft" (str (:item-tag cfg) (:item s))) " · " (:title s) " " (tier-chip (:tier s))]
                       (gherkin s)])))
 (defn rule-card
   "One rule as a review card. `anchored?`: the copy on its aggregate's page, which owns the ids
   rule-<Rule> and rule-<Rule>-<n>; the copies on block pages carry none."
-  [r anchored?]
+  [r anchored? & [own-id?]]
   (let [blk (rule-block r) ok (cov (str "rule-success." (:name r))) reqs (requires-of r)
         fail-covs (map-indexed (fn [i _] (cov (str "rule-failure." (:name r) "." (inc i)))) reqs)
         tiers (distinct (for [c (cons ok fail-covs) s (:sc c) :when (= "spec" (:kind s))] (:tier s)))
@@ -315,7 +315,7 @@
                               reqs)
         thens (for [[k t d] (ensures-parts (:src r))] [:li {:style {:margin-left (str (* d 22) "px")}} [:span {:class ["verb" (str/replace k " " "")]} k] (when (seq t) (code t))])
         given (given-lines (gwt-of r))]
-    [:article.spec {:id (when anchored? (rid (:name r)))}
+    [:article.spec {:id (when (and anchored? (not (false? own-id?))) (rid (:name r)))}
      [:header.spec-h [:div [:span.lbl "rule"] [:h3 (:name r)] (review (str "rule:" (:name r)) "comment" "discuss")]
       [:div.spec-tags (st "scr" (let [a (actor-of r)] (if (seq a) a "on event")) "issued by") (when blk (block-link (first blk) (second blk) "Event Model")) (badge ok) (map tier-chip tiers)]]
      [:div.spec-grid
@@ -381,6 +381,151 @@
   [:details.inv [:summary [:span.t title] [:span.meta (badge cv)] [:span.id id-line]]
    body
    [:div.scens (or (seq (map gherkin (:sc cv))) (none none-text))]])
+;; ---------- the glossary (optional): a term's definition, where the spec gives no description ----------
+(def GLOSS (or (when-let [g (:glossary cfg)]
+                 (let [f (clojure.java.io/file (:root cfg) g)]
+                   (when (.exists f)
+                     (into {} (for [[_ t d] (re-seq #"(?m)^\*\*([^*\n]+)\*\*:\s*\n((?:[^\n]+\n)+)" (slurp f))]
+                                [(str/lower-case (str/trim t)) (str/trim (str/replace (str/replace d #"(?m)^_Avoid_.*$" "") #"\s+" " "))])))))
+               {}))
+(defn gloss [n] (get GLOSS (str/lower-case (str n))))
+(defn describe [b n] (or (not-empty (:description b)) (gloss n)))
+
+;; ---------- what changed since the base ref (CHG, from diff.clj; nil without --base) ----------
+(defn mark [k id] (get-in CHG [k id]))
+(defn chg-badge [m] (when m [:span {:class ["chg" (name m)] :title (str (if (= m :new) "new" "changed") " since " (:base CHG))} (if (= m :new) "new" "changed")]))
+(defn scen-mark [s] (mark :scen [CX (:kind s) (if (= "spec" (:kind s)) (:item s) (:title s))]))
+(defn blk-mark [kind key] (mark :blocks [(or (ns-of key) CX) kind key]))
+(defn merge-marks [ms] (let [ms (remove nil? ms)] (cond (empty? ms) nil (every? #{:new} ms) :new :else :changed)))
+(defn one-line [d] (when (seq d) (let [s (or (second (re-find #"^(.*?[.!?])(\s|$)" d)) d)] (if (> (count s) 150) (str (subs s 0 148) "…") s))))
+(defn ctx-name [c] (human c))
+
+;; ---------- L2: a scenario, as a reader reads it ----------
+(defn scenario-plain [s]
+  (let [m (scen-mark s) draft? (= "drafts" (:kind s))]
+    [:div {:class ["sc" (when draft? "draft") (when m "marked")] :data-scenario (or (:item s) (:title s))}
+     [:div.sc-h [:b (:title s)] (when draft? [:span.draft-tag "draft"]) (chg-badge m)]
+     [:div.sc-steps
+      (for [l (:steps s) :let [[w more] (str/split l #" " 2)]]
+        (if (or (str/starts-with? l "|") (str/starts-with? l "Examples:"))
+          [:div.sc-row l]
+          [:div.sc-step [:span {:class ["kw" (kw-class w)]} w] " " more]))]
+     [:div.sc-meta (if draft? (muted "draft, not stamped") [:span.item (str (:item-tag cfg) (:item s))]) (tier-chip (:tier s)) [:span.from (:file s) ":" (:line s)]
+      (if draft? (review (str "draft:" (:slice s) ":" (:title s)) "accept" "comment") (review (str "scenario:" (:item s)) "comment"))]]))
+(defn scenarios-of [covs]   ; the distinct scenarios of some obligations, accepted first
+  (let [ss (distinct (mapcat :sc covs))] (concat (filter #(= "spec" (:kind %)) ss) (remove #(= "spec" (:kind %)) ss))))
+
+(defn rule-covs [r] (cons (cov (str "rule-success." (:name r))) (map-indexed (fn [i _] (cov (str "rule-failure." (:name r) "." (inc i)))) (requires-of r))))
+(defn rule-plain [r]   ; the rule in plain words: its Gherkin Rule lines, else its Allium comment
+  (let [g (distinct (keep :rule (scenarios-of (rule-covs r))))]
+    {:rules g :doc (:doc r)}))
+(defn rule-mark [r] (merge-marks (cons (mark :rules [CX (:name r)]) (map scen-mark (scenarios-of (rule-covs r))))))
+
+(defn spec-card
+  "The review unit (L2): a title, the rule in plain words, its scenarios readable, and L3 (`hood`)
+  collapsed beneath."
+  [{:keys [id kind title plain doc who scs badge m hood hood-title]}]
+  (let [nd (count (filter #(= "drafts" (:kind %)) scs)) ns (- (count scs) nd)]
+    [:article {:class ["card2" (when m "marked")] :id id :data-card kind}
+     [:header.c2-h [:div [:span.lbl kind] [:h3 title (chg-badge m)]]
+      [:div.c2-meta (when badge (list [:span.cnt (if (= kind "rule") "success:" "checked:")] badge)) [:span.cnt (plural ns "scenario")] (when (pos? nd) [:span.cnt.drafts (plural nd "draft")])]]
+     (when (seq plain) [:div.plain (for [p plain] [:p p])])
+     (when doc [:p.doc doc])
+     (when who [:p.who who])
+     (if (seq scs) [:div.scs (map scenario-plain scs)] (none "No scenario yet."))
+     [:details.hood [:summary [:span "Under the hood"] [:span.muted hood-title]] [:div.hood-body hood]]]))
+
+(defn rule-spec-card [r]
+  (let [{:keys [rules doc]} (rule-plain r) g (gwt-of r) a (actor-of r)]
+    (spec-card {:id (rid (:name r)) :kind "rule" :title (human (:name r)) :plain rules :doc doc
+                :who (list "Triggered by " [:b (:when g)])
+                :scs (scenarios-of (rule-covs r)) :badge (badge (cov (str "rule-success." (:name r)))) :m (rule-mark r)
+                :hood-title (str "Allium rule " (:name r) ", its refusals, its Grain block")
+                :hood (rule-card r true false)})))
+
+(defn prop-data [mid m]   ; invariants, guarantees and boundary invariants, each as a card's data
+  (for [p (concat (for [i (:invariants m)] {:id (str "invariant." (:name i)) :name (:name i) :kind "invariant" :src (:src i) :doc (:doc i)})
+                  (for [s (:surfaces m) g (:guarantees s)] {:id (str "guarantee." (:name g)) :name (:name g) :kind "guarantee" :on (:name s) :text (:text g)})
+                  (for [k (:contracts m) i (:invariants k)] {:id (str "boundary." (:name i)) :name (:name i) :kind "boundary" :on (:name k) :text (:text i)}))
+        :let [c (cov (:id p)) scs (scenarios-of [c]) txt (some-> (:text p) (str/replace #"\s*Verified by:.*$" "") not-empty)]]
+    {:id (str "prop-" CX "--" (str/replace (:id p) #"[^A-Za-z0-9]" "-")) :kind (:kind p) :title (human (:name p))
+     :plain (keep identity [txt]) :doc (:doc p)
+     :who (when (:on p) (list (if (= "boundary" (:kind p)) "Held at the boundary by contract " "Promised by surface ") [:b (:on p)]))
+     :scs scs :badge (badge c) :m (merge-marks (cons (mark :props [CX (:name p)]) (map scen-mark scs)))
+     :hood-title (str "Allium " (:kind p) " " (:name p) " · @allium-" (:id p))
+     :hood (list (when (:src p) (allium (:src p))) (when (:text p) [:p.muted (:text p)])
+                 (when (= "gate" (:k c)) [:p.muted "Checked by gate " (:gate (:o c)) ", not by a scenario."]))}))
+(defn prop-cards [mid m] (map spec-card (prop-data mid m)))
+
+;; ---------- the changed cards, for the summary on L0 ----------
+(defn changed-cards []
+  (let [sid (fn [ss] (for [s ss :when (scen-mark s)] (if (= "spec" (:kind s)) (str (:item-tag cfg) (:item s)) (str "draft “" (:title s) "”"))))
+        journeys (filter #(not-any? (fn [t] (and (str/starts-with? t "@allium-") (not (str/starts-with? t "@allium-context.")))) (:tags %)) scenarios)]
+    (concat
+      (for [[mid m] MODS r (:rules m) :let [r (RULES (:name r)) mk (rule-mark r)] :when mk]
+        {:href (str "#" (rid (:name r))) :title (human (:name r)) :m mk :kind (str "rule · " (mod-title mid)) :scs (sid (scenarios-of (rule-covs r)))})
+      (for [[mid m] MODS d (prop-data mid m) :when (:m d)]
+        {:href (str "#" (:id d)) :title (:title d) :m (:m d) :kind (str (:kind d) " · " (mod-title mid)) :scs (sid (:scs d))})
+      (for [[r ss] (ordered-groups #(or (:rule %) "(no Rule)") journeys) :let [mk (merge-marks (map scen-mark ss))] :when mk]
+        {:href (str "#" ctx-hash) :title r :m mk :kind "journey" :scs (sid ss)}))))
+
+;; ---------- L1: a flow as swimlanes: who → command → event → read model / view ----------
+(def LANES [["Who triggers it" #{"screen" "todo-processor" "periodic-task"}] ["Command" #{"command"}] ["Event" #{"event"}] ["Read model · view" #{"read-model" "query"}]])
+(def LCLS {"screen" "scr" "todo-processor" "proc" "periodic-task" "proc" "command" "cmd" "event" "evt" "read-model" "rm" "query" "rm"})
+(def LKIND {"screen" "screen" "todo-processor" "policy" "periodic-task" "timer" "command" "command" "event" "event" "read-model" "read model" "query" "query"})
+(defn rule-of-cmd [key] (first (filter #(= key (first (rule-block %))) rule-list)))
+(defn producer-cmd [ev] (first (for [[ck c] (:commands ALL) :when (some #{ev} (:produces c))] ck)))
+(defn node-href [kind key]
+  (let [k (STEP kind) r (cond (= k :commands) (rule-of-cmd key) (= k :events) (some-> (producer-cmd key) rule-of-cmd))]
+    (cond r (str "#" (rid (:name r)))
+          (WBLK (blk-hash key (kind-of key k))) (str "#" (blk-hash key (kind-of key k)))
+          :else (str "#ctx-" (ns-of key)))))
+(defn handoff-to [ev] (for [h (:handoffs world) :when (= ev (:event h)) c (:consumers h)] (:ctx c)))
+(defn flow-lanes [fk f]
+  (let [nodes (distinct (for [[ak an zk zn] (:steps f) nd [[ak an] [zk zn]] :when (first nd)] nd))
+        rows (filter (fn [[_ ks]] (some #(ks (first %)) nodes)) LANES)]
+    [:div.lanes-frame
+     [:div.lanes {:style {:grid-template-columns (str "112px repeat(" (count nodes) ", 168px)") :grid-template-rows (str "auto repeat(" (count rows) ", auto)")}}
+      [:div.lane-h.corner "step"]
+      (for [i (range (count nodes))] [:div.step-n {:style {:grid-column (str (+ 2 i)) :grid-row "1"}} (inc i)])
+      (map-indexed (fn [ri [lbl _]] [:div.lane-h {:style {:grid-row (str (+ 2 ri))}} lbl]) rows)
+      (map-indexed (fn [ri _] [:div.lane-bg {:style {:grid-row (str (+ 2 ri)) :grid-column (str "2 / span " (count nodes))}}]) rows)
+      (map-indexed
+        (fn [i [kind key]]
+          (let [ri (first (keep-indexed (fn [j [_ ks]] (when (ks kind) j)) rows))
+                b (get-in WALL [(STEP kind) key]) d (or (describe b (human (short key))) "") other (and (ns-of key) (not= (ns-of key) MAIN))
+                outs (when (= kind "event") (handoff-to key))]
+            [:a {:class ["ln" (LCLS kind) (when (blk-mark (STEP kind) key) "marked")] :href (node-href kind key)
+                 :style {:grid-column (str (+ 2 i)) :grid-row (str (+ 2 ri))} :title d :data-node (str kind ":" key)}
+             [:span.ln-k (LKIND kind) (chg-badge (blk-mark (STEP kind) key))]
+             [:b (human (short key))]
+             (when (seq d) [:span.ln-d (one-line d)])
+             (when other [:span.ln-x "from " (ctx-name (ns-of key))])
+             (when (seq outs) [:span.ln-x "hands off to " (str/join ", " (map ctx-name (distinct outs)))])]))
+        nodes)]]))
+(defn flow-section [[fk f] open?]
+  (let [m (merge-marks [(mark :flows [CX fk])])
+        body (list (when (:description f) [:p.flow-d (:description f)]) (flow-lanes fk f))]
+    (if open?
+      [:div.flow-box {:data-flow fk} [:h3 (human (short fk)) (chg-badge m)] body]
+      [:details.flow-box {:data-flow fk} [:summary [:b (human (short fk))] (chg-badge m) " " [:span.muted (one-line (:description f))]] body])))
+
+;; ---------- this context's events, for the event storm (L0) ----------
+(defn story-events []
+  (vec (for [[k b] (:events ALL) :when (= MAIN (ns-of k))
+             :let [ck (producer-cmd k) r (some-> ck rule-of-cmd) a (some-> r actor-of)]]
+         {:key k :ctx CX :name (human (short k)) :desc (describe b (human (short k))) :href (node-href "event" k) :mark (merge-marks [(blk-mark :events k) (some->> ck (blk-mark :commands)) (some-> r rule-mark)])
+          :cmd (some-> ck short human) :actor (when (and (seq a) (not= a "on event")) (if (= a "time") "Time" a))})))
+
+;; ---------- plain-language gaps: what the spec does not yet say in words ----------
+(defn gaps []
+  (concat (when (str/blank? (:description spec)) [(str CX ": the context has no :description")])
+          (for [k [:commands :events :read-models :queries :screens :todo-processors :periodic-tasks] [bk b] (ALL k) :when (and (= MAIN (ns-of bk)) (str/blank? (describe b (human (short bk)))))]
+            (str CX ": " (name k) " " bk " has no :description"))
+          (for [[fk f] FLOWS :when (str/blank? (:description f))] (str CX ": flow " fk " has no :description"))
+          (for [r rule-list :let [{:keys [rules doc]} (rule-plain r)] :when (empty? rules)]
+            (str CX ": rule " (:name r) (if (str/blank? doc) " has no Gherkin Rule line and no Allium comment" " has no scenario with a Gherkin Rule line: its card is headed by its Allium comment")))))
+
 (defn view-ctx []
   (let [rows (map agg-row MODS)
         hs (:handoffs world)
@@ -395,43 +540,61 @@
                                     (if (= "gate" (:k cv)) (str "Checked by gate " (:gate (:o cv)) ", not by a scenario.") "No scenario.")))
         ext (for [m (vals MODS) e (:entities m) :when (:external e)] (st "ext" (:name e)))
         actors (mapcat :actors (vals MODS))
-        oq (mapcat :openQuestions (vals MODS))]
+        oq (mapcat :openQuestions (vals MODS))
+        flows (sort-by (fn [[_ f]] (- (count (:steps f)))) FLOWS)]
     (view ctx-hash [home-crumb ctx-crumb]
       [:div.head
-       [:div.eyebrow "Level 2 · bounded context · slice " (:slice spec)]
+       [:div.eyebrow "Level 1 · event model · bounded context" (when (:accepted spec) (str " · slice " (:slice spec)))]
        [:h1 (:name CTX)]
-       [:p.muted (:description CTX)]
-       (stats (list "Grain area " [:b ":" MAIN]) (n-of (count MODS) "Allium files") (n-of (count (:commands ALL)) "commands") (n-of (count (:events ALL)) "events")
-              (n-of (count (:read-models ALL)) "read models") (n-of (count (:queries ALL)) "queries") (n-of npol "policies and timers") (n-of (count (:items spec)) "stamped items") (n-of (count (:drafts CTX)) "drafts"))
-       [:div.note.ok "Specs in " (code (str ".pi/spec/" CX "/")) ": " (code "allium/*.allium") ", " (code "event-model/*.edn") ", " (code "spec.feature")
-        (when (seq (:drafts CTX)) (list ", " (code "drafts.feature"))) "; the slice " (code (str ".pi/plan/" (:slice spec))) " links to it."]]
-      [:section
-       [:h2 "Event model, by Allium file"]
-       [:p.muted "One Allium file per aggregate, and the context's shared language (" (code "context.allium") "). Who acts on it, the commands it handles, and the events it records (a block belongs to the Allium file its " (code ":grain/allium") " link names). Open one for its rules, refusals and Given/When/Then."]
-       [:div.frame [:div.agg-board [:div.agg-row.h [:div "Allium file"] [:div "Actors · commands"] [:div "Events"] [:div "Allium"] [:div "Gherkin"]] rows]]]
+       [:p.lede (:description CTX)]
+       (stats (n-of (count FLOWS) "flows") (n-of (count (:commands ALL)) "commands") (n-of (count (:events ALL)) "events") (n-of (count (:read-models ALL)) "read models")
+              (n-of (count RULES) "rules") (n-of (count (:items spec)) "stamped items") (n-of (count (:drafts CTX)) "drafts"))]
+      (if (seq flows)
+        [:section [:h2 "How it flows"]
+         [:p.muted "Each flow of the event model, left to right: who triggers it, the command, the event it records, and the read model or view that shows it next. Click a sticky for its spec card."]
+         [:div.key [:span [:i.scr] "who triggers it"] [:span [:i.cmd] "command"] [:span [:i.evt] "event"] [:span [:i.rm] "read model / view"]]
+         (map-indexed (fn [i fl] (flow-section fl (zero? i))) flows)]
+        [:section [:h2 "How it flows"] (none "The event model has no flow yet.")])
       [:section
        [:h2 "Handoffs"]
-       [:p.muted "The events this context hands to others (its " (code "event-model/handoffs.edn") ") and those it reads from others, each defined once by its producer. The cycle runner relays each from the producer's store to the consumer."]
+       [:p.muted "The events this context hands to others (its " (code (str (get-in cfg [:files :event-model]) "/" (get-in cfg [:files :handoffs]))) ") and those it reads from others, each defined once by its producer." (T :relay-note)]
        [:div.pair [:div.stack {:style {:align-items "stretch"}} [:span.lbl "hands out"] [:div.handoffs (or (seq (map handoff-row h-out)) (muted "none"))]]
         [:div.stack {:style {:align-items "stretch"}} [:span.lbl "reads"] [:div.handoffs (or (seq (map handoff-row h-in)) (muted "none"))]]]]
       [:section
-       [:h2 "Policies, timers, read models and queries"]
-       [:details.inv [:summary [:span.t "Policies, timers, read models and queries, with their descriptions"] [:span.meta npol " policies · " (count (:read-models ALL)) " read models"]]
-        [:div.inv-body [:div.two [:div.flow-list (or (seq procs) (none "No policies or timers."))] [:div.flow-list (or (seq rms) (none "No read models."))]]]]]
-      (when (seq FLOWS)
-        [:section [:h2 "Flows (dynamic views)"] [:p.muted "Each " (code ":flows") " entry of the Event Model, numbered: screen → command → event → read model → query → policy, as Grain validates it."]
-         [:div.key (for [[c t] [["#e6e9e7" "screen"] ["#cfe0fb" "command"] ["#fde2bd" "event"] ["#cdeed5" "read model"] ["#e3f5e7" "query"] ["#e6d9f7" "policy or timer"]]] [:span [:i {:style {:background c}}] t])]
-         (for [[fk f] FLOWS] (list [:h3 (short fk)] (mm-block (c4-dynamic fk f) (or (:description f) ""))))])
-      [:section
-       [:h2 "The boundary: what holds everywhere"]
-       [:p.muted "The actors that may act (" (if (seq actors) (interpose ", " (map code actors)) "none") "), any contract every surface fulfils, and what others own."]
-       (when (seq ext) [:div.row-wrap [:span.lbl {:style {:align-self "center"}} "outside the harness"] ext])
-       [:div.flow-list (or (seq bound) (none "No boundary contract."))]]
+       [:h2 "Spec cards"]
+       [:p.muted "The spec, one card per rule, grouped by Allium file: the rule in plain words and its Given/When/Then. Open a file to review its cards."]
+       [:div.files (for [[mid m] MODS :let [rs (map #(RULES (:name %)) (:rules m)) ms (merge-marks (map rule-mark rs))]]
+                     [:div {:class ["file-card" (when ms "marked")]}
+                      [:a.file-h {:href (str "#" (agg-hash mid))} [:b (mod-title mid)] (chg-badge ms) [:span.muted (plural (count rs) "rule") " · " (plural (count (mod-scen mid "spec")) "scenario") (let [d (count (mod-scen mid "drafts"))] (when (pos? d) (str " · " d " drafts")))] [:span.drill "Open →"]]
+                      (when (seq (:header m)) [:p.muted (one-line (:header m))])
+                      (when (seq rs)
+                        [:ul.rule-list (for [r rs :let [{g :rules d :doc} (rule-plain r)]]
+                                         [:li [:a {:href (str "#" (rid (:name r)))} (human (:name r))] (chg-badge (rule-mark r)) " " [:span.muted (or (first g) (one-line d))]])])])]]
       (when (seq journeys)
-        [:section [:h2 "Scenarios on no single rule"] [:p.muted "Scenarios of " (code (:specFile spec)) " tagged with no rule, invariant or guarantee (a journey, " (code "@allium-context.…") "), by their Gherkin " (code "Rule:") "."]
+        [:section [:h2 "Scenarios on no single rule"] [:p.muted "Scenarios of " (code (:specFile spec)) " tagged with no rule, invariant or guarantee (a journey), by their Gherkin " (code "Rule:") "."]
          [:div.flow-list (for [[r ss] (ordered-groups #(or (:rule %) "(no Rule)") journeys)]
-                           [:details.inv [:summary [:span.t r] [:span.meta (count ss) " scenarios"]] [:div.scens (map gherkin ss)]])]])
-      (when (seq oq) [:section [:h2 "Open questions"] [:p.muted "Allium " (code "open question") "s: what no source settles yet."] (qlist oq)]))))
+                           [:div.card2 [:header.c2-h [:div [:span.lbl "journey"] [:h3 r (chg-badge (merge-marks (map scen-mark ss)))]]] [:div.scs (map scenario-plain ss)]])]])
+      (when (seq oq) [:section [:h2 "Open questions"] [:p.muted "Allium " (code "open question") "s: what no source settles yet."] (qlist oq)])
+      [:section
+       [:details.hood.big
+        [:summary [:span "Under the hood"] [:span.muted "aggregates, policies and read models, dynamic views, the boundary"]]
+        [:div.hood-body
+         [:div.note.ok "Specs in " (code (str (:spec-root cfg) "/" CX "/")) ": " (code (str (get-in cfg [:files :allium]) "/*.allium")) ", " (code (str (get-in cfg [:files :event-model]) "/*.edn")) ", " (code (get-in cfg [:files :spec]))
+          (when (seq (:drafts CTX)) (list ", " (code (get-in cfg [:files :drafts])))) (when (and (:plan-dir cfg) (:accepted spec)) (list "; the slice " (code (str (:plan-dir cfg) "/" (:slice spec))) " links to it.")) (when-not (and (:plan-dir cfg) (:accepted spec)) ".")]
+         (stats (list "Grain area " [:b ":" MAIN]) (n-of (count MODS) "Allium files") (n-of (count (:queries ALL)) "queries") (n-of npol "policies and timers"))
+         [:h3 "Event model, by Allium file"]
+         [:p.muted "One Allium file per aggregate, and the context's shared language. Who acts on it, the commands it handles, and the events it records (a block belongs to the Allium file its " (code ":grain/allium") " link names)."]
+         [:div.frame [:div.agg-board [:div.agg-row.h [:div "Allium file"] [:div "Actors · commands"] [:div "Events"] [:div "Allium"] [:div "Gherkin"]] rows]]
+         [:h3 "Policies, timers, read models and queries"]
+         [:div.two [:div.flow-list (or (seq procs) (none "No policies or timers."))] [:div.flow-list (or (seq rms) (none "No read models."))]]
+         (when (seq FLOWS)
+           (list [:h3 "Flows (dynamic views)"] [:p.muted "Each " (code ":flows") " entry of the Event Model, numbered: screen → command → event → read model → query → policy, as Grain validates it."]
+                 [:div.key (for [[c t] [["#e6e9e7" "screen"] ["#cfe0fb" "command"] ["#fde2bd" "event"] ["#cdeed5" "read model"] ["#e3f5e7" "query"] ["#e6d9f7" "policy or timer"]]] [:span [:i {:style {:background c}}] t])]
+                 (for [[fk f] FLOWS] (list [:h4 (short fk)] (mm-block (c4-dynamic fk f) (or (:description f) ""))))))
+         [:h3 "The boundary: what holds everywhere"]
+         [:p.muted "The actors that may act (" (if (seq actors) (interpose ", " (map code actors)) "none") "), any contract every surface fulfils, and what others own."]
+         (when (seq ext) [:div.row-wrap [:span.lbl {:style {:align-self "center"}} (T :outside)] ext])
+         [:div.flow-list (or (seq bound) (none "No boundary contract."))]]]])))
 
 ;; ---------- one Event Model block: its spec first ----------
 (defn refs-to [field key] (for [k (keys KINDS) [kk v] (WALL k) :when (some #{key} (get v field))] [kk k]))
@@ -449,7 +612,7 @@
                 shown (distinct (for [kk producers a (:allium (get-in ALL [:commands kk])) :when (= "rule" (:kind a)) :let [r (RULES (:name a))] :when r] r))]
             [(list [:section [:h2 "Spec"] [:p.muted "The event's schema, then the Allium rule" (when (not= 1 (count shown)) "s") " whose command records it, with " (if (= 1 (count shown)) "its" "their") " obligations and Given/When/Then."] (edn-block key b false kind)]
                    (when (seq shown) [:section [:h2 "Emitted by"] [:div.flow-list (map #(rule-card % false) shown)]]))
-             (around "Produced by" (map #(block-link % :commands) producers) (if (= MAIN (ns-of key)) "no command" "ORC's runtime")
+             (around "Produced by" (map #(block-link % :commands) producers) (if (= MAIN (ns-of key)) "no command" (T :runtime))
                      "Consumed by" (for [[kk k] (concat (refs-to :consumes key) (refs-to :subscribes key))] (block-link kk k)) "no read model or policy")])
           :commands
           (let [issuers (concat (remove #(= :commands (second %)) (refs-to :produces key)) (refs-to :commands key))]
@@ -534,40 +697,37 @@
 ;; ---------- L3: one aggregate (an Allium file, its Grain blocks, its slice) ----------
 (defn view-mod [[mid m]]
   (let [cv (cov-count (mod-obligations mid)) own (remove :external (:entities m))
-        props (for [p (concat (for [i (:invariants m)] {:id (str "invariant." (:name i)) :name (:name i) :kind "invariant" :src (:src i)})
-                              (for [s (:surfaces m) g (:guarantees s)] {:id (str "guarantee." (:name g)) :name (:name g) :kind (str "guarantee on " (:name s)) :text (:text g)}))
-                    :let [c (cov (:id p))]]
-                (obligation-details (list [:b (:name p)] (when (:text p) (str " · " (str/replace (:text p) #"Verified by:.*$" "")))) c (str (:kind p) " · @allium-" (:id p))
-                                    (if (= "gate" (:k c)) (str "Checked by gate " (:gate (:o c)) ".") "No scenario.")
-                                    (when (:src p) [:div.inv-body (allium (:src p))])))
         states (for [e own t (get-in ENTITIES [(:name e) :p :trans]) :let [d (state-diagram e t)] :when d] [(str (:name e) "." (:field t)) d])
-        props (concat props (for [k (:contracts m) i (:invariants k) :let [c (cov (str "boundary." (:name i)))]]
-                              (obligation-details (list [:b (:name i)] " · " (str/replace (:text i) #"Verified by:.*$" "")) c (str "contract " (:name k) " · @allium-boundary." (:name i))
-                                                  (if (= "gate" (:k c)) (str "Checked by gate " (:gate (:o c)) ".") "No scenario."))))]
+        props (prop-cards mid m)]
     (view (agg-hash mid) [home-crumb ctx-crumb [(mod-title mid) (agg-hash mid)]]
       [:div.head
-       [:div.eyebrow "Level 3 · Allium file in " (:name CTX)]
+       [:div.eyebrow "Level 2 · spec cards · " (fid mid) ".allium in " (:name CTX)]
        [:h1 (mod-title mid)]
-       [:p.muted (:header m)]
-       (stats (n-of (count (mod-blocks :commands mid)) "commands") (n-of (count (:rules m)) "rules") (n-of (count (mod-blocks :events mid)) "events")
-              (n-of (count (mod-scen mid "spec")) "scenarios") (n-of (count (mod-scen mid "drafts")) "drafts")
-              (list [:b (cv "spec")] " obligations covered · " [:b (cv "draft")] " drafted · " [:b (cv "none")] " uncovered · " [:b (cv "unit")] " unit level"))
-       [:div.note.ok (code (:file m)) (when (:specFile spec) (list " · " (code (:specFile spec)))) (when (:draftsFile spec) (list " · " (code (:draftsFile spec))))]]
-      [:section [:h2 "Event storm"]
-       [:p.muted "Each rule as a sticky cluster: the command (blue) and who issues it, the aggregate (yellow) over the event it records (orange), and below it each refusal, a " (code "requires") " that must hold. Read left to right: each column follows the one before it, by the state it needs, the event that triggers it or the policy that issues it; above each cluster, the rules it follows. Click a sticky for its spec."]
-       (agg-board mid)]
+       [:p.lede (:header m)]
+       (stats (n-of (count (:rules m)) "rules") (n-of (count (mod-scen mid "spec")) "scenarios") (n-of (count (mod-scen mid "drafts")) "drafts")
+              (list [:b (cv "spec")] " obligations covered · " [:b (cv "draft")] " drafted · " [:b (cv "none")] " uncovered"))]
       [:section
-       [:h2 "Entities and lifecycles"]
-       [:p.muted "Each entity with its identity, its states and what it refers to; other fields fold away. Each lifecycle is a " (code "transitions") " block: every arrow is the rule that makes it (⏱ triggered by time)."]
-       (if (seq own) (entity-cards mid m) (none "No entity of its own."))
-       (when (seq states) [:div.lifecycles (for [[k d] states] [:div {:class ["lc" (when (> (count (re-seq #"-->" d)) 6) "wide")]} [:div.lc-h k] [:pre.mermaid d]])])
-       [:details.inv [:summary [:span.t "Allium source"] [:span.meta (:file m)]] [:div.inv-body (map (comp allium :src) own)]]]
+       [:h2 "Rules"]
+       [:p.muted "One card per rule: what it says in plain words, then the scenarios that show it. Drafts, not yet accepted, have a dashed amber edge. The Allium, the Grain block and the coverage of each card are under its hood."]
+       [:div.cards2 (or (seq (for [r (:rules m)] (rule-spec-card (RULES (:name r))))) (none "No rules."))]]
+      (when (seq props)
+        [:section [:h2 "Invariants and guarantees"] [:p.muted "What always holds, what a surface promises, and what a contract holds at the boundary, each with the scenarios that check it."]
+         [:div.cards2 props]])
+      (when (seq (:openQuestions m)) [:section [:h2 "Open questions"] (qlist (:openQuestions m))])
       [:section
-       [:h2 "Rules, with their Given/When/Then"]
-       [:p.muted "Each rule beside its Event Model block. Below each, its obligations: the success, and one per " (code "requires") ". Each obligation opens the scenarios tagged with it; dashed amber ones are drafts awaiting the product owner."]
-       [:div.flow-list (or (seq (for [r (:rules m)] (rule-card (RULES (:name r)) true))) (none "No rules."))]]
-      (when (seq props) [:section [:h2 "Invariants and guarantees"] [:p.muted "What always holds (" (code "invariant") "), what a surface promises (" (code "@guarantee") "), and what a contract holds at the boundary (" (code "@invariant") ")."] [:div.flow-list props]])
-      (when (seq (:openQuestions m)) [:section [:h2 "Open questions"] (qlist (:openQuestions m))]))))
+       [:details.hood.big
+        [:summary [:span "Under the hood"] [:span.muted "the aggregate's event storm, entities and lifecycles, the Allium source"]]
+        [:div.hood-body
+         [:div.note.ok (code (:file m)) (when (:specFile spec) (list " · " (code (:specFile spec)))) (when (:draftsFile spec) (list " · " (code (:draftsFile spec))))]
+         (stats (n-of (count (mod-blocks :commands mid)) "commands") (n-of (count (mod-blocks :events mid)) "events") (list [:b (cv "unit")] " obligations unit level"))
+         [:h3 "Event storm of the aggregate"]
+         [:p.muted "Each rule as a sticky cluster: the command (blue) and who issues it, the aggregate (yellow) over the event it records (orange), and below it each refusal, a " (code "requires") " that must hold. Read left to right: each column follows the one before it, by the state it needs, the event that triggers it or the policy that issues it."]
+         (agg-board mid)
+         [:h3 "Entities and lifecycles"]
+         [:p.muted "Each entity with its identity, its states and what it refers to. Each lifecycle is a " (code "transitions") " block: every arrow is the rule that makes it (⏱ triggered by time)."]
+         (if (seq own) (entity-cards mid m) (none "No entity of its own."))
+         (when (seq states) [:div.lifecycles (for [[k d] states] [:div {:class ["lc" (when (> (count (re-seq #"-->" d)) 6) "wide")]} [:div.lc-h k] [:pre.mermaid d]])])
+         [:details.inv [:summary [:span.t "Allium source"] [:span.meta (:file m)]] [:div.inv-body (map (comp allium :src) own)]]]]])))
 
 ;; ---------- this context's part of the Review view ----------
 (defn review-part []
@@ -577,7 +737,7 @@
         oqs (for [[mid m] MODS q (:openQuestions m)] [mid q])
         at (fn [o] (if (:rule o) (rid (:rule o)) (agg-hash (some #(when (= (:file o) (str (fid %) ".allium")) %) (keys MODS)))))]
     {:uncovered (when (seq uncovered)
-                  [:details.inv [:summary [:span.t [:b (:name CTX)]] [:span.meta (count uncovered) " uncovered"] [:span.id "tag each on the scenario that checks it, or draft one in drafts.feature"]]
+                  [:details.inv [:summary [:span.t [:b (:name CTX)]] [:span.meta (count uncovered) " uncovered"] [:span.id (str "tag each on the scenario that checks it, or draft one in " (get-in cfg [:files :drafts]))]]
                    [:div.inv-body (qlist (for [o uncovered] (list [:a {:href (str "#" (at o))} (code (str "@allium-" (:id o)))] (when (:clause o) (list " " (muted (:clause o)))))))]])
      :drafts (for [s (:drafts CTX)] (list [:a {:href (str "#" (draft-at s))} (:title s)] " " (muted (:file s) ":" (:line s))))
      :unit (for [o ob-list :when (= "unit" (:status o))] (list [:a {:href (str "#" (at o))} (code (:id o))] " " (muted (:name CTX) " · " (:unit o) " · " (or (:clause o) ""))))
@@ -588,8 +748,8 @@
 ;; ---------- the context's cover: its card on the home view, and every view it owns ----------
 (defn card []
   (let [cv (cov-count ob-list) tot (reduce + (vals cv)) pct #(format "%.1f%%" (/ (* 100.0 (cv %)) (max tot 1)))]
-    [:a.card {:href (str "#" ctx-hash) :data-context CX}
-     [:h3 (:slice spec) " · " (:name CTX)] [:span.muted {:style {:font-size "12.5px"}} (:description CTX)]
+    [:a {:class ["card" (when (seq (changed-cards)) "marked")] :href (str "#" ctx-hash) :data-context CX}
+     [:h3 (when (:accepted spec) (list (:slice spec) " · ")) (:name CTX) (when-let [n (seq (changed-cards))] (list " " [:span.chg.changed (count n) " changed"]))] [:span.muted {:style {:font-size "12.5px"}} (:description CTX)]
      [:div.nums (for [[n w] [[(count MODS) "Allium files"] [(count (:commands ALL)) "commands"] [(count (:events ALL)) "events"] [(count RULES) "rules"] [(count (:items spec)) "items"] [(count (:drafts CTX)) "drafts"]]] [:div [:b n] w])]
      [:div.cov-bar {:title (str "obligations: " (cv "spec") " in scenarios, " (cv "draft") " in drafts, " (cv "unit") " unit level, " (cv "gate") " by a gate, " (cv "none") " uncovered")}
       [:i {:style {:width (pct "spec") :background "var(--accent)"}}] [:i {:style {:width (pct "draft") :background "var(--warn)"}}] [:i {:style {:width (pct "gate") :background "var(--muted)"}}]]

@@ -1,0 +1,16 @@
+;; A minimal project for tools/spec/views: one context, one rule, two scenarios. check.sh builds
+;; it to prove the page code holds no Löyly assumption. No plan, no coverage tool, no
+;; architecture file, no handoffs: those sections switch off.
+{:title "Lending library"
+ :page-title "Lending library spec"
+ :review-title "Lending spec review"
+ :root "."
+ :spec-root "spec"
+ :contexts :discover
+ :files {:allium "allium" :event-model "event-model" :handoffs "handoffs.edn"
+         :spec "spec.feature" :drafts "drafts.feature"}
+ :item-tag "@item-"
+ :tiers ["@minimum"]
+ :out-dir "dist"
+ :story {:unhappy "refused"}
+ :text {:intro "A lending library, specified as {contexts} bounded context."}}

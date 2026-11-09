@@ -8,17 +8,20 @@
 # published version stays in that branch's history. --dry-run makes the commit in a throwaway
 # worktree and shows it, without pushing.
 set -euo pipefail
-REMOTE=scope-impact; DRY=0
+# The remote and branch default to the :publish entry of tools/spec/views/project.edn.
+root=$(git rev-parse --show-toplevel)
+cfg() { bb -e "(println (get-in (clojure.edn/read-string (slurp \"$root/tools/spec/views/project.edn\")) [:publish $1] \"$2\"))"; }
+REMOTE=$(cfg :remote scope-impact); BRANCH=$(cfg :branch gh-pages); DRY=0
 for a in "$@"; do case "$a" in --dry-run) DRY=1 ;; *) REMOTE="$a" ;; esac; done
 
-root=$(git rev-parse --show-toplevel); cd "$root"
+cd "$root"
 bash tools/spec/views/build.sh >/dev/null
 bash tools/spec/views/check.sh
 page="$root/tools/spec/views/dist/event-model.html"
 src=$(git rev-parse --short HEAD); [ -z "$(git status --porcelain -- .pi tools/spec ':!tools/spec/views/dist')" ] || src="$src+uncommitted"
 
 wt=$(mktemp -d); trap 'git -C "$root" worktree remove --force "$wt" >/dev/null 2>&1 || true' EXIT
-if git fetch -q "$REMOTE" gh-pages 2>/dev/null; then
+if git fetch -q "$REMOTE" "$BRANCH" 2>/dev/null; then
   git worktree add -q --detach "$wt" FETCH_HEAD
 else
   git worktree add -q --detach "$wt" && git -C "$wt" checkout -q --orphan gh-pages-new
@@ -33,6 +36,6 @@ for f in "$root"/tools/spec/eval/*.html; do
 done
 git commit -q -m "Publish the Löyly spec v2 event model from $src"
 git log --oneline -1; git show --stat --format= HEAD
-if [ "$DRY" = 1 ]; then echo "dry run: not pushed to $REMOTE gh-pages"; exit 0; fi
-git push -q "$REMOTE" HEAD:gh-pages
-echo "pushed to $REMOTE gh-pages"
+if [ "$DRY" = 1 ]; then echo "dry run: not pushed to $REMOTE $BRANCH"; exit 0; fi
+git push -q "$REMOTE" "HEAD:$BRANCH"
+echo "pushed to $REMOTE $BRANCH"

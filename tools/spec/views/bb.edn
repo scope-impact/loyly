@@ -1,1 +1,4 @@
-{:deps {no.cjohansen/replicant {:mvn/version "2026.07.1"}}}
+{:paths ["src"]
+ :deps {no.cjohansen/replicant {:mvn/version "2026.07.1"}}
+ :tasks {build {:doc "Build the spec pages: bb build [--config project.edn] [--base <ref>]"
+                :task (apply (requiring-resolve 'specviews.main/-main) *command-line-args*)}}}

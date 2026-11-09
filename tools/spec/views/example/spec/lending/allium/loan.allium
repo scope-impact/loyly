@@ -1,0 +1,34 @@
+-- allium: 3
+-- spec/lending/allium/loan.allium
+--
+-- Aggregate Loan: one per book lent to a member.
+
+entity Loan {
+    book_id: String
+    member_id: String
+    status: active | returned
+}
+
+actor Member {
+    identified_by: MemberAccount where true
+}
+
+external entity MemberAccount {}
+
+-- Lend a book to a member. A book is lent to one member at a time.
+rule LendBook {
+    when: LendBook(member, book_id, member_id)
+    -- 1. the book is already lent
+    requires: not exists Loan{book_id: book_id, status: active}
+    ensures:
+        Loan.created(book_id: book_id, member_id: member_id, status: active)
+        BookLent(book_id: book_id, member_id: member_id)
+}
+
+-- The member's desk: lend a book.
+surface Desk {
+    facing member: Member
+
+    provides:
+        LendBook(member, book_id, member_id)
+}

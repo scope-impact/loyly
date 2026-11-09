@@ -1,0 +1,29 @@
+{:lending
+ {:description "Lending: who has which book."
+  :screens
+  {:lending/desk {:description "The member's desk: lend a book, see the loans."
+                  :queries #{:lending/loans} :commands #{:lending/lend-book}}}
+  :commands
+  {:lending/lend-book
+   {:description "Lend a book to a member. Issued by: member."
+    :grain/allium [{:spec "spec/lending/allium/loan.allium" :kind :rule :name "LendBook"}]
+    :schema [:map [:book-id :string] [:member-id :string]]
+    :reads #{:lending/loans}
+    :produces #{:lending/book-lent}}}
+  :events
+  {:lending/book-lent
+   {:description "A book was lent to a member."
+    :schema [:map [:book-id :string] [:member-id :string]]}}
+  :read-models
+  {:lending/loans {:description "Every active loan." :consumes #{:lending/book-lent}
+                   :schema [:map [:book-id :string] [:member-id :string]]}}
+  :queries
+  {:lending/loans {:description "The active loans." :schema [:map] :reads #{:lending/loans}}}
+  :flows
+  {:lending/lend
+   {:description "A member lends a book and sees it among the loans."
+    :steps [{:from [:screen :lending/desk] :to [:command :lending/lend-book]}
+            {:from [:command :lending/lend-book] :to [:event :lending/book-lent]}
+            {:from [:event :lending/book-lent] :to [:read-model :lending/loans]}
+            {:from [:read-model :lending/loans] :to [:query :lending/loans]}
+            {:from [:query :lending/loans] :to [:screen :lending/desk]}]}}}}

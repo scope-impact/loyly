@@ -7,7 +7,7 @@
 (defn short [k] (last (str/split (str k) #"/")))
 (defn ns-of [k] (when (str/includes? (str k) "/") (first (str/split (str k) #"/"))))
 (defn last-seg [s] (last (str/split (str s) #"[./]")))
-(def WORDS {"orc" "ORC" "pi" "Pi" "rpc" "RPC" "json" "JSON" "id" "id" "gepa" "GEPA" "otel" "OTel" "vm" "VM" "ui" "UI"})
+(def WORDS (merge {"id" "id"} (:acronyms cfg)))
 (defn human [n]
   (let [w (->> (str/split (str/replace (last-seg n) #"([a-z0-9])([A-Z])" "$1 $2") #"[-_ ]+")
                (remove str/blank?) (map #(or (WORDS (str/lower-case %)) (str/lower-case %))))]
@@ -57,4 +57,4 @@
 (defn n-of [n w] (list [:b n] " " w))
 (defn qlist [xs] [:ul.qlist (for [x xs] [:li x])])
 (defn none [& xs] [:div.none xs])
-(def home-crumb ["Löyly spec v2" "home"])
+(def home-crumb [(:title cfg) "home"])

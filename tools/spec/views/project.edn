@@ -1,0 +1,45 @@
+;; The Löyly spec pages: every project-specific value of tools/spec/views (README.md has one
+;; line per key). Paths are relative to :root, the git top level unless set here.
+{:title "Löyly spec v2"                          ; crumb and short name
+ :page-title "Löyly spec v2 — event model"       ; <title> and <h1> of the published page
+ :review-title "Löyly spec review"               ; <title> of dist/review.html (2 to 4 words)
+ :spec-root ".pi/spec"                           ; one directory per bounded context
+ :contexts :discover                             ; or a vector of context directory names, in order
+ :files {:allium "allium" :event-model "event-model" :handoffs "handoffs.edn"
+         :spec "spec.feature" :drafts "drafts.feature"}
+ :plan-dir ".pi/plan"                            ; optional: NN-<context> links give slice number and order
+ :item-tag "@item-"                              ; the stamped item tag; the id follows it (NN-SSS)
+ :tiers ["@minimum" "@balance" "@deferred"]      ; build-tier tags
+ :acronyms {"orc" "ORC" "pi" "Pi" "rpc" "RPC" "json" "JSON" "gepa" "GEPA" "otel" "OTel" "vm" "VM" "ui" "UI"}
+ :glossary ".pi/model/GLOSSARY.md"               ; optional: **Term**: definition, a fallback for missing descriptions
+ :architecture ".pi/architecture.md"             ; optional: ### Level N: … then a ```mermaid block (the C4 view)
+ :coverage ["python3" "tools/spec/v2/coverage.py" "--report"]   ; optional: writes the coverage JSON to the path appended
+ :out-dir "tools/spec/views/dist"
+ :outputs {:page "event-model.html" :review "review.html" :story "story.svg"}
+ :publish {:remote "scope-impact" :branch "gh-pages"}           ; read by tools/spec/publish.sh
+ ;; The event storm (L0): its order comes from the event models' flows and handoffs; :after adds
+ ;; the order they do not hold. The cycle runner reads every context's store instead of
+ ;; consuming its events (cycle-runner/allium/context.allium, "One run in the legacy shape"), so
+ ;; its run starts before the stamp and the pin, its verdicts are handed in after the gate's
+ ;; pass, and it concludes after the cycle does. :unhappy marks the events drawn as unhappy paths.
+ :story {:after [[:cycle-runner/run-started :specification/scenario-stamped]
+                 [:cycle-runner/run-started :cycle-preparation/source-cut-pinned]
+                 [:regeneration-cycle/gate-attempt-passed :cycle-runner/verdicts-handed-in]
+                 [:cycle-runner/verdicts-handed-in :measurement/item-verdicts-filed]
+                 [:regeneration-cycle/cycle-passed :cycle-runner/run-concluded]
+                 [:regeneration-cycle/cycle-failed :cycle-runner/run-concluded]]
+         :unhappy "failed|refused|halted"}
+ :text {:intro "The Pi harness, specified as {contexts} bounded contexts. Each is a slice of its own: its Allium, its Grain Event Model, its stamped scenarios. The contexts meet only through handoffs, events one context defines and others read; the cycle runner relays each from its producer's store."
+        :handoffs-assembly "This is the assembly the cycle runner's relay drives: "
+        :handoffs-note " The cycle runner consumes none: it reads each from the producer's store and hands it in through the consumer's seam."
+        :relay-note " The cycle runner relays each from the producer's store to the consumer."
+        :c4-card "How the harness runs: who uses it, the runnable parts, and the cycle runner's components, from "
+        :c4-lede "The harness as it runs, at three levels of zoom."
+        :drafts-unread "The harness does not read them until they are accepted and stamped."
+        :outside "outside the harness"
+        :runtime "ORC's runtime"
+        :coverage-tool "tools/spec/v2/coverage.py"
+        :coverage-report "tools/spec/v2/coverage.py --report"
+        :loader "tools/spec/v2/load.clj"
+        :footer-by "tools/spec/views/build.sh"
+        :footer-spec "spec v2"}}

@@ -20,8 +20,8 @@ own gates in [`v2/`](v2/README.md). The event-model page (`views/`) renders spec
 | `coverage.py` | Every must-cover Allium obligation is tagged on a scenario of a `spec.feature` or `drafts.feature`, and no tag names an unknown obligation. Prints `must-cover N \| covered N \| drafted N \| uncovered N \| unit-level N`, then the uncovered ids. `--report <file>` writes the full classification as JSON |
 | `gwt-lint.py` | Every scenario of every `spec.feature` and `drafts.feature` has a Given, a When and a Then |
 | `glossary-lint.py` | No term an `_Avoid_` list of `.pi/model/GLOSSARY.md` names appears, as an identifier or in prose, in `.pi/model/*.allium`, the harness's Grain Event Model (`event-model/loyly/`), `.pi/architecture.md`, or the ADRs. Lists the Gherkin's hits in `plan/` for the product owner without failing |
-| `views/build.sh [date]` | Builds the event-model page, `views/dist/event-model.html`, from spec v2 in `.pi/spec/` (`views/render.clj`) |
-| `views/check.sh` | Checks the built page (`views/check.clj`): every view present and non-empty, ids unique, every internal `#` link resolves, and, against `.pi/spec`, every context, handoff edge and the item count shown; every Mermaid diagram renders (`mmdc`, skipped with a note if absent); every top-level address shows its view in headless Chrome with no JavaScript error (skipped if absent); with `npm install` in `views/`, every view fits a phone (Playwright) |
+| `views/build.sh [date] [--base <ref>]` | Builds the drill-down page from spec v2 in `.pi/spec/` (`views/src/specviews/`, configured by `views/project.edn`): `views/dist/event-model.html` (the sealed record, for gh-pages), `views/dist/review.html` (the same page, self-contained, for review as a private artifact; with `--base`, what changed since that ref is marked) and `views/dist/story.svg` (the event storm alone). See `views/README.md` |
+| `views/check.sh` | Checks the built pages (`views/check.clj`): every view present and non-empty, ids unique, every internal `#` link resolves, and, against `.pi/spec`, every context, handoff edge and the item count shown; the drill-down levels (the event storm, a swimlane board per flow, a spec card per rule with its hood folded); `review.html` self-contained; every Mermaid diagram renders (`mmdc`, skipped with a note if absent); every top-level address shows its view in headless Chrome with no JavaScript error (skipped if absent); with `npm install` in `views/`, every view fits 375 and 1280, light and dark (Playwright); and the example project in `views/example/` builds and passes |
 
 Gate 5 of `gates.sh` is the harness's own `bb harness/gen_checklist.clj`: the checklist derives
 (every scenario stamped) from the plan root `harness/config.sh` names, `.pi/plan/` (spec v2's)
@@ -76,22 +76,25 @@ structure, checked by `allium check`.
 
 ## The event-model page
 
-`views/build.sh` runs `views/render.clj` (Babashka). It reads spec v2 into one map
-(`views/extract.clj`): per context in `.pi/spec/<context>/`, its Allium, its Grain Event Model
-fragments (merged by `tools/spec/v2/load.clj`), its handoffs, its `spec.feature` and
+`views/build.sh` runs `specviews.main` (Babashka, `views/src/specviews/`) with `views/project.edn`,
+which holds every Löyly-specific value. It reads spec v2 into one map
+(`extract.clj`): per context in `.pi/spec/<context>/`, its Allium, its Grain Event Model
+fragments (merged one home per block, as `tools/spec/v2/load.clj` does), its handoffs, its `spec.feature` and
 `drafts.feature`, and its slice number from `.pi/plan/`; plus the coverage gate's own report,
 `tools/spec/v2/coverage.py --report`. It renders every view from that map at build time: one
 pure function per view or component, spec data → Hiccup data → HTML, by
 [Replicant](https://github.com/cjohansen/replicant) (`views/bb.edn`), which escapes all spec text.
-Each context's views come from `views/context.clj`, loaded once per context; ids carry the
+The page drills down: L0 the event storm (`story.clj`), L1 each context's event model as
+swimlanes, L2 a spec card per rule, L3 under the hood, folded; the architecture view beside it.
+Each context's views come from `context.clj`, loaded once per context; ids carry the
 context's name, so the six contexts share one page. The result is one static file: every view
 is a `<div class="view" id="…">`, and `views/page.css` (inlined) shows the one the address
 targets, or home. The page is a projection of the specs, and its coverage chips are the gate's
 own report, so the page and the gate cannot disagree. **Never edit the built page**: change the
-specs (or `render.clj`, `context.clj`, `page.css`) and rebuild. `dist/` is a build product.
+specs (or the code in `views/src/specviews/`) and rebuild. `dist/` is a build product.
 
 The page needs no JavaScript to read: views, links and `<details>` folding are HTML and CSS.
-`views/page.js` (inlined) only draws the Mermaid diagrams of the view on screen (Mermaid, from
+`page.js` (inlined) only draws the Mermaid diagrams of the view on screen (Mermaid, from
 its CDN, is the one library), draws the event-storm arrows, and toggles a diagram's actual size.
 
 - **Home**: the six contexts as cards, the handoffs between them (producer → event →
@@ -120,7 +123,7 @@ open tools/spec/views/dist/event-model.html
 ### App mode, for the review MCP App
 
 ```bash
-bb --config tools/spec/views/bb.edn tools/spec/views/render.clj --mode app --out <path> \
+bb --config tools/spec/views/bb.edn -m specviews.main --mode app --out <path> \
    [--app-js <wiring.js>] [--threads <review.edn>] [--coverage <coverage.json>]
 ```
 
