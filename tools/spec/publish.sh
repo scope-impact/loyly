@@ -4,7 +4,8 @@
 #   tools/spec/publish.sh [remote] [--dry-run]     remote defaults to scope-impact
 #
 # Rebuilds and checks the page, then commits it as index.html (with .nojekyll), and each
-# tools/spec/eval/*.html as eval/<name>.html, on top of the remote's gh-pages, so every
+# tools/spec/eval/*.html as eval/<name>.html, and each tools/spec/replay/*.html (a run's replay,
+# tools/spec/replay/build.sh) as replay/<name>.html, on top of the remote's gh-pages, so every
 # published version stays in that branch's history. --dry-run makes the commit in a throwaway
 # worktree and shows it, without pushing.
 set -euo pipefail
@@ -33,6 +34,10 @@ git add index.html .nojekyll
 for f in "$root"/tools/spec/eval/*.html; do
   [ -e "$f" ] || continue
   mkdir -p eval; cp "$f" "eval/$(basename "$f")"; git add "eval/$(basename "$f")"
+done
+for f in "$root"/tools/spec/replay/*.html; do
+  [ -e "$f" ] || continue
+  mkdir -p replay; cp "$f" "replay/$(basename "$f")"; git add "replay/$(basename "$f")"
 done
 git commit -q -m "Publish the Löyly spec v2 event model from $src"
 git log --oneline -1; git show --stat --format= HEAD

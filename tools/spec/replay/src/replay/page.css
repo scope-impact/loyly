@@ -1,0 +1,73 @@
+/* The replay page, on top of tools/spec/views' page.css (its tokens, light and dark, and its stickies). */
+.wrap > *, section > * { min-width: 0; }
+.outcome { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+.outcome b { font-family: var(--font-body); font-size: 13px; padding: 3px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+.outcome.o-failed b, .outcome.o-halted b { background: var(--fail); color: var(--fail-ink); }
+.outcome.o-unfinished b { background: var(--scr); color: var(--scr-ink); }
+
+/* the story: one card per stage, lit as the replay reaches it */
+.stages { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.stage { display: grid; min-width: 0; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: start; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; transition: opacity .25s, border-color .25s, background .25s; }
+.stage .n { font-family: var(--font-mono); font-size: 11px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line); color: var(--muted); }
+.stage b { display: block; font-family: var(--font-display); font-size: 15px; font-weight: 600; }
+.stage .line { display: block; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.stage .when { grid-column: 2; font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.stage.pending { opacity: .42; border-style: dashed; }
+.stage.pending .line { visibility: hidden; }
+.stage.unreached { opacity: .42; border-style: dashed; }
+.stage.current { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.stage.done .n, .stage.current .n { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.stage.current .line, .stage.done .line { color: var(--fg); }
+
+/* the controls stay on screen while the lanes scroll */
+.controls { position: sticky; bottom: 0; z-index: 4; background: var(--bg); border-top: 1px solid var(--line); padding: 10px 0; display: grid; gap: 6px; }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.controls button, .controls select { font: 500 13.5px var(--font-body); color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 5px; padding: 6px 12px; cursor: pointer; }
+.controls button:hover, .controls button:focus-visible, .controls select:focus-visible { border-color: var(--accent); outline: none; }
+#play { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
+.speed { font-size: 13px; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; margin-left: auto; }
+#scrub { width: 100%; accent-color: var(--accent); margin: 0; }
+.now { font-family: var(--font-mono); font-size: 12px; color: var(--muted); min-height: 1.5em; overflow-wrap: anywhere; }
+.now .gap { color: var(--warn); }
+
+/* the lanes: one column per store on a wide screen, one list with lane tags on a phone */
+.tracks-sec { display: grid; gap: 12px; }
+.sec-h { display: grid; gap: 4px; }
+.tracks { display: grid; grid-template-columns: repeat(var(--lanes), minmax(0, 1fr)); gap: 6px 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
+.track-hs { display: contents; }
+.track-h { grid-column: var(--lane); grid-row: 1; font-family: var(--font-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 2px 4px 8px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.track-h small { display: block; letter-spacing: 0; text-transform: none; font-size: 10.5px; }
+.item { grid-column: var(--lane); text-align: left; font: 500 12px/1.3 var(--font-body); padding: 6px 8px; border-radius: 3px; border: 1px solid transparent; cursor: pointer; min-width: 0; overflow-wrap: anywhere; transition: opacity .2s, box-shadow .2s;
+  background: var(--evt); color: var(--evt-ink); }
+.item small { display: block; font: 400 10.5px var(--font-mono); opacity: .85; }
+.item .lane-tag { display: none; }
+.item .x { font-family: var(--font-mono); font-weight: 400; }
+.item.relay { background: transparent; border: 1px dashed var(--evt-ink); }
+.item.tick, .item.orc-def { background: var(--scr); color: var(--scr-ink); }
+.item.fail { background: var(--fail); color: var(--fail-ink); }
+.item:hover, .item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.item.future { opacity: .22; }
+.item.now { box-shadow: 0 0 0 2px var(--accent); }
+.relay-i { border: 1px dashed var(--evt-ink); }
+@media (max-width: 720px) {
+  .stages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tracks { grid-template-columns: minmax(0, 1fr); }
+  .track-hs { display: none; }
+  .item { grid-column: 1; }
+  .item .lane-tag { display: block; font: 500 10px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; opacity: .75; }
+}
+
+/* the payload dialog */
+dialog#detail { width: min(780px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--fg); }
+dialog#detail::backdrop { background: rgb(0 0 0 / .35); }
+.dlg { padding: 16px; display: grid; gap: 12px; }
+.dlg .top { display: flex; gap: 10px; justify-content: space-between; align-items: start; }
+.dlg h3 { font-size: 18px; overflow-wrap: anywhere; }
+.dlg .close { font: 500 13px var(--font-body); background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 5px; padding: 4px 10px; cursor: pointer; }
+.dlg .meta { font-family: var(--font-mono); font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.dlg pre.code { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 50vh; overflow: auto; font-size: 11.5px; }
+.dlg details { border: 1px solid var(--line); border-radius: 5px; background: var(--bg); }
+.dlg details > summary { cursor: pointer; padding: 6px 10px; font-size: 13px; }
+.dlg details > div { padding: 0 10px 10px; display: grid; gap: 6px; }
+.dlg details details > summary { font-family: var(--font-mono); font-size: 11.5px; }
+.dlg details details pre.code { margin: 0 8px 8px; }
