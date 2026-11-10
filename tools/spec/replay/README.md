@@ -22,10 +22,12 @@ the command that produces each event).
 
 - `<run-dir>/runner-store.sqlite`: the cycle runner's own Grain store; ORC's workflow events
   (`sheet/*`) are in the same store.
-- `<run-dir>/runs/<run-id>/stores/<context>.sqlite`: each context's store for that run, the lane
-  named after the file. With several `runs/*/stores`, the newest is used (and a note is printed).
+- `<run-dir>/runs/<run-id>/stores/<context>.sqlite`, or `<run-dir>/runs/<run-id>/<context>.sqlite`:
+  each context's store for that run, the lane named after the file. With several such directories,
+  the newest is used (and a note is printed).
 
-Each store's `events` table (`id`, `time`, `type`, `data`) is read with `sqlite3 -readonly`; the
+Each store's `events` table (`id`, `time`, `type`, `data`) is read with `sqlite3` from a temporary
+copy (with its `-wal` and `-shm`), so the run directory is never touched; the
 `data` column is Grain's Fressian encoding, decoded by `src/replay/fressian.clj` (Babashka
 cannot load org.fressian). `event_tags` is not read: the tags are also inside each body.
 

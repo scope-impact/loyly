@@ -2,7 +2,8 @@
   "Build the replay page of one harness run from its Grain stores.
      bb -m replay.main <run-dir> <out.html> [--title <t>] [--spec <spec-root>]
    Reads <run-dir>/runner-store.sqlite (the cycle runner's store, ORC's workflow events in it)
-   and every <run-dir>/runs/<run-id>/stores/<context>.sqlite, with sqlite3, read-only; decodes
+   and every <run-dir>/runs/<run-id>/stores/<context>.sqlite (or runs/<run-id>/<context>.sqlite),
+   with sqlite3, from a copy (the run dir is never touched); decodes
    each event body (Fressian) with replay.fressian. Groups the events into stickies (a domain
    event with the ORC tick that produced it and the Grain bookkeeping that committed it), maps
    the stages of the cycle onto them, scrubs the payloads for a public page, and writes one
@@ -33,7 +34,13 @@
 (defn read-store [lane file]
   (let [sep "\u001f"
         q (str "select id, time, type, hex(data) from events order by time, id")
-        out (sh-out "sqlite3" "-readonly" "-separator" sep "-newline" "\u001e" (str file) q)]
+        ;; a WAL store is read from a copy (with its -wal and -shm, which sqlite may fold in), so the run dir is never touched
+        tmp (fs/create-temp-dir {:prefix "replay-"})
+        copy (fs/path tmp (fs/file-name file))
+        _ (doseq [ext ["" "-wal" "-shm"] :let [f (str file ext)] :when (fs/exists? f)]
+            (fs/copy f (str copy ext)))
+        out (try (sh-out "sqlite3" "-separator" sep "-newline" "\u001e" (str copy) q)
+                 (finally (fs/delete-tree tmp)))]
     (vec (for [row (str/split out #"\u001e") :when (not (str/blank? row))
                :let [[id t ty h] (str/split row (re-pattern sep))]]
            {:id id :time t :ms (.toEpochMilli (java.time.Instant/parse t)) :type (keyword (subs ty 1))
@@ -41,7 +48,10 @@
 
 (defn find-stores [run-dir]
   (let [runner (fs/path run-dir "runner-store.sqlite")
-        runs (sort-by #(fs/last-modified-time %) (fs/glob run-dir "runs/*/stores"))
+        ;; the context stores sit in runs/<run-id>/stores/ or directly in runs/<run-id>/
+        runs (sort-by #(fs/last-modified-time %)
+                      (concat (fs/glob run-dir "runs/*/stores")
+                              (filter #(seq (fs/glob % "*.sqlite")) (fs/glob run-dir "runs/*"))))
         dir (last runs)]
     (when-not (fs/exists? runner) (throw (ex-info (str "no runner store at " runner) {})))
     (when (> (count runs) 1) (binding [*out* *err*] (println "note: several runs/*/stores; using the newest," (str dir))))
