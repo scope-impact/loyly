@@ -1,8 +1,15 @@
+# Builder image for TypeScript slices (`pi-harness/builder-typescript:oci`). git, as the Clojure
+# builder image has it, for npm git dependencies and git-based tooling; gcompat for the npm
+# prebuilt native modules that load glibc's loader (as the Clojure image needs it for bb).
+# A builder that still has to install something during a run records the exact command in
+# /workspace/.builder/image-additions.txt, and that command belongs here next.
 FROM alpine:3.23.7
 
 RUN apk add --no-cache \
     bash \
     ca-certificates \
     curl \
+    gcompat \
+    git \
     nodejs \
     npm
