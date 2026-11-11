@@ -54,11 +54,10 @@ from what precedes it.
 | 2 | `docs/wiki/` | the domain, distilled from the sources. Every claim footnotes the source it came from. Start at `index.md` |
 | 3 | `docs/wow/` | the method itself: the way of working, five invariants each with a named enforcement point, and the agent harness |
 | 4 | `docs/plan/01-booking-core/` | one slice of work: a plan, an executable Gherkin spec, tickets, and recorded decisions |
-| 5 | `archive/legacy-harness/` | the instrument: the fence, the gate, the derived checklist, the scorer, the scoreboard. Start at its `README.md` |
+| 5 | `harness-impl/` | the harness that runs the loop: the cycle runner and the five contexts it drives (the fence, the gate, the derived checklist, the score, the scoreboard). Start at its `README.md`. The legacy harness it replaced, `archive/legacy-harness/`, is the reference |
 | 6 | `impl/` | the build product. Intentionally empty: you generate it |
 
-The machinery is itself specified and regenerated the same way; see "The harness, regenerated"
-below.
+The harness is itself specified and was built the same way; see "The harness" below.
 
 Two conventions you will notice everywhere:
 
@@ -71,67 +70,121 @@ Two conventions you will notice everywhere:
 
 ## The tutorial: one full loop
 
-This is the flow the repo exists to demonstrate. You can walk it with an AI agent doing
-the building (point it at the read order above; `docs/wow/harness.md` says how) or by
-hand. Either way the machinery treats you identically, which is rather the point.
+This is the flow the repo exists to demonstrate. The new harness runs it: the cycle runner,
+`harness-impl/06-cycle-runner/`, drives the five contexts of `harness-impl/01-*` to `05-*`
+(`harness-impl/README.md`). It has done so since 2026-11-08 (`.pi/spec/decisions.md`, "The switch
+to the new harness"). On 2026-11-10 it built the Löyly app end to end: Löyly run-03, the gate
+passed on attempt 1, blind grading 11/11, the run passed in 17 minutes
+([replay](https://scope-impact.github.io/loyly/replay/loyly-run-03.html)).
 
-The commands are the legacy harness's, archived in `archive/legacy-harness/`. In this repo
-`harness/` now measures the Pi harness instead (below), so run them with the archived tools
-in `harness/`, as the shadow runs of 2026-11-08 did (`.pi/spec/decisions.md`, "The switch to
-the new harness" 2).
+The runner is one process that speaks JSON-RPC 2.0 over stdio (`.pi/spec/cycle-runner/seam.md`,
+"Transport"). A person, or the session acting for one, starts it, calls its methods, grades, and
+hands the verdicts in. The legacy harness (`archive/legacy-harness/`) did the same stages with
+separate scripts; it stays as the reference and is never deleted (step 7 below).
+
+### 0. Before a run
+
+The runner reads everything from its environment when a run starts
+(`.pi/spec/cycle-runner/seam.md`, "Handed in"):
+
+| Variable | What it is |
+|---|---|
+| `LOYLY_GRAIN_STORE` | the runner's own Grain store (SQLite) |
+| `LOYLY_RUNS_DIR` | where each run's directory goes: the contexts' stores, the clean room, the builder and gate rooms, the gate evidence. Never inside the project repository |
+| `LOYLY_PROJECT_REPO` | the project repository (git) that holds the cut's commit |
+| `LOYLY_HARNESS_CONFIG` | the harness configuration, legacy `config.sh` as-is. For Löyly, `archive/legacy-harness/config.sh` with `FENCED_PATHS="impl .pi archive/legacy-harness/cycles"` |
+| `LOYLY_CONTEXTS` | a JSON file naming each context's `start.sh`: `harness-impl/01-specification/start.sh` and the other four |
+| `LOYLY_SELF_CHECK_CMD` | the harness self-check, legacy `harness/check.sh --local` of the project repository |
+| `LOYLY_BUILDER_CMD` | the builder, run as `<cmd> <builder-room> <instruction-file>`: `.pi/harness/bin/builder.sh`, a pi-durable session whose tools run in a Gondolin VM, on the existing Codex login (`.pi/harness/README.md`) |
+| `LOYLY_BUILDER_INSTRUCTION` | the instruction the fresh builder gets |
+| `LOYLY_SCORING_TOOL_PATHS` | passed through to the Regeneration cycle (`[]` for Löyly) |
+
+Optional: `LOYLY_MEASUREMENT_STORE`, Measurement's history store, kept across runs so a scoreboard
+compares with the last run; without it every scoreboard is a baseline. `LOYLY_BUILDER_IMAGES` and
+`LOYLY_STORE_CHECK_CMD` only matter for a configuration that names `BUILDER_IMAGE` or the `stdio`
+seam; Löyly's names neither.
+
+For Löyly the project repository is a clone of this repository with one commit on top whose
+`harness/` is the archived legacy harness with that configuration (`.pi/spec/decisions.md`, "The
+switch to the new harness" 2). The run-03 driver in `.pi/harness/.state/loyly/run-03/` is the
+worked example: `driver/driver.py` sets these variables and owns the runner's stdin and stdout,
+`driver/send.sh` sends one request, `contexts.json`, `benchmark-config.sh` and `bin/*.sh` are its
+inputs. It is run state, not committed. Open: there is no committed launcher for a Löyly run yet.
 
 ### 1. Build from the docs
 
 Read the slice (`docs/plan/01-booking-core/`): eleven Gherkin scenarios covering the
 weekly schedule, standing-slot booking with reasoned refusals, the single-source-of-truth
 rule from the story above, two households racing for one slot, and whether a refusal is
-usable. Build it into `impl/`, in any stack,
-test-first (the harness doc's RED/GREEN discipline). The only hard requirement is the
-gate's contract: `impl/test.sh` and `impl/start.sh PORT`.
+usable. In the loop the builder is a fresh `pi` session in a fenced clean room. It builds
+into `impl/`, in any stack, test-first (the harness doc's RED/GREEN discipline,
+`docs/wow/harness.md`). You can also build it by hand, to learn the slice. The only hard
+requirement is the gate's contract: `impl/test.sh` and `impl/start.sh PORT` (`APP_DIR=impl`,
+`PORT=8901` in `archive/legacy-harness/config.sh`).
+
+A run starts with one call:
+
+```text
+$ harness-impl/06-cycle-runner/start.sh    # with the environment above; then, one line on its stdin:
+{"jsonrpc":"2.0","id":1,"method":"cycle-runner/start-run","params":{"run-id":"…","cycle-id":"…","cut-id":"…","commit":"<40-hex>","selection-id":"…","budget":{"gate-attempt-limit":3,"max-outer-cycles":1,"max-continuations":0,"stage-timeouts-seconds":{"fence":1800,"regenerate":14400,"gate":3600,"score":28800}},"grader-digests":["…"]}}
+```
+
+`start-run` is synchronous (`.pi/spec/cycle-runner/seam.md`, "Methods"). It stamps the slices,
+pins the cut, derives the checklist, runs the self-check, fences the clean room, launches the
+builder, installs the candidate in a gate room and gates it, and answers when the run awaits its
+verdicts, or concluded, or halted. For Löyly that took about 11 minutes. A run cannot resume after
+a restart, so keep the runner alive from this call to the filed score.
 
 ### 2. Ratify
 
-```bash
-./harness/verify.sh
-```
-
-"Done" is a claim, and claims are ratified by a script the claimant does not control:
-the gate runs your suite, boots your app, and proves the surface actually answers. If
-you built nothing yet, it says so and fails, which is correct behaviour for a gate.
+"Done" is a claim, and claims are ratified by a gate the claimant does not control. The runner's
+gate (`.pi/spec/cycle-runner/seam.md`, E5, `http`) is legacy `verify.sh`'s, in a gate room out of
+the builder's reach: `impl/test.sh` exits 0, `impl/start.sh 8901` boots, `http://127.0.0.1:8901`
+answers within 10 seconds with a page carrying `sauna`, and the identity probe
+(`archive/legacy-harness/probe.sh`) passes against that URL. A failed gate starts a fresh builder
+with the previous candidate and the gate's evidence, at most three attempts. If nothing was built,
+the gate says so and fails, which is correct behaviour for a gate.
 
 ### 3. Measure
 
-```bash
-bb harness/gen_checklist.clj --out harness/cycles/01/checklist.json
-# grade each item against the running app, however you grade, then:
-bb harness/score.clj 01 --verdicts your-verdicts.json
-bb harness/scoreboard.clj 01
+The checklist is derived from the spec inside the run (never hand-kept), one item per stamped
+scenario. A black-box grading agent drives the gated candidate in a copy of the gate room, from
+fresh state, and writes a verdicts file: a list of `{"id", "verdict", "evidence"}`, with an
+optional `"reason"` (`.pi/spec/cycle-runner/seam.md`, the verdicts file; `harness/README.md`,
+"Scoring a spec-v2 cycle (legacy step 5)"). Then, on the same runner:
+
+```text
+{"jsonrpc":"2.0","id":2,"method":"cycle-runner/hand-in-verdicts","params":{"run-id":"…","verdicts-path":"/abs/verdicts.json","grader-digest":"…"}}
+{"jsonrpc":"2.0","id":3,"method":"cycle-runner/run-progress","params":{"run-id":"…"}}
 ```
 
-The checklist is derived from the spec (never hand-kept), one item per stamped scenario.
-The scorer enforces the instrument's honesty rules: zero verdicts means the grading did not happen
-and nothing is written, and an item the grader never reached is filed as a fail so the
-denominator cannot quietly shrink. The scoreboard compares cycles on the items both
-scored, prints got-better and got-worse counts rather than a net, and says out loud when
-the denominator moved. (A seeded holdback lived here too until 2026-09-02;
-`harness/README.md` says why it went.)
+`grader-digest` must be one of the run's `grader-digests`. The runner files the verdicts and the
+score in Measurement, and `run-progress` shows every effect's result, the score and the run's
+status. The instrument's honesty rules hold: zero verdicts means no score is filed, and an item
+the grader never reached is filed as a fail, so the denominator cannot quietly shrink.
 
 ### 4. Regenerate
 
-```bash
-./harness/fence.sh /tmp/clean-room
-```
-
-This is the heart of the method. The fence makes a clean-room clone in which `impl/` and
-all measurements are deleted from the working tree **and from git history**, then proves
-it (single root commit, object-graph probes). Point a fresh agent, or a fresh you, at
-the clean room and build the slice again from the docs alone.
+This is the heart of the method, and every run does it: the fence makes a clean-room clone of the
+cut in which `impl/`, `.pi` and all measurements are deleted from the working tree **and from git
+history**, then proves it (one root commit, object-graph probes; seam E3). The builder sees only
+that room. To regenerate, start another run on the same cut with a new `run-id` and `cycle-id`:
+a fresh builder builds the slice again from the docs alone.
 
 ### 5. Study the delta
 
-Score the regeneration with the same checklist and compare. Every difference between the
-two builds is information: a rule the docs failed to carry, a decision the spec left
-open, an invention that crept in. **The delta measures the spec, not the builder.**
+The scoreboard compares the run with the previous one on the items both scored, prints
+got-better and got-worse counts rather than a net, and says out loud when the denominator moved
+(it compares across runs only with `LOYLY_MEASUREMENT_STORE` kept). Every difference between two
+builds is information: a rule the docs failed to carry, a decision the spec left open, an
+invention that crept in. **The delta measures the spec, not the builder.**
+
+To watch a run, build its replay page from the run directory and publish it:
+
+```bash
+tools/spec/replay/build.sh <run-dir> tools/spec/replay/<name>.html   # tools/spec/replay/README.md
+tools/spec/publish.sh                                                 # gh-pages, as replay/<name>.html
+```
 
 ### 6. Fold the learning back
 
@@ -143,22 +196,25 @@ mechanism: it forces learning into the documents, because nothing else survives.
 
 Then cut, regenerate, and measure again. On a production project this loop runs weekly.
 
-## The harness, regenerated
+### 7. The legacy harness, for comparison
 
-The harness that runs this loop is specified and regenerated by the same method. Its spec is
-spec v2, under `.pi/spec/`: six bounded contexts (specification, cycle-preparation,
-grader-lifecycle, measurement, regeneration-cycle, cycle-runner), 187 stamped items, each
-context a slice through its link `.pi/plan/NN-<context>`; `.pi/model/` (spec v1) is history.
-Every decision is in `.pi/spec/decisions.md`. Each cycle rebuilds one context into
-`harness-impl/NN-<context>/`, Clojure on ORC with Grain.
+The legacy harness ran the same stages as separate commands: `verify.sh` (the gate),
+`gen_checklist.clj`, `score.clj` and `scoreboard.clj` (the instrument), and `fence.sh` (the
+clean room), in `archive/legacy-harness/` (its `README.md`). It is the reference: the switch was
+made only after two shadow runs agreed with it at every stage (`.pi/spec/decisions.md`, "The
+switch to the new harness"), and it is never deleted. In this repo `harness/` holds the same
+tools adapted to measure the harness itself (`harness/README.md`).
 
-Since 2026-11-08 the new harness runs the regeneration cycles: the cycle runner (slice 06)
-driving the other five contexts, with `pi` and its Gondolin backend as the builder. The switch
-came after two consecutive shadow runs agreed with the legacy harness at every stage, on the
-Löyly app, unchanged, as the benchmark. The legacy tools in `harness/` stay as the reference
-and are never deleted (`harness/README.md`, "Current state"). Until the sealed grader exists,
-a cycle is graded the legacy way: a black-box grading agent writes verdicts and
-`harness/v2/score.sh --verdicts` files them.
+## The harness
+
+The harness has its own spec: spec v2, under `.pi/spec/`, six bounded contexts (specification,
+cycle-preparation, grader-lifecycle, measurement, regeneration-cycle, cycle-runner), 187 stamped
+items, each context a slice through its link `.pi/plan/NN-<context>`; `.pi/model/` (spec v1) is
+history. Every decision is in `.pi/spec/decisions.md`. Each context was built by a regeneration
+cycle into `harness-impl/NN-<context>/`, Clojure on ORC with Grain, and each folder's
+`PROVENANCE.md` names its cycle. The harness builds Löyly and is not asked to rebuild itself
+(`.pi/spec/decisions.md`, "Self-hosting stopped"). Until a sealed grader exists, a run is graded
+the legacy way, by a black-box grading agent's verdicts (step 3).
 
 To look at the spec, open the event-model page: every context's Allium, Event Model,
 scenarios and coverage, and the handoffs between contexts, on one static page published to

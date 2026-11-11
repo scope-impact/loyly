@@ -45,6 +45,7 @@ harness configuration, the five contexts (`LOYLY_CONTEXTS`, a JSON file naming e
 what stays open (a run cannot yet resume after a restart, so the runner is kept alive from start
 to the filed score), is in `../.pi/spec/decisions.md`, "The switch to the new harness", and the
 builder command in `../.pi/harness/README.md`, "The builder command".
+The whole loop over Löyly, step by step: `../README.md`, "The tutorial: one full loop".
 
 ## A build product
 
