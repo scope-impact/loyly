@@ -84,9 +84,18 @@ minutes ([replay](https://scope-impact.github.io/loyly/replay/loyly-run-03.html)
 
 The runner is one JSON-RPC 2.0 process over stdio. It reads its `LOYLY_*` variables (stores, runs
 directory, project repository, harness config, contexts, self-check, builder) from the environment;
-`.pi/spec/cycle-runner/seam.md`, "Handed in", lists them, and the run-03 driver in
-`.pi/harness/.state/loyly/run-03/` (run state, not committed) is the worked example. Open: there
-is no committed launcher for a Löyly run yet.
+`.pi/spec/cycle-runner/seam.md`, "Handed in", lists them. The launcher `harness/loyly-run` (bb;
+`--help`) sets them as Löyly run-03 did, derives the cut from a base commit, and keeps the runner
+alive in a detached daemon:
+
+```bash
+harness/loyly-run start --run-id loyly-run-04 --commit <base>   # blocks until awaiting verdicts
+harness/loyly-run send cycle-runner/run-progress '{"run-id":"loyly-run-04"}'
+harness/loyly-run send cycle-runner/hand-in-verdicts '{"run-id":"loyly-run-04","verdicts-path":"/abs/verdicts.json","grader-digest":"loyly-run-04-grading-subagent"}'
+harness/loyly-run stop
+```
+
+Run state goes to `.pi/harness/.state/loyly/<run-id>/` (not committed).
 
 ### 1. Build from the docs
 
@@ -99,7 +108,7 @@ builder in a fenced clean room builds it into `impl/`, in any stack, test-first
 {"jsonrpc":"2.0","id":1,"method":"cycle-runner/start-run","params":{"run-id":"…","cycle-id":"…","cut-id":"…","commit":"<40-hex>","selection-id":"…","budget":{…},"grader-digests":["…"]}}
 ```
 
-It is synchronous (about 11 minutes for Löyly), and a run cannot resume after a restart: keep the
+It is synchronous (about 17 minutes for Löyly run-03), and a run cannot resume after a restart: keep the
 runner alive until the score is filed.
 
 ### 2. Ratify

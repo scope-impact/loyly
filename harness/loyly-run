@@ -1,0 +1,341 @@
+#!/usr/bin/env bb
+;; harness/loyly-run: the launcher for a Löyly run of the cycle runner (harness-impl/06-cycle-runner).
+;; Operator tooling, hand-written, like .pi/harness/bin/builder.sh; it is not part of harness-impl/.
+;; It does what Löyly run-03's one-off driver did (.pi/harness/.state/loyly/run-03/driver/):
+;; a detached daemon owns the runner's stdin/stdout and serves a file request queue, so the runner
+;; outlives the session that started it (a run cannot resume: keep it alive until the score is
+;; filed). The seam it speaks is .pi/spec/cycle-runner/seam.md. Run with --help.
+(ns loyly-run
+  (:require [babashka.fs :as fs]
+            [cheshire.core :as json]
+            [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.string :as str])
+  (:import [java.lang ProcessBuilder$Redirect]
+           [java.util.concurrent LinkedBlockingQueue TimeUnit]))
+
+(def script (str (fs/canonicalize *file*)))
+(def root (str (fs/parent (fs/parent script))))
+(def state-root (or (System/getenv "LOYLY_RUN_STATE_ROOT") (str root "/.pi/harness/.state/loyly")))
+(def current-file (str state-root "/current"))
+
+(def usage "harness/loyly-run: start and drive a Löyly run of the cycle runner (JSON-RPC over stdio).
+
+  harness/loyly-run start --run-id ID --commit REV [options]
+      Prepares the run's state dir (default .pi/harness/.state/loyly/ID/), spawns a detached
+      daemon that owns the runner, and sends cycle-runner/start-run. Waits for its response
+      (minutes to hours: the method is synchronous) unless --no-wait.
+      --commit REV         base commit of this repository; the cut is a scratch commit on it in
+                           the run's project clone: harness/ := archive/legacy-harness/ minus cycles/,
+                           FENCED_PATHS=\"impl .pi archive/legacy-harness/cycles\" (as cut 249a90b)
+      --project-repo DIR   use this git repository as LOYLY_PROJECT_REPO, and REV as the cut, as is
+      --cycle-id ID        default ID-cycle
+      --cut-id ID          default loyly-full-app-cut
+      --selection-id ID    default loyly-docs-plan-all
+      --budget-file F      budget as JSON or EDN (.edn); default run-03's: gate-attempt-limit 3,
+                           max-outer-cycles 1, max-continuations 0, stage timeouts fence 1800,
+                           regenerate 14400, gate 3600, score 28800 (seconds)
+      --grader-digest D    repeatable; default ID-grading-subagent
+      --env KEY=VALUE      repeatable; overrides one variable of the runner's environment. The runner's
+                           LOYLY_BUILDER_CMD is the run's bin/builder.sh, which runs LOYLY_BUILDER_CMD
+                           (default .pi/harness/bin/builder.sh) with LOYLY_BUILDER_SESSION_ID=ID-<n>
+                           for launch n, as run-03 did
+      --state-dir DIR      default .pi/harness/.state/loyly/ID
+      --no-wait            queue start-run and return
+
+  harness/loyly-run send METHOD ['PARAMS-JSON'] [--run-id ID | --state-dir DIR] [--no-wait]
+      Sends one JSON-RPC request through the daemon and prints the runner's response line.
+      Exit 0 on a result, 1 on a JSON-RPC error, 2 on a launcher or daemon failure.
+      e.g. send cycle-runner/run-progress '{\"run-id\":\"ID\"}'
+           send cycle-runner/hand-in-verdicts '{\"run-id\":\"ID\",\"verdicts-path\":\"/abs/verdicts.json\",\"grader-digest\":\"ID-grading-subagent\"}'
+
+  harness/loyly-run stop [--run-id ID | --state-dir DIR] [--force]
+      Stops the daemon and the runner (and the contexts it started), only while idle.
+      --force kills them even while a call is running (the run is lost).
+
+Without --run-id/--state-dir, send and stop use the last run started (.pi/harness/.state/loyly/current).
+LOYLY_RUN_STATE_ROOT, when set, replaces .pi/harness/.state/loyly (for trials).
+State dir: driver/{in,out,done}/ the request queue, driver/status.json, driver/driver.log,
+bin/builder.sh the builder wrapper, logs/rpc.jsonl every exchange, logs/runner.stderr, evidence/runner-env.json the runner's environment,
+evidence/builder/ the builder launches, runs/ LOYLY_RUNS_DIR, project/ LOYLY_PROJECT_REPO.
+")
+
+(defn die [code & msg] (binding [*out* *err*] (println (str "loyly-run: " (apply str msg)))) (System/exit code))
+(defn now [] (str (java.time.OffsetDateTime/now)))
+(defn write-json! [f v]
+  (let [tmp (str f ".tmp")] (spit tmp (json/generate-string v {:pretty true})) (fs/move tmp f {:replace-existing true :atomic-move true})))
+(defn read-json [f] (json/parse-string (slurp f)))
+(defn sh! [{:keys [dir env in]} & args]
+  (let [pb (ProcessBuilder. ^java.util.List (mapv str args))]
+    (when dir (.directory pb (io/file dir)))
+    (doseq [[k v] env] (.put (.environment pb) k v))
+    (let [p (.start pb)]
+      (if in (with-open [w (io/writer (.getOutputStream p))] (.write w ^String in)) (.close (.getOutputStream p)))
+      (let [out (future (slurp (.getInputStream p))) err (slurp (.getErrorStream p)) rc (.waitFor p)]
+        (when-not (zero? rc) (die 2 (str/join " " args) " failed: " (str/trim err)))
+        (str/trim @out)))))
+(defn alive? [pid] (boolean (some-> pid str/trim not-empty parse-long (java.lang.ProcessHandle/of) (.orElse nil) (.isAlive))))
+
+(defn parse-args [args]
+  (loop [[a & more :as as] args opts {:pos []}]
+    (cond (empty? as) opts
+          (#{"--no-wait" "--force"} a) (recur more (assoc opts (keyword (subs a 2)) true))
+          (#{"-h" "--help"} a) (do (print usage) (flush) (System/exit 0))
+          (#{"--grader-digest" "--env"} a) (do (when-not (seq more) (die 2 a " needs a value"))
+                                                (recur (rest more) (update opts (keyword (subs a 2)) (fnil conj []) (first more))))
+          (str/starts-with? a "--") (do (when-not (seq more) (die 2 a " needs a value"))
+                                        (recur (rest more) (assoc opts (keyword (subs a 2)) (first more))))
+          :else (recur more (update opts :pos conj a)))))
+
+;; ------------------------------------------------------------------ the daemon (driver.py's design)
+
+(defn daemon [sd]
+  (let [d (str sd "/driver") in (str d "/in") out (str d "/out") done (str d "/done")
+        say (fn [& a] (println (now) (str/join " " a)) (flush))
+        env (read-json (str sd "/evidence/runner-env.json"))
+        runner (str root "/harness-impl/06-cycle-runner/start.sh")
+        pb (doto (ProcessBuilder. ^java.util.List [runner])
+             (.directory (io/file sd))
+             (.redirectError (ProcessBuilder$Redirect/appendTo (io/file (str sd "/logs/runner.stderr")))))
+        _ (do (.clear (.environment pb)) (doseq [[k v] env] (.put (.environment pb) k (str v))))
+        _ (spit (str d "/driver.pid") (str (.pid (java.lang.ProcessHandle/current))))
+        p (.start pb)
+        rpid (.pid p)
+        status! (fn [state & kv] (write-json! (str d "/status.json")
+                                              (merge {"state" state "driver-pid" (.pid (java.lang.ProcessHandle/current))
+                                                      "runner-pid" rpid "at" (now)} (apply hash-map kv))))
+        q (LinkedBlockingQueue.)
+        w (io/writer (.getOutputStream p))
+        rpc-log (io/writer (str sd "/logs/rpc.jsonl") :append true)
+        other (io/writer (str sd "/logs/runner.stdout-other.jsonl") :append true)
+        n (atom 0)
+        kill-tree! (fn [force?]
+                     (doseq [h (reverse (vec (.toList (.descendants (.toHandle p)))))]
+                       (if force? (.destroyForcibly ^java.lang.ProcessHandle h) (.destroy ^java.lang.ProcessHandle h)))
+                     (if force? (.destroyForcibly p) (.destroy p)))
+        stop-runner! (fn []
+                       (try (.close w) (catch Exception _))
+                       (when-not (.waitFor p 30 TimeUnit/SECONDS) (kill-tree! false))
+                       (when-not (.waitFor p 10 TimeUnit/SECONDS) (kill-tree! true) (.waitFor p 10 TimeUnit/SECONDS))
+                       (when-not (.isAlive p) (.exitValue p)))
+        respond! (fn [name resp] (write-json! (str out "/" name) resp))]
+    (spit (str sd "/logs/runner.pid") (str rpid))
+    ;; A daemon killed by a signal (stop --force) takes the runner and its contexts with it.
+    (.addShutdownHook (Runtime/getRuntime) (Thread. #(when (.isAlive p) (kill-tree! true))))
+    (say "driver" (.pid (java.lang.ProcessHandle/current)) "started runner" rpid)
+    (future (with-open [r (io/reader (.getInputStream p))]
+              (doseq [line (line-seq r)] (.put q line)))
+            (.put q ::eof))
+    (letfn [(call [method params]
+              (let [id (swap! n inc) req {"jsonrpc" "2.0" "id" id "method" method "params" params} t0 (System/nanoTime)]
+                (say "->" method)
+                (.write w (str (json/generate-string req) "\n")) (.flush w)
+                (loop []
+                  (let [line (.take q)]
+                    (when (= ::eof line) (throw (ex-info "runner exited" {})))
+                    (let [r (try (json/parse-string line) (catch Exception _ ::nonjson))]
+                      (cond (= ::nonjson r) (do (.write other (str (json/generate-string {"at" (now) "nonjson" line}) "\n")) (.flush other) (recur))
+                            (= id (get r "id")) (let [secs (/ (Math/round (/ (- (System/nanoTime) t0) 1e8)) 10.0)]
+                                                  (.write rpc-log (str (json/generate-string {"req" req "resp" r "secs" secs}) "\n")) (.flush rpc-log)
+                                                  (say "<-" method secs "s")
+                                                  [r secs])
+                            :else (do (.write other (str (json/generate-string {"at" (now) "msg" r}) "\n")) (.flush other) (recur))))))))]
+      (status! "idle")
+      (loop []
+        (if-not (.isAlive p)
+          (do (say "runner exited rc" (.exitValue p)) (status! "runner-exited" "rc" (.exitValue p)))
+          (let [reqs (sort (map str (fs/glob in "*.json")))]
+            (if (empty? reqs)
+              (do (Thread/sleep 1000) (recur))
+              (let [f (first reqs) name (str (fs/file-name f))
+                    body (try (read-json f) (catch Exception _ (Thread/sleep 1000) (try (read-json f) (catch Exception e e))))]
+                (fs/move f (str done "/" name) {:replace-existing true})
+                (cond
+                  (instance? Exception body)
+                  (do (respond! name {"request" name "driver-error" (str "unreadable request: " (ex-message body))}) (recur))
+
+                  (= "driver/stop" (get body "method"))
+                  (do (status! "stopping")
+                      (let [rc (stop-runner!)]
+                        (respond! name {"driver" "stopped" "runner-rc" rc})
+                        (say "stopped on request, runner rc" rc) (status! "stopped" "rc" rc)))
+
+                  :else
+                  (let [method (get body "method")]
+                    (status! "busy" "request" name "method" method)
+                    (let [resp (try (let [[r secs] (call method (get body "params" {}))] {"request" name "secs" secs "response" r})
+                                    (catch Exception e (say "error" (ex-message e)) {"request" name "driver-error" (ex-message e)}))]
+                      (respond! name resp)
+                      (status! "idle" "last" name))
+                    (recur)))))))))
+    (System/exit 0)))
+
+;; ------------------------------------------------------------------ the client side
+
+(defn state-dir [opts]
+  (cond (:state-dir opts) (str (fs/absolutize (:state-dir opts)))
+        (:run-id opts) (str state-root "/" (:run-id opts))
+        (fs/exists? current-file) (str/trim (slurp current-file))
+        :else (die 2 "no run: give --run-id or --state-dir")))
+
+(defn status [sd] (let [f (str sd "/driver/status.json")] (when (fs/exists? f) (read-json f))))
+(defn daemon-alive? [sd] (let [f (str sd "/driver/driver.pid")] (and (fs/exists? f) (alive? (slurp f)))))
+
+(defn enqueue! [sd method params]
+  (let [name (format "%d-%s.json" (System/currentTimeMillis) (str/replace method #"[^A-Za-z0-9._-]" "_"))
+        tmp (str sd "/driver/" name ".tmp")]
+    (spit tmp (json/generate-string {"method" method "params" params}))
+    (fs/move tmp (str sd "/driver/in/" name) {:atomic-move true})
+    name))
+
+(defn await-response [sd name]
+  (let [f (str sd "/driver/out/" name)]
+    (loop []
+      (cond (fs/exists? f) (read-json f)
+            (not (daemon-alive? sd)) (do (Thread/sleep 1500)
+                                         (if (fs/exists? f) (read-json f)
+                                             (die 2 "the daemon is gone before answering " name " (status: "
+                                                  (json/generate-string (status sd)) "; see " sd "/driver/driver.log)")))
+            :else (do (Thread/sleep 1000) (recur))))))
+
+(defn send! [sd method params no-wait]
+  (when-not (daemon-alive? sd) (die 2 "no daemon running for " sd " (status: " (json/generate-string (status sd)) ")"))
+  (let [name (enqueue! sd method params)]
+    (if no-wait
+      (do (println (str "queued " sd "/driver/in/" name "; the response will be " sd "/driver/out/" name)) 0)
+      (let [r (await-response sd name)]
+        (cond (get r "driver-error") (die 2 "daemon: " (get r "driver-error"))
+              :else (do (println (json/generate-string (get r "response")))
+                        (if (get-in r ["response" "error"]) 1 0)))))))
+
+(defn base-cut!
+  "In the clone, a scratch commit on BASE whose harness/ is archive/legacy-harness/ minus cycles/
+  with the benchmark FENCED_PATHS: the recipe of cut 249a90b (\"The switch to the new harness\" 2)."
+  [repo base]
+  (let [idx (str repo "/.git/loyly-run-index") env {"GIT_INDEX_FILE" idx}
+        g (fn [& args] (apply sh! {:dir repo :env env} "git" args))
+        cfg (g "show" (str base ":archive/legacy-harness/config.sh"))
+        lines (str/split-lines cfg)
+        _ (when-not (= 1 (count (filter #(str/starts-with? % "FENCED_PATHS=") lines)))
+            (die 2 "archive/legacy-harness/config.sh at " base " has no single FENCED_PATHS line"))
+        cfg' (str (str/join "\n" (map #(if (str/starts-with? % "FENCED_PATHS=") "FENCED_PATHS=\"impl .pi archive/legacy-harness/cycles\"" %) lines)) "\n")
+        _ (g "read-tree" base)
+        _ (g "rm" "-r" "-q" "-f" "--cached" "--ignore-unmatch" "harness")
+        _ (g "read-tree" "--prefix=harness/" (str base ":archive/legacy-harness"))
+        _ (g "rm" "-r" "-q" "-f" "--cached" "--ignore-unmatch" "harness/cycles")
+        blob (sh! {:dir repo :in cfg'} "git" "hash-object" "-w" "--stdin")
+        _ (g "update-index" "--cacheinfo" (str "100644," blob ",harness/config.sh"))
+        tree (g "write-tree")
+        date (str (g "log" "-1" "--format=%ct" base) " +0000")
+        who {"GIT_AUTHOR_NAME" "loyly-run" "GIT_AUTHOR_EMAIL" "loyly-run@localhost" "GIT_AUTHOR_DATE" date
+             "GIT_COMMITTER_NAME" "loyly-run" "GIT_COMMITTER_EMAIL" "loyly-run@localhost" "GIT_COMMITTER_DATE" date}
+        cut (sh! {:dir repo :env who :in (str "Löyly cut on " base ": harness/ is the archived Löyly legacy harness with the benchmark config (FENCED_PATHS=\"impl .pi archive/legacy-harness/cycles\")\n")}
+                 "git" "commit-tree" tree "-p" base)]
+    (fs/delete-if-exists idx)
+    cut))
+
+(def default-budget
+  {"gate-attempt-limit" 3 "max-outer-cycles" 1 "max-continuations" 0
+   "stage-timeouts-seconds" {"fence" 1800 "regenerate" 14400 "gate" 3600 "score" 28800}})
+
+(defn start! [opts]
+  (let [run-id (or (:run-id opts) (die 2 "start needs --run-id"))
+        rev (or (:commit opts) (die 2 "start needs --commit"))
+        sd (state-dir opts)
+        _ (when-not (re-matches #"[A-Za-z0-9._-]+" run-id) (die 2 "--run-id wants [A-Za-z0-9._-]: " run-id))
+        _ (when (fs/exists? sd) (die 2 sd " exists: a run id is used once (a run cannot resume)"))
+        _ (doseq [s ["driver/in" "driver/out" "driver/done" "bin" "logs" "evidence/builder" "runs"]] (fs/create-dirs (str sd "/" s)))
+        [repo cut] (if-let [pr (:project-repo opts)]
+                     [(str (fs/canonicalize pr)) rev]
+                     (let [repo (str sd "/project")
+                           base (sh! {:dir root} "git" "rev-parse" "--verify" (str rev "^{commit}"))]
+                       (sh! {} "git" "clone" "-q" "--no-checkout" root repo)
+                       (let [cut (base-cut! repo base)]
+                         (sh! {:dir repo} "git" "checkout" "-q" "-b" (str "loyly/" run-id) cut)
+                         (println "cut" cut "on base" base "in" repo)
+                         [repo cut])))
+        config (str sd "/benchmark-config.sh")
+        overrides (into {} (for [kv (:env opts)] (let [[k v] (str/split kv #"=" 2)] (when-not v (die 2 "--env wants KEY=VALUE: " kv)) [k v])))
+        _ (when-not (overrides "LOYLY_HARNESS_CONFIG")
+            (spit config (str (sh! {:dir repo} "git" "show" (str cut ":harness/config.sh")) "\n")))
+        contexts (into (sorted-map) (for [f (sort (map str (fs/glob (str root "/harness-impl") "0[1-5]-*/start.sh")))]
+                                      [(subs (str (fs/file-name (fs/parent f))) 3) f]))
+        _ (write-json! (str sd "/contexts.json") contexts)
+        _ (fs/copy (str root "/harness/loyly/builder-instruction.md") (str sd "/builder-instruction.md"))
+        env (merge {"PATH" (System/getenv "PATH") "HOME" (System/getenv "HOME") "LANG" "C.UTF-8"
+                    "TMPDIR" (or (System/getenv "TMPDIR") "/tmp")
+                    "LOYLY_GRAIN_STORE" (str sd "/runner-store.sqlite")
+                    "LOYLY_RUNS_DIR" (str sd "/runs")
+                    "LOYLY_PROJECT_REPO" repo
+                    "LOYLY_HARNESS_CONFIG" (str sd "/benchmark-config.sh")
+                    "LOYLY_CONTEXTS" (str sd "/contexts.json")
+                    "LOYLY_SELF_CHECK_CMD" (str repo "/harness/check.sh --local")
+                    "LOYLY_BUILDER_CMD" (str root "/.pi/harness/bin/builder.sh")
+                    "LOYLY_BUILDER_INSTRUCTION" (str sd "/builder-instruction.md")
+                    "LOYLY_BUILDER_IMAGES" (str root "/.pi/harness/.state/assets")
+                    "LOYLY_SCORING_TOOL_PATHS" "[]"
+                    ;; read by .pi/harness/bin/builder.sh, which the runner starts with its own environment
+                    "BUILDER_EVIDENCE_DIR" (str sd "/evidence/builder")
+                    "PI_HARNESS_STATE_ROOT" (str root "/.pi/harness/.state")}
+                   overrides)
+        ;; As run-03's bin/builder.sh: each builder launch is its own durable session, <run-id>-<n>.
+        wrapper (str sd "/bin/builder.sh")
+        q (fn [x] (str "'" (str/replace x "'" "'\\''") "'"))
+        _ (spit wrapper (str "#!/usr/bin/env bash\n# LOYLY_BUILDER_CMD of run " run-id ", written by harness/loyly-run: launch n gets\n"
+                             "# LOYLY_BUILDER_SESSION_ID=" run-id "-<n> (unless set), stdin from /dev/null.\n"
+                             "c=" (q (str sd "/bin/builder-launches")) "; n=$(( $(cat \"$c\" 2>/dev/null || echo 0) + 1 )); echo \"$n\" > \"$c\"\n"
+                             "export LOYLY_BUILDER_SESSION_ID=\"${LOYLY_BUILDER_SESSION_ID:-" run-id "-$n}\"\n"
+                             "exec " (q (env "LOYLY_BUILDER_CMD")) " \"$@\" < /dev/null\n"))
+        _ (fs/set-posix-file-permissions wrapper "rwxr-xr-x")
+        env (assoc env "LOYLY_BUILDER_CMD" wrapper)
+        budget (if-let [f (:budget-file opts)]
+                 (if (str/ends-with? f ".edn") (json/parse-string (json/generate-string (edn/read-string (slurp f)))) (read-json f))
+                 default-budget)
+        params {"run-id" run-id "cycle-id" (or (:cycle-id opts) (str run-id "-cycle"))
+                "cut-id" (or (:cut-id opts) "loyly-full-app-cut") "commit" cut
+                "selection-id" (or (:selection-id opts) "loyly-docs-plan-all") "budget" budget
+                "grader-digests" (or (:grader-digest opts) [(str run-id "-grading-subagent")])}]
+    (write-json! (str sd "/evidence/runner-env.json") env)
+    (write-json! (str sd "/start-run-params.json") params)
+    (spit current-file (str sd "\n"))
+    ;; Detached: its own process group (set -m), immune to hangup, stdin from /dev/null.
+    (sh! {} "bash" "-c" "set -m; nohup \"$0\" _daemon \"$1\" </dev/null >>\"$1/driver/driver.log\" 2>&1 &" script sd)
+    (loop [i 0]
+      (let [s (get (status sd) "state")]
+        (cond (= "idle" s) nil
+              (> i 120) (die 2 "the daemon did not come up; see " sd "/driver/driver.log")
+              (and (> i 5) (not (daemon-alive? sd))) (die 2 "the daemon exited; see " sd "/driver/driver.log and " sd "/logs/runner.stderr")
+              :else (do (Thread/sleep 500) (recur (inc i))))))
+    (println "daemon up; state dir" sd)
+    (send! sd "cycle-runner/start-run" params (:no-wait opts))))
+
+(defn stop! [opts]
+  (let [sd (state-dir opts) s (status sd)]
+    (cond
+      (not (daemon-alive? sd)) (do (println "no daemon running for" sd "(status:" (json/generate-string s) ")") 0)
+      (:force opts)
+      (let [dpid (str/trim (slurp (str sd "/driver/driver.pid")))]
+        (sh! {} "kill" "-TERM" dpid)
+        (loop [i 0] (when (and (< i 60) (daemon-alive? sd)) (Thread/sleep 500) (recur (inc i))))
+        (when (daemon-alive? sd) (sh! {} "kill" "-KILL" dpid))
+        (write-json! (str sd "/driver/status.json") (assoc s "state" "killed" "at" (now)))
+        (println "killed daemon" dpid) 0)
+      (not= "idle" (get s "state"))
+      (die 2 "the daemon is " (get s "state") " (" (get s "method") "): stop only while idle, or --force (the run is lost)")
+      :else (let [r (await-response sd (enqueue! sd "driver/stop" {}))] (println (json/generate-string r)) 0))))
+
+(defn -main [& args]
+  (let [[cmd & more] args opts (parse-args more)]
+    (case cmd
+      "start" (System/exit (start! opts))
+      "send" (let [[method params] (:pos opts)]
+               (when-not method (die 2 "send needs a METHOD"))
+               (System/exit (send! (state-dir opts) method
+                                   (if params (try (json/parse-string params) (catch Exception e (die 2 "params are not JSON: " (ex-message e)))) {})
+                                   (:no-wait opts))))
+      "stop" (System/exit (stop! opts))
+      "_daemon" (daemon (first (:pos opts)))
+      (nil "-h" "--help" "help") (do (print usage) (flush))
+      (die 2 "unknown command " cmd "; see --help"))))
+
+(apply -main *command-line-args*)
