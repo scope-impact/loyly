@@ -134,7 +134,9 @@ contract BuilderLaunch {
 -- verify.sh's arguments. For the stdio seam in the order of harness/v2/gate.sh: the
 -- contract's two entry points, the identity probe, the suite, the identity probe over stdin
 -- and stdout within its budget, then the event-store check of the store the probe's
--- candidate wrote (decisions.md, "Spec round 8").
+-- candidate wrote (decisions.md, "Spec round 8"). When a gate command is handed in
+-- (LOYLY_GATE_CMD), the runner gates neither way: it hands the attempt to that provided
+-- command and records the command's result (decisions.md, "Spec round 12" D2).
 contract GateOnTheHost {
     @invariant TheGateGradesACopy
         -- The gate grades a copy of the candidate taken when its builder session ended, in
@@ -156,7 +158,12 @@ contract GateOnTheHost {
         -- "Spec round 7c"). After a refusal to grade is recorded, the runner gates the
         -- same attempt again on the attempt's self-check, which stands: it does not
         -- self-check again, as the Regeneration cycle records one self-check per attempt
-        -- (decisions.md, "Spec round 8b"). The same holds for the stdio seam.
+        -- (decisions.md, "Spec round 8b"). The same holds for the stdio seam and for a gate
+        -- command. A gate stopped by a refusal guard is still recorded, as a failed outcome
+        -- with the reason of the step the guard stands before, so the context refuses it with
+        -- the guard's own code; only the three codes record-gate-refusal takes are followed
+        -- by a gate refusal, and any other refusal of the gate halts the run (decisions.md,
+        -- "Spec round 12" D3, carried from round 10's draft D2).
 
     @invariant TheStdioGateOrder
         -- For the stdio seam, the first guard that does not hold is the gate's reply, in
@@ -194,6 +201,32 @@ contract GateOnTheHost {
         -- For the stdio seam the harness digest covers the store-check command too, after
         -- the configuration file, the self-check command and the identity probe, so a
         -- store check changed between the self-check and the gate is another harness.
+
+    @invariant TheGateCommandJudges
+        -- When a gate command is handed in (seam.md, E5 gate (command); decisions.md,
+        -- "Spec round 12" D2), it is the gate, for either seam: the runner checks the
+        -- identity probe at the cut, then launches the command once per gate, with three
+        -- arguments: the gate room, which is then the cut's tree with nothing at the
+        -- candidate's scope, the candidate's copy beside it, and the attempt's empty gate
+        -- evidence directory, which is the attempt's evidence root; and it starts no
+        -- program of the candidate itself. Absent, the gate is the http or the stdio gate,
+        -- exactly as before.
+
+    @invariant TheGateCommandsResultIsRead
+        -- The gate command's exit status and its last line are its result (seam.md, "The
+        -- gate command's result"): exit 0 a pass, with the budget of its BOOT line, the
+        -- poll of its ANSWERED line and its last line as the identity probe's result; any
+        -- other exit a failed attempt with the reason its last line names, or a refusal to
+        -- grade when it names seam_answered_before_boot or identity_probe_missing; any
+        -- other last line a gate that could not be performed, which halts the run and
+        -- records nothing for the gate. A command that outlives the gate stage's timeout is
+        -- stopped and the cycle fails at the gate for budget.
+
+    @invariant TheHarnessDigestCoversTheGateCommand
+        -- When a gate command is handed in, the harness digest covers it, after the
+        -- configuration file, the self-check command and the identity probe, so a gate
+        -- command changed between the self-check and the gate is another harness. With
+        -- none handed in, the digest is as before.
 }
 
 ------------------------------------------------------------
@@ -223,7 +256,10 @@ enum AppSeam { http | stdio }
 -- empty selection stops the cycle). A stamp whose identities are not the plan's own is
 -- refused_before_the_cycle too: the runner stamps a copy of each plan spec file with its
 -- item tags removed, and the identities the stamp hands out must equal the file's own
--- tags, in file order (decisions.md, "Spec round 7b" 2, Q1).
+-- tags, in file order (decisions.md, "Spec round 7b" 2, Q1). A gate recording the context
+-- refused with no next step, and a gate command whose result says the gate could not be
+-- performed, are effect_could_not_run, the detail naming what failed (decisions.md, "Spec
+-- round 12" D2, D3).
 enum HaltReason { context_did_not_respond | effect_could_not_run | refused_before_the_cycle }
 
 ------------------------------------------------------------

@@ -108,7 +108,8 @@ Actors: the **operator** starts a run and hands in its verdicts (`RunDesk`); the
   not handed in or not responding, 6 the configured builder image not in the builder images
   directory.
 - `HandInVerdicts`: 1 no such run, 2 the gate has not passed, 3 verdicts already handed in, 4 the
-  run no longer awaits its verdicts (unit level), 5 grader digest not approved, 6 the file absent,
+  run no longer awaits its verdicts (unit level; a run whose cycle the stage clock failed is
+  concluded before it is checked, spec round 12 D4), 5 grader digest not approved, 6 the file absent,
   blank or not a list of verdicts.
 - `RecordEffect`, `RecordEffectAfterTheVerdicts`, `ConcludeRunPassed` 1 (unit level: own status);
   `RelayHandoff`, `ConcludeWithTheCycle`, `ConcludeRunFailed`, `HaltRun` 1: a run that ended stays
@@ -121,8 +122,9 @@ Actors: the **operator** starts a run and hands in its verdicts (`RunDesk`); the
 step is observable through the seam or carries a decision (`../decisions.md`, "Spec round 7b" 1).
 Spec round 7c appended `@item-06-036`, spec round 7d `@item-06-037` and `@item-06-038`, and spec
 round 8 `@item-06-039` to `@item-06-048` (the stdio gate and the plan's slices), and spec round 9
-`@item-06-049` to `@item-06-051` (the builder image, its refusal, Measurement's history), all
-minimum: 51 items. `drafts.feature` holds none. Of the 49 must-cover obligations
+`@item-06-049` to `@item-06-051` (the builder image, its refusal, Measurement's history), spec
+round 11 `@item-06-052` (the http probe in the gated tree), and spec round 12 `@item-06-053` to
+`@item-06-057` (the gate command), all minimum: 57 items. `drafts.feature` holds none. Of the 52 must-cover obligations
 (`tools/spec/v2/coverage.py`), 7 are unit level and 1 gate-verified (`TheGateRoomIsNotTheBuilders`, planned `room-policy`).
 
 ## Decided questions (spec round 7b)
@@ -143,6 +145,16 @@ minimum: 51 items. `drafts.feature` holds none. Of the 49 must-cover obligations
 - **Q3, the harness digest**: the SHA-256 of the configuration file, the self-check command and
   the identity probe, in that order, as drafted; for the `stdio` seam the store-check command
   follows (spec round 8).
+
+## Decided in spec round 12
+
+D1 to D5 of `../decisions.md`, "Spec round 12": a fence plan is configuration (`FENCED_PATHS`,
+`APP_DIR`, its digest a line of the configuration), no runner change; the gate handed to a
+provided command, `LOYLY_GATE_CMD <gate-room> <candidate> <evidence-dir>`, when one is handed in,
+its result read from its exit status and its last line; a gate stopped by a refusal guard
+recorded as a failed outcome so the context refuses it with the guard's code, and no fourth try
+(round 10's draft D2); the run concluded with its cycle before a method is checked (round 10's
+draft D5); the harness digest covers the gate command.
 
 ## Decided in spec round 8
 

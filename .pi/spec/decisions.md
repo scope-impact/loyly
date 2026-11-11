@@ -1322,3 +1322,89 @@ where the http probe runs. The product owner decided D1, D2 and D3 "as close to 
 
 The slice-06 grader grows by `@item-06-052` ("spec grew", additions only). The checklist golden
 grows 200 → 201. `@item-06-052` is the next cycle's untuned holdout.
+
+## Spec round 12 (2026-11-11)
+
+Decided by the product owner on 2026-11-11, kept to the smallest change ("KISS").
+
+A spec round on slice 06 only. No other context's `spec.feature`, Allium `requires` or
+event-model schema changed. No existing scenario's text changed. The runner's event-model schema
+is unchanged: everything new travels in a handed-in command, its arguments, its output and the
+fields `record-gate-attempt` already has.
+
+Why: the product owner wants the new harness, the cycle runner driving slices 01 to 05, to run
+Halla Health, a second project. Its pilot is the wallet-consent context. Halla's candidates boot
+only against a world (PostgreSQL, Medplum with its Redis) that runs in a Gondolin VM. Halla's
+phase 1 (`.pi/proto/README.md` in the Halla worktree) proved three things: a VM booted from a mount
+spec is a working fence, the world comes up in a VM with egress only to an allow list, and Halla's
+legacy `harness/verify.sh` runs there (steps 1 to 5). The runner's fence, `fence.sh` on a copy of the
+cut, already does what Halla needs once a fence plan is written as configuration. Its gate does
+not: the gate runs on the host, where the world cannot run. So the gate is the one seam change.
+
+1. **D1, a fence plan is configuration: no runner change.** An approved fence plan, whose scope
+   is one folder, is written into the configuration the runner already reads. `APP_DIR` is the
+   scope. `FENCED_PATHS` is the plan's `:hidden` paths and `APP_DIR`, as the Löyly benchmark
+   fences `impl`. `PLAN_DIR` and `PLAN_SLICES` select the plan, and `BUILDER_IMAGE` is the world
+   image. The plan's digest is a line of its own, `FENCE_PLAN=sha256:…`. The runner reads no such
+   key, but the harness digest covers the whole file, so every self-check and gate attempt
+   carries it. The runner's `fence.sh` then removes, squashes and probes, unchanged, and
+   `prove-clean-room` records what it records today. Read-only enforcement outside the scope, in
+   the builder VM, belongs to the provided `LOYLY_BUILDER_CMD` (`builder.sh` and the VM's
+   mount spec). The seam gains one sentence: the runner reads only the keys it names.
+2. **D2, the gate can be handed to a provided command.** The new key is `LOYLY_GATE_CMD`. When it
+   is set, E5's gate runs `<cmd> <gate-room> <candidate> <evidence-dir>` in the project
+   repository. `<gate-room>` is the cut's tree with nothing at `APP_DIR`, fenced paths included,
+   because the gate is the judge and Halla's identity probe is fenced from the builder.
+   `<candidate>` is the candidate's copy, a folder beside the gate room, and the candidate digest
+   is the copy's as taken. `<evidence-dir>` is the attempt's evidence root. The runner still
+   checks the identity probe at the cut and computes its digest, and it starts no program of the
+   candidate itself. It reads the command's exit status and its standard output:
+   - `BOOT <polls> <seconds>` and `ANSWERED <poll>` carry the boot numbers;
+   - exit 0 is a pass, and the last line is the probe's result;
+   - any other exit is decided by the last line's first word: a reason of `gate-attempt-failed`
+     fails the attempt; `seam-answered-before-boot` or `identity-probe-missing` is a refusal to
+     grade (D3); anything else, such as `infrastructure` when the world did not come up, halts
+     the run, `effect-could-not-run`, and nothing is recorded;
+   - a command that outlives the gate stage's timeout is stopped, and the cycle fails at the gate
+     for `budget`.
+
+   When the key is not set, E5 is exactly as before. Gondolin, the world, its env, `/health` and
+   the allow list are the command's own: no `LOYLY_*` key names them. Halla's command is
+   `gate.mjs` on Gondolin's API. It is provided and never regenerated, as `builder.sh` is.
+3. **D3, a gate stopped by a refusal guard, and no fourth try.** This is round 10's draft D2,
+   carried. It clears the cycle-runner inbox's contradictions 1 and 3, which spec round 10 found
+   and which stayed open when round 10 was not applied. The runner offers `outcome` `failed`,
+   with the reason of the step the guard stands before. Regeneration cycle then refuses it with
+   the guard's own code. A `gate-refusal` follows only the three codes `record-gate-refusal`
+   takes. Any other refusal of the gate halts the run, except `cycle-concluded`. The gate
+   command's refusal lines use this path. No new item: `@item-06-018` and the new `@item-06-055`
+   cover it.
+4. **D4, the run is concluded with its cycle before a method is checked.** This is round 10's
+   draft D5, carried. It clears contradiction 2. Verdicts handed in after the stage clock failed
+   the cycle are refused `run-not-awaiting-verdicts`. A start is not blocked by a run whose cycle
+   ended. One new item, `@item-06-058`.
+5. **D5, the harness digest covers the gate command**, after the configuration, the self-check
+   and the probe, when one is handed in. When none is handed in, the digest is unchanged, so
+   Löyly's runs keep their harness digest. The store-check command is not covered when a gate
+   command is set, because it is then not read. One new item, `@item-06-057`.
+6. **Later, and not needed now.**
+   - The mount-table fence as the runner's own fence. Its mount facts would go in
+     `prove-clean-room` (regeneration-cycle).
+   - Fence-plan approval as a refusal, like grader digests, in cycle-preparation or
+     grader-lifecycle.
+   - A candidate scope of more than one folder (the `:scope` list, and a digest over it).
+   - Halla's extra item kinds (Allium, api, the event record), and Measurement in general: Halla's
+     verdicts come from `measure.sh` through a converter outside the runner.
+   - Egress and room isolation as spec. This is still open since "The switch" 7.
+   - Round 10's D3 (a context start deadline) and D4 (the score budget against grading time):
+     gaps, not contradictions.
+7. **Five new scenarios**, all `@minimum`, appended at the end of `cycle-runner/spec.feature` and
+   stamped `@item-06-053` to `@item-06-057`. Cycle-runner goes from 52 to 57 items, and from 49
+   to 52 must-cover obligations (three new invariants on `GateOnTheHost`). `tools/spec/v2/gates.sh`:
+   ALL GATES PASS.
+8. **Halla Health keeps its own side.** Its plan is a generated copy with renumbered items in its
+   cut (no runner change), and its self-check is its own `check.sh` after its stale checklist golden
+   is recorded again. Both are Halla changes, not this spec.
+
+The slice-06 grader grows by these five items ("spec grew", additions only). The checklist golden
+grows from 201 to 206. `@item-06-053` to `@item-06-057` are the next cycle's untuned holdout.

@@ -586,3 +586,63 @@ Feature: Cycle runner
       When the operator starts run R-1 of cycle C-1 at source cut K-1
       Then the gate effect of run R-1 for attempt 1 was recorded with the event "regeneration-cycle/gate-attempt-passed"
       And the install effect's candidate digest is the regenerate effect's
+
+  Rule: A gate command handed in is the gate: the runner hands it the cut's tree, the candidate's copy and an evidence directory, and records its result
+
+    # context.allium, contract GateOnTheHost, invariants TheGateCommandJudges and TheGateCommandsResultIsRead
+    # decisions.md "Spec round 12" D2: Halla's candidates boot only against a world (PostgreSQL, Medplum) that runs in a VM, so a provided gate command runs the gate there
+    @minimum @allium-boundary.TheGateCommandJudges
+    @item-06-053
+    Scenario: A gate command that exits 0 passes the attempt with the budget, the poll and the probe line it printed
+      Given the operator hands in a gate command that records its three arguments and what it finds at each
+      And it prints "BOOT 20 10", then "ANSWERED 3", then last "ledger answered as itself", and exits 0
+      And the stub builder leaves a candidate in its candidate scope
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then the gate effect of run R-1 for attempt 1 was recorded with the event "regeneration-cycle/gate-attempt-passed"
+      And that event carries a boot budget of 10 seconds and 20 polls, answered on poll 3, and the identity probe result "ledger answered as itself"
+      And the gate command was launched once, in the project repository, with the cut's tree holding nothing at the candidate's scope, a copy of the candidate whose digest is the install effect's, and an empty directory that is the event's evidence root
+      And the candidate's launch entrypoint was never started by the runner
+
+    # context.allium, contract GateOnTheHost, invariant TheGateCommandsResultIsRead
+    # decisions.md "Spec round 12" D2: the last line's first word is a reason of gate-attempt-failed
+    @minimum @allium-boundary.TheGateCommandsResultIsRead
+    @item-06-054
+    Scenario: A gate command that exits 1 naming a reason fails the attempt with that reason, and the repair builder is handed its evidence
+      Given the operator hands in a gate command that writes a file into its evidence directory, prints "BOOT 20 10" and last "suite-red 3 of 65 tests failed", and exits 1 on attempt 1, and passes attempt 2
+      And the stub builder records the paths of each builder room
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then the gate effect of run R-1 for attempt 1 was recorded with the event "regeneration-cycle/gate-attempt-failed", its reason "suite-red" and its detail "3 of 65 tests failed"
+      And the repair builder's room held, read-only, the file the gate command wrote into its evidence directory for attempt 1
+      And the gate effect for attempt 2 was recorded with the event "regeneration-cycle/gate-attempt-passed"
+
+    # context.allium, contract GateOnTheHost, invariants TheGateCommandsResultIsRead and TheLegacyGateOrder
+    # decisions.md "Spec round 12" D3: a refusal guard is offered as a failed outcome, and Regeneration cycle refuses it with the guard's own code
+    @minimum @allium-boundary.TheGateCommandsResultIsRead
+    @item-06-055
+    Scenario: A gate command whose last line is a refusal to grade is a gate refusal, and three in a row fail the cycle
+      Given the operator hands in a gate command that prints "BOOT 20 10" and last "seam-answered-before-boot 127.0.0.1:8920 answered before start.sh ran", and exits 1
+      And the stub builder leaves a candidate in its candidate scope
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then the gate effects of run R-1 for attempt 1 were refused "seam-answered-before-boot" three times, each followed by a recorded gate-refusal effect
+      And run R-1 failed with its cycle at the gate for "infrastructure"
+
+    # cycle-run.allium, rule HaltRun (a gate that could not be performed); context.allium, invariant TheGateCommandsResultIsRead
+    # decisions.md "Spec round 12" D2: a world or a VM that did not come up is not the candidate's failure, and Regeneration cycle has no reason for it
+    @minimum @allium-rule-success.HaltRun
+    @item-06-056
+    Scenario: A gate command whose last line names no code the runner reads halts the run at the gate
+      Given the operator hands in a gate command that prints "BOOT 20 10" and last "infrastructure the world did not come up", and exits 2
+      And the stub builder leaves a candidate in its candidate scope
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then run R-1 is halted at the gate effect because a handed-in command could not run, its detail "infrastructure the world did not come up"
+      And it has no gate effect result, and its cycle is still running
+
+    # context.allium, contract GateOnTheHost, invariant TheHarnessDigestCoversTheGateCommand
+    # decisions.md "Spec round 12" D5: the gate command is the judge, so it is part of the harness
+    @minimum @allium-boundary.TheHarnessDigestCoversTheGateCommand
+    @item-06-057
+    Scenario: The harness digest covers the gate command, and is unchanged when none is handed in
+      Given runs R-1, R-2 and R-3 of cycles C-1, C-2 and C-3 at source cut K-1 differ only in the gate command: none for R-1, "gate-a" for R-2 and "gate-b" for R-3, each gate command passing every attempt
+      When the operator starts each of the runs R-1, R-2 and R-3 in turn
+      Then the self-check effects of run R-1 carry the SHA-256 of the configuration file, the self-check command and the identity probe, in that order, as the harness digest
+      And the self-check effects of runs R-1, R-2 and R-3 carry three different harness digests
