@@ -51,6 +51,8 @@
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.55; font-variant-numeric: tabular-nums; }
 .wrap { max-width: 980px; margin: 0 auto; padding: 0 16px 64px; }
+.crumbs { font-size: 14px; color: var(--ink-3); margin: 0 0 14px; }
+.crumbs a { text-decoration: none; }
 header.top { padding: 40px 0 20px; border-bottom: 1px solid var(--rule); margin-bottom: 8px; }
 .eyebrow { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 8px; }
 h1 { font-family: var(--display); font-weight: 600; font-size: clamp(32px, 6vw, 48px); line-height: 1.1; margin: 0 0 10px; letter-spacing: -.01em; }
@@ -198,6 +200,7 @@ footer { margin-top: 48px; padding-top: 14px; border-top: 1px solid var(--rule);
 
 <header class="top">
   <button class="theme-toggle" type="button" id="theme">Theme</button>
+  <nav class="crumbs" aria-label="Where you are"><a href="../index.html">Event model</a> › Evaluation</nav>
   <p class="eyebrow">Löyly spec v2 · evaluation snapshot · 2026-11-09</p>
   <h1>Löyly harness evaluation</h1>
   <p class="lede">Can the new spec-v2 harness be trusted to rebuild a real app? Five shadow runs regenerated the full Löyly booking app beside the legacy harness, on the same inputs.</p>
