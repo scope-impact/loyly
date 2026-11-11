@@ -21,14 +21,21 @@
 
 (def usage "harness/loyly-run: start and drive a Löyly run of the cycle runner (JSON-RPC over stdio).
 
-  harness/loyly-run start --run-id ID --commit REV [options]
+  harness/loyly-run start --commit REV [--run-id ID] [options]
       Prepares the run's state dir (default .pi/harness/.state/loyly/ID/), spawns a detached
       daemon that owns the runner, and sends cycle-runner/start-run. Waits for its response
       (minutes to hours: the method is synchronous) unless --no-wait.
+      --run-id ID          default <name>-<yyyymmdd-HHMMSS>, <name> the project repo's directory
+                           name, or loyly without --project-repo
       --commit REV         base commit of this repository; the cut is a scratch commit on it in
                            the run's project clone: harness/ := archive/legacy-harness/ minus cycles/,
                            FENCED_PATHS=\"impl .pi archive/legacy-harness/cycles\" (as cut 249a90b)
-      --project-repo DIR   use this git repository as LOYLY_PROJECT_REPO, and REV as the cut, as is
+      --project-repo DIR   use this git repository as LOYLY_PROJECT_REPO, and REV (resolved to its
+                           40-hex commit there) as the cut, as is
+      --harness-config F   the harness config (config.sh: APP_DIR, PORT, ...) the run copies and hands
+                           the runner; default harness/config.sh at the cut
+      --instruction F      the builder instruction the run copies and hands the builder; default
+                           harness/loyly/builder-instruction.md (Löyly's)
       --cycle-id ID        default ID-cycle
       --cut-id ID          default loyly-full-app-cut
       --selection-id ID    default loyly-docs-plan-all
@@ -46,12 +53,17 @@
   harness/loyly-run send METHOD ['PARAMS-JSON'] [--run-id ID | --state-dir DIR] [--no-wait]
       Sends one JSON-RPC request through the daemon and prints the runner's response line.
       Exit 0 on a result, 1 on a JSON-RPC error, 2 on a launcher or daemon failure.
+      After the daemon exited (below), run-progress prints the run's final progress it saved.
       e.g. send cycle-runner/run-progress '{\"run-id\":\"ID\"}'
            send cycle-runner/hand-in-verdicts '{\"run-id\":\"ID\",\"verdicts-path\":\"/abs/verdicts.json\",\"grader-digest\":\"ID-grading-subagent\"}'
 
   harness/loyly-run stop [--run-id ID | --state-dir DIR] [--force]
       Stops the daemon and the runner (and the contexts it started), only while idle.
       --force kills them even while a call is running (the run is lost).
+      Routine stop is not needed: the daemon stops the runner and exits by itself once the run
+      concluded (run-progress status passed, failed or halted, checked after each cycle-runner/
+      method that names a run-id) or its start-run was refused. It saves the final progress in
+      driver/final-progress.json.
 
 Without --run-id/--state-dir, send and stop use the last run started (.pi/harness/.state/loyly/current).
 LOYLY_RUN_STATE_ROOT, when set, replaces .pi/harness/.state/loyly (for trials).
@@ -161,13 +173,25 @@ evidence/builder/ the builder launches, runs/ LOYLY_RUNS_DIR, project/ LOYLY_PRO
                         (say "stopped on request, runner rc" rc) (status! "stopped" "rc" rc)))
 
                   :else
-                  (let [method (get body "method")]
+                  (let [method (get body "method") params (get body "params" {})]
                     (status! "busy" "request" name "method" method)
-                    (let [resp (try (let [[r secs] (call method (get body "params" {}))] {"request" name "secs" secs "response" r})
-                                    (catch Exception e (say "error" (ex-message e)) {"request" name "driver-error" (ex-message e)}))]
-                      (respond! name resp)
-                      (status! "idle" "last" name))
-                    (recur)))))))))
+                    (let [resp (try (let [[r secs] (call method params)] {"request" name "secs" secs "response" r})
+                                    (catch Exception e (say "error" (ex-message e)) {"request" name "driver-error" (ex-message e)}))
+                          ;; Once the run concluded nothing is left to call: save its final progress, stop.
+                          rid (when (map? params) (get params "run-id"))
+                          final (when (and rid (str/starts-with? method "cycle-runner/") (get-in resp ["response" "result"]))
+                                  (let [pr (if (= method "cycle-runner/run-progress") (get resp "response")
+                                               (try (first (call "cycle-runner/run-progress" {"run-id" rid})) (catch Exception _ nil)))]
+                                    (when (#{"passed" "failed" "halted"} (get-in pr ["result" "run" "status"])) pr)))
+                          run-status (get-in final ["result" "run" "status"])
+                          refused? (and (= method "cycle-runner/start-run") (get-in resp ["response" "error"]))]
+                      (when final (write-json! (str d "/final-progress.json") final))
+                      (respond! name (cond-> resp run-status (assoc "run-concluded" run-status) refused? (assoc "start-refused" true)))
+                      (if (or final refused?)
+                        (let [rc (stop-runner!)]
+                          (say (if final (str "run " rid " " run-status) "start-run refused") "; stopped the runner, rc" rc)
+                          (status! "concluded" "rc" rc "last" name "run-status" (or run-status "start-refused")))
+                        (do (status! "idle" "last" name) (recur))))))))))))
     (System/exit 0)))
 
 ;; ------------------------------------------------------------------ the client side
@@ -199,6 +223,11 @@ evidence/builder/ the builder launches, runs/ LOYLY_RUNS_DIR, project/ LOYLY_PRO
             :else (do (Thread/sleep 1000) (recur))))))
 
 (defn send! [sd method params no-wait]
+  (let [final (str sd "/driver/final-progress.json")]
+    (when (and (not (daemon-alive? sd)) (= method "cycle-runner/run-progress") (fs/exists? final))
+      (binding [*out* *err*] (println "loyly-run: the run concluded and the daemon exited; its final progress:"))
+      (println (json/generate-string (read-json final)))
+      (System/exit 0)))
   (when-not (daemon-alive? sd) (die 2 "no daemon running for " sd " (status: " (json/generate-string (status sd)) ")"))
   (let [name (enqueue! sd method params)]
     (if no-wait
@@ -206,6 +235,10 @@ evidence/builder/ the builder launches, runs/ LOYLY_RUNS_DIR, project/ LOYLY_PRO
       (let [r (await-response sd name)]
         (cond (get r "driver-error") (die 2 "daemon: " (get r "driver-error"))
               :else (do (println (json/generate-string (get r "response")))
+                        (when-let [s (get r "run-concluded")]
+                          (binding [*out* *err*] (println (str "loyly-run: run " s "; the daemon stops the runner and exits"))))
+                        (when (get r "start-refused")
+                          (binding [*out* *err*] (println "loyly-run: start-run refused; the daemon stops the runner and exits")))
                         (if (get-in r ["response" "error"]) 1 0)))))))
 
 (defn base-cut!
@@ -239,16 +272,27 @@ evidence/builder/ the builder launches, runs/ LOYLY_RUNS_DIR, project/ LOYLY_PRO
    "stage-timeouts-seconds" {"fence" 1800 "regenerate" 14400 "gate" 3600 "score" 28800}})
 
 (defn start! [opts]
-  (let [run-id (or (:run-id opts) (die 2 "start needs --run-id"))
-        rev (or (:commit opts) (die 2 "start needs --commit"))
+  (let [rev (or (:commit opts) (die 2 "start needs --commit"))
+        pr (some-> (:project-repo opts) fs/canonicalize str)
+        run-id (or (:run-id opts)
+                   (str (if pr (str/replace (str (fs/file-name pr)) #"[^A-Za-z0-9._-]" "-") "loyly") "-"
+                        (.format (java.time.LocalDateTime/now) (java.time.format.DateTimeFormatter/ofPattern "yyyyMMdd-HHmmss"))))
+        opts (assoc opts :run-id run-id)
         sd (state-dir opts)
         _ (when-not (re-matches #"[A-Za-z0-9._-]+" run-id) (die 2 "--run-id wants [A-Za-z0-9._-]: " run-id))
         _ (when (fs/exists? sd) (die 2 sd " exists: a run id is used once (a run cannot resume)"))
+        file-opt (fn [k] (when-let [f (k opts)]
+                           (when-not (fs/regular-file? f) (die 2 "--" (name k) " " f ": no such file"))
+                           (str (fs/canonicalize f))))
+        instruction (or (file-opt :instruction) (str root "/harness/loyly/builder-instruction.md"))
+        harness-config (file-opt :harness-config)
+        _ (when (and pr (not (fs/exists? (str pr "/.git")))) (die 2 "--project-repo " pr ": not a git repository"))
+        commit (sh! {:dir (or pr root)} "git" "rev-parse" "--verify" (str rev "^{commit}"))
         _ (doseq [s ["driver/in" "driver/out" "driver/done" "bin" "logs" "evidence/builder" "runs"]] (fs/create-dirs (str sd "/" s)))
-        [repo cut] (if-let [pr (:project-repo opts)]
-                     [(str (fs/canonicalize pr)) rev]
+        [repo cut] (if pr
+                     [pr commit]
                      (let [repo (str sd "/project")
-                           base (sh! {:dir root} "git" "rev-parse" "--verify" (str rev "^{commit}"))]
+                           base commit]
                        (sh! {} "git" "clone" "-q" "--no-checkout" root repo)
                        (let [cut (base-cut! repo base)]
                          (sh! {:dir repo} "git" "checkout" "-q" "-b" (str "loyly/" run-id) cut)
@@ -256,12 +300,13 @@ evidence/builder/ the builder launches, runs/ LOYLY_RUNS_DIR, project/ LOYLY_PRO
                          [repo cut])))
         config (str sd "/benchmark-config.sh")
         overrides (into {} (for [kv (:env opts)] (let [[k v] (str/split kv #"=" 2)] (when-not v (die 2 "--env wants KEY=VALUE: " kv)) [k v])))
-        _ (when-not (overrides "LOYLY_HARNESS_CONFIG")
-            (spit config (str (sh! {:dir repo} "git" "show" (str cut ":harness/config.sh")) "\n")))
+        _ (cond (overrides "LOYLY_HARNESS_CONFIG") nil
+                harness-config (fs/copy harness-config config)
+                :else (spit config (str (sh! {:dir repo} "git" "show" (str cut ":harness/config.sh")) "\n")))
         contexts (into (sorted-map) (for [f (sort (map str (fs/glob (str root "/harness-impl") "0[1-5]-*/start.sh")))]
                                       [(subs (str (fs/file-name (fs/parent f))) 3) f]))
         _ (write-json! (str sd "/contexts.json") contexts)
-        _ (fs/copy (str root "/harness/loyly/builder-instruction.md") (str sd "/builder-instruction.md"))
+        _ (fs/copy instruction (str sd "/builder-instruction.md"))
         env (merge {"PATH" (System/getenv "PATH") "HOME" (System/getenv "HOME") "LANG" "C.UTF-8"
                     "TMPDIR" (or (System/getenv "TMPDIR") "/tmp")
                     "LOYLY_GRAIN_STORE" (str sd "/runner-store.sqlite")

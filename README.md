@@ -84,17 +84,18 @@ minutes ([replay](https://scope-impact.github.io/loyly/replay/loyly-run-03.html)
 
 The runner is one JSON-RPC 2.0 process over stdio. It reads its `LOYLY_*` variables (stores, runs
 directory, project repository, harness config, contexts, self-check, builder) from the environment;
-`.pi/spec/cycle-runner/seam.md`, "Handed in", lists them. The launcher `harness/loyly-run` (bb;
-`--help`) sets them as Löyly run-03 did, derives the cut from a base commit, and keeps the runner
-alive in a detached daemon:
+`.pi/spec/cycle-runner/seam.md`, "Handed in", lists them. `make` in `harness/loyly/` sets them as Löyly run-03 did (config:
+`harness/loyly/project.env`), derives the cut from `HEAD`, and keeps the runner alive in a detached
+daemon (`harness/loyly-run`, bb, `--help`) that exits once the run concludes:
 
 ```bash
-harness/loyly-run start --run-id loyly-run-04 --commit <base>   # blocks until awaiting verdicts
-harness/loyly-run send cycle-runner/run-progress '{"run-id":"loyly-run-04"}'
-harness/loyly-run send cycle-runner/hand-in-verdicts '{"run-id":"loyly-run-04","verdicts-path":"/abs/verdicts.json","grader-digest":"loyly-run-04-grading-subagent"}'
-harness/loyly-run stop
+make -C harness/loyly start                              # blocks until awaiting verdicts
+make -C harness/loyly progress                           # status
+make -C harness/loyly verdicts VERDICTS=/abs/verdicts.json   # passed or failed
+make -C harness/loyly help                               # kill, stop, NO_WAIT=1, RUN_ID=, ...
 ```
 
+Another project copies `harness/project-template/` and edits its `project.env` (its `README.md`).
 Run state goes to `.pi/harness/.state/loyly/<run-id>/` (not committed).
 
 ### 1. Build from the docs

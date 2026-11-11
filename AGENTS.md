@@ -46,7 +46,7 @@ gate passed, grading 11/11.
 A run: start the runner with its `LOYLY_*` environment (seam.md, "Handed in"), call
 `cycle-runner/start-run`, grade the gated candidate black-box, then `cycle-runner/hand-in-verdicts`
 and `cycle-runner/run-progress` (`README.md`, the tutorial). Keep the runner alive until the score
-is filed: a run cannot resume. `harness/loyly-run` (start, send, stop; `--help`) launches and drives it. The spec page,
+is filed: a run cannot resume. `make -C harness/loyly start` (then `progress`, `verdicts`; `help`) launches and drives it; another project copies `harness/project-template/`. The spec page,
 run replays and the eval page are published at https://scope-impact.github.io/loyly/
 (`tools/spec/publish.sh`).
 
