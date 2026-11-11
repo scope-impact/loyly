@@ -45,6 +45,7 @@ Here: `tools/spec/views/build.sh [--base <ref>]` (the Löyly config, `project.ed
 | `:coverage` | optional command that writes the coverage JSON to the path appended |
 | `:out-dir` `:outputs` | where the page, review page and story SVG go, and their names |
 | `:publish` | `{:remote :branch}` read by `tools/spec/publish.sh` |
+| `:site-pages` | optional: the other published pages, `[{:label :dir :href}]`; every `<dir>/*.html` is linked from the site menu above every view as `<href>/<file>`, labelled with its `<title>` (left out of review.html) |
 | `:story` | `:after` event pairs the event models do not order; `:unhappy`, a regex of unhappy events (drawn in a lighter sub-row of their band); `:orchestrator`, the context that only relays, drawn as a thin band at the top |
 | `:text` | the project's own sentences, with `{contexts}` filled in: `:summary`, the one plain sentence of what the system does under the title on the first screen; `:intro` and the notes, for "About this page" and the views below |
 

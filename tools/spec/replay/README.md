@@ -54,3 +54,6 @@ if `/Users/` or `/private/` survives anywhere in the page.
 
 `tools/spec/publish.sh` publishes every checked-in `tools/spec/replay/*.html` as
 `replay/<name>.html` on gh-pages.
+
+Published so far: [Löyly run-03](https://scope-impact.github.io/loyly/replay/loyly-run-03.html).
+The spec page's menu (<https://scope-impact.github.io/loyly/>) lists every published replay.

@@ -60,6 +60,11 @@ a { color: var(--accent); }
 .crumbs a:hover, .crumbs a:focus-visible { border-color: var(--accent); outline: none; }
 .crumbs .here { font-weight: 600; color: var(--accent); }
 .crumbs .sep { color: var(--muted); padding: 0 2px; }
+.site { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; padding-top: 10px; }
+.site .grp { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline; min-width: 0; }
+.site .lbl { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.site a { color: var(--fg); text-decoration: none; padding: 2px 7px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); overflow-wrap: anywhere; }
+.site a:hover, .site a:focus-visible { border-color: var(--accent); outline: none; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 12px; color: var(--muted); }
 .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; vertical-align: -1px; margin-right: 5px; }
 

@@ -160,9 +160,9 @@
          [:p.muted "Each event a context hands out (its " (code (str (get-in cfg [:files :event-model]) "/" (get-in cfg [:files :handoffs]))) "), and each context whose read models or policies read it. " (T :handoffs-assembly) (count (:handoffs world)) " handoffs, " nedge " producer-consumer edges."]
          (mm-block (handoff-map) (str "Contexts, with the handoff events on each edge." (T :handoffs-note)))
          [:div.handoffs {:style {:margin-top "12px"}} (for [h (:handoffs world)] (in-ctx (:producer h) 'handoff-row h))]])
-      (for [d (:c4 world) :let [n (second (re-find #"^Level (\d)" (:title d)))]]
+      (for [d (:c4 world) :let [n (second (re-find #"^Level (\d)" (:title d))) part (second (re-find #"\(([^)]+)\)\s*$" (:title d)))]]
         [:section {:data-c4 (:title d)}
-         [:h2 (get C4-HEADINGS n (:title d))]
+         [:h2 (if (and (= n "3") part) (str "Components: " part " (C4 level 3)") (get C4-HEADINGS n (:title d)))]
          (mm-block (:source d) (list "From " (code source) ", " (:title d) "."))]))))
 
 ;; ---------- Review: what the product owner decides ----------
@@ -194,6 +194,23 @@
       [:section {:id "gaps"} [:h2 "Not yet in plain words"] [:p.muted "Blocks and rules the page can show only by name: the spec gives them no description, no Gherkin " (code "Rule:") " line and no Allium comment. A spec round can add the words; the page never invents them."]
        (if (seq GAPS) (qlist (map code GAPS)) (none "None: every block, flow and rule has its words."))])))
 
+;; ---------- the site menu: every view of this page, then the other published pages ----------
+;; :site-pages names each group of published pages, {:label :dir :href}: every <dir>/*.html,
+;; linked as <href>/<file name>, labelled with its <title>. Above every view; review.html, which
+;; is one self-contained page, keeps only its own views.
+(defn site-pages []
+  (for [{:keys [label dir href]} (:site-pages cfg)
+        :let [fs* (sort (map str (fs/glob (fs/path (:root cfg) dir) "*.html")))] :when (seq fs*)]
+    [label (for [f fs* :let [t (some->> (slurp f) (re-find #"<title>([^<]*)</title>") second
+                                        (#(-> % (str/replace "&lt;" "<") (str/replace "&gt;" ">") (str/replace "&quot;" "\"") (str/replace "&#39;" "'") (str/replace "&amp;" "&"))))]]
+             [(or (not-empty (some-> t str/trim)) (fs/file-name f)) (str href "/" (fs/file-name f))])]))
+(defn site-nav []
+  (let [grp (fn [label links] [:span.grp [:span.lbl label] (for [[t h] links] [:a {:href h} t])])]
+    [:nav.site {:aria-label "Pages"}
+     (grp "Views" (concat [["Event storm" "#home"]] (for [c (:contexts world)] [(human (:id c)) (str "#ctx-" (:id c))])
+                          (when (arch?) [["Architecture" "#c4"]]) [["Review" "#review"]]))
+     (when-not (:review? opts) (for [[label links] (site-pages)] (grp label links)))]))
+
 ;; ---------- the page ----------
 (defn page [built]
   [:html {:lang "en"}
@@ -209,6 +226,7 @@
     [:script {:src "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"}]]
    [:body
     [:div.wrap
+     (site-nav)
      (view-home built) (view-review) (when (arch?) (view-c4))
      (for [c CTXS] (in-ctx (:id c) 'views))
      [:footer "Built on " built " by " (code (T :footer-by)) " from " (T :footer-spec) " in " (code (str (:spec-root cfg) "/<context>/")) " at " (code (:commit world)) (when (:dirty world) " (with local changes)") ": " (code "allium/*.allium") " (behaviour), the Grain Event Model fragments " (code "event-model/*.edn")

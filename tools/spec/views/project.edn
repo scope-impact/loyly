@@ -17,6 +17,8 @@
  :out-dir "tools/spec/views/dist"
  :outputs {:page "event-model.html" :review "review.html" :story "story.svg"}
  :publish {:remote "scope-impact" :branch "gh-pages"}           ; read by tools/spec/publish.sh
+ :site-pages [{:label "Runs" :dir "tools/spec/replay" :href "replay"}   ; optional: the other pages publish.sh
+              {:label "Eval" :dir "tools/spec/eval" :href "eval"}]    ; publishes, linked from the site menu
  ;; The event storm (L0): its order comes from the event models' flows and handoffs; :after adds
  ;; the order they do not hold. The cycle runner reads every context's store instead of
  ;; consuming its events (cycle-runner/allium/context.allium, "One run in the legacy shape"), so
@@ -36,7 +38,7 @@
         :handoffs-assembly "This is the assembly the cycle runner's relay drives: "
         :handoffs-note " The cycle runner consumes none: it reads each from the producer's store and hands it in through the consumer's seam."
         :relay-note " The cycle runner relays each from the producer's store to the consumer."
-        :c4-card "How the harness runs: who uses it, the runnable parts, and the cycle runner's components, from "
+        :c4-card "How the harness runs: who uses it, the runnable parts, and each context's components, from "
         :c4-lede "The harness as it runs, at three levels of zoom."
         :drafts-unread "The harness does not read them until they are accepted and stamped."
         :outside "outside the harness"
