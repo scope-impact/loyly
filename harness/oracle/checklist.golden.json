@@ -1241,9 +1241,15 @@
    "name": "A context that first responds 30 seconds after its launch is waited for, and one that never responds refuses the start after 60",
    "rule": "A start waits for its contexts, as long as a context takes to load",
    "source": ".pi/plan/06-cycle-runner/spec.feature:656"
+  },
+  {
+   "id": "06-059",
+   "name": "Each effect a run records lies inside the leaf of its flow's tree named for that effect",
+   "rule": "Each flow is an ORC tree, and each effect the runner performs is a leaf of its own",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:670"
   }
  ],
  "counts": {
-  "total": 207
+  "total": 208
  }
 }
