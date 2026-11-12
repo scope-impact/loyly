@@ -1445,3 +1445,77 @@ help. Cycle 08's grader met the same refusals on a loaded host.
 
 The slice-06 grader grows by this item ("spec grew", additions only). The checklist golden grows
 from 206 to 207. `@item-06-058` is the next cycle's untuned holdout.
+
+## Spec round 14 (2026-11-12)
+
+Decided by the product owner on 2026-11-12, kept as small as the decisions allow ("KISS"). A spec
+round on slice 06, and a principle for every context. No other context's `spec.feature`, Allium
+`requires` or event-model schema changed. No existing scenario's text changed. Round 13's two
+changes (a start waits 60 seconds for its contexts, an indented `SKIP`) stand.
+
+Why: every context uses ORC as a one-node wrapper. The promoted runner
+(`harness-impl/06-cycle-runner/src/runner/engine.clj`) builds each flow as one `code` leaf,
+`perform-command`, and writes the orchestration by hand (stage order, attempts and repairs, no
+fourth try, halts). The spec named the flows but never their tree, and the gate's store check only
+asked that each command lie inside some tick that completed with success. So each fresh builder
+collapsed the tree and wrote an engine of its own, decided again each cycle. An audit of ORC (its
+DSL: `sequence`, `fallback`, `parallel`, `map-each`, `condition` with `:equals`, `:not-equals` and
+the other ops, `code`, `delegate`) found that it writes `:sheet/node-execution-started` and
+`:sheet/node-execution-completed` for every node, tagged with the node and the tick, and
+`:sheet/node-name-set` for each node's name, so a store shows which leaf wrote what.
+
+1. **D1, the ORC usage principle** (AGENTS.md, "Languages and tools"). Each flow a context's event
+   model names is an ORC tree. Each effect or command the flow performs is a named leaf of its own.
+   A leaf always completes and writes its outcome to the blackboard (passed, failed with a reason,
+   refused with a code, halting): a domain failure is an outcome, never an ORC node failure. The
+   tree branches on outcomes with `condition` nodes, so a failed or halted run still ends its tick
+   with success, through a branch of a `fallback`. ORC's mechanics (ticks, traces, a leaf completed
+   once, processors resumed where they stopped, retries) are not restated in a context's spec. The gate's store
+   check verifies the tree where a context declares its leaves. This round applies it to the cycle
+   runner; the other five contexts follow in later rounds, one context a round. The next candidate
+   is the Regeneration cycle, whose `Conclude*` rules read as a `fallback` of conditions.
+2. **D2, the cycle runner's flows as trees** (`cycle-runner/seam.md`, "The trees"). `run-to-gate` is
+   a `fallback`: a `sequence` of `start`, `stamp` (a `map-each` over the selected slices), `pin`,
+   `checklist`, `self-check:0`, `fence`, `regenerate` and three gate attempts written out; then
+   one branch each for a cycle to fail (`fail-cycle`, then `delegate cycle-failed-ends-run`), a
+   cycle that ended (`delegate cycle-failed-ends-run`), a run to halt (`delegate
+   effect-not-performed-halts-run`) and a refused start. An attempt is `install:N`, `self-check:N`
+   and up to three tries `gate:N.T`, a `gate-refusal:N.T` between them; attempts 2 and 3 start with
+   `repair:N`, each guarded by "the run is still running". `verdicts-to-conclusion` is a `sequence`
+   of `hand-in`, `file-verdicts`, `file-score` and `conclude`, with the same failure branches
+   (`fail-score-stage` for a refused filing). The two failure flows are one leaf each, `conclude`
+   and `halt`. Every recording leaf is followed by its relay leaf, `relay:<leaf>` (E8), which reads
+   the cycle's progress. A leaf is named for its effect or its command; a qualifier after a `:`
+   keeps names unique in a tree.
+
+   Removed, because the tree now says it: the seam's "No fourth try", "The conclusion", "A halt"
+   and "Repair and exhaustion are the cycle's" as orchestration prose, and "A method runs the run"
+   down to one tick per method. Their domain rules moved, unchanged, to "What a leaf writes": the
+   halt reasons and when each applies, the gate refusals that halt, `cycle-concluded`, `-32601`
+   and `-32602`, conclude against halt, and the conclusion before a method is checked (round 12
+   D4). Kept as they were: the effect table, the gate's result parsing and refusal codes, the
+   digests, the relay's semantics and the invariants. A stage timeout is a budget a leaf holds: the
+   leaf that runs a handed-in command stops it at its stage's timeout and writes `failing`, reason
+   `budget`. Also removed: the processor `advance-run`, its to-do list `runs-to-advance` (read
+   model and query) and the seam method `cycle-runner/runs-to-advance`. No stamped scenario names
+   them. Only earlier graders' evidence for `@item-06-035` read the query, and that item's text
+   does not.
+3. **D3, the store check per named leaf.** A new guarantee, `EachEffectInItsOwnLeaf` (surface
+   `EffectNodes`): every event the runner records lies between the start and the completion of the
+   leaf its step names, in a tick of that step's flow; an effect result lies in the leaf named for
+   its effect. The declaration is machine-readable: in `cycle-runner/event-model/area.edn` each step
+   from a command to its event carries `:leaf`, a name, or `:effect` for the leaf named by the
+   event's own `:effect`. `harness/v2/event_store_check.clj` checks it only for a context whose
+   steps declare leaves, so contexts 01 to 05, one-node wrappers today, pass their gates unchanged.
+   The guarantee is covered by a scenario, not marked "Verified by: gate": the store check is the
+   candidate's gate, not one of `tools/spec/v2/gates.sh`. One new item, `@item-06-059`. Its grader
+   reads the runner's own store, a second exception to "through `run-progress` only".
+4. **Later, and not needed now.** The other five contexts' trees, one round each. A scoreboard leaf
+   of its own: Measurement's scoreboard is a policy's handoff, relayed by `relay:file-score`, so
+   the runner has no scoreboard effect to perform. `.pi/architecture.md` still draws `advance-run`.
+5. **One new scenario**, `@minimum`, appended at the end of `cycle-runner/spec.feature` and stamped
+   `@item-06-059`. Cycle-runner goes from 58 to 59 items, and from 52 to 53 must-cover
+   obligations. `tools/spec/v2/gates.sh`: ALL GATES PASS.
+
+The slice-06 grader grows by this item ("spec grew", additions only). The checklist golden grows
+from 207 to 208. `@item-06-059` is the next cycle's untuned holdout.

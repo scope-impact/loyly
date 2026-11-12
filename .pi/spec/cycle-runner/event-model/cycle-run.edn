@@ -27,7 +27,7 @@
     :reads #{:cycle-runner/runs}
     :produces #{:cycle-runner/run-started}}
    :cycle-runner/record-effect
-   {:description "Record one effect's result: the effect a node performed, the context method it was recorded through, and what the context replied (recorded, with the events it replied, verbatim, or refused, with its refusal code as heard). Issued by: the advance-run processor, after it performed the effect."
+   {:description "Record one effect's result: the effect a node performed, the context method it was recorded through, and what the context replied (recorded, with the events it replied, verbatim, or refused, with its refusal code as heard). Issued by: the leaf of the flow's ORC tree named for the effect, after it performed the effect (seam.md, \"The trees\")."
     :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "RecordEffect"}
                    {:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "RecordEffectAfterTheVerdicts"}]
     :schema [:map
@@ -44,7 +44,7 @@
     :reads #{:cycle-runner/runs}
     :produces #{:cycle-runner/effect-recorded}}
    :cycle-runner/relay-handoff
-   {:description "Hand one producer's handoff, taken from the producer's own store, in store order, in to one consumer unchanged, and record how the consumer took it. Issued by: the advance-run processor, after every recording."
+   {:description "Hand one producer's handoff, taken from the producer's own store, in store order, in to one consumer unchanged, and record how the consumer took it. Issued by: the relay leaf that follows every recording leaf of the flow's ORC tree."
     :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "RelayHandoff"}]
     :schema [:map
              [:run-id :string]
@@ -65,7 +65,7 @@
     :reads #{:cycle-runner/runs}
     :produces #{:cycle-runner/verdicts-handed-in}}
    :cycle-runner/conclude-run
-   {:description "Conclude the run as its cycle concluded in the Regeneration cycle: passed or failed, with the cycle's progress as read. Issued by: the advance-run processor, when the cycle's progress shows it concluded."
+   {:description "Conclude the run as its cycle concluded in the Regeneration cycle: passed or failed, with the cycle's progress as read. Issued by: the conclude leaf of the flow's ORC tree, when the cycle's progress shows it concluded."
     :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "ConcludeRunPassed"}
                    {:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "ConcludeRunFailed"}]
     :schema [:map
@@ -75,7 +75,7 @@
     :reads #{:cycle-runner/runs}
     :produces #{:cycle-runner/run-concluded}}
    :cycle-runner/halt-run
-   {:description "Halt the run: an effect could not be performed at all (a context did not respond, a handed-in command could not be started), so nothing was recorded for it; or the stamp, the pin or the checklist was refused before the cycle opened, or the stamp handed out identities that are not the plan's own, so there is no cycle to fail. A halt is the runner's fact, never the cycle's conclusion. Issued by: the advance-run processor."
+   {:description "Halt the run: an effect could not be performed at all (a context did not respond, a handed-in command could not be started), so nothing was recorded for it; or the stamp, the pin or the checklist was refused before the cycle opened, or the stamp handed out identities that are not the plan's own, so there is no cycle to fail. A halt is the runner's fact, never the cycle's conclusion. Issued by: the halt leaf of effect-not-performed-halts-run."
     :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "HaltRun"}]
     :schema [:map
              [:run-id :string]
@@ -192,26 +192,9 @@
              [:producer :string]
              [:position :int]
              [:consumer :string]
-             [:outcome :string]]}
-   :cycle-runner/runs-to-advance
-   {:description "The advance-run processor's to-do list: runs running or grading whose next effect, relay or conclusion is due; a run that awaits its verdicts, concluded or halted leaves it."
-    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :entity :name "CycleRun"}]
-    :consumes #{:cycle-runner/run-started :cycle-runner/effect-recorded :cycle-runner/handoff-relayed
-                :cycle-runner/verdicts-handed-in :cycle-runner/run-concluded :cycle-runner/run-halted}}}
+             [:outcome :string]]}}
   :queries
   {:cycle-runner/run-progress
    {:description "One run's status, effect results and relayed handoffs, or every run's. A view, never an authority."
     :schema [:map [:run-id {:optional true} :string]]
-    :reads #{:cycle-runner/runs :cycle-runner/effect-results :cycle-runner/relayed-handoffs}}
-   :cycle-runner/runs-to-advance
-   {:description "The advance-run processor's to-do list."
-    :schema [:map]
-    :reads #{:cycle-runner/runs-to-advance}}}
-  :todo-processors
-  {:cycle-runner/advance-run
-   {:description "Whenever a run started, an effect was recorded, a handoff relayed or the verdicts handed in: relay the producer's new handoffs; then, if the cycle concluded, conclude the run; else perform the run's next effect in the real world and record its result into its context; if the effect could not be performed at all, halt the run. Stops when the run awaits its verdicts, concluded or halted."
-    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "ConcludeWithTheCycle"}]
-    :subscribes #{:cycle-runner/run-started :cycle-runner/effect-recorded :cycle-runner/handoff-relayed
-                  :cycle-runner/verdicts-handed-in}
-    :reads #{:cycle-runner/runs-to-advance}
-    :produces #{:cycle-runner/record-effect :cycle-runner/relay-handoff :cycle-runner/conclude-run :cycle-runner/halt-run}}}}}
+    :reads #{:cycle-runner/runs :cycle-runner/effect-results :cycle-runner/relayed-handoffs}}}}}

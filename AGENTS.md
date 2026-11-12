@@ -34,6 +34,16 @@ runtime with what they measure. The Elixir graders that scored the first spec-v2
 retired (cb8f5c7); the three Python graders in `harness/graders.approved.json` were written for
 spec v1 and cover no spec-v2 item.
 
+How a context uses ORC (`.pi/spec/decisions.md`, "Spec round 14"): each flow its event model
+names is an ORC tree, and each effect or command the flow performs is a named leaf of its own. A
+leaf always completes and writes its outcome to the blackboard (passed, failed with a reason,
+refused with a code, halting): a domain failure is an outcome, never an ORC node failure. The tree
+branches on outcomes with `condition` nodes, so a failed or halted run still ends its tick with
+success through a `fallback` branch. ORC's mechanics (ticks, traces, a leaf completed once,
+processors resumed where they stopped, retries) are not restated in a context's spec. The gate's store check
+verifies the tree where a context's `area.edn` declares its leaves (`:leaf`); so far the cycle
+runner does, and the other contexts follow in later rounds.
+
 ## The regeneration cycle
 
 ORC runs one cycle, in the shape of the legacy harness. Since 2026-11-08 the cycle runner

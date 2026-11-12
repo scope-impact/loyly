@@ -4,9 +4,14 @@
 ;; events never enter its store; it reads them from each producer's store and hands them in
 ;; through the consumers' seams (decisions.md, "Spec round 5" 1 and 2).
 ;;
-;; Commands the operator issues enter a flow from its screen; the advance-run processor issues
-;; the rest, each after it performed an effect in the real world. A refusal is the command's
-;; reply, not an event.
+;; Commands the operator issues enter a flow from its screen; the leaves of the flow's ORC tree
+;; issue the rest, each after it performed an effect in the real world (spec round 14; seam.md,
+;; "The trees"). A refusal is the command's reply, not an event.
+;;
+;; :leaf on a step from a command to its event names the leaf of the flow's tree that writes the
+;; event: a name, or :effect for the leaf named by the event's own :effect. The gate's store
+;; check (harness/v2/event_store_check.clj) holds each such event to that leaf; a context whose
+;; steps name no leaf is held to its flow's tick only.
 ;; Allium: ../allium/ (surface RunDesk; the flows link the rules they pass through).
 {:cycle-runner
  {:description "Cycle runner: the ORC workflow that performs one cycle's effects (stamp, pin, checklist, self-check, fence, regenerate, install and gate with repair, file the verdicts and the score) and records each effect's result into the context that owns it, relaying every handoff from its producer's store. It owns no rule of the five contexts."
@@ -18,67 +23,55 @@
     :commands #{:cycle-runner/start-run :cycle-runner/hand-in-verdicts}}}
   :flows
   {:cycle-runner/run-to-gate
-   {:description "The operator starts a run; the advance-run processor performs the effects up to the gate's verdict (stamp, pin, checklist, self-check, fence, regenerate, install, self-check, gate; a repair after each failed attempt the budget allows), records each into its context, relays the handoffs, and stops when the run awaits its verdicts."
+   {:description "The operator starts a run; the leaves of its tree perform the effects up to the gate's verdict (stamp, pin, checklist, self-check, fence, regenerate, install, self-check, gate; a repair after each failed attempt the cycle allows), each recording its result into its context and each followed by a relay leaf; the tick ends when the run awaits its verdicts, or through a fallback branch when the cycle failed or the run halts."
     :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "StartRun"}
                    {:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "RecordEffect"}
                    {:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "RelayHandoff"}]
     :steps [{:from [:screen :cycle-runner/run-desk] :to [:command :cycle-runner/start-run]}
-            {:from [:command :cycle-runner/start-run] :to [:event :cycle-runner/run-started]}
-            {:from [:event :cycle-runner/run-started] :to [:read-model :cycle-runner/runs-to-advance]}
-            {:from [:read-model :cycle-runner/runs-to-advance] :to [:query :cycle-runner/runs-to-advance]}
-            {:from [:query :cycle-runner/runs-to-advance] :to [:todo-processor :cycle-runner/advance-run]}
-            {:from [:todo-processor :cycle-runner/advance-run] :to [:command :cycle-runner/record-effect]}
-            {:from [:command :cycle-runner/record-effect] :to [:event :cycle-runner/effect-recorded]}
+            {:from [:command :cycle-runner/start-run] :to [:event :cycle-runner/run-started] :leaf "start"}
+            {:from nil :to [:command :cycle-runner/record-effect]}
+            {:from [:command :cycle-runner/record-effect] :to [:event :cycle-runner/effect-recorded] :leaf :effect}
             {:from [:event :cycle-runner/effect-recorded] :to [:read-model :cycle-runner/effect-results]}
-            {:from [:event :cycle-runner/effect-recorded] :to [:read-model :cycle-runner/runs-to-advance]}
-            {:from [:todo-processor :cycle-runner/advance-run] :to [:command :cycle-runner/relay-handoff]}
-            {:from [:command :cycle-runner/relay-handoff] :to [:event :cycle-runner/handoff-relayed]}
+            {:from nil :to [:command :cycle-runner/relay-handoff]}
+            {:from [:command :cycle-runner/relay-handoff] :to [:event :cycle-runner/handoff-relayed] :leaf "relay"}
             {:from [:event :cycle-runner/handoff-relayed] :to [:read-model :cycle-runner/relayed-handoffs]}
             {:from [:event :cycle-runner/effect-recorded] :to [:read-model :cycle-runner/runs]}
             {:from [:read-model :cycle-runner/runs] :to [:query :cycle-runner/run-progress]}
             {:from [:query :cycle-runner/run-progress] :to [:screen :cycle-runner/run-desk]}]}
 
    :cycle-runner/verdicts-to-conclusion
-   {:description "The operator hands in the verdicts file of the gated candidate; the advance-run processor files the verdicts and the score with Measurement, relays its handoffs to the Regeneration cycle, and concludes the run as the cycle concluded."
+   {:description "The operator hands in the verdicts file of the gated candidate; the leaves of its tree file the verdicts and the score with Measurement, relays its handoffs to the Regeneration cycle, and concludes the run as the cycle concluded."
     :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "HandInVerdicts"}
                    {:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "RecordEffectAfterTheVerdicts"}
                    {:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "ConcludeWithTheCycle"}
                    {:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "ConcludeRunPassed"}]
     :steps [{:from [:screen :cycle-runner/run-desk] :to [:command :cycle-runner/hand-in-verdicts]}
-            {:from [:command :cycle-runner/hand-in-verdicts] :to [:event :cycle-runner/verdicts-handed-in]}
-            {:from [:event :cycle-runner/verdicts-handed-in] :to [:read-model :cycle-runner/runs-to-advance]}
-            {:from [:read-model :cycle-runner/runs-to-advance] :to [:query :cycle-runner/runs-to-advance]}
-            {:from [:query :cycle-runner/runs-to-advance] :to [:todo-processor :cycle-runner/advance-run]}
-            {:from [:todo-processor :cycle-runner/advance-run] :to [:command :cycle-runner/record-effect]}
-            {:from [:command :cycle-runner/record-effect] :to [:event :cycle-runner/effect-recorded]}
-            {:from [:todo-processor :cycle-runner/advance-run] :to [:command :cycle-runner/relay-handoff]}
-            {:from [:command :cycle-runner/relay-handoff] :to [:event :cycle-runner/handoff-relayed]}
-            {:from [:todo-processor :cycle-runner/advance-run] :to [:command :cycle-runner/conclude-run]}
-            {:from [:command :cycle-runner/conclude-run] :to [:event :cycle-runner/run-concluded]}
+            {:from [:command :cycle-runner/hand-in-verdicts] :to [:event :cycle-runner/verdicts-handed-in] :leaf "hand-in"}
+            {:from nil :to [:command :cycle-runner/record-effect]}
+            {:from [:command :cycle-runner/record-effect] :to [:event :cycle-runner/effect-recorded] :leaf :effect}
+            {:from nil :to [:command :cycle-runner/relay-handoff]}
+            {:from [:command :cycle-runner/relay-handoff] :to [:event :cycle-runner/handoff-relayed] :leaf "relay"}
+            {:from nil :to [:command :cycle-runner/conclude-run]}
+            {:from [:command :cycle-runner/conclude-run] :to [:event :cycle-runner/run-concluded] :leaf "conclude"}
             {:from [:event :cycle-runner/run-concluded] :to [:read-model :cycle-runner/runs]}
             {:from [:read-model :cycle-runner/runs] :to [:query :cycle-runner/run-progress]}
             {:from [:query :cycle-runner/run-progress] :to [:screen :cycle-runner/run-desk]}]}
 
    :cycle-runner/cycle-failed-ends-run
-   {:description "The cycle failed in the Regeneration cycle (a failed self-check, a refused fence, nothing regenerated, gate attempts exhausted, three gate refusals, a failed score stage, a stage timeout): the run concludes failed, as the cycle did."
+   {:description "The cycle failed in the Regeneration cycle (a failed self-check, a refused fence, nothing regenerated, gate attempts exhausted, three gate refusals, a failed score stage, a stage timeout): the run concludes failed, as the cycle did. One leaf, conclude; delegated from the other two flows' trees, or ticked on its own before a method is checked (seam.md, \"The trees\")."
     :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "ConcludeWithTheCycle"}
                    {:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "ConcludeRunFailed"}]
-    :steps [{:from nil :to [:command :cycle-runner/record-effect]}
-            {:from [:command :cycle-runner/record-effect] :to [:event :cycle-runner/effect-recorded]}
-            {:from [:event :cycle-runner/effect-recorded] :to [:read-model :cycle-runner/runs-to-advance]}
-            {:from [:read-model :cycle-runner/runs-to-advance] :to [:query :cycle-runner/runs-to-advance]}
-            {:from [:query :cycle-runner/runs-to-advance] :to [:todo-processor :cycle-runner/advance-run]}
-            {:from [:todo-processor :cycle-runner/advance-run] :to [:command :cycle-runner/conclude-run]}
-            {:from [:command :cycle-runner/conclude-run] :to [:event :cycle-runner/run-concluded]}
+    :steps [{:from nil :to [:command :cycle-runner/conclude-run]}
+            {:from [:command :cycle-runner/conclude-run] :to [:event :cycle-runner/run-concluded] :leaf "conclude"}
             {:from [:event :cycle-runner/run-concluded] :to [:read-model :cycle-runner/runs]}
             {:from [:read-model :cycle-runner/runs] :to [:query :cycle-runner/run-progress]}
             {:from [:query :cycle-runner/run-progress] :to [:screen :cycle-runner/run-desk]}]}
 
    :cycle-runner/effect-not-performed-halts-run
-   {:description "An effect could not be performed at all (a context did not respond, a handed-in command could not be started): nothing is recorded for it, and the run halts, loudly."
+   {:description "An effect could not be performed at all (a context did not respond, a handed-in command could not be started): nothing is recorded for it, and the run halts, loudly. One leaf, halt; delegated from the other two flows' trees."
     :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "HaltRun"}]
     :steps [{:from nil :to [:command :cycle-runner/halt-run]}
-            {:from [:command :cycle-runner/halt-run] :to [:event :cycle-runner/run-halted]}
+            {:from [:command :cycle-runner/halt-run] :to [:event :cycle-runner/run-halted] :leaf "halt"}
             {:from [:event :cycle-runner/run-halted] :to [:read-model :cycle-runner/runs]}
             {:from [:read-model :cycle-runner/runs] :to [:query :cycle-runner/run-progress]}
             {:from [:query :cycle-runner/run-progress] :to [:screen :cycle-runner/run-desk]}]}}}}

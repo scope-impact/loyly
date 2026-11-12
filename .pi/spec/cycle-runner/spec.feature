@@ -660,3 +660,17 @@ Feature: Cycle runner
       Then the start is refused, naming measurement and not cycle-preparation
       And the refusal came no sooner than 60 seconds and no later than 90 seconds after the start
       And no run R-1 exists, and no builder was launched
+
+  Rule: Each flow is an ORC tree, and each effect the runner performs is a leaf of its own
+
+    # cycle-run.allium, surface EffectNodes, guarantee EachEffectInItsOwnLeaf; seam.md "The trees"
+    # decisions.md "Spec round 14" D3: every context so far ran each flow as one ORC leaf around orchestration of its own, which the store check could not tell apart
+    @minimum @allium-guarantee.EachEffectInItsOwnLeaf
+    @item-06-059
+    Scenario: Each effect a run records lies inside the leaf of its flow's tree named for that effect
+      Given the stub builder leaves a candidate whose suite is green and whose launch entrypoint serves the marker on the port
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then run R-1 awaits its verdicts
+      And in the runner's own store, each effect result of run R-1 lies between the start and the completion of a leaf of the ORC workflow "cycle-runner/run-to-gate" whose name is its effect, or its effect followed by ":" and a qualifier
+      And those are nine leaves with nine different names, one for each of stamp, pin, checklist, self-check, fence, regenerate, install, self-check and gate
+      And each handoff relayed for run R-1 lies inside a leaf of that workflow named "relay", or "relay" followed by ":" and a qualifier

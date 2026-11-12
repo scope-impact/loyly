@@ -11,7 +11,7 @@ words.
 The five contexts record a cycle's facts and guard them; none of them acts. Every command of the
 Regeneration cycle is "issued by ORC runtime from what one of its nodes did in a room"
 (`../decisions.md`, "Slice 04" 4), and until now a grader or a person played that issuer. The cycle
-runner is that issuer: the ORC workflow whose nodes perform the effects (read the repository at the
+runner is that issuer: the ORC workflows whose leaves perform the effects (read the repository at the
 cut, build and probe the clean room, launch a builder and wait for it, install the candidate in a
 gate room and run the gate on the host, file the verdicts it is handed) and record each result into
 the context that owns it, through that context's seam. It is also the relay: no store is shared
@@ -58,22 +58,22 @@ harness can run a cycle on one of its own contexts (`../decisions.md`, "Spec rou
 | Handoffs | none | | | the five contexts' handoffs are relayed, never held |
 
 Actors: the **operator** starts a run and hands in its verdicts (`RunDesk`); the runner's
-**effect nodes** (ORC's worker) issue the rest (`EffectNodes`).
+**leaves** of its ORC trees (ORC's worker) issue the rest (`EffectNodes`).
 
 ## Design decisions
 
 1. **One aggregate, one generic effect fact.** `effect-recorded` names the effect, the attempt,
    the context, the method and the context's reply; the order of the effects is the legacy cycle's
-   and lives in the processor `advance-run`, not in a `requires` (an internal command's refusal is
-   unreachable from the seam). The effect results' positions make "recorded once" checkable.
-2. **Only the operator's commands are methods.** The processor's commands are the runner's own;
+   and lives in the flows' ORC trees (`seam.md`, "The trees"; spec round 14), not in a `requires`
+   (an internal command's refusal is unreachable from the seam). The effect results' positions make "recorded once" checkable.
+2. **Only the operator's commands are methods.** The leaves' commands are the runner's own;
    a grader observes what it did through `run-progress` (`seam.md`). This differs from the five
    contexts, whose grader plays the issuer.
 3. **Synchronous methods.** `start-run` responds when the run awaits its verdicts, concluded or
    halted; `hand-in-verdicts` when it concluded or halted (decided, Q4 below). The judge watches a
    live run through the runner's Grain store and the pi session directly.
-4. **The conclusion is read, not decided.** After every recording and relay the runner reads the
-   Regeneration cycle's `cycle-progress`; a concluded cycle concludes the run with that progress.
+4. **The conclusion is read, not decided.** Each relay leaf reads the Regeneration cycle's
+   `cycle-progress`; a concluded cycle concludes the run with that progress.
 5. **A halt is the runner's own fact**: an effect it could not perform (a context that did not
    respond, a handed-in command that could not start), or a recording refused before the cycle
    opened (stamp, pin, checklist), where no cycle exists to fail.
@@ -124,7 +124,8 @@ Spec round 7c appended `@item-06-036`, spec round 7d `@item-06-037` and `@item-0
 round 8 `@item-06-039` to `@item-06-048` (the stdio gate and the plan's slices), and spec round 9
 `@item-06-049` to `@item-06-051` (the builder image, its refusal, Measurement's history), spec
 round 11 `@item-06-052` (the http probe in the gated tree), and spec round 12 `@item-06-053` to
-`@item-06-057` (the gate command), and spec round 13 `@item-06-058` (the context start deadline), all minimum: 58 items. `drafts.feature` holds none. Of the 52 must-cover obligations
+`@item-06-057` (the gate command), spec round 13 `@item-06-058` (the context start deadline), and spec
+round 14 `@item-06-059` (each effect its own leaf), all minimum: 59 items. `drafts.feature` holds none. Of the 53 must-cover obligations
 (`tools/spec/v2/coverage.py`), 7 are unit level and 1 gate-verified (`TheGateRoomIsNotTheBuilders`, planned `room-policy`).
 
 ## Decided questions (spec round 7b)
@@ -145,6 +146,14 @@ round 11 `@item-06-052` (the http probe in the gated tree), and spec round 12 `@
 - **Q3, the harness digest**: the SHA-256 of the configuration file, the self-check command and
   the identity probe, in that order, as drafted; for the `stdio` seam the store-check command
   follows (spec round 8).
+
+## Decided in spec round 14
+
+D1 to D3 of `../decisions.md`, "Spec round 14": each flow is an ORC tree whose leaves are its
+effects and commands, each leaf completing with its outcome on the blackboard and the tree
+branching on it (`seam.md`, "The trees"); the processor `advance-run`, its to-do list
+`runs-to-advance` and that query are gone; the gate's store check holds each event to its
+leaf (`EachEffectInItsOwnLeaf`, `@item-06-059`).
 
 ## Decided in spec round 12
 

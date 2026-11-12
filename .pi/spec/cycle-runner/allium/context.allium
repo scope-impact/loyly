@@ -233,7 +233,7 @@ contract GateOnTheHost {
 -- Enumerations
 ------------------------------------------------------------
 
--- The effect a node of the run performed, each recorded into one context's method
+-- The effect a leaf of the run performed, each recorded into one context's method
 -- (seam.md, "The effects").
 enum Effect {
     stamp | pin | checklist | self_check | fence | fail_cycle | regenerate | install

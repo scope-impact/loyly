@@ -24,7 +24,7 @@ use "context.allium" as ctx
 -- judges what a grading subagent cannot, and hands that verdict in with the others).
 external entity OperatorAccount {}
 
--- ORC's workflow worker: runs the runner's effect nodes.
+-- ORC's workflow worker: runs the leaves of the runner's ORC trees (seam.md, "The trees").
 external entity OrcWorker {}
 
 ------------------------------------------------------------
@@ -71,7 +71,7 @@ entity CycleRun {
     }
 }
 
--- One effect a node performed, and what the context answered: recorded once, at its
+-- One effect a leaf performed, and what the context answered: recorded once, at its
 -- position in the run.
 entity EffectResult {
     run: CycleRun
@@ -130,7 +130,7 @@ rule StartRun {
 }
 
 -- Record one effect's result before the verdicts: the context method it was recorded
--- through and what the context answered. Issued by the runner's effect node, after it
+-- through and what the context answered. Issued by the leaf named for the effect, after it
 -- performed the effect. A gate attempt recorded passed leaves the run awaiting its
 -- verdicts: nothing of the score is the runner's to produce.
 rule RecordEffect {
@@ -151,7 +151,7 @@ rule RecordEffect {
 }
 
 -- Record one effect's result after the verdicts were handed in: filing them, filing the
--- score, or failing the score stage. Issued by the runner's effect node.
+-- score, or failing the score stage. Issued by the leaf named for the effect.
 rule RecordEffectAfterTheVerdicts {
     when: RecordEffect(runner, run_id, effect, attempt, context, method, outcome, refusal?, detail)
     let run = CycleRun{run_id: run_id}
@@ -164,7 +164,7 @@ rule RecordEffectAfterTheVerdicts {
 }
 
 -- Hand one producer's handoff in to one consumer, unchanged, and record how the consumer
--- took it. Issued by the runner's relay node after every recording.
+-- took it. Issued by the relay leaf that follows every recording leaf.
 rule RelayHandoff {
     when: RelayHandoff(runner, run_id, handoff_type, producer, position, consumer, outcome)
     let run = CycleRun{run_id: run_id}
@@ -205,10 +205,10 @@ rule HandInVerdicts {
 }
 
 -- The cycle concluded in the Regeneration cycle (its own policy, its stage clock, or the
--- runner's fail-cycle effect): the runner's conclude node concludes the run as the cycle
--- did. The runner reads the cycle after every recording and relay, and when start-run or
--- hand-in-verdicts is called, before that method's requires: the stage clock concludes a
--- cycle between methods (decisions.md, "Spec round 12" D4).
+-- runner's fail-cycle effect): the conclude leaf concludes the run as the cycle did. Each
+-- relay leaf reads the cycle, and so do start-run and hand-in-verdicts, before that method's
+-- requires: the stage clock concludes a cycle between methods (decisions.md, "Spec round 12"
+-- D4; seam.md, "The trees").
 rule ConcludeWithTheCycle {
     when: run: CycleRun.awaits_conclusion
     requires: run.status in {running, awaiting_verdicts, grading}
@@ -247,7 +247,7 @@ rule ConcludeRunFailed {
 -- An effect could not be performed at all (a context did not respond, a handed-in command
 -- could not be started, a gate command said the gate could not be performed), so nothing
 -- is recorded for it; or a gate the context refused for a reason that leaves no next step
--- (seam.md, "No fourth try"; decisions.md, "Spec round 12" D2, D3); or the stamp, the pin or the
+-- (seam.md, "The trees", what a leaf writes; decisions.md, "Spec round 12" D2, D3); or the stamp, the pin or the
 -- checklist was refused before the cycle opened, or the stamp handed out identities that
 -- are not the plan's own (decisions.md, "Spec round 7b" 2), so there is no cycle to fail.
 -- The run halts, loudly. A halt is the runner's fact, never the cycle's conclusion.
@@ -363,8 +363,9 @@ surface RunDesk {
         -- Reading a run's progress records nothing and performs no effect.
 }
 
--- The runner's own effect nodes: perform an effect, record its result into a context,
--- relay the handoffs, conclude or halt the run.
+-- The leaves of the runner's ORC trees, one per effect or command: perform an effect,
+-- record its result into a context, relay the handoffs, conclude or halt the run
+-- (seam.md, "The trees"; decisions.md, "Spec round 14").
 surface EffectNodes {
     facing runner: CycleRunner
     context run: CycleRun
@@ -388,12 +389,21 @@ surface EffectNodes {
         -- its cycle ends in the Regeneration cycle.
 
     @guarantee InTheProducersOrder
-        -- After every recording the runner takes the producer's new handoffs from the
+        -- After every recording the runner's relay leaf takes the producer's new handoffs from the
         -- producer's own store, in store order, and hands each in unchanged to every
         -- consumer the event models name, before the next effect (decisions.md, "Spec
         -- round 5" 1 and 2). New means appended during this run and not yet relayed: a
         -- handed-in measurement history store's earlier handoffs are never relayed again
         -- (decisions.md, "Spec round 9" D6).
+
+    @guarantee EachEffectInItsOwnLeaf
+        -- Each flow is an ORC tree, and each effect or command it performs is a leaf of
+        -- its own, named for it (seam.md, "The trees"; event-model/area.edn, :leaf). Every
+        -- event the runner records lies between the start and the completion of the leaf
+        -- its step names, in a tick of that step's flow, in the runner's own store: an
+        -- effect result inside the leaf named for its effect. A flow run as one leaf
+        -- around the runner's own orchestration does not hold it. The gate's store check
+        -- reads it (harness/v2/event_store_check.clj), and so does @item-06-059.
 
     @guarantee TheGateRoomIsNotTheBuilders
         -- The gate room is the runner's, never the builder's. Verified by: gate
