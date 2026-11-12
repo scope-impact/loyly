@@ -1235,9 +1235,15 @@
    "name": "The harness digest covers the gate command, and is unchanged when none is handed in",
    "rule": "A gate command handed in is the gate: the runner hands it the cut's tree, the candidate's copy and an evidence directory, and records its result",
    "source": ".pi/plan/06-cycle-runner/spec.feature:644"
+  },
+  {
+   "id": "06-058",
+   "name": "A context that first responds 30 seconds after its launch is waited for, and one that never responds refuses the start after 60",
+   "rule": "A start waits for its contexts, as long as a context takes to load",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:656"
   }
  ],
  "counts": {
-  "total": 206
+  "total": 207
  }
 }
