@@ -32,6 +32,15 @@
 ;;     first leaf and the completed one after its last, so a command issued outside ORC, or
 ;;     in a run that failed or never ended, is refused. It cannot tell two overlapping runs
 ;;     of the same workflow apart, which the gate's one caller never makes.
+;;   - rule "each effect in its own leaf" (spec round 14; cycle-runner/seam.md, "The trees"),
+;;     only for a model whose flow steps declare leaves: a step from a command to its event
+;;     with :leaf, a name, or :effect for the leaf named by the event's own :effect. Each such
+;;     event must lie between a :sheet/node-execution-started and the next
+;;     :sheet/node-execution-completed (status :success) of the same node and tick, the node
+;;     a leaf of a sheet named after the step's flow, its name (:sheet/node-name-set) the
+;;     declared one, or that name followed by ":" and a qualifier. A flow run as one leaf
+;;     around orchestration of the candidate's own (one "perform-command" leaf) fails it. A
+;;     model that declares no leaf (slices 01 to 05 today) is not checked for leaves.
 ;;   - rule "one terminal completion per tick": within a tenant, a tick has more than one
 ;;     :sheet/tree-tick-completed whose :root-status is terminal (not :running), or a trace has
 ;;     more than one :sheet/execution-traced (by :trace-id). ORC's processors append these; a
@@ -70,9 +79,10 @@
 
 (defn load-model
   "The *.edn fragments of DIR merged: {:events {type schema}, :consumed {type schema},
-  :workflows {event-type #{name}}}, :consumed being the handoff events of other contexts the
-  model consumes, :workflows naming, for each event a command produces, the flows that
-  command belongs to."
+  :workflows {event-type #{name}}, :leaves {event-type {flow leaf}}}, :consumed being the
+  handoff events of other contexts the model consumes, :workflows naming, for each event a
+  command produces, the flows that command belongs to, and :leaves, for each event a step
+  from a command declares a :leaf for, that leaf in each such flow."
   [dir]
   (let [fragments (for [f (sort-by str (.listFiles (io/file dir)))
                         :when (str/ends-with? (.getName f) ".edn")]
@@ -86,6 +96,11 @@
                                 (subs (str fname) 1))))]
     {:events (into {} (for [am areas [k {:keys [schema]}] (:events am)] [k schema]))
      :consumed (consumed-handoffs dir fragments)
+     :leaves (apply merge-with merge {}
+                    (for [[fname {:keys [steps]}] flows
+                          {:keys [from to leaf]} steps
+                          :when (and leaf (= :command (first from)) (= :event (first to)))]
+                      {(second to) {(subs (str fname) 1) leaf}}))
      :workflows (apply merge-with into {}
                        (for [[c {:keys [produces]}] commands
                              :let [ws (flows-of c)]
@@ -172,6 +187,41 @@
                                           inside))
                       ")"))))))))
 
+(defn leaf-problems
+  "Rule \"each effect in its own leaf\": each event LEAVES declares a leaf for lies inside a
+  completed execution of that leaf, in a sheet named after one of its flows."
+  [leaves events]
+  (if (empty? leaves)
+    []
+    (vec (for [[t es] (group-by ::tenant events)
+               :let [sheets (into {} (for [e es :when (= :sheet/sheet-created (:event/type e))] [(:sheet-id e) (:name e)]))
+                     names (into {} (for [e es :when (= :sheet/node-name-set (:event/type e))] [(:node-id e) (:name e)]))
+                     runs (for [[a e] (map-indexed vector es)
+                                :when (= :sheet/node-execution-started (:event/type e))
+                                :let [[b c] (first (keep-indexed
+                                                    (fn [j c] (when (and (> j a) (= :sheet/node-execution-completed (:event/type c))
+                                                                         (= (:tick-id e) (:tick-id c)) (= (:node-id e) (:node-id c)))
+                                                                [j c]))
+                                                    es))]
+                                :when b]
+                            {:from a :to b :status (:status c) :workflow (sheets (:sheet-id e))
+                             :name (str (names (:node-id e) (:node-id e)))})]
+               [i e] (map-indexed vector es)
+               :let [wanted (leaves (:event/type e))]
+               :when wanted
+               :let [wanted (update-vals wanted #(if (= :effect %) (str (:effect e)) %))
+                     inside (filter #(and (< (:from %) i (:to %)) (= :success (:status %))) runs)]
+               :when (not-any? #(= (wanted (:workflow %)) (first (str/split (:name %) #":" 2))) inside)]
+           (str "rule \"each effect in its own leaf\" failed: event " (:event/id e) " ("
+                (subs (str (:event/type e)) 1) (when (:effect e) (str ", effect " (:effect e)))
+                ") was not written inside a leaf named "
+                (str/join " or " (sort (for [[l ws] (group-by val wanted)]
+                                         (str l " of the ORC workflow " (str/join " or " (sort (map key ws)))))))
+                (if (seq inside)
+                  (str "; it lies inside " (str/join ", " (map #(str "the leaf " (:name %) " of " (:workflow %)) inside)))
+                  "; it lies inside no leaf")
+                ": each effect or command is a leaf of its own, named for it (cycle-runner/seam.md, \"The trees\")")))))
+
 (def processor-fix
   "start each processor with its :processor-name (tp/start {... :processor-name ...}), so Grain checkpoints each output and drops a redelivered event")
 
@@ -217,7 +267,7 @@
   (into {} (remove (fn [[k _]] (or (= "event" (namespace k)) (= ::tenant k)))) e))
 
 (defn check [model-dir store]
-  (let [{own :events consumed :consumed workflows :workflows} (load-model model-dir)
+  (let [{own :events consumed :consumed workflows :workflows leaves :leaves} (load-model model-dir)
         schemas (merge consumed own)]
     (cond
       (empty? own)
@@ -252,6 +302,7 @@
                   (str "event " (:event/id e) " (" (subs (str (:event/type e)) 1) ") does not match its schema: "
                        (pr-str (me/humanize explain))))
                 (workflow-problems workflows events)
+                (leaf-problems leaves events)
                 (duplicate-problems events)
                 (checkpoint-problems events))))))))
 
@@ -265,6 +316,6 @@
              (str "event-store check FAILED: " (count problems) " problem(s)")
              (str "event-store check OK: every event is an event of the model or a handoff it consumes, "
                   "with exactly its fields, or Grain's or ORC's own, and each event a command produced lies inside a completed run "
-                  "of its ORC workflow, each tick completed once, and ORC's processors checkpointed")))
+                  "of its ORC workflow (in its own named leaf, where the model names one), each tick completed once, and ORC's processors checkpointed")))
   (shutdown-agents)
   (System/exit (if (seq problems) 1 0)))

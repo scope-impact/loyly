@@ -4,7 +4,9 @@
 # the handoffs it consumes), slice 03's (grader-lifecycle, which consumes none) and slice 04's
 # (regeneration-cycle, with the six it consumes), slice 05's (cycle-preparation, which
 # consumes none) and slice 06's (cycle-runner, which consumes none): one store of each passes
-# (two of slice 06's: a halted run, and a concluded one with the contexts' replies verbatim),
+# (two of slice 06's: a halted run, and a concluded one with the contexts' replies verbatim,
+# each event in the leaf named for it; and a one-node wrapper of slice 05, which declares no
+# leaf), and a one-node wrapper and an effect in another effect's leaf fail for slice 06,
 # and each of the
 # others, and a store
 # that is not there, fails for its own reason, among them a model event with no ORC run on
@@ -58,6 +60,7 @@ expect 1 "$WORK/04-fail-foreign-event.sqlite" "measurement/checklist-derived is 
 expect 1 "$WORK/04-fail-outside-run.sqlite"  "was not written inside a run of the ORC workflow regeneration-cycle/fence-to-scoreboard"
 expect 1 "$WORK/04-fail-wrong-workflow.sqlite" "was not written inside a run of the ORC workflow regeneration-cycle/gate-refusals-fail-cycle"
 expect 0 "$WORK/05-pass-pinned.sqlite"       "event-store check OK"
+expect 0 "$WORK/05-pass-one-node-wrapper.sqlite" "event-store check OK"
 expect 1 "$WORK/05-fail-short-commit.sqlite" ":commit"
 expect 1 "$WORK/05-fail-outside-run.sqlite"  "was not written inside a run of the ORC workflow cycle-preparation/cut-to-fence"
 expect 1 "$WORK/05-fail-unconsumed-handoff.sqlite" "specification/scenario-stamped is not an event of"
@@ -66,5 +69,8 @@ expect 0 "$WORK/06-pass-concluded.sqlite"    "event-store check OK"
 expect 1 "$WORK/06-fail-halt-reason.sqlite"  ":reason"
 expect 1 "$WORK/06-fail-outside-run.sqlite"  "was not written inside a run of the ORC workflow cycle-runner/run-to-gate"
 expect 1 "$WORK/06-fail-relayed-handoff.sqlite" "specification/scenario-stamped is not an event of"
+expect 1 "$WORK/06-fail-one-node-wrapper.sqlite" 'rule "each effect in its own leaf" failed: event .* (cycle-runner/run-started) was not written inside a leaf named start of the ORC workflow cycle-runner/run-to-gate; it lies inside the leaf perform-command of cycle-runner/run-to-gate'
+expect 1 "$WORK/06-fail-one-node-wrapper.sqlite" 'cycle-runner/effect-recorded, effect fence) was not written inside a leaf named fence of the ORC workflow cycle-runner/run-to-gate'
+expect 1 "$WORK/06-fail-wrong-leaf.sqlite"   'effect fence) was not written inside a leaf named fence of the ORC workflow cycle-runner/run-to-gate or cycle-runner/verdicts-to-conclusion; it lies inside the leaf pin of cycle-runner/run-to-gate'
 (( bad )) && { echo "event-store check test FAILED"; exit 1; }
-echo "event-store check test OK: 8 passes, 33 refusals, each for its own reason"
+echo "event-store check test OK: 9 passes and 36 refusals checked, each for its own reason"

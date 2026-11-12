@@ -50,6 +50,25 @@
              events
              (when status (processed sheet-id tick status))))))
 
+(defn orc-tree-run
+  "LEAVES, each [name events], inside one run of the ORC workflow WORKFLOW, each leaf as ORC
+  writes it on the store: its name (node-name-set), then per leaf its node-execution-started,
+  the leaf's events and its node-execution-completed with success; then what the run's
+  processors append when it completes (processed). Slice 06 declares its leaves
+  (cycle-runner/event-model/area.edn, :leaf), so its events are held to them."
+  [workflow leaves]
+  (let [tick (random-uuid) sheet-id (random-uuid)
+        ids (into {} (for [[n _] leaves] [n (random-uuid)]))]
+    (concat [[:sheet/sheet-created {:sheet-id sheet-id :name workflow}]]
+            (for [[n id] ids] [:sheet/node-name-set {:sheet-id sheet-id :node-id id :name n}])
+            [[:sheet/tree-tick-started {:sheet-id sheet-id :tick-id tick}]]
+            (mapcat (fn [[n events]]
+                      (concat [[:sheet/node-execution-started {:sheet-id sheet-id :tick-id tick :node-id (ids n) :inputs {}}]]
+                              events
+                              [[:sheet/node-execution-completed {:sheet-id sheet-id :tick-id tick :node-id (ids n) :status :success}]]))
+                    leaves)
+            (processed sheet-id tick :success))))
+
 (defn re-ticked-run
   "EVENTS in a run ORC re-ticks: the tick completes :running, ORC starts it again, and the
   second tick completes with success. One terminal completion: rule 1 holds."
@@ -190,6 +209,9 @@
 (def cases-05
   {"05-pass-pinned"             (orc-run "cycle-preparation/cut-to-fence" :success
                                          [[:cycle-preparation/source-cut-pinned pinned]])
+   ;; slice 05 declares no leaf, so a one-node wrapper still passes its gate
+   "05-pass-one-node-wrapper"   (orc-tree-run "cycle-preparation/cut-to-fence"
+                                              [["perform-command" [[:cycle-preparation/source-cut-pinned pinned]]]])
    "05-fail-short-commit"       (orc-run "cycle-preparation/cut-to-fence" :success
                                          [[:cycle-preparation/source-cut-pinned (assoc pinned :commit "4f2a9c1")]])
    "05-fail-outside-run"        (concat [[:cycle-preparation/source-cut-pinned pinned]]
@@ -200,7 +222,9 @@
 
 ;; Slice 06 (cycle-runner): start-run runs as the workflow of the flow run-to-gate, halt-run as
 ;; that of effect-not-performed-halts-run (what probe-06.sh causes); it consumes no handoff, so
-;; another context's event in its store is refused.
+;; another context's event in its store is refused. Its steps declare leaves (spec round 14), so
+;; its passing stores write each event in the leaf named for it (orc-tree-run); a one-node
+;; wrapper, every command in one "perform-command" leaf, fails.
 (def run-started
   {:run-id "R-probe" :cycle-id "C-probe" :cut-id "K-probe" :commit "0123456789abcdef0123456789abcdef01234567"
    :selection-id "whole-plan"
@@ -221,16 +245,34 @@
    :cycle {:stage "fence" :status "failed" :attempts 0 :failure {:reason "fence-refused"}}
    :concluded-at (java.util.Date.)})
 
+(def handoff-relayed
+  {:run-id "R-probe" :handoff-type "regeneration-cycle/cycle-failed" :producer "regeneration-cycle"
+   :position 1 :consumer "measurement" :outcome "accepted" :relayed-at (java.util.Date.)})
+(def self-check-recorded
+  (assoc effect-recorded :position 1 :effect "self-check" :method "regeneration-cycle/record-harness-self-check"
+         :outcome "recorded" :events [] :detail "passed"))
+
 (def cases-06
-  {"06-pass-halted"          (concat (orc-run "cycle-runner/run-to-gate" :success
-                                              [[:cycle-runner/run-started run-started]])
-                                     (orc-run "cycle-runner/effect-not-performed-halts-run" :success
-                                              [[:cycle-runner/run-halted run-halted]]))
-   "06-pass-concluded"       (concat (orc-run "cycle-runner/run-to-gate" :success
-                                              [[:cycle-runner/run-started run-started]
-                                               [:cycle-runner/effect-recorded effect-recorded]])
-                                     (orc-run "cycle-runner/cycle-failed-ends-run" :success
-                                              [[:cycle-runner/run-concluded run-concluded]]))
+  {"06-pass-halted"          (concat (orc-tree-run "cycle-runner/run-to-gate"
+                                                   [["start" [[:cycle-runner/run-started run-started]]]])
+                                     (orc-tree-run "cycle-runner/effect-not-performed-halts-run"
+                                                   [["halt" [[:cycle-runner/run-halted run-halted]]]]))
+   "06-pass-concluded"       (concat (orc-tree-run "cycle-runner/run-to-gate"
+                                                   [["start" [[:cycle-runner/run-started run-started]]]
+                                                    ["self-check:0" [[:cycle-runner/effect-recorded self-check-recorded]]]
+                                                    ["fence" [[:cycle-runner/effect-recorded (assoc effect-recorded :position 2)]]]
+                                                    ["relay:fence" [[:cycle-runner/handoff-relayed handoff-relayed]]]])
+                                     (orc-tree-run "cycle-runner/cycle-failed-ends-run"
+                                                   [["conclude" [[:cycle-runner/run-concluded run-concluded]]]]))
+   "06-fail-one-node-wrapper" (concat (orc-tree-run "cycle-runner/run-to-gate"
+                                                    [["perform-command" [[:cycle-runner/run-started run-started]]]])
+                                      (orc-tree-run "cycle-runner/run-to-gate"
+                                                    [["perform-command" [[:cycle-runner/effect-recorded effect-recorded]]]])
+                                      (orc-tree-run "cycle-runner/cycle-failed-ends-run"
+                                                    [["perform-command" [[:cycle-runner/run-concluded run-concluded]]]]))
+   "06-fail-wrong-leaf"      (orc-tree-run "cycle-runner/run-to-gate"
+                                           [["start" [[:cycle-runner/run-started run-started]]]
+                                            ["pin" [[:cycle-runner/effect-recorded effect-recorded]]]])
    "06-fail-halt-reason"     (orc-run "cycle-runner/effect-not-performed-halts-run" :success
                                       [[:cycle-runner/run-halted (assoc run-halted :reason "gave-up")]])
    "06-fail-outside-run"     (concat [[:cycle-runner/run-started run-started]]
