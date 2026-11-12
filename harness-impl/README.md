@@ -12,7 +12,7 @@ harness"): this is the build that runs the regeneration cycles since then.
 | `03-grader-lifecycle/` | grader-lifecycle | 05 | 11/11 |
 | `04-regeneration-cycle/` | regeneration-cycle | 05 | 76/76 |
 | `05-cycle-preparation/` | cycle-preparation | selfhost-01 (runner c05), the first self-hosted cycle | 4/4 |
-| `06-cycle-runner/` | cycle-runner | 07 (http gate runs the probe in the gated tree, spec round 11) | 52/52 |
+| `06-cycle-runner/` | cycle-runner | 08 (a handed-in gate command, `LOYLY_GATE_CMD`, spec round 12) | 57/57 |
 
 Each folder's `PROVENANCE.md` names the room it came from, its gate log and verdict, its score
 and cycle commit, the spec commit it was built from, and the digest of its source, which equals

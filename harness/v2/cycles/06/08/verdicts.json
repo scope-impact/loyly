@@ -1,0 +1,287 @@
+[
+ {
+  "id": "06-001",
+  "verdict": "pass",
+  "evidence": "s1: fixture repo (2 stamped scenarios), stub builder leaving a candidate (test.sh exit 0, start.sh serves 'sauna' on PORT). start-run R-1/C-1 responded; run-progress: status awaiting-verdicts, effect-results 1-9 = stamp, pin, checklist, self-check, fence, regenerate, install, self-check, gate, all outcome recorded; gate events = [regeneration-cycle/gate-attempt-passed]."
+ },
+ {
+  "id": "06-002",
+  "verdict": "pass",
+  "evidence": "s2: R-1/C-1 failed with its cycle at the fence (self-check failing). start-run R-1/C-2 -> -32000 run-already-started; run-progress (all) lists exactly [(R-1, C-1)]."
+ },
+ {
+  "id": "06-003",
+  "verdict": "pass",
+  "evidence": "s1: while R-1 awaited verdicts, start-run R-2/C-2 -> -32000 run-in-progress; run-progress R-2 = null; R-1 still awaiting-verdicts."
+ },
+ {
+  "id": "06-004",
+  "verdict": "pass",
+  "evidence": "s1: after R-1/C-1 passed (verdicts filed), start-run R-2/C-1 -> -32000 cycle-already-run; run-progress lists only R-1."
+ },
+ {
+  "id": "06-005",
+  "verdict": "pass",
+  "evidence": "s3: start-run R-1 at commit deadbeef... (not in the fixture repo) -> -32000 not-a-commit; run-progress runs = []; stub builder log has no launch."
+ },
+ {
+  "id": "06-006",
+  "verdict": "pass",
+  "evidence": "s3: LOYLY_CONTEXTS measurement entrypoint 'exit 0' -> -32000 contexts-not-responding, data.contexts = ['measurement']; run-progress runs = []."
+ },
+ {
+  "id": "06-007",
+  "verdict": "pass",
+  "evidence": "s1: relayed-handoffs of R-1: scenario-stamped pos 1 and 2 -> measurement, then source-cut-pinned pos 1 -> regeneration-cycle and -> measurement, then gate-attempt-passed pos 1 -> measurement exactly once; every outcome accepted."
+ },
+ {
+  "id": "06-008",
+  "verdict": "pass",
+  "evidence": "s5: plan spec with 'Feature' and no scenario. stamp recorded (no events), pin recorded, checklist outcome refused, refusal 'empty-checklist' (measurement/derive-checklist); status halted, halt {effect checklist, reason refused-before-the-cycle}; only 3 effects, no self-check (stub self-check never ran), no fence."
+ },
+ {
+  "id": "06-009",
+  "verdict": "pass",
+  "evidence": "s5 (second commit): plan adds 'Scenario: three with no identity'. stamp recorded with 3 scenario-stamped events; run halted at stamp, reason refused-before-the-cycle, detail names plan identities [01-001 01-002] vs stamp [01-001 01-002 01-003]; 1 effect only (no pin, no checklist)."
+ },
+ {
+  "id": "06-010",
+  "verdict": "pass",
+  "evidence": "s2: self-check prints 'golden checklist differs' last and exits 1. R-1 status failed; cycle.failure {stage fence, reason harness-self-check-failed, detail 'golden checklist differs'}; last effect (pos 4) self-check (harness-self-check-failed event); no fence, no regenerate."
+ },
+ {
+  "id": "06-011",
+  "verdict": "pass",
+  "evidence": "s7: self-check exit 0 printing 'SKIP bb-tools'. First self-check effect recorded with regeneration-cycle/harness-self-check-passed; detail 'done Skipped: bb-tools'; event skipped-checks ['bb-tools']."
+ },
+ {
+  "id": "06-012",
+  "verdict": "pass",
+  "evidence": "s8: FENCED_PATHS 'impl harness/cycles', commit without harness/cycles. fence effect refused 'fenced-path-matched-nothing' (regeneration-cycle/prove-clean-room); next effect fail-cycle recorded; R-1 failed, cycle.failure stage fence reason fence-refused; stub builder log empty."
+ },
+ {
+  "id": "06-013",
+  "verdict": "pass",
+  "evidence": "s9: fenced 'impl harness/cycles', commit holds both. Stub builder recorded its room: docs/plan/01-a/spec.feature, harness/config.sh, harness/probe.sh, empty ./impl; git rev-list --all --count = 1; rev-list --objects --all has no impl or harness/cycles path."
+ },
+ {
+  "id": "06-014",
+  "verdict": "pass",
+  "evidence": "s4: candidates red then green. Builder launched twice (launch1 = regenerate, launch2 = repair); launch2 start time after launch1 end time; effects show regenerate attempt 1 and repair attempt 2."
+ },
+ {
+  "id": "06-015",
+  "verdict": "pass",
+  "evidence": "s9: stub builder copies a good candidate then exits 1. regenerate effect recorded with candidate-digest sha256:c4c7... equal to my own digest of the fixture candidate; run awaits its verdicts (gate passed)."
+ },
+ {
+  "id": "06-016",
+  "verdict": "pass",
+  "evidence": "s7: stub builder exits 0 leaving impl empty. No regenerate effect; fail-cycle effect (pos 6) recorded; R-1 failed, cycle.failure stage regenerate reason candidate-not-regenerated."
+ },
+ {
+  "id": "06-017",
+  "verdict": "pass",
+  "evidence": "s10: regenerate timeout 2 s, builder sleeps 30 s. Builder's 'end' marker never written and its pid not alive afterwards (stopped); run failed, cycle.failure stage regenerate reason budget; fail-cycle recorded."
+ },
+ {
+  "id": "06-018",
+  "verdict": "pass",
+  "evidence": "s11: grader held an HTTP server on the configured PORT. Gate attempt 1: gate refused 'seam-answered-before-boot', followed by gate-refusal recorded, three times (pos 9-14); run failed, cycle.failure stage gate reason infrastructure; candidate's start.sh marker file never written."
+ },
+ {
+  "id": "06-019",
+  "verdict": "pass",
+  "evidence": "s12 R-1, limit 1: candidate test.sh exit 1, start.sh records runs. Gate attempt 1 recorded with gate-attempt-failed reason suite-red; start.sh marker never written; run failed, stage gate, gate-attempts-exhausted."
+ },
+ {
+  "id": "06-020",
+  "verdict": "pass",
+  "evidence": "s12 R-2, limit 1: candidate with test.sh and no start.sh. Gate attempt 1 recorded gate-attempt-failed reason contract-missing."
+ },
+ {
+  "id": "06-021",
+  "verdict": "pass",
+  "evidence": "s12 R-3, limit 1: green suite, page without 'sauna', marker 'sauna'. Gate attempt 1 recorded gate-attempt-failed reason identity-probe-failed (detail 'The page does not carry the marker')."
+ },
+ {
+  "id": "06-022",
+  "verdict": "pass",
+  "evidence": "s15 R-1: test.sh fails if impl/RED exists; builder writes RED into its room after exiting (RED present in builder-1/impl afterwards). Gate attempt 1 gate-attempt-passed; install digest = regenerate digest = digest of the fixture without RED."
+ },
+ {
+  "id": "06-023",
+  "verdict": "pass",
+  "evidence": "s4: first candidate red. repair effect attempt 2 recorded (verification-repair, parent digest = attempt-1 candidate); repair builder room held docs/, harness/, empty impl/, previous-candidate/ and gate-evidence/ (suite.log identical to the run's evidence-1-1/suite.log); write probes: previous-candidate and gate-evidence dirs not writable (dr-xr-xr-x), files read-only; impl writable. (The candidate-regenerated event schema carries no mounted-evidence field; observed via the room.)"
+ },
+ {
+  "id": "06-024",
+  "verdict": "pass",
+  "evidence": "s24: every candidate red, limit 3. Builder launched exactly 3 times; effects regenerate 1, gate 1, repair 2, gate 2, repair 3, gate 3; run failed, stage gate, gate-attempts-exhausted."
+ },
+ {
+  "id": "06-025",
+  "verdict": "pass",
+  "evidence": "s1: verdicts 01-001 pass 'booked', 01-002 fail 'judged by the main session', digest r-1. file-verdicts and file-score recorded; measurement-filed passes 1 total 2, items 01-001 pass 'booked', 01-002 fail 'judged by the main session'; R-1 status passed, cycle status passed."
+ },
+ {
+  "id": "06-026",
+  "verdict": "pass",
+  "evidence": "s16 R-2: verdicts only 01-001 pass. measurement-filed items include 01-002 verdict fail reason 'unreached' (unreached 1), passes 1 total 2; run passed."
+ },
+ {
+  "id": "06-027",
+  "verdict": "pass",
+  "evidence": "s1: hand-in-verdicts for R-9 -> -32000 no-run; run-progress R-9 = null."
+ },
+ {
+  "id": "06-028",
+  "verdict": "pass",
+  "evidence": "s12 R-1 (failed, gate-attempts-exhausted): hand-in-verdicts -> -32000 gate-not-passed; progress unchanged: no file-verdicts effect, status failed."
+ },
+ {
+  "id": "06-029",
+  "verdict": "pass",
+  "evidence": "s16 R-1 after score-stage-failed: second hand-in -> -32000 verdicts-already-handed-in; no regenerate/repair effect after the verdicts; stub builder launched once in total (before and after identical)."
+ },
+ {
+  "id": "06-030",
+  "verdict": "pass",
+  "evidence": "s1: R-1 approved digests [r-1]; hand-in with grader digest r-2 -> -32000 grader-not-approved; R-1 still awaiting-verdicts."
+ },
+ {
+  "id": "06-031",
+  "verdict": "pass",
+  "evidence": "s1: blank verdicts file -> -32000 verdicts-not-readable; R-1 still awaiting-verdicts with 9 effects, no file-verdicts."
+ },
+ {
+  "id": "06-032",
+  "verdict": "pass",
+  "evidence": "s16 R-1: verdicts 01-001 pass and 09-001 pass. file-verdicts refused 'unknown-item' (measurement/file-item-verdicts), then fail-score-stage recorded (score-stage-failed event); run failed, cycle.failure stage score reason score-stage-failed; no builder launch after the verdicts."
+ },
+ {
+  "id": "06-033",
+  "verdict": "pass",
+  "evidence": "s2 R-2: measurement wrapper exits when asked measurement/derive-checklist. Run halted, halt {effect checklist, reason context-did-not-respond}; effect results only stamp and pin (no checklist result)."
+ },
+ {
+  "id": "06-034",
+  "verdict": "pass",
+  "evidence": "s2: R-1 failed at fence, R-2 halted at checklist. Read both again >=5 s after R-2's start responded: R-1 failed, R-2 halted, each progress JSON identical to the reading taken right after its start responded (effects and relayed handoffs)."
+ },
+ {
+  "id": "06-035",
+  "verdict": "pass",
+  "evidence": "s1: two consecutive run-progress R-1 readings are byte-identical; status awaiting-verdicts; runs-to-advance [] afterwards."
+ },
+ {
+  "id": "06-036",
+  "verdict": "pass",
+  "evidence": "s9: cut probe exits 1 unless its single arg is exactly 'http://127.0.0.1:'+PORT and the page carries the marker (logged arg: http://127.0.0.1:57742). Gate attempt 1 gate-attempt-passed; run awaits verdicts."
+ },
+ {
+  "id": "06-037",
+  "verdict": "pass",
+  "evidence": "s15 R-2: test.sh mkdirs/writes/removes a temp dir inside its own dir, exit 0. Gate attempt 1 gate-attempt-passed; install digest = regenerate digest."
+ },
+ {
+  "id": "06-038",
+  "verdict": "pass",
+  "evidence": "s7 R-2: self-check prints 'SKIP  the oracle cannot judge this tree: a tool it grades is absent.' First self-check recorded harness-self-check-passed; skipped-checks ['the oracle cannot judge this tree: a tool it grades is absent.'], detail carries it."
+ },
+ {
+  "id": "06-039",
+  "verdict": "pass",
+  "evidence": "s17 R-1, APP_SEAM=stdio, no PORT: suite 0, probe prints 'answered as the context', store check 0. Gate attempt 1 gate-attempt-passed with boot-budget-seconds 30, boot-polls 1, answered-on-poll 1, identity-probe-result 'answered as the context'; no gate-refusal; awaiting-verdicts."
+ },
+ {
+  "id": "06-040",
+  "verdict": "pass",
+  "evidence": "s17 R-1: probe args = [<run>/gate-1/impl/start.sh, '30']; GATE_STORE=<runs>/run-.../evidence-1-1/events.sqlite (under LOYLY_RUNS_DIR, outside gate-1), the runner's own inherited GATE_STORE replaced, no LOYLY_* in probe env; store check's last arg is that same file (cwd the project repo)."
+ },
+ {
+  "id": "06-041",
+  "verdict": "pass",
+  "evidence": "s17 R-2, limit 1: suite records env, exits 1. gate-attempt-failed suite-red; suite env had no GATE_STORE and no LOYLY_* (runner had GATE_STORE inherited); probe and store check logs empty."
+ },
+ {
+  "id": "06-042",
+  "verdict": "pass",
+  "evidence": "s17 R-3, limit 1: probe prints 'no response within the 30s boot budget', exit 1. gate-attempt-failed identity-probe-failed, event detail 'no response within the 30s boot budget'; store check never ran (0 log entries)."
+ },
+ {
+  "id": "06-043",
+  "verdict": "pass",
+  "evidence": "s17 R-4, limit 1: probe 0, store check prints 'FAIL event 7 was not written inside a run of the ORC workflow' exit 1. gate-attempt-failed identity-probe-failed, detail carries that line; run failed stage gate gate-attempts-exhausted."
+ },
+ {
+  "id": "06-044",
+  "verdict": "pass",
+  "evidence": "s17 R-1: suite exits 0 only if docs/plan/01-a/spec.feature exists at <dirname test.sh>/..; suite ran in gate-1 and passed; gate-attempt-passed; install digest = regenerate digest (sha256:d1c5...)."
+ },
+ {
+  "id": "06-045",
+  "verdict": "pass",
+  "evidence": "s17 R-5: LOYLY_STORE_CHECK_CMD names a deleted script. Run halted at gate, reason effect-could-not-run ('Command could not start ...'); effect results end at the before-gate self-check: no gate effect result."
+ },
+ {
+  "id": "06-046",
+  "verdict": "pass",
+  "evidence": "s18: two runner sessions, same stdio repo, probe exits 1, limit 1, store-check cmd '<abs>/check-store.sh one' vs '... two'. Both first self-checks harness-self-check-passed; harness digests sha256:e825... vs sha256:0e5d... (differ)."
+ },
+ {
+  "id": "06-047",
+  "verdict": "pass",
+  "evidence": "s19: docs/plan/01-a is a git symlink (120000) to ../spec/a holding the two stamped scenarios. stamp recorded with 2 scenario-stamped events (01-001, 01-002), no halt (awaiting-verdicts); checklist items 01-001/01-002 with sources docs/plan/01-a/spec.feature:4 and :8."
+ },
+ {
+  "id": "06-048",
+  "verdict": "pass",
+  "evidence": "s20: slices 01 (01-001, 01-002) and 02 (02-001), PLAN_SLICES=02. One stamp effect, stamping 02-b only (02-001); checklist-derived total 1, items [02-001], none of slice 01."
+ },
+ {
+  "id": "06-049",
+  "verdict": "pass",
+  "evidence": "s4: BUILDER_IMAGE=builder-clojure, folder present. Both launches got 3 args: builder room, instruction file, <images>/builder-clojure; regenerate and repair details name 'builder image builder-clojure sha256:ee1d...', equal to my candidate-digest-formula digest of that folder."
+ },
+ {
+  "id": "06-050",
+  "verdict": "pass",
+  "evidence": "s4: BUILDER_IMAGE=builder-clojure, images dir without it. start-run -> -32000 builder-image-missing; runs []; no builder launch."
+ },
+ {
+  "id": "06-051",
+  "verdict": "pass",
+  "evidence": "s21: LOYLY_MEASUREMENT_STORE=H. R-1/C-1/K-1 verdicts -> passed; R-2/C-2/K-2 verdicts -> passed. After the session, the real Measurement started on H: measurement/scoreboard C-2 has previous-cycle-id C-1. R-2's relayed handoffs from measurement: measurement-filed pos 1 and scoreboard-reported pos 2, each once to regeneration-cycle, accepted."
+ },
+ {
+  "id": "06-052",
+  "verdict": "pass",
+  "evidence": "s1: cut probe harness/probe.sh sources $(dirname $0)/config.sh for APP_MARKER (not cwd/env) and greps the page at its argument. Gate attempt 1 gate-attempt-passed ('probe: http://127.0.0.1:<port> answered as the app'); install digest = regenerate digest (sha256:c4c7...)."
+ },
+ {
+  "id": "06-053",
+  "verdict": "pass",
+  "evidence": "s22 R-1: LOYLY_GATE_CMD stub prints 'BOOT 20 10','ANSWERED 3','ledger answered as itself', exit 0. gate-attempt-passed with boot-budget-seconds 10, boot-polls 20, answered-on-poll 3, identity-probe-result 'ledger answered as itself'. Command launched once, cwd = project repo, 3 args: gate-1 (cut tree incl. fenced harness/cycles, no impl, no .git), installed-1 (digest ec8f... = install/gate event candidate-digest), evidence-1-1 (empty at start, = event evidence-root). Candidate start.sh marker never written."
+ },
+ {
+  "id": "06-054",
+  "verdict": "pass",
+  "evidence": "s22 R-2: stub writes suite-report.txt into evidence dir, prints 'BOOT 20 10' and 'suite-red 3 of 65 tests failed', exit 1 on attempt 1, passes attempt 2. Gate 1: gate-attempt-failed reason suite-red detail '3 of 65 tests failed'; repair room held gate-evidence/suite-report.txt read-only (dir and file not writable); gate attempt 2 gate-attempt-passed."
+ },
+ {
+  "id": "06-055",
+  "verdict": "pass",
+  "evidence": "s22 R-3: stub prints BOOT and last 'seam-answered-before-boot 127.0.0.1:8920 answered before start.sh ran', exit 1. gate refused seam-answered-before-boot + gate-refusal recorded, three times (command launched 3 times); run failed stage gate reason infrastructure."
+ },
+ {
+  "id": "06-056",
+  "verdict": "pass",
+  "evidence": "s22 R-4: stub prints BOOT and last 'infrastructure the world did not come up', exit 2. Run halted at gate, reason effect-could-not-run, detail 'infrastructure the world did not come up'; no gate effect result, no fail-cycle, no conclusion (cycle null, not failed)."
+ },
+ {
+  "id": "06-057",
+  "verdict": "pass",
+  "evidence": "s23: same repo/config/self-check/probe, runs R-1 (no gate cmd), R-2 (gate-a), R-3 (gate-b), all awaiting-verdicts. R-1 self-check harness digest sha256:2b66... = SHA-256(config bytes + self-check command text + probe bytes); R-1/R-2/R-3 digests 2b66.../4fa0.../6ae8... all different."
+ }
+]

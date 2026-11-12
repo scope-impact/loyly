@@ -1,5 +1,6 @@
-.cpcache/
-target/
-work/
-vendor/
-deps.log
+/target/
+/.cpcache/
+/state/
+*.log
+*.out
+*.err
