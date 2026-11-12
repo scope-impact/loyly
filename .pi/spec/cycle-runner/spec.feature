@@ -646,3 +646,17 @@ Feature: Cycle runner
       When the operator starts each of the runs R-1, R-2 and R-3 in turn
       Then the self-check effects of run R-1 carry the SHA-256 of the configuration file, the self-check command and the identity probe, in that order, as the harness digest
       And the self-check effects of runs R-1, R-2 and R-3 carry three different harness digests
+
+  Rule: A start waits for its contexts, as long as a context takes to load
+
+    # cycle-run.allium, rule StartRun (requires 5); context.allium, config context_start_seconds
+    # decisions.md "Spec round 13" D1: cycle 08's runner gave its contexts 20 seconds, and a context takes about 20 to load, so Halla's first nine starts were refused
+    @minimum @allium-rule-failure.StartRun.5
+    @item-06-058
+    Scenario: A context that first responds 30 seconds after its launch is waited for, and one that never responds refuses the start after 60
+      Given the launch entrypoint handed in for Cycle preparation responds to its first query 30 seconds after its launch
+      And the launch entrypoint handed in for Measurement never responds and does not exit
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then the start is refused, naming measurement and not cycle-preparation
+      And the refusal came no sooner than 60 seconds and no later than 90 seconds after the start
+      And no run R-1 exists, and no builder was launched

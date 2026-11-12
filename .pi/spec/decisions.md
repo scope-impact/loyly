@@ -1408,3 +1408,40 @@ not: the gate runs on the host, where the world cannot run. So the gate is the o
 
 The slice-06 grader grows by these five items ("spec grew", additions only). The checklist golden
 grows from 201 to 206. `@item-06-053` to `@item-06-057` are the next cycle's untuned holdout.
+
+## Spec round 13 (2026-11-12)
+
+Decided by the product owner on 2026-11-12. A spec round on slice 06 only, and the smallest one:
+one new item and one reworded line. No other context, event-model schema or existing scenario
+changed.
+
+Why: Halla Health's first wallet-consent run under runner cycle 08 was refused nine times,
+`contexts-not-responding`, before anything was built. The seam named no deadline for a context to
+respond at a start, so cycle 08's builder chose 20 seconds. Each of the five contexts is a JVM that
+loads Clojure, ORC and Grain before it responds: measured on 2026-11-12, 19 to 22 seconds on the
+reference host and 22 to 24 in an 8 GB, 6 CPU Gondolin VM, so running the runner in a VM does not
+help. Cycle 08's grader met the same refusals on a loaded host.
+
+1. **D1, a start waits 60 seconds for its contexts.** A context responds when it replies to a
+   query of its own seam within 60 seconds of its own launch; the five are launched together, so
+   a start waits at most 60 seconds (`seam.md`, `LOYLY_CONTEXTS`; `context.allium`, config
+   `context_start_seconds = 60`). Fixed, not handed in: round 10's draft D3 (120 s, or a
+   configurable `LOYLY_CONTEXT_START_SECONDS`) was not applied, and the product owner chose the
+   smaller value. One new item, `@item-06-058`.
+2. **D2, a `SKIP` line may be indented.** Seam E2: a skipped check is each line whose first word,
+   after any leading whitespace, is `SKIP`. Cycle 07 matched `^SKIP` and never recorded Löyly's
+   indented skips; cycle 08 trims first. Shadow S1 found the difference and the product owner
+   accepted cycle 08's reading (`harness-impl/06-cycle-runner/PROVENANCE.md`). No new item:
+   `@item-06-038`'s line is unindented and holds under both readings.
+3. **Later, and not needed now.** Cycle 08's other spec findings (`PROVENANCE.md`, "For the next
+   spec round"): the harness digest's "self-check command" (text or file), `@item-06-023` and
+   `@item-06-056` as worded are not observable through the seam, `@item-06-007`'s order of
+   relays, `LOYLY_BUILDER_INSTRUCTION` as a file path, and the gate command's boot numbers when it
+   prints no `BOOT` line. A modular monolith (the six contexts as modules of one JVM) would remove
+   the five starts altogether; it reopens spec round 5's assembly and is its own design round.
+4. **One new scenario**, `@minimum`, appended at the end of `cycle-runner/spec.feature` and stamped
+   `@item-06-058`. Cycle-runner goes from 57 to 58 items; must-cover is unchanged at 52.
+   `tools/spec/v2/gates.sh`: ALL GATES PASS.
+
+The slice-06 grader grows by this item ("spec grew", additions only). The checklist golden grows
+from 206 to 207. `@item-06-058` is the next cycle's untuned holdout.

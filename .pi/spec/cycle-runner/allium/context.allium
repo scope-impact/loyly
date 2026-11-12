@@ -287,6 +287,9 @@ config {
     -- harness/verify.sh, the stdio seam: thirty seconds, held by the probe, one poll.
     stdio_boot_budget_seconds: Integer = 30
     stdio_boot_polls: Integer = 1
+    -- How long a start waits for each context to respond to its first query, counted from its
+    -- own launch (spec round 13): a context loads Clojure, ORC and Grain first, about 20 s.
+    context_start_seconds: Integer = 60
 }
 
 ------------------------------------------------------------

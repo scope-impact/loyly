@@ -124,7 +124,7 @@ Spec round 7c appended `@item-06-036`, spec round 7d `@item-06-037` and `@item-0
 round 8 `@item-06-039` to `@item-06-048` (the stdio gate and the plan's slices), and spec round 9
 `@item-06-049` to `@item-06-051` (the builder image, its refusal, Measurement's history), spec
 round 11 `@item-06-052` (the http probe in the gated tree), and spec round 12 `@item-06-053` to
-`@item-06-057` (the gate command), all minimum: 57 items. `drafts.feature` holds none. Of the 52 must-cover obligations
+`@item-06-057` (the gate command), and spec round 13 `@item-06-058` (the context start deadline), all minimum: 58 items. `drafts.feature` holds none. Of the 52 must-cover obligations
 (`tools/spec/v2/coverage.py`), 7 are unit level and 1 gate-verified (`TheGateRoomIsNotTheBuilders`, planned `room-policy`).
 
 ## Decided questions (spec round 7b)
