@@ -422,3 +422,12 @@ with `harness/oracle.sh record`; its diff is additions plus the one `total` line
 slice-06 grader grows by that item for the recorded reason "spec grew"; no other approved grader's
 scenarios changed. `prompt.clj` and `probe-06.sh` are unchanged: there is no new handed-in value,
 and the slice-06 probe asks nothing of where the http probe runs.
+
+**2026-11-12: the spec grew: spec round 12.** The product owner's spec round 12
+(`.pi/spec/decisions.md`, "Spec round 12") lets a handed-in gate command (`LOYLY_GATE_CMD`) run the
+gate, so Halla Health can gate in a Gondolin VM with its world, and writes a fence plan as
+configuration. It appended five stamped minimum items at the end of slice 06's `spec.feature`:
+`06-053` to `06-057`. The spec grew (additions only), so the golden was re-recorded with
+`harness/oracle.sh record`; its diff is additions plus the one `total` line (201 → 206). The
+slice-06 grader grows by those items for the recorded reason "spec grew". `harness/loyly-run`
+(added in `c8d4384`) is declared `LOCAL` in `harness/modules.sh`.

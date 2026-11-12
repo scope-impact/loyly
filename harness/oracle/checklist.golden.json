@@ -1205,9 +1205,39 @@
    "name": "An identity probe that reads a file beside it in the cut passes a candidate that serves the marker",
    "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
    "source": ".pi/plan/06-cycle-runner/spec.feature:582"
+  },
+  {
+   "id": "06-053",
+   "name": "A gate command that exits 0 passes the attempt with the budget, the poll and the probe line it printed",
+   "rule": "A gate command handed in is the gate: the runner hands it the cut's tree, the candidate's copy and an evidence directory, and records its result",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:596"
+  },
+  {
+   "id": "06-054",
+   "name": "A gate command that exits 1 naming a reason fails the attempt with that reason, and the repair builder is handed its evidence",
+   "rule": "A gate command handed in is the gate: the runner hands it the cut's tree, the candidate's copy and an evidence directory, and records its result",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:610"
+  },
+  {
+   "id": "06-055",
+   "name": "A gate command whose last line is a refusal to grade is a gate refusal, and three in a row fail the cycle",
+   "rule": "A gate command handed in is the gate: the runner hands it the cut's tree, the candidate's copy and an evidence directory, and records its result",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:622"
+  },
+  {
+   "id": "06-056",
+   "name": "A gate command whose last line names no code the runner reads halts the run at the gate",
+   "rule": "A gate command handed in is the gate: the runner hands it the cut's tree, the candidate's copy and an evidence directory, and records its result",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:633"
+  },
+  {
+   "id": "06-057",
+   "name": "The harness digest covers the gate command, and is unchanged when none is handed in",
+   "rule": "A gate command handed in is the gate: the runner hands it the cut's tree, the candidate's copy and an evidence directory, and records its result",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:644"
   }
  ],
  "counts": {
-  "total": 201
+  "total": 206
  }
 }

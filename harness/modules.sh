@@ -96,7 +96,10 @@ PER_REPO=(harness/config.sh harness/probe.sh harness/README.md)
 #   harness/regen.clj   runs one cycle for this repository's product: the legacy tools in
 #                       order, plus the two steps the legacy README left to a person (the
 #                       builder and the approved graders). Its prompts describe this product.
-LOCAL=(harness/oracle.py harness/Makefile harness/graders.approved.json harness/regen.clj)
+#   harness/loyly-run  launches and drives this repository's cycle runner (harness-impl/06-cycle-runner)
+#                       as a daemon; another project copies harness/project-template. It is the
+#                       new harness's operator tool, not part of the legacy instrument.
+LOCAL=(harness/oracle.py harness/Makefile harness/graders.approved.json harness/regen.clj harness/loyly-run)
 
 # Recorded goldens. Content is never compared either, for a different reason: each is
 # recorded from this repository's own spec and its own scored cycle, so there is no single
