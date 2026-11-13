@@ -50,7 +50,9 @@ inbox and no recorded pids: `steer.sh` and `stop.sh` refuse it; `watch.sh` works
 - **The builder still cannot declare completion**: the gate and the score decide, whatever the
   supervisor saw.
 - **Every steer is evidence**: `steers.jsonl` and the store's `pi.user` entry. A cycle's steers
-  are the input to `../bin/improve-instruction.sh` (an instruction proposal a person approves).
+  are, with the gate attempts' failing lines, the input to `../bin/triage-steers.sh`: candidate
+  spec inbox items a person takes into a spec round. The builder instruction is frozen and
+  generic; a steer never becomes an instruction paragraph.
 - **Stop** is for a session that is no longer worth its cost (stalled, looping on a red suite for
   hours, off scope); the reason goes in `stops.jsonl`. A stopped builder resumes from its store
   (`LOYLY_BUILDER_SESSION_ID`), as cycle 08's did in a larger VM.

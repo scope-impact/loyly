@@ -1,5 +1,5 @@
-// One model turn as a durable pi session, with no tools and so no VM: for ../bin/improve-instruction.sh,
-// whose GEPA proposer (ORC's components/gepa) takes any prompt -> response function.
+// One model turn as a durable pi session, with no tools and so no VM: a prompt -> response function
+// for a harness tool that needs one (none does now; ../bin/triage-steers.sh classifies by rules).
 //
 //   node turn.ts <session.sqlite> <request-id> <prompt-file>     (LOYLY_PI_MODEL: provider/modelId)
 //

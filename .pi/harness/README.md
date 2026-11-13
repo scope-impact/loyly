@@ -90,6 +90,7 @@ Claude subagent it starts) supervises builders and graders with three small scri
 | `bin/grader.sh <grading-room> <instruction-file> <image-dir>` | The grader: rounds of `builder-host/host.ts` on one store (`LOYLY_GRADER_ROUNDS`, default 6: while the answered grader left items whose evidence starts with `not reached`, the same session gets one more input naming only those ids; nothing else) with the grader's model, prompt line ("Grade it now, as the attached instruction says.") and no steer inbox; tools as `config/pi.grader.settings.json` selects (the builder's seven); the VM mounts only the grading room and has the builder's egress allow list (unchanged). Evidence: `$GRADER_EVIDENCE_DIR/launch-N/{launch.txt,instruction-as-handed.md,session.sqlite,pi.stdout,pi.stderr,verdicts.json}`; `work/verdicts.json` is also copied to `$GRADER_EVIDENCE_DIR/verdicts.json`, the file `harness/v2/score.sh` files. Exit 0 answered, 1 unanswered, 2 setup error or refused, 3 answered without `work/verdicts.json`. |
 | `grader-instruction-06.md` | The grading instruction for slice 06 (the cycle runner): one verdict per `@item-06-NNN`, driven over the seam only; the must-not-read list; `@item-06-059` from the runner's own store; `@item-06-058` with real 30 s / 60 s timings; `[{"id","verdict","evidence"}]` for every item in order, unreached = fail. |
 | `bin/watch.sh`, `bin/steer.sh`, `bin/stop.sh` | The supervisor's tools: a read-only digest of a session, a steer into a running builder, a stop by recorded pid ([`supervisor/README.md`](supervisor/README.md)). |
+| `bin/triage-steers.sh <NN-cMM> [<NN-cMM>...]` | After a cycle: groups its steers, stops and gate failures into spec gap, harness/tool and one-off candidates for a spec round's inbox (`triage/<cycles>/triage.md`; below). Never writes an instruction or a spec file. |
 
 **The grader's model.** `LOYLY_GRADER_MODEL`, default `openai-codex/gpt-6.1-terra`: Codex through
 pi's existing `openai-codex` login, the builder's login, but a different model from the builder's
@@ -145,28 +146,35 @@ not a candidate defect; the spec round may say where (`seam.md`), the grader is 
 The grader's VM needed `apk add lmdb` (`room/.builder/image-additions.txt`): a candidate for
 `harness/loyly/Dockerfile.clojure`, an image change for the operator.
 
-### After a cycle: an instruction proposal (GEPA)
+### After a cycle: steer triage into spec inbox candidates
 
-`bin/improve-instruction.sh <NN-cMM> [<out-dir>]` (program `improve/improve.clj`, `improve/deps.edn`)
-runs one GEPA reflective mutation of the builder instruction's **operator-appended paragraphs**
-(the lines of `prompts/<cycle>/instruction.md` that `harness/v2/prompt.clj`'s `system.md` and
-`prompt.md` do not hold; the generated part stays). Its inputs: the supervisor's steers and stops
-(`builders/<cycle>/steers.jsonl`, `stops.jsonl`), each builder launch's wall clock and exit, each
-gate attempt's verdict and FAIL/FATAL lines (`logs/gate-cMM[-aN]-sliceNN.log`) and the final score
-**as an aggregate only** (`harness/v2/cycles/NN/MM/scores.json`: passes of the total; per-item
-verdicts and evidence are never read, because an approved proposal becomes builder input). Each
-builder attempt becomes one GEPA `ReflectiveExample`, formatted by GEPA and handed to GEPA's
-`proposer/propose-new-instruction` (ORC `components/gepa` at af086675, the commit the harness pins)
-with a template that keeps GEPA's `<curr_param>`/`<side_info>` method and forbids scenario answers,
-item ids, verdicts and any mention of grading. Output: `$PI_HARNESS_STATE_ROOT/proposals/<cycle>/proposal.md`
-(current and proposed paragraphs, what GEPA was shown), `proposed-appended.md`, and the proposer
-turn's store. **Never applied**: an instruction change is an operator decision, like the fence plan.
+**The builder instruction is frozen and generic** (product owner, 2026-11-13): it never drifts and
+never grows domain specifics, so what a supervisor had to steer, and what the gate kept failing, goes
+to the spec, not to the instruction. The earlier GEPA instruction proposal (`improve-instruction.sh`,
+06e5a85) is removed for that reason.
 
-**The provider.** GEPA's own reflection LLM (`todo-processors/make-llm-fn`) calls `orc/llm`'s
-`predict` with `:llm-provider` (default `:openrouter`, model `anthropic/claude-sonnet-4`); there is no
-such key here and no pi provider in `orc/llm`. But `propose-new-instruction` takes any
-`prompt -> response` function, so the proposer's LLM is one pi-durable turn on pi's existing login
-(`builder-host/turn.ts`, no tools, no VM; `LOYLY_PI_MODEL`, default `openai-codex/gpt-6.1-sol`):
-no framework change, no new provider stack. GEPA's `optimize!` loop (Pareto frontier, metric calls)
-is not run: evaluating one candidate instruction is a whole regeneration cycle, so the next cycle,
-after a person approves the proposal, is its evaluation.
+`bin/triage-steers.sh <NN-cMM> [<NN-cMM>...]` (program `scripts/triage-steers.mjs`, node, no
+dependencies, no model) reads, per cycle, the supervisor's steers and stops
+(`builders/<cycle>[-aN]/steers.jsonl`, `stops.jsonl`, and the same under `launch-*/`) and each gate
+attempt's FAIL/ERROR/FATAL lines (`logs/gate-cMM[-aN]-sliceNN.log`). **Never** a grading verdict,
+grading evidence or a score. It groups a gate failure by its test (`FAIL in (<test>)`, keyed by the
+`@item` the test names) or its store-check rule, and a steer or stop by the `@item` it names, else by
+the first harness term it uses (VM, image, world, egress, LMDB, ...), and classifies each group by
+deterministic rules:
+
+| Class | Rule |
+|---|---|
+| spec gap | a gate failure in every attempt of a cycle with two or more attempts, or in two or more cycles; a steer or stop naming an `@item`, a scenario or the seam |
+| harness/tool issue | a FATAL other than "suite red" or "(above)"; a steer, stop or failure naming the VM, image, world, egress or gate environment |
+| one-off | everything else |
+
+A group that recurs across attempts or cycles is reported as stronger evidence. Output:
+`$PI_HARNESS_STATE_ROOT/triage/<cycle>[+<cycle>...]/triage.md`, candidate spec inbox items each
+citing its evidence (steer text, gate lines with their file and line), for a person to take into a
+spec round. It never writes an instruction or a spec file.
+
+Proved on cycle 10 (2026-11-13): `@item-06-060` failed in all three gate attempts (`answered-on-poll`
+5 against the suite's 4), reported as a spec gap candidate with its five gate lines; on cycles 9
+and 10 together, cycle 9's store rule "one terminal completion per tick" (one attempt) is a one-off;
+on the synthetic one-steer fixture (`PI_HARNESS_STATE_ROOT=.state/improve-smoke`, cycle `06-c99`,
+a suite-timeout steer, gate OK) the steer is a one-off.
