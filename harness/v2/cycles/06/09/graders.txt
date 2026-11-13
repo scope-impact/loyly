@@ -1,0 +1,2 @@
+verdicts: sha256:dc27a2f90b916f083d4b68c0cd3287c2a5372e3f5590692c052a1762eea91e40 verdicts.json
+by: 06-c9-grading-subagent (Claude, black-box, seam only)
