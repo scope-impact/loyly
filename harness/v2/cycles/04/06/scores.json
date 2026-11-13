@@ -1,0 +1,612 @@
+{
+ "items": [
+  {
+   "id": "04-001",
+   "name": "A passing harness self-check before the fence opens the cycle on a pinned source cut",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:12",
+   "verdict": "pass",
+   "evidence": "pinned K-3, goldens checklist/scoreboard-01 written (G-1 = seam formula sha256:ff9cb971..); self-check C-7 before-fence attempt 0 passed: harness-self-check-passed with H-1, G-1, grader-digests [D-1], probe P-1, budget limit 3; progress running/fence/K-3/limit 3/gate-attempts 0/no candidate; control wrong digest refused goldens-not-current"
+  },
+  {
+   "id": "04-002",
+   "name": "A harness self-check at goldens that are no longer current is refused",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:24",
+   "verdict": "pass",
+   "evidence": "pinned K-3, golden checklist written (G-1), moved spec-grew (G-2); self-check C-7 at G-1 refused goldens-not-current; progress C-7 null; control C-8 at G-2 accepted"
+  },
+  {
+   "id": "04-003",
+   "name": "A golden the harness self-check does not reproduce exactly fails it, by name",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:36",
+   "verdict": "pass",
+   "evidence": "pinned K-3, golden score-refusal written; ORC's self-check (H-1 gives 'unknown id' vs 'unknown item') recorded failed: harness-self-check-failed C-7, failing-check 'instrument golden score-refusal'; cycle then failed {'stage': 'fence', 'reason': 'harness-self-check-failed', 'detail': 'instrument golden score-refusal'}"
+  },
+  {
+   "id": "04-004",
+   "name": "A harness self-check before a gate attempt with no candidate for that attempt is refused",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:48",
+   "verdict": "pass",
+   "evidence": "C-7 self-checked, clean room proved, D-1 regenerated attempt 1; self-check before-gate attempt 2 refused no-candidate-for-attempt; resent: same refusal (nothing recorded), progress unchanged"
+  },
+  {
+   "id": "04-005",
+   "name": "A cycle with scores and no scoreboard golden cannot pass the harness self-check",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:60",
+   "verdict": "pass",
+   "evidence": "pinned K-3, no goldens; self-check C-7 passed with missing-goldens [scoreboard-01] refused missing-golden, data.goldens [scoreboard-01]; progress C-7 null"
+  },
+  {
+   "id": "04-006",
+   "name": "An instrument golden with no cycle beside it does not fail the harness self-check",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:71",
+   "verdict": "pass",
+   "evidence": "pinned K-3, golden scoreboard-01 written, no cycle 01 in room; self-check C-7 passed with missing-goldens [] -> harness-self-check-passed recorded, no missing golden listed; cycle running at fence"
+  },
+  {
+   "id": "04-007",
+   "name": "A scoring tool fenced out of the clean room is a listed skip, not a failure",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:83",
+   "verdict": "pass",
+   "evidence": "C-7 at gate with D-1 attempt 1; self-check before-gate attempt 1 passed with skipped-checks [score] -> harness-self-check-passed occasion before-gate attempt 1, skipped-checks [score]"
+  },
+  {
+   "id": "04-008",
+   "name": "A clean room is proved when every check of the fence's probe holds, and the cycle moves to regenerate",
+   "rule": "The fence proves the clean room; it never asserts it",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:96",
+   "verdict": "pass",
+   "evidence": "C-7 self-checked on K-3; prove-clean-room 1 root/1 commit, fenced [harness/score.clj, harness/cycles], none unmatched/left/reachable -> clean-room-proved commit R-1 with fenced paths; progress running/regenerate/clean-room-commit R-1"
+  },
+  {
+   "id": "04-009",
+   "name": "No clean room is proved after a failed harness self-check",
+   "rule": "The fence proves the clean room; it never asserts it",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:106",
+   "verdict": "pass",
+   "evidence": "C-7 self-check failed ('golden checklist differs'); prove-clean-room refused self-check-not-passed; progress has no clean-room-commit"
+  },
+  {
+   "id": "04-010",
+   "name": "A fenced path that matches nothing stops the fence",
+   "rule": "The fence proves the clean room; it never asserts it",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:116",
+   "verdict": "pass",
+   "evidence": "C-7 self-checked; prove-clean-room with harness/scroe.clj unmatched refused fenced-path-matched-nothing, data.paths ['harness/scroe.clj'] (named in message); no clean room, still at fence"
+  },
+  {
+   "id": "04-011",
+   "name": "A clean room with two root commits is refused",
+   "rule": "The fence proves the clean room; it never asserts it",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:127",
+   "verdict": "pass",
+   "evidence": "C-7 self-checked; prove-clean-room with 2 root commits refused root-commits-not-one; no clean room, still at fence"
+  },
+  {
+   "id": "04-012",
+   "name": "A clean room whose history is more than one commit is refused",
+   "rule": "The fence proves the clean room; it never asserts it",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:137",
+   "verdict": "pass",
+   "evidence": "C-7 self-checked; prove-clean-room with 1 root, 3 commits refused commits-not-one; no clean room, still at fence"
+  },
+  {
+   "id": "04-013",
+   "name": "A fenced path left in the working tree is refused",
+   "rule": "The fence proves the clean room; it never asserts it",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:147",
+   "verdict": "pass",
+   "evidence": "C-7 self-checked; prove-clean-room with harness/cycles left in tree refused fenced-path-left-in-tree, data.paths ['harness/cycles'] (named in message); no clean room, still at fence"
+  },
+  {
+   "id": "04-014",
+   "name": "A prior candidate reachable in the object graph is refused even when the working tree is clean",
+   "rule": "The fence proves the clean room; it never asserts it",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:157",
+   "verdict": "pass",
+   "evidence": "C-7 self-checked; prove-clean-room with harness-impl reachable in object graph, tree clean refused fenced-path-reachable-in-object-graph, data.paths ['harness-impl'] (named in message); no clean room, still at fence"
+  },
+  {
+   "id": "04-015",
+   "name": "A clean room that keeps a scoring tool is refused",
+   "rule": "The fence proves the clean room; it never asserts it",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:169",
+   "verdict": "pass",
+   "evidence": "LOYLY_SCORING_TOOL_PATHS=[score.clj, scoreboard.clj]; C-7 self-checked; prove-clean-room fenced [harness/score.clj] refused scoring-tool-not-fenced, data.paths [harness/scoreboard.clj]; C-7 no clean room; control C-8 fencing both proved"
+  },
+  {
+   "id": "04-016",
+   "name": "A fence with no fenced paths proves no clean room",
+   "rule": "The fence proves the clean room; it never asserts it",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:180",
+   "verdict": "pass",
+   "evidence": "C-7 self-checked; prove-clean-room with fenced-paths [] -> -32602, nothing recorded; no clean room"
+  },
+  {
+   "id": "04-017",
+   "name": "A candidate that responded inside the boot budget passes, the margin is said out loud, and the cycle moves to the score",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:193",
+   "verdict": "pass",
+   "evidence": "D-1 installed in G-1 attempt 1, before-gate self-check passed H-1/R-1/P-1; record-gate-attempt passed 10s/20 polls, poll 2, 'kalibra' -> gate-attempt-passed D-1 10s/20/poll 2; progress stage score, candidate D-1, attempt row passed, boot-margin-polls 18"
+  },
+  {
+   "id": "04-018",
+   "name": "A candidate that has not responded when the boot budget runs out fails the attempt, and the cycle goes back to regenerate",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:206",
+   "verdict": "pass",
+   "evidence": "budget 3, D-1 installed G-1, self-check passed; gate attempt 1 failed boot-budget-exhausted 10s/20 polls ev E-1 -> gate-attempt-failed carrying them; progress running/regenerate, gate-attempts 1, 1 failed row with evidence-root E-1; repair attempt 2 mounting [E-1] accepted"
+  },
+  {
+   "id": "04-019",
+   "name": "The boot clock covers everything the launch entrypoint does, a build included",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:220",
+   "verdict": "pass",
+   "evidence": "D-1 installed G-1, self-check passed; launch entrypoint builds 30s > 10s/20 polls budget: a pass answered on poll 21 refused answered-after-last-poll; ORC records failed boot-budget-exhausted -> gate-attempt-failed boot-budget-exhausted (the boot clock itself is ORC's gate node, out of this seam; only the recording is observable)"
+  },
+  {
+   "id": "04-020",
+   "name": "No candidate is graded over a harness the self-check did not check",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:232",
+   "verdict": "pass",
+   "evidence": "D-1 installed G-1 attempt 1, self-check passed H-1/R-1/P-1; record-gate-attempt passed at harness digest H-2 refused no-passing-self-check; attempt row installed, D-1, no verdict, stage gate (not spent); a proper verdict then accepted"
+  },
+  {
+   "id": "04-021",
+   "name": "The gate refuses to grade without the identity probe",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:243",
+   "verdict": "pass",
+   "evidence": "D-1 installed G-1 attempt 1, self-check passed H-1/R-1/P-1; record-gate-attempt passed with identity-probe-present false refused identity-probe-missing; attempt row installed, D-1, no verdict, stage gate (not spent); a proper verdict then accepted"
+  },
+  {
+   "id": "04-022",
+   "name": "An identity probe that is not the one the self-check checked does not judge the candidate",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:254",
+   "verdict": "pass",
+   "evidence": "D-1 installed G-1 attempt 1, self-check passed H-1/R-1/P-1; record-gate-attempt passed with probe digest P-9 refused identity-probe-not-the-instruments; attempt row installed, D-1, no verdict, stage gate (not spent); a proper verdict then accepted"
+  },
+  {
+   "id": "04-023",
+   "name": "A failed harness self-check before the fence fails the cycle at the fence with no score",
+   "rule": "A failed harness self-check fails the cycle, and a cycle failed before the score has no score",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:269",
+   "verdict": "pass",
+   "evidence": "K-3 pinned; failed self-check before fence naming 'instrument golden scoreboard-arithmetic' -> cycle exists status failed, failure {'stage': 'fence', 'reason': 'harness-self-check-failed', 'detail': 'instrument golden scoreboard-arithmetic'}; no clean room (prove refused self-check-not-passed); view has no item verdicts (no score)"
+  },
+  {
+   "id": "04-024",
+   "name": "A failed harness self-check before a gate attempt fails the cycle at the gate and spends no attempt",
+   "rule": "A failed harness self-check fails the cycle, and a cycle failed before the score has no score",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:280",
+   "verdict": "pass",
+   "evidence": "C-7 at gate, attempt 1 failed, D-2 regenerated for 2; failed before-gate self-check attempt 2 -> policy failed C-7 gate/harness-self-check-failed; install attempt 2 refused cycle-concluded; still 1 failed attempt row, attempt 2 not installed"
+  },
+  {
+   "id": "04-025",
+   "name": "No candidate is regenerated before the clean room is proved",
+   "rule": "A candidate is regenerated for the next gate attempt, within the budget",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:293",
+   "verdict": "pass",
+   "evidence": "C-7 opened, no clean room; record-regenerated-candidate attempt 1 fresh refused no-clean-room; progress fence, 0 attempts"
+  },
+  {
+   "id": "04-026",
+   "name": "The last gate attempt the budget allows fails, and the cycle fails without a score",
+   "rule": "A cycle concludes once, passed after its scoreboard or failed at a named stage for a named reason",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:306",
+   "verdict": "pass",
+   "evidence": "budget 3, attempts 1,2 failed, D-3 repair installed for 3; gate attempt 3 failed boot-budget-exhausted -> policy failed C-7 at gate, gate-attempts-exhausted; status failed (no score); cycles-to-conclude []"
+  },
+  {
+   "id": "04-027",
+   "name": "A refused fence fails the cycle at the fence",
+   "rule": "A cycle concludes once, passed after its scoreboard or failed at a named stage for a named reason",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:318",
+   "verdict": "pass",
+   "evidence": "C-7 opened on K-3; prove refused fenced-path-matched-nothing for harness-impl/; fail-cycle fence/fence-refused with that detail -> cycle-failed; progress status failed, failure {fence, fence-refused, detail}, no score"
+  },
+  {
+   "id": "04-028",
+   "name": "A golden whose scenario was reworded since it was written fails the harness self-check",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:330",
+   "verdict": "pass",
+   "evidence": "pinned K-3, golden checklist written at scenario digest S-1 (now S-2); self-check C-7 passed with reworded-goldens [checklist] refused reworded-golden, data.goldens [checklist]; C-7 null"
+  },
+  {
+   "id": "04-029",
+   "name": "The candidate of an attempt is installed in a fresh gate room",
+   "rule": "The gate installs the regenerated candidate in a fresh gate room ORC chose",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:343",
+   "verdict": "pass",
+   "evidence": "clean room proved, D-1 regenerated fresh for attempt 1; install D-1 in G-1 attempt 1 -> candidate-installed-in-gate-room (G-1, D-1, 1); attempt row installed? true, no verdict (awaiting)"
+  },
+  {
+   "id": "04-030",
+   "name": "A cycle never has a fourth gate attempt",
+   "rule": "The gate installs the regenerated candidate in a fresh gate room ORC chose",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:353",
+   "verdict": "pass",
+   "evidence": "attempts 1-3 failed suite-red; install D-4 in G-4 attempt 4 refused (-32602 Params do not match schema); C-7 has 3 gate attempts"
+  },
+  {
+   "id": "04-031",
+   "name": "A replayed verdict records nothing and spends no attempt",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:364",
+   "verdict": "pass",
+   "evidence": "gate attempt 1 failed suite-red; same verdict again refused verdict-already-recorded; one attempt row, verdict failed; gate-attempts 1"
+  },
+  {
+   "id": "04-032",
+   "name": "A seam that already responded before boot is not graded and spends no attempt",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:375",
+   "verdict": "pass",
+   "evidence": "D-1 installed, self-check passed; gate passed with seam-answered-before-boot true refused seam-answered-before-boot; attempt row awaiting (no verdict), no attempt spent"
+  },
+  {
+   "id": "04-033",
+   "name": "The first candidate is a fresh generation for gate attempt 1, and a claim, not done",
+   "rule": "A candidate is regenerated for the next gate attempt, within the budget",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:389",
+   "verdict": "pass",
+   "evidence": "clean room proved; candidate D-1 fresh attempt 1, no evidence -> candidate-regenerated D-1; progress running/gate, 1 attempt, D-1, not passed; pass-cycle refused scoreboard-not-reported; cycles-to-conclude []"
+  },
+  {
+   "id": "04-034",
+   "name": "No candidate is regenerated beyond the budget's gate-attempt limit",
+   "rule": "A candidate is regenerated for the next gate attempt, within the budget",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:399",
+   "verdict": "pass",
+   "evidence": "budget 2, attempts 1,2 failed (cycle then failed gate-attempts-exhausted); regen attempt 3 repair refused over-gate-attempt-limit; progress 2 attempts"
+  },
+  {
+   "id": "04-035",
+   "name": "Only a repair room mounts evidence, and only this cycle's gate evidence",
+   "rule": "A candidate is regenerated for the next gate attempt, within the budget",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:410",
+   "verdict": "pass",
+   "evidence": "a) fresh+E-0 refused evidence-not-mountable, 0 attempts; b) repair mounting ['harness/cycles/C-6/score-evidence'] refused evidence-not-mountable, 1 attempt; c) repair mounting ['E-5'] refused evidence-not-mountable, 1 attempt (C-6 really holds gate evidence E-5)"
+  },
+  {
+   "id": "04-036",
+   "name": "A failed score stage fails the cycle at the score",
+   "rule": "A cycle concludes once, passed after its scoreboard or failed at a named stage for a named reason",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:427",
+   "verdict": "pass",
+   "evidence": "gate attempt 1 passed; handed-in score-stage-failed zero-verdicts -> policy failed C-7 at score, score-stage-failed; a later measurement-filed leaves it failed at score (no score retaken)"
+  },
+  {
+   "id": "04-037",
+   "name": "A cycle passes once its scoreboard is reported",
+   "rule": "A cycle concludes once, passed after its scoreboard or failed at a named stage for a named reason",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:437",
+   "verdict": "pass",
+   "evidence": "D-1 passed attempt 1, measurement filed; scoreboard-reported handed in (result only that event) -> policy passed C-7: status passed, stage result, candidate D-1; cycles-to-conclude []"
+  },
+  {
+   "id": "04-038",
+   "name": "A filed measurement moves the cycle to the scoreboard and nothing else",
+   "rule": "The instrument's facts only conclude the cycle, and never feed the build loop",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:449",
+   "verdict": "pass",
+   "evidence": "D-1 passed attempt 1; measurement-filed handed in (result only that event) -> running at scoreboard, 1 attempt, one passed row, no new candidate or verdict"
+  },
+  {
+   "id": "04-039",
+   "name": "A scoreboard reported with no measurement filed does not pass the cycle",
+   "rule": "A cycle concludes once, passed after its scoreboard or failed at a named stage for a named reason",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:460",
+   "verdict": "pass",
+   "evidence": "D-1 passed attempt 1; scoreboard-reported with no measurement filed -> still running at score; cycles-to-conclude does not list C-7"
+  },
+  {
+   "id": "04-040",
+   "name": "A measurement filed after the cycle failed leaves it where it failed",
+   "rule": "A cycle concludes once, passed after its scoreboard or failed at a named stage for a named reason",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:469",
+   "verdict": "pass",
+   "evidence": "D-1 passed attempt 1; fail-cycle score/budget; then measurement-filed -> progress failed, stage score, failure score/budget unchanged"
+  },
+  {
+   "id": "04-041",
+   "name": "A harness self-check on a source cut nobody pinned is refused",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:480",
+   "verdict": "pass",
+   "evidence": "K-9 never pinned; self-check C-7 before-fence on K-9 passed refused cut-not-pinned; C-7 null"
+  },
+  {
+   "id": "04-042",
+   "name": "A failed harness self-check that names no failing check is refused",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:489",
+   "verdict": "pass",
+   "evidence": "K-3 pinned; self-check outcome failed without failing-check refused no-failing-check; C-7 null"
+  },
+  {
+   "id": "04-043",
+   "name": "A second harness self-check before the fence of a cycle that already exists is refused",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:498",
+   "verdict": "pass",
+   "evidence": "C-7 self-checked attempt 0, clean room proved; another before-fence self-check attempt 1 refused not-the-cycles-first-fact; full progress lists C-7 once at regenerate with clean-room-commit R-1"
+  },
+  {
+   "id": "04-044",
+   "name": "A harness self-check is recorded once per cycle, occasion and attempt",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:508",
+   "verdict": "pass",
+   "evidence": "C-7 at gate with D-1, before-gate self-check attempt 1 passed; again refused self-check-already-recorded; progress identical"
+  },
+  {
+   "id": "04-045",
+   "name": "A harness self-check carrying a budget beyond three gate attempts is refused",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:520",
+   "verdict": "pass",
+   "evidence": "K-3 pinned; self-check passed with gate-attempt-limit 4 refused (-32602 schema: limit max 3); C-7 null"
+  },
+  {
+   "id": "04-046",
+   "name": "A reworded golden that is not a current instrument golden is refused",
+   "rule": "No clean room is built over an unchecked instrument: the harness self-check opens the cycle before the fence",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:529",
+   "verdict": "pass",
+   "evidence": "K-3 pinned, no golden scoreboard-09; self-check failed 'reworded golden' with reworded [scoreboard-09] refused reworded-golden-not-current, data.goldens [scoreboard-09]; C-7 null"
+  },
+  {
+   "id": "04-047",
+   "name": "A cycle has one clean room",
+   "rule": "The fence proves the clean room; it never asserts it",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:542",
+   "verdict": "pass",
+   "evidence": "clean room R-1 proved; prove again R-2 refused clean-room-already-proved; clean-room-commit still R-1"
+  },
+  {
+   "id": "04-048",
+   "name": "A clean room built from another source cut than the self-checked one is refused",
+   "rule": "The fence proves the clean room; it never asserts it",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:552",
+   "verdict": "pass",
+   "evidence": "C-7 self-checked on K-3, K-4 pinned; prove from K-4 refused not-the-self-checked-cut; no clean room"
+  },
+  {
+   "id": "04-049",
+   "name": "No clean room is proved for a concluded cycle",
+   "rule": "The fence proves the clean room; it never asserts it",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:562",
+   "verdict": "pass",
+   "evidence": "C-7 self-checked then failed fence/budget; prove refused cycle-concluded; no clean room"
+  },
+  {
+   "id": "04-050",
+   "name": "No candidate is installed for an attempt that was never regenerated",
+   "rule": "The gate installs the regenerated candidate in a fresh gate room ORC chose",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:574",
+   "verdict": "pass",
+   "evidence": "clean room proved, nothing regenerated; install D-1 G-1 attempt 1 refused no-candidate-for-attempt; attempts []"
+  },
+  {
+   "id": "04-051",
+   "name": "Another candidate than the one regenerated is not installed",
+   "rule": "The gate installs the regenerated candidate in a fresh gate room ORC chose",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:584",
+   "verdict": "pass",
+   "evidence": "D-1 regenerated attempt 1; install D-9 refused not-the-regenerated-candidate; attempt 1 installed? false"
+  },
+  {
+   "id": "04-052",
+   "name": "No candidate is installed for a concluded cycle",
+   "rule": "The gate installs the regenerated candidate in a fresh gate room ORC chose",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:593",
+   "verdict": "pass",
+   "evidence": "D-1 regenerated, C-7 failed gate/budget; install D-1 refused cycle-concluded; attempt 1 installed? false"
+  },
+  {
+   "id": "04-053",
+   "name": "No verdict is recorded for an attempt whose candidate was never installed",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:605",
+   "verdict": "pass",
+   "evidence": "D-1 regenerated (self-check before-gate passed), not installed; gate passed refused not-installed; no verdict"
+  },
+  {
+   "id": "04-054",
+   "name": "A failed verdict without a reason is refused",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:615",
+   "verdict": "pass",
+   "evidence": "D-1 installed G-1 attempt 1, self-check passed H-1/R-1/P-1; record-gate-attempt failed with no reason refused reason-does-not-fit-outcome; attempt row installed, D-1, no verdict, stage gate (not spent); a proper verdict then accepted"
+  },
+  {
+   "id": "04-055",
+   "name": "A pass without the poll that responded and the identity probe result is refused",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:625",
+   "verdict": "pass",
+   "evidence": "D-1 installed G-1 attempt 1, self-check passed H-1/R-1/P-1; record-gate-attempt passed without answered-on-poll and identity-probe-result refused pass-without-poll-or-probe-result; attempt row installed, D-1, no verdict, stage gate (not spent); a proper verdict then accepted"
+  },
+  {
+   "id": "04-056",
+   "name": "A candidate that responded after the last poll of the budget does not pass",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:635",
+   "verdict": "pass",
+   "evidence": "D-1 installed G-1 attempt 1, self-check passed H-1/R-1/P-1; record-gate-attempt passed on poll 21 of 20 refused answered-after-last-poll; attempt row installed, D-1, no verdict, stage gate (not spent); a proper verdict then accepted"
+  },
+  {
+   "id": "04-057",
+   "name": "A verdict on another candidate than the one installed is refused",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:645",
+   "verdict": "pass",
+   "evidence": "D-1 installed G-1 attempt 1, self-check passed H-1/R-1/P-1; record-gate-attempt passed for D-9 refused not-the-installed-candidate; attempt row installed, D-1, no verdict, stage gate (not spent); a proper verdict then accepted"
+  },
+  {
+   "id": "04-058",
+   "name": "No verdict is recorded for a concluded cycle",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:655",
+   "verdict": "pass",
+   "evidence": "D-1 installed, self-check passed, C-7 failed gate/budget; gate passed refused cycle-concluded; attempt row no verdict"
+  },
+  {
+   "id": "04-059",
+   "name": "A self-check at other approved grader digests does not stand for the attempt",
+   "rule": "The gate records one verdict per attempt, with the boot budget and its margin",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:666",
+   "verdict": "pass",
+   "evidence": "D-1 installed G-1 attempt 1, self-check passed H-1/R-1/P-1; record-gate-attempt passed at grader digests R-2 (self-check at R-1) refused other-grader-digests; attempt row installed, D-1, no verdict, stage gate (not spent); a proper verdict then accepted"
+  },
+  {
+   "id": "04-060",
+   "name": "A refusal to grade is recorded and spends no attempt",
+   "rule": "Gate refusals spend no attempt, and three in a row fail the cycle for infrastructure",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:678",
+   "verdict": "pass",
+   "evidence": "D-1 installed G-1; record-gate-refusal seam-answered-before-boot -> gate-attempt-refused; attempt row last-refusal set, no verdict, 0 failed, consecutive-gate-refusals 1, running"
+  },
+  {
+   "id": "04-061",
+   "name": "No refusal is recorded for an attempt whose candidate was never installed",
+   "rule": "Gate refusals spend no attempt, and three in a row fail the cycle for infrastructure",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:689",
+   "verdict": "pass",
+   "evidence": "D-1 regenerated, not installed; gate refusal refused not-installed; no last-refusal, consecutive 0"
+  },
+  {
+   "id": "04-062",
+   "name": "No refusal is recorded over an attempt that has its verdict",
+   "rule": "Gate refusals spend no attempt, and three in a row fail the cycle for infrastructure",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:699",
+   "verdict": "pass",
+   "evidence": "attempt 1 passed; refusal identity-probe-missing refused verdict-already-recorded; row still passed, no last-refusal"
+  },
+  {
+   "id": "04-063",
+   "name": "No refusal is recorded for a concluded cycle",
+   "rule": "Gate refusals spend no attempt, and three in a row fail the cycle for infrastructure",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:708",
+   "verdict": "pass",
+   "evidence": "D-1 installed, C-7 failed gate/budget; refusal refused cycle-concluded; no last-refusal"
+  },
+  {
+   "id": "04-064",
+   "name": "Three consecutive gate refusals fail the cycle at the gate for infrastructure",
+   "rule": "Gate refusals spend no attempt, and three in a row fail the cycle for infrastructure",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:718",
+   "verdict": "pass",
+   "evidence": "D-1 installed; two refusals (still running), third seam-answered-before-boot -> policy failed C-7 at gate, infrastructure; 1 attempt, 0 failed rows"
+  },
+  {
+   "id": "04-065",
+   "name": "A gate verdict between refusals resets their count",
+   "rule": "Gate refusals spend no attempt, and three in a row fail the cycle for infrastructure",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:728",
+   "verdict": "pass",
+   "evidence": "two refusals of attempt 1, attempt 1 failed suite-red, D-2 repair installed; refusal of attempt 2 -> still running at gate, 2 attempts, 1 failed (consecutive-gate-refusals 1)"
+  },
+  {
+   "id": "04-066",
+   "name": "A candidate for a cycle that never opened is refused",
+   "rule": "A candidate is regenerated for the next gate attempt, within the budget",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:741",
+   "verdict": "pass",
+   "evidence": "no self-check for C-9; regen attempt 1 refused no-cycle; progress C-9 null"
+  },
+  {
+   "id": "04-067",
+   "name": "A candidate for an attempt that is not the next one is refused",
+   "rule": "A candidate is regenerated for the next gate attempt, within the budget",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:750",
+   "verdict": "pass",
+   "evidence": "clean room proved; regen attempt 2 repair refused not-the-next-attempt; regenerate, 0 attempts"
+  },
+  {
+   "id": "04-068",
+   "name": "Attempt 1 is a fresh generation and every later attempt a verification repair",
+   "rule": "A candidate is regenerated for the next gate attempt, within the budget",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:759",
+   "verdict": "pass",
+   "evidence": "a) proved, attempt 1 verification-repair refused wrong-purpose, 0 attempts; b) attempt 1 failed suite-red, attempt 2 fresh-generation refused wrong-purpose, 1 attempt"
+  },
+  {
+   "id": "04-069",
+   "name": "A verification repair never follows a passed gate attempt",
+   "rule": "A candidate is regenerated for the next gate attempt, within the budget",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:773",
+   "verdict": "pass",
+   "evidence": "attempt 1 passed; repair attempt 2 refused not-after-a-failed-attempt; score stage, 1 attempt"
+  },
+  {
+   "id": "04-070",
+   "name": "A verification repair's parent is the previous candidate",
+   "rule": "A candidate is regenerated for the next gate attempt, within the budget",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:782",
+   "verdict": "pass",
+   "evidence": "D-1 failed attempt 1; D-2 repair with parent D-0 refused not-the-previous-candidate; regenerate stage, candidate D-1"
+  },
+  {
+   "id": "04-071",
+   "name": "A cycle whose scoreboard is not reported cannot pass",
+   "rule": "A cycle concludes once, passed after its scoreboard or failed at a named stage for a named reason",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:793",
+   "verdict": "pass",
+   "evidence": "attempt 1 passed, measurement filed, no scoreboard; pass-cycle refused scoreboard-not-reported; running at scoreboard"
+  },
+  {
+   "id": "04-072",
+   "name": "A concluded cycle is never concluded again",
+   "rule": "A cycle concludes once, passed after its scoreboard or failed at a named stage for a named reason",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:803",
+   "verdict": "pass",
+   "evidence": "C-7 failed fence/fence-refused; fail fence/budget refused cycle-concluded; progress unchanged (fence-refused)"
+  },
+  {
+   "id": "04-073",
+   "name": "A cycle fails only at the stage it reached",
+   "rule": "A cycle concludes once, passed after its scoreboard or failed at a named stage for a named reason",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:812",
+   "verdict": "pass",
+   "evidence": "C-7 at regenerate; fail-cycle fence/fence-refused refused not-the-stage-reached; still running at regenerate"
+  },
+  {
+   "id": "04-074",
+   "name": "A cycle fails only for a reason that belongs to its stage",
+   "rule": "A cycle concludes once, passed after its scoreboard or failed at a named stage for a named reason",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:821",
+   "verdict": "pass",
+   "evidence": "C-7 at gate; fail-cycle gate/fence-refused refused reason-not-of-the-stage; still running at gate"
+  },
+  {
+   "id": "04-075",
+   "name": "An infrastructure failure belongs to the gate stage only",
+   "rule": "A cycle concludes once, passed after its scoreboard or failed at a named stage for a named reason",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:830",
+   "verdict": "pass",
+   "evidence": "C-7 at regenerate; fail-cycle regenerate/infrastructure refused infrastructure-not-at-the-gate; still running at regenerate"
+  },
+  {
+   "id": "04-076",
+   "name": "Reading the cycle progress view records nothing",
+   "rule": "The operator observes a cycle, and observing changes nothing",
+   "source": ".pi/plan/04-regeneration-cycle/spec.feature:841",
+   "verdict": "pass",
+   "evidence": "C-7 running at gate with 1 attempt; cycle-progress read twice -> identical results, gate, 1 attempt; store event count unchanged across two reads and cycles-to-conclude (543 before/after, separate fresh store)"
+  }
+ ]
+}

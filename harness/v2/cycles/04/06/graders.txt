@@ -1,0 +1,2 @@
+verdicts: sha256:87a5ccfb2e4b1fd10c0d81493cb53781265a0ffb3958934ac48624e778565f81 verdicts.json
+by: legacy step 5: black-box grading subagent over the seam (exploratory batch, Claude)

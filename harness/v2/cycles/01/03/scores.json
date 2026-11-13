@@ -1,0 +1,124 @@
+{
+ "items": [
+  {
+   "id": "01-001",
+   "name": "The first stamping of a slice hands out its identities in file order",
+   "rule": "A slice's first stamping hands out its item identities from 1, in file order",
+   "source": ".pi/plan/01-specification/spec.feature:12",
+   "verdict": "pass",
+   "evidence": "fresh store; plan/03-gate/spec.feature with 'boots fresh' L6, 'refuses a busy seam' L12; stamp-slice 03 -> 2 scenario-stamped events 03-001 (line 6) and 03-002 (line 12), exactly item-id/slice/source/line/title/stamped-at; file gains @item-03-001/@item-03-002 directly above each heading at its indentation, other lines kept; stamped-items 03 next-number 3; store check OK (1 stamping run, success)"
+  },
+  {
+   "id": "01-002",
+   "name": "The slice is the directory name up to its first dash, verbatim",
+   "rule": "A slice's first stamping hands out its item identities from 1, in file order",
+   "source": ".pi/plan/01-specification/spec.feature:23",
+   "verdict": "pass",
+   "evidence": "03-gate and notes each hold one unstamped scenario; 03-gate stamped 03-001; notes refused both as slice 'notes' (-32602, schema ^[0-9]+$) and as 03 (-32000 not-this-slice, 'is slice none, not 03'), notes file unchanged; stamped-items lists only slice 03; verbatim probe: plan/003-x is slice '003' (refused as '3', stamped @item-003-001 as '003')"
+  },
+  {
+   "id": "01-003",
+   "name": "A deleted scenario's number is never handed out again",
+   "rule": "Stamping again continues the slice's numbering and never reuses a number",
+   "source": ".pi/plan/01-specification/spec.feature:35",
+   "verdict": "pass",
+   "evidence": "stamped 03-001..03-004; removed the 03-004 scenario and its tag, added unstamped 'refuses a second launch' L18; stamp -> one event 03-005; tags 03-001..03-003 unchanged in file and read model; stamped-items next-number 6"
+  },
+  {
+   "id": "01-004",
+   "name": "Stamping twice changes nothing",
+   "rule": "Stamping again continues the slice's numbering and never reuses a number",
+   "source": ".pi/plan/01-specification/spec.feature:48",
+   "verdict": "pass",
+   "evidence": "stamped 03-001, 03-002; stamping again with unstamped [] -> result {events: []} (fully stamped: success, no scenario-stamped); file byte-identical; stamped-items unchanged, ids 03-001 and 03-002 each once in read model and file"
+  },
+  {
+   "id": "01-005",
+   "name": "Rewording a scenario keeps its item identity",
+   "rule": "Stamping again continues the slice's numbering and never reuses a number",
+   "source": ".pi/plan/01-specification/spec.feature:59",
+   "verdict": "pass",
+   "evidence": "'boots fresh' stamped 03-001; title reworded in file to 'boots fresh from its launch entrypoint'; stamp with unstamped [] -> {events: []}; @item-03-001 still directly above the reworded heading; offering the reworded scenario as unstamped is refused unstamped-mismatch"
+  },
+  {
+   "id": "01-006",
+   "name": "No spec found for a slice never stamped",
+   "rule": "Stamping refuses a spec it cannot read as the slice's own",
+   "source": ".pi/plan/01-specification/spec.feature:72",
+   "verdict": "pass",
+   "evidence": "no plan/07-score/spec.feature; stamp-slice 07 -> -32000 data.refusal no-spec-found, message 'no spec found: <abs>/plan/07-score/spec.feature', no 'fully stamped'; stamped-items 07 -> slices []; store holds no specification/* event"
+  },
+  {
+   "id": "01-007",
+   "name": "A spec that went missing is \"no spec found\", never \"fully stamped\"",
+   "rule": "Stamping refuses a spec it cannot read as the slice's own",
+   "source": ".pi/plan/01-specification/spec.feature:83",
+   "verdict": "pass",
+   "evidence": "stamped 03-001, 03-002; spec file removed; stamp-slice 03 -> -32000 no-spec-found naming <abs>/plan/03-gate/spec.feature, response never says 'fully stamped' (not a success with no events); stamped-items 03 next-number still 3"
+  },
+  {
+   "id": "01-008",
+   "name": "Only the file's unstamped scenarios, in file order, are stamped",
+   "rule": "Stamping refuses a spec it cannot read as the slice's own",
+   "source": ".pi/plan/01-specification/spec.feature:95",
+   "verdict": "pass",
+   "evidence": "(a) never stamped, a L6 b L12, offered b before a -> -32000 unstamped-mismatch, file unchanged, no slice 03, store has no model event; (b) 03-001 'boots fresh' stamped, file a L6 b L12 + stamped boots fresh L16, offered boots fresh,a,b -> unstamped-mismatch (also in file order a,b,boots fresh), file unchanged, items still only 03-001"
+  },
+  {
+   "id": "01-009",
+   "name": "A Scenario heading with nothing after the colon is reported, not stamped",
+   "rule": "An empty-title heading is not an item, and the stamper says so out loud",
+   "source": ".pi/plan/01-specification/spec.feature:113",
+   "verdict": "pass",
+   "evidence": "'Scenario: boots fresh' L6, bare 'Scenario:' L9; stamp offering unstamped [{6}] empty-title-lines [9] -> scenario-stamped 03-001 'boots fresh' and empty-title-headings-reported {slice 03, source .../plan/03-gate/spec.feature, lines [9], reported-at} with exactly its schema fields; line 9 heading untagged; read model shows empty-title-lines [9]"
+  },
+  {
+   "id": "01-010",
+   "name": "A stamping that hides an empty-title heading is refused",
+   "rule": "An empty-title heading is not an item, and the stamper says so out loud",
+   "source": ".pi/plan/01-specification/spec.feature:125",
+   "verdict": "pass",
+   "evidence": "(a) never stamped and (b) 03-001, 03-002 stamped: file with unstamped L6 and empty-title heading L9, offered empty-title-lines [] -> -32000 empty-title-mismatch both times; file unchanged, stamped-items unchanged, no model event appended"
+  },
+  {
+   "id": "01-011",
+   "name": "A Scenario Outline is stamped and a Scenario Template is not",
+   "rule": "One reading of Gherkin decides what is a scenario and what stamps it",
+   "source": ".pi/plan/01-specification/spec.feature:143",
+   "verdict": "pass",
+   "evidence": "'Scenario Outline: an outline' L6, 'Scenario Template: a template' L14; offering both refused unstamped-mismatch; offering only the outline -> 03-001 'an outline' line 6, tag above the outline; template heading untagged"
+  },
+  {
+   "id": "01-012",
+   "name": "A heading whose title is only whitespace is a scenario",
+   "rule": "One reading of Gherkin decides what is a scenario and what stamps it",
+   "source": ".pi/plan/01-specification/spec.feature:154",
+   "verdict": "pass",
+   "evidence": "'    Scenario:' + three spaces on L6; stamp offering {6, ' '} -> scenario-stamped 03-001 line 6 title ' '; file '    @item-03-001' directly above the heading, heading kept byte-for-byte; read model title ' '"
+  },
+  {
+   "id": "01-013",
+   "name": "A stamped item's title is the heading's title with surrounding whitespace stripped",
+   "rule": "One reading of Gherkin decides what is a scenario and what stamps it",
+   "source": ".pi/plan/01-specification/spec.feature:164",
+   "verdict": "pass",
+   "evidence": "'    Scenario:   a padded title   ' L6; stamp offering 'a padded title' -> 03-001 title 'a padded title'; tag written with the heading's 4-space indentation, heading line kept unchanged"
+  },
+  {
+   "id": "01-014",
+   "name": "An item tag separated from its heading by a blank line does not stamp it",
+   "rule": "One reading of Gherkin decides what is a scenario and what stamps it",
+   "source": ".pi/plan/01-specification/spec.feature:174",
+   "verdict": "pass",
+   "evidence": "03-001 stamped; file rewritten to '@item-03-001', blank line, 'Scenario: drifted away' L8; stamp offering {8, 'drifted away'} -> 03-002; @item-03-002 written above the heading, the stray @item-03-001 line kept; next-number 3"
+  },
+  {
+   "id": "01-015",
+   "name": "Tags that are not item tags do not make a scenario stamped",
+   "rule": "One reading of Gherkin decides what is a scenario and what stamps it",
+   "source": ".pi/plan/01-specification/spec.feature:184",
+   "verdict": "pass",
+   "evidence": "'@wip @slow' directly above 'Scenario: has tags but no item tag' L6; stamp offering it -> 03-001; file keeps '    @wip @slow' and adds '    @item-03-001' between it and the heading (one contiguous tag run)"
+  }
+ ]
+}

@@ -1,0 +1,217 @@
+[
+  {
+    "id": "02-001",
+    "verdict": "pass",
+    "evidence": "items ['03-001', '03-002', '04-001'] total 3, query matches; digest same-items-equal=True, different-items-differ=True, reordered-differs=True; event fields exact ['checklist-digest', 'cut-id', 'derived-at', 'items', 'selection-id', 'skipped-slices', 'total', 'type']"
+  },
+  {
+    "id": "02-002",
+    "verdict": "pass",
+    "evidence": "offered order kept, unsorted: event and query items = [('03-002', None, '.pi/spec/s03/spec.feature:3', 'first'), ('03-001', 'Stamping', '.pi/spec/s03/spec.feature:6', 'a padded title')]"
+  },
+  {
+    "id": "02-003",
+    "verdict": "pass",
+    "evidence": "items ['05-001','05-002']; checklist-derived skipped-slices=[{'slice': '03', 'status': 'planned'}, {'slice': '04', 'status': 'backlog'}]; query row skipped-slices=[{'slice': '03', 'status': 'planned'}, {'slice': '04', 'status': 'backlog'}]"
+  },
+  {
+    "id": "02-004",
+    "verdict": "pass",
+    "evidence": "-32000 unstamped-scenarios, data.unstamped lists both with sources, message: 'Unstamped scenarios; run specification/stamp-slice'; checklist null"
+  },
+  {
+    "id": "02-005",
+    "verdict": "pass",
+    "evidence": "every slice planned/backlog, items [] -> -32000 empty-checklist; checklist null"
+  },
+  {
+    "id": "02-006",
+    "verdict": "pass",
+    "evidence": "-32000 item-never-stamped, data.item-ids ['03-007']; checklist null"
+  },
+  {
+    "id": "02-007",
+    "verdict": "pass",
+    "evidence": "title '' -> -32000 empty-title data={'refusal': 'empty-title'}; checklist null"
+  },
+  {
+    "id": "02-008",
+    "verdict": "pass",
+    "evidence": "-32000 no-checklist; file-score then zero-verdicts and cycle-measurement null (nothing filed)"
+  },
+  {
+    "id": "02-009",
+    "verdict": "pass",
+    "evidence": "verdicts [] -> -32000 zero-verdicts; file-score zero-verdicts; cycle-measurement null, scoreboard null (no score shown)"
+  },
+  {
+    "id": "02-010",
+    "verdict": "pass",
+    "evidence": "'maybe' + unknown 09-001 -> -32000 bad-verdict-value (before unknown-item); nothing filed (file-score zero-verdicts, receipt null)"
+  },
+  {
+    "id": "02-011",
+    "verdict": "pass",
+    "evidence": "-32000 unknown-item, data.item-ids ['09-001']; nothing filed (file-score zero-verdicts, receipt null)"
+  },
+  {
+    "id": "02-012",
+    "verdict": "pass",
+    "evidence": "measurement-filed items [('03-001', 'pass'), ('03-002', 'pass'), ('04-001', 'fail')] total 3 passes 2 unreached 0, checklist-digest = K-3's, grader-digests ['G-1']; fields exact; receipt filed"
+  },
+  {
+    "id": "02-013",
+    "verdict": "pass",
+    "evidence": "items [{'evidence': '', 'item-id': '03-001', 'verdict': 'pass'}, {'item-id': '03-002', 'verdict': 'fail', 'reason': 'unreached', 'evidence': ''}, {'item-id': '03-003', 'verdict': 'fail', 'reason': 'unreached', 'evidence': ''}]; total 3 unreached 2 (event and receipt)"
+  },
+  {
+    "id": "02-014",
+    "verdict": "pass",
+    "evidence": "measurement items [{'evidence': '', 'item-id': '03-001', 'verdict': 'fail', 'reason': 'outage'}, {'evidence': '', 'item-id': '03-002', 'verdict': 'fail'}] (receipt same)"
+  },
+  {
+    "id": "02-015",
+    "verdict": "pass",
+    "evidence": "two filings: 03-001 pass, superseded [{'item-id': '03-001', 'grader-digest': 'G-1', 'verdict': 'fail'}]; one filing with duplicates: same; receipt superseded=[{'item-id': '03-001', 'grader-digest': 'G-1', 'verdict': 'fail'}]"
+  },
+  {
+    "id": "02-016",
+    "verdict": "pass",
+    "evidence": "item-verdicts-filed verdict {'evidence': '', 'item-id': '03-001', 'verdict': 'pass'}; measurement item {'evidence': '', 'item-id': '03-001', 'verdict': 'pass'}; receipt evidence ''"
+  },
+  {
+    "id": "02-017",
+    "verdict": "pass",
+    "evidence": "-32000 zero-verdicts; cycle-measurement null (awaiting its score)"
+  },
+  {
+    "id": "02-018",
+    "verdict": "pass",
+    "evidence": "policy reported before file-score responded: scoreboard passes 2 total 3 rate '66.7%', previous-cycle-id null, previous-selection-id null; to-report []"
+  },
+  {
+    "id": "02-019",
+    "verdict": "pass",
+    "evidence": "after score stage failed: report-scoreboard -> -32000 no-measurement-filed; scoreboard null"
+  },
+  {
+    "id": "02-020",
+    "verdict": "pass",
+    "evidence": "scoreboard of C-7 previous-cycle-id C-5 (not C-6, not C-7), previous-selection-id whole-plan"
+  },
+  {
+    "id": "02-021",
+    "verdict": "pass",
+    "evidence": "shared={'items': 2, 'previous-passes': 1, 'passes': 1, 'previous-rate': '50.0%', 'rate': '50.0%', 'newly-passing': ['03-002'], 'newly-failing': ['03-001']}; no net field (keys ['cycle-id', 'dropped-items', 'new-items', 'passes', 'previous-cycle-id', 'previous-selection-id', 'rate', 'reported-at', 'restatement', 'selection-id', 'shared', 'total'])"
+  },
+  {
+    "id": "02-022",
+    "verdict": "fail",
+    "evidence": "verdict run (sequential, fresh store): measurement/file-score expected success, got {\"code\": -32603, \"message\": \"Internal error\", \"data\": {}} on one of the scenario's file-score calls; intermittent: the same scenario passed in 2 of 2 earlier runs; -32603 is no outcome the seam allows"
+  },
+  {
+    "id": "02-023",
+    "verdict": "pass",
+    "evidence": "1 of 16 -> '6.2%'; 5 of 16 (another selection) -> '31.2%'"
+  },
+  {
+    "id": "02-024",
+    "verdict": "pass",
+    "evidence": "shared={'items': 0, 'previous-passes': 0, 'passes': 0, 'previous-rate': 'n/a', 'rate': 'n/a', 'newly-passing': [], 'newly-failing': []}"
+  },
+  {
+    "id": "02-025",
+    "verdict": "pass",
+    "evidence": "item-verdicts-filed cycle C-7 candidate D-1 grader G-1 verdicts as returned [{'evidence': 'ok', 'item-id': '03-001', 'verdict': 'pass'}, {'evidence': 'bad', 'item-id': '03-002', 'verdict': 'fail'}]; fields exact"
+  },
+  {
+    "id": "02-026",
+    "verdict": "pass",
+    "evidence": "gate attempt 2 for D-2; filing for D-1 -> -32000 not-the-gated-candidate; file-score zero-verdicts, receipt null"
+  },
+  {
+    "id": "02-027",
+    "verdict": "pass",
+    "evidence": "G-9 with approved [G-1] -> -32000 grader-not-approved; file-score zero-verdicts, receipt null"
+  },
+  {
+    "id": "02-028",
+    "verdict": "fail",
+    "evidence": "refused -32000 bad-verdict-reason (code right) but error.data is only {refusal: bad-verdict-reason}: no data.item-ids, which seam.md (\"where it names items, data.item-ids lists them\") and decisions.md Spec round 3 (5) require to name both 03-001 and 03-002; judgement call"
+  },
+  {
+    "id": "02-029",
+    "verdict": "pass",
+    "evidence": "second file-score -> -32000 measurement-already-filed; receipt still filed 2 of 3"
+  },
+  {
+    "id": "02-030",
+    "verdict": "pass",
+    "evidence": "filed with G-1 approved; file-score with approved [G-2] -> -32000 grader-not-approved; receipt null (awaiting)"
+  },
+  {
+    "id": "02-031",
+    "verdict": "pass",
+    "evidence": "score-stage-failed {'cycle-id': 'C-7', 'refusal': 'unknown-item', 'detail': '09-001 not on the checklist', 'failed-at': '2026-11-13T16:48:05.474Z', 'type': 'measurement/score-stage-failed'}; receipt {'cycle-id': 'C-7', 'refusal': 'unknown-item', 'detail': '09-001 not on the checklist', 'failed-at': '2026-11-13T16:48:05.474Z', 'status': 'score-stage-failed'}"
+  },
+  {
+    "id": "02-032",
+    "verdict": "pass",
+    "evidence": "after fail-score-stage, valid filing -> -32000 score-stage-failed"
+  },
+  {
+    "id": "02-033",
+    "verdict": "pass",
+    "evidence": "-32000 cut-not-pinned; checklist of K-9 null"
+  },
+  {
+    "id": "02-034",
+    "verdict": "pass",
+    "evidence": "-32000 item-twice, data.item-ids ['03-001']; checklist null"
+  },
+  {
+    "id": "02-035",
+    "verdict": "pass",
+    "evidence": "re-derive (different and same offer) -> -32000 checklist-already-derived; checklist of K-3 total 3"
+  },
+  {
+    "id": "02-036",
+    "verdict": "pass",
+    "evidence": "C-8 never gated -> -32000 not-the-gated-candidate; cycle-measurement null"
+  },
+  {
+    "id": "02-037",
+    "verdict": "pass",
+    "evidence": "-32000 measurement-already-filed; receipt still 2 of 3"
+  },
+  {
+    "id": "02-038",
+    "verdict": "pass",
+    "evidence": "-32000 not-the-gated-candidate; cycle-measurement null"
+  },
+  {
+    "id": "02-039",
+    "verdict": "pass",
+    "evidence": "-32000 not-the-gated-candidate; cycle-measurement null"
+  },
+  {
+    "id": "02-040",
+    "verdict": "pass",
+    "evidence": "-32000 measurement-already-filed; receipt still filed 2 of 3"
+  },
+  {
+    "id": "02-041",
+    "verdict": "pass",
+    "evidence": "report-scoreboard again -> -32000 scoreboard-already-reported; scoreboard query unchanged"
+  },
+  {
+    "id": "02-042",
+    "verdict": "fail",
+    "evidence": "verdict run (sequential, fresh store): measurement/file-score expected success, got {\"code\": -32603, \"message\": \"Internal error\", \"data\": {}} on one of the scenario's file-score calls; intermittent: the same scenario passed in 1 of 2 earlier runs; -32603 is no outcome the seam allows"
+  },
+  {
+    "id": "02-043",
+    "verdict": "pass",
+    "evidence": "new-items ['04-001'], dropped-items ['03-002'], shared {'items': 1, 'previous-passes': 1, 'passes': 1, 'previous-rate': '100.0%', 'rate': '100.0%', 'newly-passing': [], 'newly-failing': []}"
+  }
+]

@@ -1,0 +1,92 @@
+{
+ "items": [
+  {
+   "id": "03-001",
+   "name": "The instrument maintainer moves a golden for a recorded reason",
+   "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:12",
+   "verdict": "pass",
+   "evidence": "Written g-40/s-12; move to g-41 instrument-behavior-changed with note returned instrument-golden-moved with exactly golden-id, from-digest g-40, to-digest g-41, reason, additions-only, note, scenario-digest s-12, moved-at; goldens show digest g-41, scenario-digest s-12, one move with that reason and note; a second move appended in order."
+  },
+  {
+   "id": "03-002",
+   "name": "\"Spec grew\" over a diff that is not additions only is refused",
+   "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:22",
+   "verdict": "pass",
+   "evidence": "G-checklist g-50; move to g-51 spec-grew with additions-only false -> -32000 spec-grew-not-additions-only; goldens still g-50, moves []; store gained no moved event. Control: additions-only true then moves to g-51."
+  },
+  {
+   "id": "03-003",
+   "name": "A move without a note is refused",
+   "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:33",
+   "verdict": "pass",
+   "evidence": "Move g-40 -> g-41 instrument-behavior-changed with note \"\" -> -32000 data.refusal empty-note (not -32602); goldens still g-40, moves []."
+  },
+  {
+   "id": "03-004",
+   "name": "A golden is never moved for a reason outside the three",
+   "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:43",
+   "verdict": "pass",
+   "evidence": "reason 'make the self-check green' and 'make-the-self-check-green' -> -32602 Invalid params (schema enum, decisions Slice 03 4); goldens still g-40, moves []; no moved event in store."
+  },
+  {
+   "id": "03-005",
+   "name": "A golden whose scenario digest is not its scenario's is refused",
+   "rule": "An instrument golden is written from its scenario and carries that scenario's digest",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:54",
+   "verdict": "pass",
+   "evidence": "Digests file {scenario: s-12}; write G-score-unknown with s-11 -> -32000 scenario-digest-mismatch; goldens []; store holds no golden event."
+  },
+  {
+   "id": "03-006",
+   "name": "A move to the same digest is refused",
+   "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:65",
+   "verdict": "pass",
+   "evidence": "Move g-40 -> g-40 wording-replaced note 'no change' -> -32000 same-digest; goldens show g-40 with moves []."
+  },
+  {
+   "id": "03-007",
+   "name": "A move that names a stale scenario digest is refused",
+   "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:74",
+   "verdict": "pass",
+   "evidence": "Written g-40 with s-12; digests file changed to s-13 while the candidate ran; move g-41 wording-replaced with s-12 -> -32000 stale-scenario-digest; goldens still g-40, scenario-digest s-12, moves []."
+  },
+  {
+   "id": "03-008",
+   "name": "The instrument maintainer writes a golden from its scenario",
+   "rule": "An instrument golden is written from its scenario and carries that scenario's digest",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:85",
+   "verdict": "pass",
+   "evidence": "Write G-score-unknown s-12 g-40 -> instrument-golden-written with exactly golden-id, scenario, scenario-digest s-12, path, digest g-40, written-at (ISO UTC); goldens show digest g-40, scenario-digest s-12, moves []."
+  },
+  {
+   "id": "03-009",
+   "name": "A golden is written once",
+   "rule": "An instrument golden is written from its scenario and carries that scenario's digest",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:96",
+   "verdict": "pass",
+   "evidence": "Second write of G-score-unknown with g-41 -> -32000 golden-exists; goldens list exactly one G-score-unknown at g-40."
+  },
+  {
+   "id": "03-010",
+   "name": "Moving a golden that was never written is refused",
+   "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:107",
+   "verdict": "pass",
+   "evidence": "Fresh store; move G-unknown to g-41 spec-grew (note 'grew', additions-only true) -> -32000 no-such-golden; goldens []."
+  },
+  {
+   "id": "03-011",
+   "name": "Rewording a scenario changes its scenario digest and keeps its item identity",
+   "rule": "A golden moves only with one recorded reason, and the scenario it was written from",
+   "source": ".pi/plan/03-grader-lifecycle/spec.feature:116",
+   "verdict": "pass",
+   "evidence": "Written from '@item-03-004' with s-12, g-40; digests file reworded to s-13 live (no restart); move g-41 wording-replaced note 'reworded' with s-13 succeeds (event scenario-digest s-13); goldens show g-41, scenario-digest s-13."
+  }
+ ]
+}

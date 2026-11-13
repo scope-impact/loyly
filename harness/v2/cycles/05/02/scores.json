@@ -1,0 +1,36 @@
+{
+ "items": [
+  {
+   "id": "05-001",
+   "name": "The operator pins a source cut",
+   "rule": "A source cut is one commit and its tree, pinned once and never changed",
+   "source": ".pi/plan/05-cycle-preparation/spec.feature:11",
+   "verdict": "pass",
+   "evidence": "Fresh store, commits file {C1:t-81}: source-cuts [] then pin K-3 at C1/t-81 returns one cycle-preparation/source-cut-pinned event with exactly cut-id, commit, tree-digest, pinned-at (ISO UTC); source-cuts then lists K-3 at C1/t-81. After a restart K-3 is still listed; K-9 (C2/t-82, added to the file mid-run) pins and is listed newest first. Gate store check OK on the store (1 run of cut-to-fence, completed success)."
+  },
+  {
+   "id": "05-002",
+   "name": "A pinned source cut is never pinned again",
+   "rule": "A source cut is one commit and its tree, pinned once and never changed",
+   "source": ".pi/plan/05-cycle-preparation/spec.feature:20",
+   "verdict": "pass",
+   "evidence": "K-3 pinned at C1/t-81; re-pin at C2/t-82 (C2 in the file), at the same C1/t-81, and at a non-commit each give -32000 data.refusal cut-already-pinned; source-cuts holds one K-3 at C1/t-81; store holds a single source-cut-pinned across 4 successful cut-to-fence runs. Same after a restart."
+  },
+  {
+   "id": "05-003",
+   "name": "A source cut of something that is not a commit is refused",
+   "rule": "A source cut is one commit and its tree, pinned once and never changed",
+   "source": ".pi/plan/05-cycle-preparation/spec.feature:30",
+   "verdict": "pass",
+   "evidence": "deadbeef...(40 hex) not in the commits file: pin K-4 gives -32000 not-a-commit, source-cuts [] and no domain event recorded. Absent file and unset LOYLY_PROJECT_COMMITS also give not-a-commit; adding deadbeef to the file mid-run then lets K-4 pin (file re-read per pin). Short/upper-case commit, null or missing tree-digest give -32602."
+  },
+  {
+   "id": "05-004",
+   "name": "A source cut whose tree digest is not its commit's tree is refused",
+   "rule": "A source cut is one commit and its tree, pinned once and never changed",
+   "source": ".pi/plan/05-cycle-preparation/spec.feature:39",
+   "verdict": "pass",
+   "evidence": "C1 maps to t-81: pin K-4 at C1/t-99 gives -32000 tree-digest-not-the-commits, T-81 is refused too (exact text), source-cuts [] and no domain event recorded. Changing the file to C1:t-99 mid-run then lets K-4 pin at t-99."
+  }
+ ]
+}
