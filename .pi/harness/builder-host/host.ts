@@ -12,6 +12,9 @@
 //   LOYLY_PI_MODEL   provider/modelId of the session's model (default openai-codex/gpt-6.1-sol)
 //   LOYLY_PI_PROMPT  the line appended to the instruction (default PROMPT below)
 //   LOYLY_ROOM_LABEL what the prompt calls the mounted room (default "the builder room")
+//   LOYLY_BASH_TIMEOUT_FLOOR_SECONDS  the least timeout a bash call runs with (default 1800): a smaller
+//                    `timeout` the model passes is raised to it, a larger one kept, a missing one stays
+//                    missing (no timeout). A full suite in the VM outlasts the 600 s a model tends to pass.
 //   LOYLY_STEER_DIR  a steer inbox: every <name>.md file that appears there while the run works is
 //                    submitted to the running session as a steer (pi-durable's `whenBusy: "steer"`,
 //                    `whenIdle: "reject"`, request id `steer-<name>`, so a rerun never steers twice),
@@ -57,6 +60,28 @@ export function gondolinEnv(room: string, onLog?: (text: string) => void) {
 	return { env, close: () => connection.close() };
 }
 
+/** The default least `timeout` of a bash call, in seconds (LOYLY_BASH_TIMEOUT_FLOOR_SECONDS). */
+export const BASH_TIMEOUT_FLOOR = 1800;
+
+/** The bash timeout floor: LOYLY_BASH_TIMEOUT_FLOOR_SECONDS (a positive number of seconds), or BASH_TIMEOUT_FLOOR. */
+export function timeoutFloorFromEnv(value = process.env.LOYLY_BASH_TIMEOUT_FLOOR_SECONDS?.trim()): number {
+	if (!value) return BASH_TIMEOUT_FLOOR;
+	const n = Number(value);
+	if (!Number.isFinite(n) || n <= 0) throw new Error(`LOYLY_BASH_TIMEOUT_FLOOR_SECONDS=${value}: expected a positive number of seconds`);
+	return n;
+}
+
+/** The tool with a model-given `timeout` below `floor` raised to it; a larger one is kept, a missing one stays missing. */
+export function withTimeoutFloor(tool: ToolRegistration, floor: number): ToolRegistration {
+	return {
+		...tool,
+		execute: (args, api, ctx) => {
+			const t = (args as { timeout?: unknown }).timeout;
+			return tool.execute(typeof t === "number" && t < floor ? { ...(args as object), timeout: floor } : args, api, ctx);
+		},
+	};
+}
+
 /** Every tool the host can give, by pi's names: pi-durable's read/write/edit/bash and pi's ls/find/grep. */
 const ALL_TOOLS: Record<string, ToolRegistration> = {
 	...Object.fromEntries((CodingTools.tools ?? []).map((tool) => [tool.name, tool as ToolRegistration])),
@@ -93,7 +118,7 @@ function installCommand(): string | undefined {
 }
 
 /** The builder's environment as a prompt section, generated from what the VM and tools enforce. */
-export function environmentText(tools: readonly string[], roomLabel = "the builder room"): string {
+export function environmentText(tools: readonly string[], roomLabel = "the builder room", timeoutFloor = BASH_TIMEOUT_FLOOR): string {
 	const network =
 		ALLOWED_HOSTS.length === 0
 			? "Network: none. Every outbound connection from the VM is refused; nothing can be downloaded, so work with what the image already has."
@@ -109,7 +134,14 @@ export function environmentText(tools: readonly string[], roomLabel = "the build
 				]
 			: []),
 		`Your tools, all running inside the VM: ${tools.join(", ")}.`,
+		...(tools.includes("bash")
+			? [`A bash command may run up to ${minutes(timeoutFloor)}: whatever timeout you pass is raised to at least that.`]
+			: []),
 	].join("\n");
+}
+
+function minutes(seconds: number): string {
+	return seconds % 60 === 0 ? `${seconds / 60} minutes` : `${seconds} seconds`;
 }
 
 export interface BuilderRun {
@@ -127,6 +159,8 @@ export interface BuilderRun {
 	roomLabel?: string;
 	/** A steer inbox directory (LOYLY_STEER_DIR), polled while the run works. */
 	steerDir?: string;
+	/** The bash timeout floor in seconds (default BASH_TIMEOUT_FLOOR). */
+	timeoutFloor?: number;
 	log?: (text: string) => void;
 }
 
@@ -135,11 +169,12 @@ export async function runBuilder(run: BuilderRun) {
 	const log = run.log ?? ((text: string) => process.stderr.write(`${text}\n`));
 	const { env, close: closeEnv } = gondolinEnv(run.room, (text) => log(`[pi-env] ${text.trimEnd()}`));
 	const registry = createRegistry();
-	const prompt = environmentText(run.tools, run.roomLabel);
+	const floor = run.timeoutFloor ?? BASH_TIMEOUT_FLOOR;
+	const prompt = environmentText(run.tools, run.roomLabel, floor);
 	registry.install(
 		defineExtension({
 			name: "loyly-builder",
-			tools: run.tools.map((name) => ALL_TOOLS[name]!),
+			tools: run.tools.map((name) => (name === "bash" ? withTimeoutFloor(ALL_TOOLS[name]!, floor) : ALL_TOOLS[name]!)),
 			sections: [section("environment", () => prompt, { tag: false })],
 		}),
 	);
@@ -240,8 +275,10 @@ async function main(argv: string[]) {
 		return 2;
 	}
 	let model: { provider: string; modelId: string };
+	let timeoutFloor: number;
 	try {
 		model = modelFromEnv();
+		timeoutFloor = timeoutFloorFromEnv();
 	} catch (error) {
 		process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
 		return 2;
@@ -250,7 +287,8 @@ async function main(argv: string[]) {
 	const prompt = process.env.LOYLY_PI_PROMPT?.trim() || undefined;
 	const steerDir = process.env.LOYLY_STEER_DIR?.trim() || undefined;
 	process.stderr.write(`model: ${model.provider}/${model.modelId}\n`);
-	process.stderr.write(`environment prompt:\n${environmentText(tools, roomLabel)}\n`);
+	process.stderr.write(`bash timeout floor: ${timeoutFloor}s\n`);
+	process.stderr.write(`environment prompt:\n${environmentText(tools, roomLabel, timeoutFloor)}\n`);
 	// pi's own model runtime over pi's own auth store (~/.pi/agent/auth.json, or PI_CODING_AGENT_DIR):
 	// the existing openai-codex login, read the way pi reads it. Nothing here logs in or writes a credential;
 	// pi's store itself persists a rotated OAuth token when the access token needs a refresh, as pi does.
@@ -265,7 +303,7 @@ async function main(argv: string[]) {
 		return 2;
 	}
 	try {
-		const { settled, answer } = await runBuilder({ room, instruction, store, requestId, models, model, tools, prompt, roomLabel, steerDir });
+		const { settled, answer } = await runBuilder({ room, instruction, store, requestId, models, model, tools, prompt, roomLabel, steerDir, timeoutFloor });
 		if (answer) process.stdout.write(`${answer}\n`);
 		if (settled.status === "done") {
 			process.stderr.write("status=done\n");

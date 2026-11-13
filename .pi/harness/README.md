@@ -110,7 +110,11 @@ LOYLY_VM_CPUS=6`: a run starts a JVM per context.
 
 `builder-host/host.ts` takes, all optional and unset for the builder as before: `LOYLY_PI_MODEL`
 (provider/modelId), `LOYLY_PI_PROMPT` (the line after the instruction), `LOYLY_ROOM_LABEL` (what the
-environment prompt calls the room) and `LOYLY_STEER_DIR` (the steer inbox, below). `builder.sh` now
+environment prompt calls the room) and `LOYLY_STEER_DIR` (the steer inbox, below). A bash call runs with
+a timeout of at least `LOYLY_BASH_TIMEOUT_FLOOR_SECONDS` (default 1800): a smaller `timeout` the
+model passes is raised to it, a larger one kept, none stays none (runner cycle 10 lost six 25-minute
+suite runs to `"timeout":600`); the host prints `bash timeout floor:` on stderr and the environment
+prompt says so in one line. `builder.sh` now
 also records `model=`, `steer_dir=` (`launch-N/steer/`), `wrapper_pid=` and `host_pid=` in
 `launch.txt`.
 
