@@ -674,3 +674,17 @@ Feature: Cycle runner
       And in the runner's own store, each effect result of run R-1 lies between the start and the completion of a leaf of the ORC workflow "cycle-runner/run-to-gate" whose name is its effect, or its effect followed by ":" and a qualifier
       And those are nine leaves with nine different names, one for each of stamp, pin, checklist, self-check, fence, regenerate, install, self-check and gate
       And each handoff relayed for run R-1 lies inside a leaf of that workflow named "relay", or "relay" followed by ":" and a qualifier
+
+  Rule: The gate grades a copy of the candidate on the host, in legacy verify.sh's order
+
+    # context.allium, contract GateOnTheHost, invariant TheLegacyGateOrder; config boot_budget_seconds, boot_polls; seam.md E5 (http)
+    # Legacy: verify.sh lines 117 to 121, a poll first and then the wait, so poll n is made (n - 1) half seconds after start.sh is launched
+    # decisions.md "Spec round 15": runner cycle 09 waited before each poll and recorded legacy's poll 2 as poll 1, so it was not promoted
+    @minimum @allium-boundary.TheLegacyGateOrder
+    @item-06-060
+    Scenario: A candidate that starts serving 1.25 seconds after its launch is answered on poll 4, with 16 polls of margin
+      Given the stub builder leaves a candidate whose suite is green and whose launch entrypoint starts serving the marker on the port 1.25 seconds after its launch
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then the gate effect of run R-1 for attempt 1 was recorded with the event "regeneration-cycle/gate-attempt-passed"
+      And that event carries a boot budget of 10 seconds and 20 polls, answered on poll 4
+      And run R-1's attempt 1 shows a boot margin of 16 polls

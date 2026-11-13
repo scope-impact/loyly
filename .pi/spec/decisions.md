@@ -1519,3 +1519,40 @@ the other ops, `code`, `delegate`) found that it writes `:sheet/node-execution-s
 
 The slice-06 grader grows by this item ("spec grew", additions only). The checklist golden grows
 from 207 to 208. `@item-06-059` is the next cycle's untuned holdout.
+
+## Spec round 15 (2026-11-13)
+
+Decided by the product owner on 2026-11-13. A spec round on slice 06 only, and the smallest one:
+one sentence of the seam pinned and one new item. No other context, event-model schema, Allium
+`requires` or existing scenario changed.
+
+Why: runner cycle 09 (spec round 14) scored 59/59 and was not promoted, for one difference shadow
+S1 found against cycle 08 on the same Löyly candidate (`.pi/harness/.state/shadow/s1-c9/`). On the
+`http` gate cycle 09 waits half a second *before* each boot poll; legacy `verify.sh` (lines 117 to
+121) and cycle 08 poll first, then wait. So the same boot was recorded as `answered-on-poll` 1
+(margin 19) instead of 2 (margin 18), and the budget's last poll falls at 10 seconds instead of
+9.5. Seam E5 said "legacy `verify.sh`'s order" and "within 20 polls at half a second", but never
+that the first poll is made at once, so each fresh builder decided the order again. It is a reading
+the seam left open, not a new behaviour: legacy's order was always the intended one.
+
+1. **D1, the boot polls start at once, as `verify.sh`.** Seam E5 (`http`): poll 1 is made at once
+   after `start.sh` is launched, with no wait before it, and each later poll half a second after
+   the previous one, so poll n at (n − 1) × 0.5 seconds after the launch and poll 20 at 9.5
+   seconds; `answered-on-poll` is the number of the first poll that answered, and the margin is
+   20 less that poll (`context.allium`, config `boot_budget_seconds`, `boot_polls`, the comment).
+   The stdio gate (one poll, held by the probe) and a gate command (its own `BOOT` and `ANSWERED`
+   lines) are unchanged.
+2. **One new scenario**, `@minimum`, appended at the end of `cycle-runner/spec.feature` and
+   stamped `@item-06-060`: a launch entrypoint that starts serving 1.25 seconds after its launch
+   is answered on poll 4 (polls at 0, 0.5, 1.0 and 1.5 seconds), with 16 polls of margin. The
+   serving time lies mid-way between polls 3 and 4, a quarter second from each, so host and JVM
+   jitter cannot move the poll; a wait before each poll would record poll 3. Cycle-runner goes
+   from 59 to 60 items; must-cover is unchanged at 53. `tools/spec/v2/gates.sh`: ALL GATES PASS.
+3. **Open, not in this round.** The grader's wording findings on cycle 09: `@item-06-034`'s "5
+   seconds after" means at least 5 seconds; `@item-06-057`'s "the self-check command" is the
+   command's text; `@item-06-023` and `@item-06-056` as worded are not observable through the
+   seam; `@item-06-007` does not state the relay order between two consumers of one handoff
+   (cycle 09 now relays to Measurement first, cycle 08 to Regeneration cycle first).
+
+The slice-06 grader grows by this item ("spec grew", additions only). The checklist golden grows
+from 208 to 209. `@item-06-060` is the next cycle's untuned holdout.

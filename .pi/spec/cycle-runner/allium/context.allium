@@ -281,7 +281,9 @@ config {
     -- The builder image for the stack (spec round 9): a folder of the builder images
     -- directory handed in. Empty, none: the builder command gets two arguments.
     builder_image: String = ""
-    -- Legacy verify.sh: ten seconds, twenty polls at half a second.
+    -- Legacy verify.sh: ten seconds, twenty polls at half a second, a poll first and then the
+    -- wait: poll 1 at once after start.sh is launched, poll n at (n - 1) * 0.5 seconds, poll 20
+    -- at 9.5; answered_on_poll is the first poll that answered (spec round 15).
     boot_budget_seconds: Integer = 10
     boot_polls: Integer = 20
     -- harness/verify.sh, the stdio seam: thirty seconds, held by the probe, one poll.
