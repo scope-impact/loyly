@@ -1,7 +1,7 @@
 # Löyly Agent Instructions
 
 The maintained assets are the behavioral specifications under `.pi/spec/` (spec v2, one folder
-per bounded context, 187 stamped items; `.pi/model/` is spec v1, history, kept for its
+per bounded context, 212 stamped items; `.pi/model/` is spec v1, history, kept for its
 glossary); generated
 implementation is a reproducible build product. Keep specification planning and
 implementation in separate rounds. Never repair a specification from inside a fenced

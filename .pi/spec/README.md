@@ -2,9 +2,9 @@
 
 A from-scratch specification of the Pi harness, built in rounds.
 
-Today (2026-11-08): six contexts are accepted, each a slice under `../plan/`, 187 stamped items
+Today (2026-11-13): six contexts are accepted, each a slice under `../plan/`, 212 stamped items
 (specification 15, measurement 43, grader-lifecycle 11, regeneration-cycle 76,
-cycle-preparation 4, cycle-runner 38; the recorded checklist golden agrees). Since the switch
+cycle-preparation 4, cycle-runner 63; the recorded checklist golden agrees). Since the switch
 the new harness runs the regeneration cycles: the slice-06 cycle runner driving the five
 contexts of slices 01-05, with the legacy harness as the reference (`decisions.md`, "The switch
 to the new harness"). Every decision is in `decisions.md`, in

@@ -113,7 +113,8 @@ contract BuilderLaunch {
         -- A fresh builder is handed the clean room and an empty candidate scope; a repair
         -- builder also the previous candidate and this cycle's gate evidence, read-only.
         -- Neither is handed the verdicts file, an item verdict, a score or a scoreboard
-        -- (decisions.md H6).
+        -- (decisions.md H6). The repair effect's detail names the gate evidence it
+        -- mounted (spec round 16b).
 
     @invariant TheBuilderExitIsNoVerdict
         -- How a builder session ends is not evidence: the runner records the candidate
@@ -291,7 +292,8 @@ config {
     builder_image: String = ""
     -- Legacy verify.sh: ten seconds, twenty polls at half a second, a poll first and then the
     -- wait: poll 1 at once after start.sh is launched, poll n at (n - 1) * 0.5 seconds, poll 20
-    -- at 9.5; answered_on_poll is the first poll that answered (spec round 15).
+    -- at 9.5; answered_on_poll is the first poll that answered (spec round 15), counted
+    -- in polls, never in seconds (spec round 16b).
     boot_budget_seconds: Integer = 10
     boot_polls: Integer = 20
     -- harness/verify.sh, the stdio seam: thirty seconds, held by the probe, one poll.

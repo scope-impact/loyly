@@ -246,12 +246,13 @@ Feature: Cycle runner
 
     # context.allium, contract BuilderLaunch, invariant TheBuilderSeesOnlyItsMounts
     # Legacy: AGENTS.md "only the previous candidate and the gate's evidence, at most three attempts"
+    # decisions.md "Spec round 16b" D2: the evidence mounted is read from the repair effect's detail, through run-progress
     @minimum @allium-boundary.TheBuilderSeesOnlyItsMounts
     @item-06-023
     Scenario: A repair builder sees the previous candidate and the gate evidence, read-only
       Given the stub builder records the paths its builder room holds, and its first candidate has a red suite
       When the operator starts run R-1 of cycle C-1 at source cut K-1
-      Then the repair effect of run R-1 for attempt 2 was recorded with the gate evidence of attempt 1 mounted
+      Then the repair effect of run R-1 for attempt 2 was recorded with the event "regeneration-cycle/candidate-regenerated" for "verification-repair", its detail naming the evidence root that attempt 1's "regeneration-cycle/gate-attempt-failed" carries
       And the second launch saw the clean room, the previous candidate and the gate evidence of attempt 1, and could write neither of the last two
 
     # cycle-run.allium, rule ConcludeRunFailed
@@ -628,6 +629,7 @@ Feature: Cycle runner
 
     # cycle-run.allium, rule HaltRun (a gate that could not be performed); context.allium, invariant TheGateCommandsResultIsRead
     # decisions.md "Spec round 12" D2: a world or a VM that did not come up is not the candidate's failure, and Regeneration cycle has no reason for it
+    # decisions.md "Spec round 16b" D3: the cycle left running is read through run-progress, as no fail-cycle effect and no cycle
     @minimum @allium-rule-success.HaltRun
     @item-06-056
     Scenario: A gate command whose last line names no code the runner reads halts the run at the gate
@@ -635,7 +637,7 @@ Feature: Cycle runner
       And the stub builder leaves a candidate in its candidate scope
       When the operator starts run R-1 of cycle C-1 at source cut K-1
       Then run R-1 is halted at the gate effect because a handed-in command could not run, its detail "infrastructure the world did not come up"
-      And it has no gate effect result, and its cycle is still running
+      And run R-1's progress has no gate effect result, no fail-cycle effect result and no cycle: the runner did not conclude its cycle
 
     # context.allium, contract GateOnTheHost, invariant TheHarnessDigestCoversTheGateCommand
     # decisions.md "Spec round 12" D5: the gate command is the judge, so it is part of the harness
@@ -680,14 +682,15 @@ Feature: Cycle runner
     # context.allium, contract GateOnTheHost, invariant TheLegacyGateOrder; config boot_budget_seconds, boot_polls; seam.md E5 (http)
     # Legacy: verify.sh lines 117 to 121, a poll first and then the wait, so poll n is made (n - 1) half seconds after start.sh is launched
     # decisions.md "Spec round 15": runner cycle 09 waited before each poll and recorded legacy's poll 2 as poll 1, so it was not promoted
+    # decisions.md "Spec round 16b" D1: counted in polls, not seconds; runner cycle 10's gate host answered the 1.25-second stand-in on poll 5
     @minimum @allium-boundary.TheLegacyGateOrder
     @item-06-060
-    Scenario: A candidate that starts serving 1.25 seconds after its launch is answered on poll 4, with 16 polls of margin
-      Given the stub builder leaves a candidate whose suite is green and whose launch entrypoint starts serving the marker on the port 1.25 seconds after its launch
+    Scenario: A candidate that refuses its first three requests is answered on a later poll, its margin 20 less that poll
+      Given the stub builder leaves a candidate whose suite is green and whose launch entrypoint replies to its first three HTTP requests with the status 503 and serves the marker from its fourth on
       When the operator starts run R-1 of cycle C-1 at source cut K-1
       Then the gate effect of run R-1 for attempt 1 was recorded with the event "regeneration-cycle/gate-attempt-passed"
-      And that event carries a boot budget of 10 seconds and 20 polls, answered on poll 4
-      And run R-1's attempt 1 shows a boot margin of 16 polls
+      And that event carries a boot budget of 10 seconds and 20 polls, answered on poll 4 or later
+      And run R-1's attempt 1 shows a boot margin of 20 polls less the poll it was answered on
 
   Rule: A gate attempt is one subtree, delegated once per attempt
 

@@ -154,7 +154,7 @@ The legacy harness (`archive/legacy-harness/`: `verify.sh`, `gen_checklist.clj`,
 ## The harness
 
 The harness has its own spec: spec v2, under `.pi/spec/`, six bounded contexts (specification,
-cycle-preparation, grader-lifecycle, measurement, regeneration-cycle, cycle-runner), 187 stamped
+cycle-preparation, grader-lifecycle, measurement, regeneration-cycle, cycle-runner), 212 stamped
 items, each context a slice through its link `.pi/plan/NN-<context>`; `.pi/model/` (spec v1) is
 history. Every decision is in `.pi/spec/decisions.md`. Each context was built by a regeneration
 cycle into `harness-impl/NN-<context>/`, Clojure on ORC with Grain; its `PROVENANCE.md` names the

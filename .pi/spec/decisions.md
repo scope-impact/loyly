@@ -1694,3 +1694,113 @@ nothing) and builder scratch on its test path (`test/fix-parens.clj`, `test/bala
 The slice-06 grader grows by these items ("spec grew", additions only) and replaces
 `@item-06-059`'s reading ("wording replaced"). The checklist golden grows from 209 to 212.
 `@item-06-061` to `@item-06-063` are the next cycle's untuned holdout.
+
+## Spec round 16b (2026-11-13)
+
+Decided by the product owner on 2026-11-13. A spec round on slice 06's wording only: three
+stamped items reworded in place, one seam detail and one seam sentence added, and the operating
+decisions of the harness's supervision, instruction and grader recorded. No item added or removed,
+no stamped id changed, no event-model schema or Allium `requires` changed.
+
+Why: runner cycle 10 failed the gate on all three attempts on `@item-06-060` alone (the gate's
+output of each attempt, `gate-c10-slice06`, `gate-c10-a2-slice06` and `gate-c10-a3-slice06` in the
+harness's state: `answered-on-poll` 5, expected 4). Its
+suite was green in the builder's Linux VM; on the macOS gate host the stand-in that serves "1.25
+seconds after its launch" was not serving by poll 4. The scenario tied a poll number to wall-clock
+time with a quarter second of slack, so its outcome was the host's speed, not the runner's
+behaviour. And round 15's open wording findings: `@item-06-023` ("evidence mounted") and
+`@item-06-056` ("its cycle is still running") are not observable through the seam as worded (cycle
+08's `PROVENANCE.md`; on cycle 09 one grader read Regeneration cycle's `cycle-progress` for 056
+and another failed it as unobservable).
+
+1. **D1, `@item-06-060` counts polls, not seconds.** Reworded in place: a launch entrypoint that
+   replies to its first three HTTP requests with the status 503 and serves the marker from its
+   fourth is answered on poll 4 or later, and the boot margin is 20 less the poll it was answered
+   on. Old: "A candidate that starts serving 1.25 seconds after its launch is answered on poll 4,
+   with 16 polls of margin". The exact poll is not pinned, because a stand-in cannot see a poll
+   made before it listens, and a poller inside the runner makes poll 1 before any launched program
+   can bind: a fixed number is again a race. What the item proves now: a refused poll is counted
+   and the margin is the polls left. What it no longer proves: that poll 1 is made at once.
+   That order is a phase of half a second that only a clock can see, so it stays a sentence of
+   seam E5 (round 15 D1, unchanged), held by the legacy reference and checked as round 15 found
+   it, by a shadow run against legacy `verify.sh` on the same candidate (AGENTS.md, "The
+   instrument judging itself"). `context.allium`'s config comment says the poll is counted in
+   polls. Recommended over an exact count with the stand-in's listener started by its suite
+   (before `start.sh`, after the port check): deterministic, but it rests on the gate not checking
+   the port again, a gap a later round may close.
+2. **D2, `@item-06-023`: the mount is read from the repair effect's detail.** Seam E6: the repair
+   effect's `detail` names the gate evidence directory it mounted, the failed attempt's
+   `evidence-root` as its `gate-attempt-failed` carries it, then the builder image and its digest.
+   The `mounted-evidence` the runner hands `record-regenerated-candidate` is not in
+   `candidate-regenerated`, so the detail is where `run-progress` shows it. Old Then: "the repair
+   effect of run R-1 for attempt 2 was recorded with the gate evidence of attempt 1 mounted"; new:
+   "... recorded with the event `regeneration-cycle/candidate-regenerated` for
+   `verification-repair`, its detail naming the evidence root that attempt 1's
+   `regeneration-cycle/gate-attempt-failed` carries". Its And line (what the second launch saw) is
+   the stub builder's own record, a grader's fixture, as before. `TheBuilderSeesOnlyItsMounts`
+   says so.
+3. **D3, `@item-06-056`: the cycle left running is read through `run-progress`.** Old And: "it has
+   no gate effect result, and its cycle is still running"; new: "run R-1's progress has no gate
+   effect result, no fail-cycle effect result and no cycle: the runner did not conclude its
+   cycle". The seam's run-progress paragraph says a halted run has no `cycle` and no `fail-cycle`,
+   so it leaves its cycle as it was. The Regeneration cycle's own `cycle-progress` is not the
+   runner's seam, and the runner stops its contexts when the run halts.
+4. **D4, supervising a live builder.** A supervising Claude session (the operating session or its
+   subagent) may report on, steer or stop a live builder through the provided tools `watch.sh`,
+   `steer.sh` and `stop.sh` (`.pi/harness/supervisor/README.md`), within that README's guardrails
+   (a steer draws only on the builder's own session, the room's spec and the gate's public
+   contract; a grader is never steered). Each steer is logged per launch in `steers.jsonl`, each
+   stop in `stops.jsonl`. A steer is harness input to one run, not the spec.
+5. **D5, the builder instruction is frozen and generic.** The instruction is what the harness's
+   instruction renderer (`harness/v2/`, run as `bb <renderer> NN <dir>`) makes from the room, plus
+   the repair paragraph for a repair; it does
+   not drift and grows no domain specifics, and nothing is appended to it by hand. A steer helps
+   only its own run. After a cycle, recurring steers and gate failures are triaged
+   (`.pi/harness/bin/triage-steers.sh`) into spec inbox items (a missing scenario or seam detail)
+   or harness issues, never folded into the instruction. GEPA is not run on the instruction
+   (`improve-instruction.sh` was replaced by `triage-steers.sh`, `c71d728`). The three paragraphs
+   the operator appended to cycles 09 and 10's instruction (the lines of cycle 10's
+   `instruction.md` in the harness's state, folder `06-c10/`, that are not in the two files the
+   renderer wrote beside it), decided one by one:
+   - *"The gate runs test.sh and start.sh on a macOS host with a BSD userland ... portable
+     shell"*: (b) generic practice, true of every context this harness gates on its host. It
+     moves into the rendered instruction's gate paragraph (the renderer's "The seam and the gate"),
+     once, so the frozen instruction carries it and no hand-appended paragraph does.
+   - *"Your VM has 8 GB of memory and 6 CPUs ... keep the whole suite under 10 minutes ... reuse
+     one JVM ... stand-in contexts over a socket ... stop every ... a test starts"*: (c)
+     dropped. The VM's size is the launcher's (`LOYLY_VM_MEMORY`, `LOYLY_VM_CPUS`) and the builder
+     can read it; the suite's time is bounded by the stage timeouts the spec gives; one JVM and
+     sockets are this context's tuning, a builder's choice; stopping what a test starts is
+     ordinary craft. Should a suite again run past its stage, that is triage's to raise.
+   - *"Build each flow as the ORC tree seam.md's 'The trees' names, one leaf per effect ...; the
+     gate's event-store check refuses an effect recorded outside its own named leaf"*: (a) a spec
+     fact, already in seam.md ("The trees"), `@item-06-059`, round 14 and AGENTS.md. Dropped from
+     the instruction; the rendered instruction's gate paragraph, which already lists the store check's
+     rules, now names the leaf rule as generic gate behaviour ("where the event model's flows name
+     the leaf that writes an event").
+   And one contradiction found on the way, cleared because the next fresh builder would decide
+   it again: the renderer told every builder to load the event models from `../../.pi/spec/` and
+   "never copy" them, against round 16 D6 (a build carries a byte-for-byte copy at
+   `event-model/<context>/` and reads no file outside its folder; AGENTS.md, a build carries the
+   event models it reads). The rendered instruction now says copy them there and read them only there.
+6. **D6, the grader is a pi-durable session on a different model.** The black-box grader of legacy
+   step 5 is `.pi/harness/bin/grader.sh`, a pi-durable session in a Gondolin VM on Codex
+   `openai-codex/gpt-6.1-terra`, a different model from the builder's `gpt-6.1-sol` (`grader.sh`
+   refuses to start on the builder's own model when handed the builder's evidence). Claude through pi is unavailable: the Copilot subscription
+   ended. Its rounds are a harness input to the instrument, recorded here: when the grader ends its turn
+   with items still "not reached", the same session gets one more input, `round-N`, naming only
+   those ids and saying to continue (`LOYLY_GRADER_ROUNDS`, at most 6); mechanical, carrying
+   nothing but the grader's own ids. An item still unreached after the last round fails and stays
+   in the denominator. Proved on cycle 09's candidate (58/59 against the Claude subagent's 59/59,
+   `788da1a`).
+7. **Open, not in this round.** Round 15's other wording findings (`@item-06-007`'s relay order
+   between two consumers, `@item-06-034`'s "5 seconds after", `@item-06-057`'s "the self-check
+   command"). Whether the http gate should check the port again just before `start.sh` (D1's
+   alternative). The renderer's "fetched by git coordinate" beside round 16 D7's "the room's
+   `orc/` and `grain/` are read in place": a reading, not a contradiction, left for the next
+   round.
+
+`tools/spec/v2/gates.sh`: ALL GATES PASS. The slice-06 grader replaces the readings of
+`@item-06-023`, `@item-06-056` and `@item-06-060` for the recorded reason "wording replaced"; no
+item is added, so the checklist golden stays at 212: `@item-06-060`'s name re-recorded, and the
+sources of the slice-06 items after `@item-06-022` moved by the new comment lines. The three items are not a holdout: they are reworded, not new.
