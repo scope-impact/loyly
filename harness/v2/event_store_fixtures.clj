@@ -55,19 +55,27 @@
   writes it on the store: its name (node-name-set), then per leaf its node-execution-started,
   the leaf's events and its node-execution-completed with success; then what the run's
   processors append when it completes (processed). Slice 06 declares its leaves
-  (cycle-runner/event-model/area.edn, :leaf), so its events are held to them."
-  [workflow leaves]
-  (let [tick (random-uuid) sheet-id (random-uuid)
-        ids (into {} (for [[n _] leaves] [n (random-uuid)]))]
-    (concat [[:sheet/sheet-created {:sheet-id sheet-id :name workflow}]]
-            (for [[n id] ids] [:sheet/node-name-set {:sheet-id sheet-id :node-id id :name n}])
-            [[:sheet/tree-tick-started {:sheet-id sheet-id :tick-id tick}]]
-            (mapcat (fn [[n events]]
-                      (concat [[:sheet/node-execution-started {:sheet-id sheet-id :tick-id tick :node-id (ids n) :inputs {}}]]
-                              events
-                              [[:sheet/node-execution-completed {:sheet-id sheet-id :tick-id tick :node-id (ids n) :status :success}]]))
-                    leaves)
-            (processed sheet-id tick :success))))
+  (cycle-runner/event-model/area.edn, :leaf), so its events are held to them. A leaf
+  [:delegate CHILD-WORKFLOW CHILD-LEAVES] is a delegate node: its execution holds a child tick
+  of CHILD-WORKFLOW (spec round 16, the cycle runner's gate attempt), whose tree-tick-started
+  names this run's tick as its :parent-tick-id. PARENT, when given, is that parent tick for this
+  run itself (nil: a root tick; a tick id no run started: an orphan child)."
+  ([workflow leaves] (orc-tree-run workflow leaves nil))
+  ([workflow leaves parent]
+   (let [tick (random-uuid) sheet-id (random-uuid)
+         ids (into {} (for [[n _] leaves] [n (random-uuid)]))]
+     (concat [[:sheet/sheet-created {:sheet-id sheet-id :name workflow}]]
+             (for [[n id] ids :when (string? n)] [:sheet/node-name-set {:sheet-id sheet-id :node-id id :name n}])
+             [[:sheet/tree-tick-started (cond-> {:sheet-id sheet-id :tick-id tick}
+                                          parent (assoc :parent-tick-id parent))]]
+             (mapcat (fn [[n x y]]
+                       (if (= :delegate n)
+                         (orc-tree-run x y tick)
+                         (concat [[:sheet/node-execution-started {:sheet-id sheet-id :tick-id tick :node-id (ids n) :inputs {}}]]
+                                 x
+                                 [[:sheet/node-execution-completed {:sheet-id sheet-id :tick-id tick :node-id (ids n) :status :success}]])))
+                     leaves)
+             (processed sheet-id tick :success)))))
 
 (defn re-ticked-run
   "EVENTS in a run ORC re-ticks: the tick completes :running, ORC starts it again, and the
@@ -252,6 +260,15 @@
   (assoc effect-recorded :position 1 :effect "self-check" :method "regeneration-cycle/record-harness-self-check"
          :outcome "recorded" :events [] :detail "passed"))
 
+(def regenerate-recorded
+  (assoc (dissoc effect-recorded :refusal) :effect "regenerate" :attempt 1 :method "regeneration-cycle/record-regenerated-candidate"
+         :outcome "recorded" :events [] :detail "candidate left"))
+(def install-recorded
+  (assoc regenerate-recorded :effect "install" :method "regeneration-cycle/install-candidate-in-gate-room"))
+(def gate-recorded
+  (assoc regenerate-recorded :effect "gate" :method "regeneration-cycle/record-gate-attempt"
+         :events [{:type "regeneration-cycle/gate-attempt-passed" :cycle-id "C-probe"}]))
+
 (def cases-06
   {"06-pass-halted"          (concat (orc-tree-run "cycle-runner/run-to-gate"
                                                    [["start" [[:cycle-runner/run-started run-started]]]])
@@ -270,6 +287,25 @@
                                                     [["perform-command" [[:cycle-runner/effect-recorded effect-recorded]]]])
                                       (orc-tree-run "cycle-runner/cycle-failed-ends-run"
                                                     [["perform-command" [[:cycle-runner/run-concluded run-concluded]]]]))
+   ;; spec round 16: a gate attempt runs as a child tick of cycle-runner/gate-attempt.v1,
+   ;; delegated from the run's run-to-gate tick; its effects are held to their leaves there
+   "06-pass-delegated-attempt" (orc-tree-run "cycle-runner/run-to-gate"
+                                             [["start" [[:cycle-runner/run-started run-started]]]
+                                              ["regenerate" [[:cycle-runner/effect-recorded (assoc regenerate-recorded :position 1)]]]
+                                              [:delegate "cycle-runner/gate-attempt.v1"
+                                               [["install" [[:cycle-runner/effect-recorded (assoc install-recorded :position 2)]]]
+                                                ["self-check" [[:cycle-runner/effect-recorded (assoc self-check-recorded :position 3 :attempt 1)]]]
+                                                ["gate:1" [[:cycle-runner/effect-recorded (assoc gate-recorded :position 4)]]]
+                                                ["relay:gate:1" [[:cycle-runner/handoff-relayed handoff-relayed]]]]]])
+   "06-fail-delegated-wrong-leaf" (orc-tree-run "cycle-runner/run-to-gate"
+                                                [["start" [[:cycle-runner/run-started run-started]]]
+                                                 [:delegate "cycle-runner/gate-attempt.v1"
+                                                  [["install" [[:cycle-runner/effect-recorded (assoc gate-recorded :position 1)]]]]]])
+   "06-fail-orphan-attempt"  (concat (orc-tree-run "cycle-runner/run-to-gate"
+                                                   [["start" [[:cycle-runner/run-started run-started]]]])
+                                     (orc-tree-run "cycle-runner/gate-attempt.v1"
+                                                   [["gate:1" [[:cycle-runner/effect-recorded (assoc gate-recorded :position 1)]]]]
+                                                   (random-uuid)))
    "06-fail-wrong-leaf"      (orc-tree-run "cycle-runner/run-to-gate"
                                            [["start" [[:cycle-runner/run-started run-started]]]
                                             ["pin" [[:cycle-runner/effect-recorded effect-recorded]]]])

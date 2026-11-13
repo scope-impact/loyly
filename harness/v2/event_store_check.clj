@@ -38,7 +38,11 @@
 ;;     event must lie between a :sheet/node-execution-started and the next
 ;;     :sheet/node-execution-completed (status :success) of the same node and tick, the node
 ;;     a leaf of a sheet named after the step's flow, its name (:sheet/node-name-set) the
-;;     declared one, or that name followed by ":" and a qualifier. A flow run as one leaf
+;;     declared one, or that name followed by ":" and a qualifier. A leaf of a delegated
+;;     subtree counts for the flow whose tick delegated it (spec round 16: the cycle runner's
+;;     gate attempt, cycle-runner/gate-attempt.v1): its tick's :sheet/tree-tick-started names
+;;     its parent tick (:parent-tick-id), and the leaf counts for the workflow of its own tick
+;;     and of every ancestor tick. A flow run as one leaf
 ;;     around orchestration of the candidate's own (one "perform-command" leaf) fails it. A
 ;;     model that declares no leaf (slices 01 to 05 today) is not checked for leaves.
 ;;   - rule "one terminal completion per tick": within a tenant, a tick has more than one
@@ -189,13 +193,20 @@
 
 (defn leaf-problems
   "Rule \"each effect in its own leaf\": each event LEAVES declares a leaf for lies inside a
-  completed execution of that leaf, in a sheet named after one of its flows."
+  completed execution of that leaf, in a sheet named after one of its flows, or in a child tick
+  a tick of that sheet delegated (its ancestors by :parent-tick-id)."
   [leaves events]
   (if (empty? leaves)
     []
     (vec (for [[t es] (group-by ::tenant events)
                :let [sheets (into {} (for [e es :when (= :sheet/sheet-created (:event/type e))] [(:sheet-id e) (:name e)]))
                      names (into {} (for [e es :when (= :sheet/node-name-set (:event/type e))] [(:node-id e) (:name e)]))
+                     ticks (into {} (for [e es :when (= :sheet/tree-tick-started (:event/type e))]
+                                      [(:tick-id e) {:workflow (sheets (:sheet-id e)) :parent (:parent-tick-id e)}]))
+                     lineage (fn [tick] (loop [tk tick seen #{} out []]
+                                          (if (or (nil? tk) (seen tk) (not (ticks tk)))
+                                            out
+                                            (recur (:parent (ticks tk)) (conj seen tk) (conj out (:workflow (ticks tk)))))))
                      runs (for [[a e] (map-indexed vector es)
                                 :when (= :sheet/node-execution-started (:event/type e))
                                 :let [[b c] (first (keep-indexed
@@ -205,13 +216,14 @@
                                                     es))]
                                 :when b]
                             {:from a :to b :status (:status c) :workflow (sheets (:sheet-id e))
+                             :workflows (set (cons (sheets (:sheet-id e)) (lineage (:tick-id e))))
                              :name (str (names (:node-id e) (:node-id e)))})]
                [i e] (map-indexed vector es)
                :let [wanted (leaves (:event/type e))]
                :when wanted
                :let [wanted (update-vals wanted #(if (= :effect %) (str (:effect e)) %))
                      inside (filter #(and (< (:from %) i (:to %)) (= :success (:status %))) runs)]
-               :when (not-any? #(= (wanted (:workflow %)) (first (str/split (:name %) #":" 2))) inside)]
+               :when (not-any? (fn [r] (some #(= (wanted %) (first (str/split (:name r) #":" 2))) (:workflows r))) inside)]
            (str "rule \"each effect in its own leaf\" failed: event " (:event/id e) " ("
                 (subs (str (:event/type e)) 1) (when (:effect e) (str ", effect " (:effect e)))
                 ") was not written inside a leaf named "
