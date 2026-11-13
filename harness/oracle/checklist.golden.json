@@ -1253,9 +1253,27 @@
    "name": "A candidate that starts serving 1.25 seconds after its launch is answered on poll 4, with 16 polls of margin",
    "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
    "source": ".pi/plan/06-cycle-runner/spec.feature:685"
+  },
+  {
+   "id": "06-061",
+   "name": "Each gate attempt runs as a child tick of its own of the workflow \"cycle-runner/gate-attempt.v1\"",
+   "rule": "A gate attempt is one subtree, delegated once per attempt",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:698"
+  },
+  {
+   "id": "06-062",
+   "name": "A copy of the candidate in a folder of its own, with no spec around it, runs a cycle",
+   "rule": "The runner carries its own event model, as its room gave it",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:712"
+  },
+  {
+   "id": "06-063",
+   "name": "A context that stops replying without exiting halts the run 60 seconds after it was asked",
+   "rule": "A run that cannot perform an effect halts, loudly, and a run that ended stays as it ended",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:724"
   }
  ],
  "counts": {
-  "total": 209
+  "total": 212
  }
 }
