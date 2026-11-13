@@ -1030,247 +1030,247 @@
    "id": "06-023",
    "name": "A repair builder sees the previous candidate and the gate evidence, read-only",
    "rule": "A failed gate attempt is repaired by a fresh builder that sees only the previous candidate and the gate's evidence",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:251"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:252"
   },
   {
    "id": "06-024",
    "name": "Three failed attempts fail the cycle, and no fourth builder is launched",
    "rule": "A failed gate attempt is repaired by a fresh builder that sees only the previous candidate and the gate's evidence",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:261"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:262"
   },
   {
    "id": "06-025",
    "name": "Verdicts handed in are filed as given, and the run passes as its cycle passes",
    "rule": "The verdicts of the gated candidate are handed in, filed as given, and the run ends as its cycle ends",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:273"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:274"
   },
   {
    "id": "06-026",
    "name": "An item the verdicts file does not name is Measurement's to record as unreached",
    "rule": "The verdicts of the gated candidate are handed in, filed as given, and the run ends as its cycle ends",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:285"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:286"
   },
   {
    "id": "06-027",
    "name": "Verdicts for a run that does not exist are refused",
    "rule": "The verdicts of the gated candidate are handed in, filed as given, and the run ends as its cycle ends",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:295"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:296"
   },
   {
    "id": "06-028",
    "name": "Verdicts for a run whose gate never passed are refused",
    "rule": "The verdicts of the gated candidate are handed in, filed as given, and the run ends as its cycle ends",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:305"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:306"
   },
   {
    "id": "06-029",
    "name": "A second verdicts file is refused, and no builder follows the verdicts",
    "rule": "The verdicts of the gated candidate are handed in, filed as given, and the run ends as its cycle ends",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:315"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:316"
   },
   {
    "id": "06-030",
    "name": "Verdicts under a grader digest the run did not approve are refused",
    "rule": "The verdicts of the gated candidate are handed in, filed as given, and the run ends as its cycle ends",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:324"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:325"
   },
   {
    "id": "06-031",
    "name": "A verdicts file that is blank is refused, and nothing is filed",
    "rule": "The verdicts of the gated candidate are handed in, filed as given, and the run ends as its cycle ends",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:334"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:335"
   },
   {
    "id": "06-032",
    "name": "Verdicts Measurement refuses fail the score stage, and the run fails with its cycle",
    "rule": "The verdicts of the gated candidate are handed in, filed as given, and the run ends as its cycle ends",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:344"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:345"
   },
   {
    "id": "06-033",
    "name": "A context that stops answering halts the run, and nothing is recorded for that effect",
    "rule": "A run that cannot perform an effect halts, loudly, and a run that ended stays as it ended",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:356"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:357"
   },
   {
    "id": "06-034",
    "name": "A run that ended stays as it ended",
    "rule": "A run that cannot perform an effect halts, loudly, and a run that ended stays as it ended",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:365"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:366"
   },
   {
    "id": "06-035",
    "name": "Reading a run's progress changes nothing",
    "rule": "A run that cannot perform an effect halts, loudly, and a run that ended stays as it ended",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:375"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:376"
   },
   {
    "id": "06-036",
    "name": "The identity probe is handed the served URL, and passes a candidate that serves the marker",
    "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:387"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:388"
   },
   {
    "id": "06-037",
    "name": "A candidate whose suite writes inside its own directory passes the gate",
    "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:398"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:399"
   },
   {
    "id": "06-038",
    "name": "A skipped check is recorded with the whole text after SKIP",
    "rule": "No clean room is built over a failed harness self-check",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:410"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:411"
   },
   {
    "id": "06-039",
    "name": "A stdio candidate whose suite, identity probe and store check pass passes the gate",
    "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:422"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:423"
   },
   {
    "id": "06-040",
    "name": "The identity probe is handed the gate room's launch entrypoint, the boot budget and the gate's store, and the store check reads that store",
    "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:435"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:436"
   },
   {
    "id": "06-041",
    "name": "A red stdio suite fails the attempt before the identity probe, and the suite is handed no store",
    "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:448"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:449"
   },
   {
    "id": "06-042",
    "name": "An identity probe that fails fails the attempt for its identity, and the store is not checked",
    "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:460"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:461"
   },
   {
    "id": "06-043",
    "name": "A store check that fails fails the attempt for its identity, with the store check's output as the detail",
    "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:473"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:474"
   },
   {
    "id": "06-044",
    "name": "A stdio candidate reads the spec beside it in the gate room",
    "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:487"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:488"
   },
   {
    "id": "06-045",
    "name": "A stdio run whose store check cannot be started halts at the gate",
    "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:497"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:498"
   },
   {
    "id": "06-046",
    "name": "The harness digest of a stdio run covers the store-check command",
    "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:508"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:509"
   },
   {
    "id": "06-047",
    "name": "A slice that is a symbolic link in the plan is read at its target",
    "rule": "The runner stamps, pins and derives the checklist, and relays every handoff from its producer's store",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:521"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:522"
   },
   {
    "id": "06-048",
    "name": "The configuration's plan slices select what is stamped and checklisted",
    "rule": "The runner stamps, pins and derives the checklist, and relays every handoff from its producer's store",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:531"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:532"
   },
   {
    "id": "06-049",
    "name": "Each builder is handed the configured builder image, and each regenerate names the image and its digest",
    "rule": "A regenerate launches one fresh builder and records what it left in its candidate scope",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:544"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:545"
   },
   {
    "id": "06-050",
    "name": "A start whose configured builder image is not in the builder images directory is refused",
    "rule": "A run starts once, one at a time, on a commit of the project repository, with its five contexts responding",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:557"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:558"
   },
   {
    "id": "06-051",
    "name": "Two runs handed one measurement history store compare the second cycle with the first",
    "rule": "Measurement keeps its history across runs when a history store is handed in, so a scoreboard compares a cycle with the last measured cycle of its selection",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:569"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:570"
   },
   {
    "id": "06-052",
    "name": "An identity probe that reads a file beside it in the cut passes a candidate that serves the marker",
    "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:582"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:583"
   },
   {
    "id": "06-053",
    "name": "A gate command that exits 0 passes the attempt with the budget, the poll and the probe line it printed",
    "rule": "A gate command handed in is the gate: the runner hands it the cut's tree, the candidate's copy and an evidence directory, and records its result",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:596"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:597"
   },
   {
    "id": "06-054",
    "name": "A gate command that exits 1 naming a reason fails the attempt with that reason, and the repair builder is handed its evidence",
    "rule": "A gate command handed in is the gate: the runner hands it the cut's tree, the candidate's copy and an evidence directory, and records its result",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:610"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:611"
   },
   {
    "id": "06-055",
    "name": "A gate command whose last line is a refusal to grade is a gate refusal, and three in a row fail the cycle",
    "rule": "A gate command handed in is the gate: the runner hands it the cut's tree, the candidate's copy and an evidence directory, and records its result",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:622"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:623"
   },
   {
    "id": "06-056",
    "name": "A gate command whose last line names no code the runner reads halts the run at the gate",
    "rule": "A gate command handed in is the gate: the runner hands it the cut's tree, the candidate's copy and an evidence directory, and records its result",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:633"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:635"
   },
   {
    "id": "06-057",
    "name": "The harness digest covers the gate command, and is unchanged when none is handed in",
    "rule": "A gate command handed in is the gate: the runner hands it the cut's tree, the candidate's copy and an evidence directory, and records its result",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:644"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:646"
   },
   {
    "id": "06-058",
    "name": "A context that first responds 30 seconds after its launch is waited for, and one that never responds refuses the start after 60",
    "rule": "A start waits for its contexts, as long as a context takes to load",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:656"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:658"
   },
   {
    "id": "06-059",
    "name": "Each effect a run records lies inside the leaf of its flow's tree named for that effect",
    "rule": "Each flow is an ORC tree, and each effect the runner performs is a leaf of its own",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:670"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:672"
   },
   {
    "id": "06-060",
-   "name": "A candidate that starts serving 1.25 seconds after its launch is answered on poll 4, with 16 polls of margin",
+   "name": "A candidate that refuses its first three requests is answered on a later poll, its margin 20 less that poll",
    "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:685"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:688"
   },
   {
    "id": "06-061",
    "name": "Each gate attempt runs as a child tick of its own of the workflow \"cycle-runner/gate-attempt.v1\"",
    "rule": "A gate attempt is one subtree, delegated once per attempt",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:698"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:701"
   },
   {
    "id": "06-062",
    "name": "A copy of the candidate in a folder of its own, with no spec around it, runs a cycle",
    "rule": "The runner carries its own event model, as its room gave it",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:712"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:715"
   },
   {
    "id": "06-063",
    "name": "A context that stops replying without exiting halts the run 60 seconds after it was asked",
    "rule": "A run that cannot perform an effect halts, loudly, and a run that ended stays as it ended",
-   "source": ".pi/plan/06-cycle-runner/spec.feature:724"
+   "source": ".pi/plan/06-cycle-runner/spec.feature:727"
   }
  ],
  "counts": {
