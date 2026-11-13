@@ -86,7 +86,7 @@ Claude subagent it starts) supervises builders and graders with three small scri
 
 | Command | What it does |
 |---|---|
-| `bin/grading-room.sh <out-room> <NN> <candidate-dir> <spec-commit> [<contexts-dir>]` | Builds a fresh grading room: from git at `<spec-commit>` (never the working tree a spec round may be editing) the slice's spec folder, the other contexts' `seam.md` and `event-model/`, `decisions.md` and the gate's store check (`harness/v2/event_store_check.clj`, `event-store-check.sh`, `deps.edn`) as reference; copies of the gated candidate (`candidate/`) and of the promoted sibling contexts (`contexts/NN-*`, default `harness-impl/`), without host build caches; `checklist.txt`; an empty `work/`. Nothing else: no builders, prompts, prior verdicts, `harness/v2/cycles`, scores or other candidates. |
+| `bin/grading-room.sh <out-room> <NN> <candidate-dir> <spec-commit> [<contexts-dir>]` | Builds a fresh grading room: from git at `<spec-commit>` (never the working tree a spec round may be editing) the slice's spec folder, the other contexts' `seam.md` and `event-model/`, `decisions.md` and the gate's store check (`harness/v2/event_store_check.clj`, `event-store-check.sh`, `deps.edn`) as reference; copies, at the repository's layout (each context reads `../../.pi/spec/<context>/event-model` from where it sits), of the gated candidate (`harness-impl/NN-<context>/`) and of the promoted sibling contexts (`harness-impl/NN-*`, from `<contexts-dir>`, default `harness-impl/`), without host build caches; `checklist.txt`; an empty `work/`. Nothing else: no builders, prompts, prior verdicts, `harness/v2/cycles`, scores or other candidates. |
 | `bin/grader.sh <grading-room> <instruction-file> <image-dir>` | The grader: `builder-host/host.ts` with the grader's model, prompt line ("Grade it now, as the attached instruction says.") and no steer inbox; tools as `config/pi.grader.settings.json` selects (the builder's seven); the VM mounts only the grading room and has the builder's egress allow list (unchanged). Evidence: `$GRADER_EVIDENCE_DIR/launch-N/{launch.txt,instruction-as-handed.md,session.sqlite,pi.stdout,pi.stderr,verdicts.json}`; `work/verdicts.json` is also copied to `$GRADER_EVIDENCE_DIR/verdicts.json`, the file `harness/v2/score.sh` files. Exit 0 answered, 1 unanswered, 2 setup error or refused, 3 answered without `work/verdicts.json`. |
 | `grader-instruction-06.md` | The grading instruction for slice 06 (the cycle runner): one verdict per `@item-06-NNN`, driven over the seam only; the must-not-read list; `@item-06-059` from the runner's own store; `@item-06-058` with real 30 s / 60 s timings; `[{"id","verdict","evidence"}]` for every item in order, unreached = fail. |
 | `bin/watch.sh`, `bin/steer.sh`, `bin/stop.sh` | The supervisor's tools: a read-only digest of a session, a steer into a running builder, a stop by recorded pid ([`supervisor/README.md`](supervisor/README.md)). |
@@ -122,3 +122,29 @@ LOYLY_VM_MEMORY=8G LOYLY_VM_CPUS=6 \
 # for a real cycle, file it as before (score.sh claims the next cycle number):
 # harness/v2/score.sh 06 <room> --verdicts <evidence>/verdicts.json --by "grader.sh (gpt-6.1-terra)"
 ```
+
+### After a cycle: an instruction proposal (GEPA)
+
+`bin/improve-instruction.sh <NN-cMM> [<out-dir>]` (program `improve/improve.clj`, `improve/deps.edn`)
+runs one GEPA reflective mutation of the builder instruction's **operator-appended paragraphs**
+(the lines of `prompts/<cycle>/instruction.md` that `harness/v2/prompt.clj`'s `system.md` and
+`prompt.md` do not hold; the generated part stays). Its inputs: the supervisor's steers and stops
+(`builders/<cycle>/steers.jsonl`, `stops.jsonl`), each builder launch's wall clock and exit, each
+gate attempt's verdict and FAIL/FATAL lines (`logs/gate-cMM[-aN]-sliceNN.log`) and the final score
+**as an aggregate only** (`harness/v2/cycles/NN/MM/scores.json`: passes of the total; per-item
+verdicts and evidence are never read, because an approved proposal becomes builder input). Each
+builder attempt becomes one GEPA `ReflectiveExample`, formatted by GEPA and handed to GEPA's
+`proposer/propose-new-instruction` (ORC `components/gepa` at af086675, the commit the harness pins)
+with a template that keeps GEPA's `<curr_param>`/`<side_info>` method and forbids scenario answers,
+item ids, verdicts and any mention of grading. Output: `$PI_HARNESS_STATE_ROOT/proposals/<cycle>/proposal.md`
+(current and proposed paragraphs, what GEPA was shown), `proposed-appended.md`, and the proposer
+turn's store. **Never applied**: an instruction change is an operator decision, like the fence plan.
+
+**The provider.** GEPA's own reflection LLM (`todo-processors/make-llm-fn`) calls `orc/llm`'s
+`predict` with `:llm-provider` (default `:openrouter`, model `anthropic/claude-sonnet-4`); there is no
+such key here and no pi provider in `orc/llm`. But `propose-new-instruction` takes any
+`prompt -> response` function, so the proposer's LLM is one pi-durable turn on pi's existing login
+(`builder-host/turn.ts`, no tools, no VM; `LOYLY_PI_MODEL`, default `openai-codex/gpt-6.1-sol`):
+no framework change, no new provider stack. GEPA's `optimize!` loop (Pareto frontier, metric calls)
+is not run: evaluating one candidate instruction is a whole regeneration cycle, so the next cycle,
+after a person approves the proposal, is its evaluation.

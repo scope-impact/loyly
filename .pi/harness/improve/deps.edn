@@ -1,0 +1,15 @@
+;; improve-instruction (../bin/improve-instruction.sh): ORC's GEPA component at the commit the
+;; harness pins for ORC (harness-impl's af086675), used for its reflective-dataset format and its
+;; instruction proposer; the proposer's LLM is a pi turn (../builder-host/turn.ts), not orc/llm.
+{:paths ["."]
+ :deps {org.clojure/clojure {:mvn/version "1.12.0"}
+        org.clojure/data.json {:mvn/version "2.5.1"}
+        org.slf4j/slf4j-nop {:mvn/version "2.0.16"}
+        obneyai/orc-gepa {:git/url "https://github.com/ObneyAI/orc.git"
+                          :git/sha "af086675be0e8a3fae0ebda503abe9942c9437ce"
+                          :deps/root "components/gepa"}
+        ;; orc-service's Grain, as harness-impl/06-cycle-runner/deps.edn supplies it
+        obneyai/grain-core-v2 {:git/url "https://github.com/ObneyAI/grain.git" :git/sha "dbf5b5229aad09785e40f71e96adf65c90f971d5" :deps/root "projects/grain-core-v2"}
+        obneyai/grain-code-agent-tools {:git/url "https://github.com/ObneyAI/grain.git" :git/sha "dbf5b5229aad09785e40f71e96adf65c90f971d5" :deps/root "projects/grain-code-agent-tools"}
+        cat/schema-util {:git/url "https://github.com/ObneyAI/grain.git" :git/sha "dbf5b5229aad09785e40f71e96adf65c90f971d5" :deps/root "components/schema-util"}}
+ :mvn/repos {"central" {:url "https://repo1.maven.org/maven2/"}}}
