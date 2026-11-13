@@ -63,10 +63,7 @@ and GitHub. Your home directory is empty at boot, so the first start of each Clo
 fetches its dependencies: start each `harness-impl/*/start.sh` once with stdin closed
 (`</dev/null`) before you grade, one at a time, so later starts are quick. The room's files belong
 to another user than root, so git refuses them until you run
-`git config --global safe.directory '*'` (once per session). Grain's LMDB-backed caches need the
-native `liblmdb`, which the image lacks: run `apk add lmdb` once (and append that line to
-`/workspace/.builder/image-additions.txt`), and start every context with
-`JAVA_TOOL_OPTIONS=-Dlmdbjava.native.lib=/usr/lib/liblmdb.so.0` in its environment. If a program fails at startup, read
+`git config --global safe.directory '*'` (once per session). If a program fails at startup, read
 its error: it is most likely your setup (an environment variable, a path, a missing fixture), not
 the candidate; fix the setup and retry before you fail an item for it. Every
 context is a JVM: run at most two scenarios in parallel, and kill every process a scenario started

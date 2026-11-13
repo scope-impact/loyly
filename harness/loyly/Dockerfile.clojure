@@ -11,12 +11,17 @@
 # update-ca-certificates at boot. Java does not read that PEM bundle, so java-cacerts's hook
 # regenerates /etc/ssl/certs/java/cacerts then, and the JDK's own cacerts links to it; without
 # this, the Clojure CLI cannot fetch a dependency in the guest (PKIX path building failed).
+# Grain's LMDB-backed caches load the native liblmdb through lmdbjava, which embeds no musl build:
+# lmdb provides /usr/lib/liblmdb.so.0 and JAVA_TOOL_OPTIONS points lmdbjava at it. The guest drops
+# ENV, so the Gondolin build config (.pi/harness/config/build/builder-clojure.json, "env") sets the
+# same value for every process in the VM; the ENV here serves `docker run`.
 FROM pi-harness/java:21-web
 
 ARG CLOJURE_VERSION=1.12.6.1673
 ARG CLOJURE_INSTALLER_SHA256=5ae63b082ed33bf4c29bf1a8317c5c15249d1bc753676b2f5177fb3804ad6f77
 ARG BB_VERSION=1.13.226
 ARG BB_SHA256=85d62914ce1183634e9f81db67ec8e4db41f927ab8caf5b92076da9e46fda679
+ENV JAVA_TOOL_OPTIONS=-Dlmdbjava.native.lib=/usr/lib/liblmdb.so.0
 
 RUN apk add --no-cache \
     bash \
@@ -25,6 +30,7 @@ RUN apk add --no-cache \
     gcompat \
     java-cacerts \
     git \
+    lmdb \
     rlwrap \
  && ln -s /opt/java/openjdk/bin/* /usr/bin/ \
  && ln -sf /etc/ssl/certs/java/cacerts /opt/java/openjdk/lib/security/cacerts \
@@ -51,4 +57,5 @@ RUN export PATH=/usr/sbin:/usr/bin:/sbin:/bin && unset JAVA_HOME \
  && clojure -Sdescribe \
  && clojure -M -e '(println :ok)' \
  && bb --version \
- && git --version
+ && git --version \
+ && test -f /usr/lib/liblmdb.so.0

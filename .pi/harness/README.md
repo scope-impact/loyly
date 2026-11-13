@@ -143,8 +143,12 @@ running" the Claude subagent queried Regeneration cycle's `cycle-progress` on a 
 store through that context's own seam, the pi grader looked only at the runner's `run-progress`
 and failed the item as unobservable. A reading of where a Then about another context is observed,
 not a candidate defect; the spec round may say where (`seam.md`), the grader is not tuned to it.
-The grader's VM needed `apk add lmdb` (`room/.builder/image-additions.txt`): a candidate for
-`harness/loyly/Dockerfile.clojure`, an image change for the operator.
+The grader's VM needed `apk add lmdb` (`room/.builder/image-additions.txt`). Since 2026-11-13 the
+image has it: `harness/loyly/Dockerfile.clojure` installs `lmdb` (`/usr/lib/liblmdb.so.0`, Alpine
+3.24 arm64) and `config/build/builder-clojure.json` bakes
+`JAVA_TOOL_OPTIONS=-Dlmdbjava.native.lib=/usr/lib/liblmdb.so.0` into the guest's environment
+(Gondolin's build `env`; the guest drops the image's `ENV`), so neither builder nor grader sets it
+up by hand (`make -C harness builder-clojure`).
 
 ### After a cycle: steer triage into spec inbox candidates
 

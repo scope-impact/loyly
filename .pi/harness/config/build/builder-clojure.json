@@ -1,6 +1,7 @@
 {
   "arch": "aarch64",
   "distro": "alpine",
+  "env": {"JAVA_TOOL_OPTIONS": "-Dlmdbjava.native.lib=/usr/lib/liblmdb.so.0"},
   "alpine": {
     "version": "3.23.7",
     "kernelPackage": "linux-virt",
