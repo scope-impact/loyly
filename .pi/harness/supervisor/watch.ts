@@ -157,8 +157,10 @@ function digest(a: Args, dir: string): { text: string; idleMs: number; ended: bo
 	L.push(
 		`state: ${ended ? `ended ${info.end} exit=${info.exit}` : "running"}; submission${a.at ? " (now)" : ""} ${submission?.status ?? "none"}${submission?.record?.reason ? ` (${submission.record.reason})` : ""};${alive} elapsed ${mins((ended ? end! : now) - start)}`,
 	);
-	L.push(`entries: ${entries.length} total, ${fresh.length} since cursor ${a.since} ${JSON.stringify(kinds)}; tool calls ${cs.length} (${newCalls.length} new); tokens ${usage}; steers ${Math.max(0, steered)}`);
+	L.push(`entries: ${entries.length} total, ${fresh.length} since cursor ${a.since} ${JSON.stringify(kinds)}; tool calls ${cs.length} (${newCalls.length} new); tokens ${usage}; later inputs (steers, grader rounds) ${Math.max(0, steered)}`);
 	L.push(`last entry: ${last ? `${iso(last.ts)}, ${mins(idleMs)} ago` : "none"}`);
+	const open = cs.at(-1);
+	if (open && open.exit === undefined && !ended) L.push(`running now: #${open.id} ${open.name} for ${mins(until - open.ts)}: ${clip(open.what, 100)}`);
 	if (suites.length) {
 		const s = suites.at(-1)!;
 		const word = (x: Call) =>

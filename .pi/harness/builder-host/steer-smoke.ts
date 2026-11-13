@@ -75,7 +75,7 @@ const log = readFileSync(join(dir, "evidence", "steers.jsonl"), "utf8").trim().s
 check(log.length === 1 && log[0].message === message && log[0].outcome.startsWith("steered"), "steers.jsonl holds it verbatim, with its outcome");
 writeFileSync(join(launch, "launch.txt"), `${readFileSync(join(launch, "launch.txt"), "utf8")}end=${new Date().toISOString()}\nexit=0\n`);
 const digest = execFileSync(join(bin, "watch.sh"), [join(dir, "evidence")], { encoding: "utf8" });
-check(/steers 1/.test(digest), "watch.sh counts one steer");
+check(/later inputs \(steers, grader rounds\) 1/.test(digest), "watch.sh counts one steer");
 const refuse = (args: string[]) => {
 	try {
 		execFileSync(join(bin, "steer.sh"), args, { stdio: "pipe" });

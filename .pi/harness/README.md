@@ -123,6 +123,28 @@ LOYLY_VM_MEMORY=8G LOYLY_VM_CPUS=6 \
 # harness/v2/score.sh 06 <room> --verdicts <evidence>/verdicts.json --by "grader.sh (gpt-6.1-terra)"
 ```
 
+### The proof: cycle 09's candidate (2026-11-13)
+
+`grader.sh` graded runner cycle 09's gated candidate (`rooms/06-c9-a2`, spec at `4178d65`, 59
+items) into `.state/grading/06-c9-pi/` (`openai-codex/gpt-6.1-terra`, 8 GB, 6 CPUs), compared item
+by item with the Claude grading subagent's `grading/06-c9/verdicts.json` (59/59):
+
+| Launch | What happened |
+|---|---|
+| 1 | 59 fail in 9.5 min: the candidate could not find `../../.pi/spec/...` (the room had it at `candidate/`). Fixed: the room keeps the repository's layout |
+| 2 | 59 fail in 9 min: host-built AOT `classes/` against the VM's fresh dependency sources (protocol mismatch), and Grain's LMDB missing (`apk add lmdb`). Fixed: the room leaves `classes/` out; the instruction names the LMDB step |
+| 3 | 8 pass, 51 fail in 15 min: the model answered with 49 items still "not reached". Fixed: rounds (`LOYLY_GRADER_ROUNDS`) |
+| 4 | **58 pass, 1 fail**, 2 h 12 min (07:33:56Z to 09:46:00Z), two rounds (round 1 answered after 19 min with 55 unreached; round 2 finished them), 74 tool calls, 6.9 M tokens |
+
+One difference, `@item-06-056` (a gate command whose last line names no code halts the run at the
+gate): both graders observed the halt, its detail and no gate result; for "and its cycle is still
+running" the Claude subagent queried Regeneration cycle's `cycle-progress` on a copy of the run's
+store through that context's own seam, the pi grader looked only at the runner's `run-progress`
+and failed the item as unobservable. A reading of where a Then about another context is observed,
+not a candidate defect; the spec round may say where (`seam.md`), the grader is not tuned to it.
+The grader's VM needed `apk add lmdb` (`room/.builder/image-additions.txt`): a candidate for
+`harness/loyly/Dockerfile.clojure`, an image change for the operator.
+
 ### After a cycle: an instruction proposal (GEPA)
 
 `bin/improve-instruction.sh <NN-cMM> [<out-dir>]` (program `improve/improve.clj`, `improve/deps.edn`)
