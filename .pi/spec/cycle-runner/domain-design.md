@@ -125,8 +125,8 @@ round 8 `@item-06-039` to `@item-06-048` (the stdio gate and the plan's slices),
 `@item-06-049` to `@item-06-051` (the builder image, its refusal, Measurement's history), spec
 round 11 `@item-06-052` (the http probe in the gated tree), and spec round 12 `@item-06-053` to
 `@item-06-057` (the gate command), spec round 13 `@item-06-058` (the context start deadline), and spec
-round 14 `@item-06-059` (each effect its own leaf), and spec round 15 `@item-06-060` (the boot polls start at once), all minimum: 60 items. `drafts.feature` holds none. Of the 53 must-cover obligations
-(`tools/spec/v2/coverage.py`), 7 are unit level and 1 gate-verified (`TheGateRoomIsNotTheBuilders`, planned `room-policy`).
+round 14 `@item-06-059` (each effect its own leaf, reworded in spec round 16 for the delegated attempt), spec round 15 `@item-06-060` (the boot polls start at once), and spec round 16 `@item-06-061` to `@item-06-063` (the delegated gate attempt, the build's own event model, a context's reply bound), all minimum: 63 items. `drafts.feature` holds none. Of the 56 must-cover obligations
+(`tools/spec/v2/coverage.py`), 7 are unit level and 4 gate-verified (`TheGateRoomIsNotTheBuilders`, planned `room-policy`; `TheBlackboardIsTheRunsState` and `EveryWaitHasABound`, planned `leaf-contract`; `TheCandidateHoldsOnlyItsBuild`, planned `candidate-contents`).
 
 ## Decided questions (spec round 7b)
 
@@ -146,6 +146,18 @@ round 14 `@item-06-059` (each effect its own leaf), and spec round 15 `@item-06-
 - **Q3, the harness digest**: the SHA-256 of the configuration file, the self-check command and
   the identity probe, in that order, as drafted; for the `stdio` seam the store-check command
   follows (spec round 8).
+
+## Decided in spec round 16
+
+D1 to D9 of `../decisions.md`, "Spec round 16": the trees follow ORC's principles. The blackboard
+is the run's state, with its keys and each leaf's `:reads` and `:writes` (`seam.md`, "The
+trees"); each leaf is a function of its own; a gate attempt is the subtree
+`cycle-runner/gate-attempt.v1`, delegated once per attempt (`EachGateAttemptOneDelegatedTick`,
+`@item-06-061`); the stamps are a `map-each` over one primitive leaf, relayed once after;
+every wait has a bound (`AReplyWithinItsBound`, `@item-06-063`; `EveryWaitHasABound`); the
+build carries its own event models and only its build (`seam.md`, "The build";
+`CarriesItsOwnEventModel`, `@item-06-062`; `TheCandidateHoldsOnlyItsBuild`); the store check
+follows a delegated child tick.
 
 ## Decided in spec round 14
 

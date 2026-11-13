@@ -1556,3 +1556,141 @@ the seam left open, not a new behaviour: legacy's order was always the intended 
 
 The slice-06 grader grows by this item ("spec grew", additions only). The checklist golden grows
 from 208 to 209. `@item-06-060` is the next cycle's untuned holdout.
+
+## Spec round 16 (2026-11-13)
+
+Decided by the product owner on 2026-11-13: "Follow best practices for ORC". A spec round on slice
+06 and the gate's store check, kept as small as the goal allows ("KISS"); the authority for best
+practice is ORC's own `docs/ORC-PRINCIPLES.md` (14 principles), read at the commit the runner pins
+(`af086675`), where every DSL feature named below exists (`delegate` with `:reads`, `:writes` and
+`:timeout-ms`; `map-each` with `:from`, `:as`, `:into`, `:parallel`; `code` with `:fn`;
+`blackboard` refusing unconstrained schemas; `build-workflow!` idempotent by name and content; a
+delegate's child tick carrying `:parent-tick-id` on its `:sheet/tree-tick-started`). No other
+context's `spec.feature`, Allium `requires` or event-model schema changed. Round 14's principle
+stands: a leaf always completes and writes its outcome, and ORC's mechanics are not restated.
+
+Why: cycle 09 (`.pi/harness/.state/rooms/06-c9-a2/`) and cycle 10's build in progress
+(`06-c10/`) both pass round 14's gate and both use ORC against its principles. The blackboard
+declares only `run` and `slices`, and every leaf is one function, dispatching on the node's name,
+that reads and writes the run's real state (params, configuration, directory, cursors, cycle,
+failure, attempt) in a variable of its own looked up by a token: the `:reads` and `:writes` are not
+the leaves' contract (Principles 3, 8, 10), and the attempt is parsed out of `"gate:1.2"`. The gate
+attempts and repairs are written out three times inline, because round 14 wrote them out
+(Principles 2, 3). The stamps are a `map-each` over a composite, stamp and its relay (Principle
+14). Every tick and delegate waits up to a day, while the run carries stage budgets (Principle
+13). And the event models are read at run time from `../../.pi/spec/<context>/event-model`, so the
+promoted build stopped starting once the repository's spec moved (cycle 08 at round 14,
+`.pi/harness/.state/shadow/s1-c9/try-head/`); AGENTS.md says a context registers its room's event
+model as given. Cycle 10's folder also holds a 278 MB copy of ORC's and Grain's sources (`vendor/`, used by
+nothing) and builder scratch on its test path (`test/fix-parens.clj`, `test/balance.clj`).
+
+1. **D1, the blackboard is the run's state** (Principles 3, 8, 10; `cycle-runner/seam.md`, "The
+   trees"). Every value a leaf reads is a blackboard key or comes from the world, and everything
+   it hands on is a key it writes; the seam lists the keys with their Malli shapes and each leaf's
+   `:reads` and `:writes`. Recommended over a smaller table of the five or six keys the
+   conditions branch on, because a key left out is state a builder keeps elsewhere again. Kept
+   outside, because it is not data: the five contexts as they run (their programs, pipes and
+   replies awaited), kept by the runner under the run's id from `start` to `conclude` or `halt`.
+   With them, between a run's ticks, the outputs of its last tick, which seed its next. A value with no
+   shape of its own (the cycle's progress, read verbatim for `run-concluded`) travels as its JSON
+   text, because ORC refuses an unconstrained schema. A method replies from the runner's own
+   store, the event its leaf recorded read back (Principle 8). Not observable through the seam:
+   guarantee `TheBlackboardIsTheRunsState`, verified by a planned gate `leaf-contract` (ORC
+   records each node's reads, writes and function in the store).
+2. **D2, each leaf is a function of its own** (Principle 1's right-sized `code` node). One `:fn` per
+   effect or command; the leaves of one effect in two places share it; none dispatches on the
+   node's name, and no leaf reads its own name. Under the same guarantee as D1.
+3. **D3, a gate attempt is one subtree, delegated once per attempt** (Principles 2, 3). The
+   workflow `cycle-runner/gate-attempt.v1` holds an attempt's install, self-check and up to three
+   gates with a gate refusal between them, each followed by its relay; `run-to-gate` delegates
+   to it as `gate-attempt:1` after the regenerate, and as `gate-attempt:2` and `:3` after a repair,
+   each guarded as before (not awaiting the verdicts, the run still running). The repair stays in
+   `run-to-gate`: it belongs to the regenerate stage, and the attempt's subtree to the gate stage,
+   which bounds its delegate (D5). The version is in the name, so a changed attempt is a new
+   workflow (`.v2`) and `run-to-gate` names the one it uses. The subtree's root is a `fallback`
+   whose last branch is `ended?` (`run` is not `running`), so its child tick always ends with
+   success and the delegate always maps its outputs back. Recommended over the alternative, a
+   delegated subtree per gate try too: the tries share the attempt's blackboard and are three
+   steps of one chain, so a second level of delegation would add a status value and a child tick
+   per gate for no reuse; the tries stay written out, once, inside the attempt. Leaf names: the
+   attempt is no longer in a name; it is `attempt` on the blackboard, recorded with every effect
+   result, and the delegate's qualifier (`gate-attempt:2`); a try qualifies its gate
+   (`gate:2`, `gate-refusal:2`, `relay:gate:2`); `self-check:0` keeps its qualifier in
+   `run-to-gate`, `repair:2` and `repair:3` theirs. The name before the first `:` is still the
+   effect's, so the store check and `@item-06-059` read them unchanged, but an attempt's leaves
+   now lie in a child tick: the guarantee `EachEffectInItsOwnLeaf` and `@item-06-059` say "a
+   tick of the step's flow or a child tick that tick delegated" (D8, D9). New guarantee
+   `EachGateAttemptOneDelegatedTick`, `@item-06-061`.
+4. **D4, the stamps: a `map-each` over one primitive leaf, the relay after it** (Principle 14).
+   `map-each` over `slices` as `slice` into `stamps`, in slice order (`:parallel` 1), its one child
+   the `code` leaf `stamp` writing `stamp`; then `relay:stamp` once, and `stamped`, a leaf that
+   performs no effect and writes the run as the first stamp, in slice order, that did not leave it
+   running. So each slice is stamped whatever an earlier slice's stamp came to (an iteration
+   cannot see another's outcome), and the run halts at the first that halts it, as before:
+   `@item-06-008` and `@item-06-009` hold unchanged. Relaying once after all the stamps keeps the
+   producer's order and positions, so `@item-06-007` holds.
+5. **D5, every wait has a bound** (Principle 13). ORC bounds a tick (`execute`'s timeout) and a
+   delegate (its `:timeout-ms`), never a leaf, so a leaf holds its own: a context's reply to one
+   request waits at most `context_reply_seconds`, 60 (new; `context-did-not-respond` after it,
+   exited or not; contract invariant `AReplyWithinItsBound`, `@item-06-063`), and a program a leaf
+   runs waits what is left of its stage's timeout, then is stopped and the cycle fails at that
+   stage for `budget` (round 14 said so of a handed-in command; now of every program: the
+   builder, `fence.sh`, the self-check before the gate, the gate's own programs, a gate command).
+   A delegate `gate-attempt:N` is bounded by the gate stage's timeout and 60 seconds more for the
+   leaves that record and relay the stage's end; a delegate to a one-leaf flow by 60 seconds. A
+   tick is bounded by the run's budget, `fence + gate-attempt-limit × (regenerate + gate) +
+   score`, and `tick_margin_seconds`, 3600, for what no stage clock times. A delegate's bound is
+   fixed when ORC builds the tree, so `run-to-gate` is built at each start with that run's
+   bounds; an unchanged budget builds nothing new. A tick that does not end with success (a bound
+   passed) is no leaf's outcome: the method halts the run, `effect-could-not-run`, at the leaf
+   that had not completed. Guarantee `EveryWaitHasABound`, verified by the planned
+   `leaf-contract`; only the context reply bound is a scenario, the one a grader can wait for.
+6. **D6, the build carries its own event models** (AGENTS.md: a context registers its room's
+   event model as given; Principle 7, re-house rather than reach out). A copy, byte for byte as
+   the room holds them at the cut, of `.pi/spec/<context>/event-model/*.edn` of `cycle-runner`
+   and the five contexts it speaks, at `event-model/<context>/` in the candidate's folder, and
+   the build reads them only there and no file outside its folder to run (`seam.md`, "The
+   build"). Recommended over reading the room's spec through a path handed in: the build is then
+   the spec it was built from, and the gate's store check, which reads the repository's model,
+   still refuses a build whose copy is not its cut's. Guarantee `CarriesItsOwnEventModel`,
+   `@item-06-062`: a copy of the candidate in a folder of its own, with no spec around it, runs a
+   cycle.
+7. **D7, the candidate holds only its build** (`seam.md`, "The build"). Its entrypoints, build
+   file, sources, tests and fixtures, its event-model copy and notes; no copy of ORC's or Grain's
+   sources (the room's `orc/` and `grain/` are read in place; the build depends on them at their
+   pinned commits) and no builder scratch on its paths. It fits the clean room's rules: the
+   builder still reads the room read-only and writes only its scope; this says what the scope
+   holds. Not observable through the seam: guarantee `TheCandidateHoldsOnlyItsBuild`, planned
+   gate `candidate-contents`; until then the final judge checks it at acceptance.
+8. **D8, the store check follows a delegated child tick** (`harness/v2/event_store_check.clj`).
+   A leaf's execution counts for a flow when its tick, or an ancestor of its tick by
+   `:parent-tick-id` on `:sheet/tree-tick-started`, is a tick of that flow's workflow. The rule
+   "inside a completed run of its flow's workflow" is unchanged: a child tick lies inside its
+   parent's. New fixtures: an attempt delegated from `run-to-gate` passes; a gate effect in the
+   child's `install` leaf fails; a gate-attempt tick no flow's tick delegated fails.
+9. **D9, round 14's text superseded where it differs.** Round 14 D2's "three gate attempts written
+   out" and its leaf names `install:N`, `self-check:N` and `gate:N.T` are replaced by D3; "a relay
+   leaf follows every recording leaf" now relays the stamps once (D4); "the relay reads the cycle
+   once it exists (from `self-check:0`)" is now: it reads `cycle-progress` after every recording,
+   and a cycle not opened yet (a `null` reply) changes nothing; "a leaf that runs a handed-in
+   command holds its stage's timeout" now covers every program (D5). `@item-06-059`'s wording is
+   replaced (the instrument's recorded reason "wording replaced"): its effect results lie in "a
+   leaf, of the run's tick of `cycle-runner/run-to-gate` or of a child tick that tick delegated",
+   and its relays in a leaf of "those ticks"; its nine leaves are now `stamp`, `pin`,
+   `checklist`, `self-check:0`, `fence` and `regenerate` in `run-to-gate`, and `install`,
+   `self-check` and `gate:1` in the attempt's child tick. AGENTS.md's ORC paragraph gains the
+   principles for every context (D1 to D6).
+10. **Open, not in this round.** The two planned gates (`leaf-contract` over ORC's recorded node
+    configuration, `candidate-contents`). The other five contexts' trees (round 14 D4), which
+    follow this round's rules when their round comes. Round 15's open wording findings
+    (`@item-06-007`, `023`, `034`, `056`, `057`). Whether the runner should read a run's
+    blackboard back from ORC's own record instead of keeping the last tick's outputs (Principle
+    8 asks a projection for evidence, not for the seed of the next tick; kept simple here).
+11. **Three new scenarios**, `@minimum`, appended at the end of `cycle-runner/spec.feature` and
+    stamped `@item-06-061` to `@item-06-063`; `@item-06-059` reworded. Cycle-runner goes from 60
+    to 63 items, and from 53 to 56 must-cover obligations, 4 gate-verified (3 planned new).
+    `tools/spec/v2/gates.sh`: ALL GATES PASS.
+
+The slice-06 grader grows by these items ("spec grew", additions only) and replaces
+`@item-06-059`'s reading ("wording replaced"). The checklist golden grows from 209 to 212.
+`@item-06-061` to `@item-06-063` are the next cycle's untuned holdout.

@@ -361,6 +361,20 @@ surface RunDesk {
 
     @guarantee ObservingChangesNothing
         -- Reading a run's progress records nothing and performs no effect.
+
+    @guarantee CarriesItsOwnEventModel
+        -- The runner carries a copy of the event models it registers and reads (its own and
+        -- the five contexts'), byte for byte as its room gave them, in its own folder, and
+        -- reads no file outside its folder to run: a copy of it started anywhere, with no
+        -- spec around it, runs a cycle (seam.md, "The build"; decisions.md, "Spec round
+        -- 16" D6).
+
+    @guarantee TheCandidateHoldsOnlyItsBuild
+        -- The candidate's folder holds its entrypoints, build file, sources, tests and their
+        -- fixtures, its copy of the event models and its notes: no copy of ORC's or Grain's
+        -- sources and no builder scratch (seam.md, "The build"; decisions.md, "Spec round
+        -- 16" D7). Verified by: gate candidate-contents (planned; checked by the final judge
+        -- at acceptance until then).
 }
 
 -- The leaves of the runner's ORC trees, one per effect or command: perform an effect,
@@ -400,10 +414,35 @@ surface EffectNodes {
         -- Each flow is an ORC tree, and each effect or command it performs is a leaf of
         -- its own, named for it (seam.md, "The trees"; event-model/area.edn, :leaf). Every
         -- event the runner records lies between the start and the completion of the leaf
-        -- its step names, in a tick of that step's flow, in the runner's own store: an
-        -- effect result inside the leaf named for its effect. A flow run as one leaf
-        -- around the runner's own orchestration does not hold it. The gate's store check
-        -- reads it (harness/v2/event_store_check.clj), and so does @item-06-059.
+        -- its step names, in a tick of that step's flow or a child tick that tick
+        -- delegated, in the runner's own store: an effect result inside the leaf named for
+        -- its effect. A flow run as one leaf around the runner's own orchestration does not
+        -- hold it. The gate's store check reads it (harness/v2/event_store_check.clj), and
+        -- so does @item-06-059.
+
+    @guarantee EachGateAttemptOneDelegatedTick
+        -- A gate attempt (its install, its self-check, its gates and gate refusals, each
+        -- followed by its relay) is one subtree, the versioned workflow
+        -- cycle-runner/gate-attempt.v1, delegated from run-to-gate once per attempt, so each
+        -- attempt runs as one child tick of the run's run-to-gate tick. A repair stays in
+        -- run-to-gate. No attempt is written out in run-to-gate itself (seam.md, "The
+        -- trees"; decisions.md, "Spec round 16" D3).
+
+    @guarantee TheBlackboardIsTheRunsState
+        -- The run's state is its trees' blackboard: each leaf is a function of its own,
+        -- computes from the keys it reads and the world, and hands on only the keys it
+        -- writes, as seam.md's table of leaves declares them. Only the five contexts as
+        -- they run, and between ticks the last tick's outputs, are kept outside it, by
+        -- run (seam.md, "The trees"; decisions.md, "Spec round 16" D1, D2). Verified by:
+        -- gate leaf-contract (planned; ORC records each node's reads, writes and function in
+        -- the store).
+
+    @guarantee EveryWaitHasABound
+        -- A leaf holds the bound of what it waits for (a context's reply, a program within
+        -- its stage's timeout), each delegate is bounded by the stage its subtree spends,
+        -- and each tick by the run's budget and tick_margin_seconds; a tick that does not
+        -- end with success halts the run (seam.md, "The trees"; decisions.md, "Spec round
+        -- 16" D5). Verified by: gate leaf-contract (planned).
 
     @guarantee TheGateRoomIsNotTheBuilders
         -- The gate room is the runner's, never the builder's. Verified by: gate

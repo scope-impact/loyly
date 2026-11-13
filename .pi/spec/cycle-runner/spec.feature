@@ -671,9 +671,9 @@ Feature: Cycle runner
       Given the stub builder leaves a candidate whose suite is green and whose launch entrypoint serves the marker on the port
       When the operator starts run R-1 of cycle C-1 at source cut K-1
       Then run R-1 awaits its verdicts
-      And in the runner's own store, each effect result of run R-1 lies between the start and the completion of a leaf of the ORC workflow "cycle-runner/run-to-gate" whose name is its effect, or its effect followed by ":" and a qualifier
+      And in the runner's own store, each effect result of run R-1 lies between the start and the completion of a leaf, of the run's tick of the ORC workflow "cycle-runner/run-to-gate" or of a child tick that tick delegated, whose name is its effect, or its effect followed by ":" and a qualifier
       And those are nine leaves with nine different names, one for each of stamp, pin, checklist, self-check, fence, regenerate, install, self-check and gate
-      And each handoff relayed for run R-1 lies inside a leaf of that workflow named "relay", or "relay" followed by ":" and a qualifier
+      And each handoff relayed for run R-1 lies inside a leaf of those ticks named "relay", or "relay" followed by ":" and a qualifier
 
   Rule: The gate grades a copy of the candidate on the host, in legacy verify.sh's order
 
@@ -688,3 +688,42 @@ Feature: Cycle runner
       Then the gate effect of run R-1 for attempt 1 was recorded with the event "regeneration-cycle/gate-attempt-passed"
       And that event carries a boot budget of 10 seconds and 20 polls, answered on poll 4
       And run R-1's attempt 1 shows a boot margin of 16 polls
+
+  Rule: A gate attempt is one subtree, delegated once per attempt
+
+    # cycle-run.allium, surface EffectNodes, guarantee EachGateAttemptOneDelegatedTick; seam.md "The trees"
+    # decisions.md "Spec round 16" D3: cycles 09 and 10 wrote the three attempts out inline in run-to-gate, and read the attempt out of each leaf's name
+    @minimum @allium-guarantee.EachGateAttemptOneDelegatedTick
+    @item-06-061
+    Scenario: Each gate attempt runs as a child tick of its own of the workflow "cycle-runner/gate-attempt.v1"
+      Given the stub builder's first candidate has a red suite, and its second a green suite and a launch entrypoint that serves the marker on the port
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then run R-1 awaits its verdicts, its gate effect for attempt 2 recorded with the event "regeneration-cycle/gate-attempt-passed"
+      And in the runner's own store, the install, self-check and gate effect results of attempt 1 lie inside leaves of one tick of the ORC workflow "cycle-runner/gate-attempt.v1", and those of attempt 2 inside leaves of another
+      And each of those two ticks is a child tick of the run's tick of the ORC workflow "cycle-runner/run-to-gate"
+      And the repair effect result of attempt 2 lies inside a leaf of the run's tick of "cycle-runner/run-to-gate" itself
+
+  Rule: The runner carries its own event model, as its room gave it
+
+    # cycle-run.allium, surface RunDesk, guarantee CarriesItsOwnEventModel; seam.md "The build"
+    # decisions.md "Spec round 16" D6: cycles 08 to 10 read the event models from ../../.pi/spec at run time, so the promoted build could not start once the repository's spec moved
+    @minimum @allium-guarantee.CarriesItsOwnEventModel
+    @item-06-062
+    Scenario: A copy of the candidate in a folder of its own, with no spec around it, runs a cycle
+      Given a copy of the candidate in a folder outside the project repository, with no .pi folder in it or in any folder above it
+      And the stub builder leaves a candidate whose suite is green and whose launch entrypoint serves the marker on the port
+      When the operator starts run R-1 of cycle C-1 at source cut K-1 on that copy
+      Then run R-1 awaits its verdicts, its gate effect for attempt 1 recorded with the event "regeneration-cycle/gate-attempt-passed"
+
+  Rule: A run that cannot perform an effect halts, loudly, and a run that ended stays as it ended
+
+    # context.allium, contract ContextSeams, invariant AReplyWithinItsBound; config context_reply_seconds; seam.md "The trees", every wait has a bound
+    # decisions.md "Spec round 16" D5: ORC bounds no leaf, and cycles 09 and 10 waited up to a day for a tick, so a context that hangs without exiting would hold the run for as long
+    @minimum @allium-boundary.AReplyWithinItsBound
+    @item-06-063
+    Scenario: A context that stops replying without exiting halts the run 60 seconds after it was asked
+      Given the launch entrypoint handed in for Measurement stops replying, and does not exit, when it is asked to derive a checklist
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then run R-1 is halted at the checklist effect because a context did not respond
+      And the halt came no sooner than 60 seconds and no later than 90 seconds after Measurement was asked
+      And it has no checklist effect result

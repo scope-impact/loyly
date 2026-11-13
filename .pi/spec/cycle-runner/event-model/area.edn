@@ -10,8 +10,11 @@
 ;;
 ;; :leaf on a step from a command to its event names the leaf of the flow's tree that writes the
 ;; event: a name, or :effect for the leaf named by the event's own :effect. The gate's store
-;; check (harness/v2/event_store_check.clj) holds each such event to that leaf; a context whose
-;; steps name no leaf is held to its flow's tick only.
+;; check (harness/v2/event_store_check.clj) holds each such event to that leaf, in a tick of the
+;; flow or a child tick that tick delegated (spec round 16: a gate attempt is the subtree
+;; cycle-runner/gate-attempt.v1, delegated from run-to-gate once per attempt; it is part of that
+;; flow's tree, not a flow of its own); a context whose steps name no leaf is held to its flow's
+;; tick only.
 ;; Allium: ../allium/ (surface RunDesk; the flows link the rules they pass through).
 {:cycle-runner
  {:description "Cycle runner: the ORC workflow that performs one cycle's effects (stamp, pin, checklist, self-check, fence, regenerate, install and gate with repair, file the verdicts and the score) and records each effect's result into the context that owns it, relaying every handoff from its producer's store. It owns no rule of the five contexts."
@@ -23,7 +26,7 @@
     :commands #{:cycle-runner/start-run :cycle-runner/hand-in-verdicts}}}
   :flows
   {:cycle-runner/run-to-gate
-   {:description "The operator starts a run; the leaves of its tree perform the effects up to the gate's verdict (stamp, pin, checklist, self-check, fence, regenerate, install, self-check, gate; a repair after each failed attempt the cycle allows), each recording its result into its context and each followed by a relay leaf; the tick ends when the run awaits its verdicts, or through a fallback branch when the cycle failed or the run halts."
+   {:description "The operator starts a run; the leaves of its tree perform the effects up to the gate's verdict (stamp, pin, checklist, self-check, fence, regenerate, install, self-check, gate; a repair after each failed attempt the cycle allows), each recording its result into its context and each followed by a relay leaf; each gate attempt (install, self-check, gate) runs as the subtree cycle-runner/gate-attempt.v1, delegated once per attempt; the tick ends when the run awaits its verdicts, or through a fallback branch when the cycle failed or the run halts."
     :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "StartRun"}
                    {:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "RecordEffect"}
                    {:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "RelayHandoff"}]

@@ -40,9 +40,17 @@ leaf always completes and writes its outcome to the blackboard (passed, failed w
 refused with a code, halting): a domain failure is an outcome, never an ORC node failure. The tree
 branches on outcomes with `condition` nodes, so a failed or halted run still ends its tick with
 success through a `fallback` branch. ORC's mechanics (ticks, traces, a leaf completed once,
-processors resumed where they stopped, retries) are not restated in a context's spec. The gate's store check
-verifies the tree where a context's `area.edn` declares its leaves (`:leaf`); so far the cycle
-runner does, and the other contexts follow in later rounds.
+processors resumed where they stopped, retries) are not restated in a context's spec. Following
+ORC's own principles (ORC's `docs/ORC-PRINCIPLES.md`; `.pi/spec/decisions.md`, "Spec round 16"):
+the blackboard is the run's state, its keys and each leaf's `:reads` and `:writes` written in the
+seam, with only live handles (running programs) kept outside it; each `code` leaf is a function of
+its own, never one dispatching on the node's name; a subtree used more than once is one versioned
+workflow, delegated per use; a `map-each` runs one primitive leaf with explicit `:writes`; every
+wait has a bound (a leaf holds its own, a delegate and a tick are bounded by the stages they
+spend); and a build carries the event models it reads, as its room gave them. The gate's store check
+verifies the tree where a context's `area.edn` declares its leaves (`:leaf`), a leaf in a
+delegated child tick included; so far the cycle runner does, and the other contexts follow in
+later rounds.
 
 ## The regeneration cycle
 

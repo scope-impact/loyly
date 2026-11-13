@@ -56,6 +56,14 @@ contract ContextSeams {
         -- events of its own store. It never reads a context's source and never writes
         -- into a context's store.
 
+    @invariant AReplyWithinItsBound
+        -- The runner waits for a context's reply to one request at most
+        -- context_reply_seconds (config). A context that does not reply within it, whether
+        -- it exited or not, did not respond: nothing is recorded for that effect and the
+        -- run halts, context_did_not_respond. ORC bounds no leaf, so the leaf holds this
+        -- bound itself (seam.md, "The trees", every wait has a bound; decisions.md, "Spec
+        -- round 16" D5).
+
     @invariant RefusalsAreTheContexts
         -- Every refusal of a recording is the context's reply, recorded as heard: the
         -- refusal code of its seam, never re-derived. The runner does not decide what a
@@ -292,6 +300,12 @@ config {
     -- How long a start waits for each context to respond to its first query, counted from its
     -- own launch (spec round 13): a context loads Clojure, ORC and Grain first, about 20 s.
     context_start_seconds: Integer = 60
+    -- How long a leaf waits for a context's reply to one request (spec round 16): ORC
+    -- bounds no leaf, so the leaf holds it.
+    context_reply_seconds: Integer = 60
+    -- Added to a tick's bound, the run's budget, for what no stage clock times: the start,
+    -- the stamps, the pin, the checklist, the first self-check, the relays (spec round 16).
+    tick_margin_seconds: Integer = 3600
 }
 
 ------------------------------------------------------------

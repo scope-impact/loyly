@@ -75,12 +75,12 @@ first. In order:
 
 | Triage | Effect | What the runner does | Recorded through |
 |---|---|---|---|
-| E1 | `stamp` | per selected slice of the plan at the cut, in slice order ("The plan and its slices", below): the spec file read with `git show`; a copy with the `@item-NN-SSS` tags of its tag lines removed (a tag line left empty goes; comments and other tags stay) written to the run's directory under a folder of the slice's own name, so Specification reads the same slice; that copy's unstamped scenarios and empty-title headings read and offered. After the recording, the identities the stamp handed out (its `scenario-stamped` events' `item-id`s, in file order) must equal the original file's own item tags, in file order; else the run halts, `refused-before-the-cycle` (below) | `specification/stamp-slice` |
+| E1 | `stamp` | per selected slice of the plan at the cut, in slice order ("The plan and its slices", below): the spec file read with `git show`; a copy with the `@item-NN-SSS` tags of its tag lines removed (a tag line left empty goes; comments and other tags stay) written to the run's directory under a folder of the slice's own name, so Specification reads the same slice; that copy's unstamped scenarios and empty-title headings read and offered. After the recording, the identities the stamp handed out (its `scenario-stamped` events' `item-id`s, in file order) must equal the original file's own item tags, in file order; else the run halts, `refused-before-the-cycle` (below). Each slice's stamp is its own: a slice is stamped whatever an earlier slice's stamp came to, and the run halts at the first, in slice order, that halts it ("The trees") | `specification/stamp-slice` |
 | E1 | `pin` | the commit's tree digest read with `git rev-parse <commit>^{tree}` | `cycle-preparation/pin-source-cut` |
 | E1 | `checklist` | the stamped scenarios of the cut's selected slices read with legacy `gen_checklist`'s reading (item identity from the ledger, scenario digest below, Rule, `source:line`, title; planned and backlog slices skipped), each slice's spec file read as the stamp reads it and its source the slice's own path, `PLAN_DIR/<slice>/spec.feature`, as legacy `gen_checklist` reads it on disk | `measurement/derive-checklist` |
 | E2 | `self-check` | `LOYLY_SELF_CHECK_CMD` run in the project repository: exit 0 passed, any other failed; the last line it printed is the failing check; each line whose first word, after any leading whitespace, is `SKIP` a skipped check, the check named by the rest of the line after `SKIP` and its whitespace, trimmed (`../decisions.md`, "Spec round 13" D2) (legacy `check.sh` prints `SKIP  the oracle cannot judge this tree: …`; `../decisions.md`, "Spec round 7d") | `regeneration-cycle/record-harness-self-check` (before the fence: attempt 0, the run's budget; before the gate: the attempt) |
 | E3 | `fence` | legacy `fence.sh` as-is, its one argument the clean room's path, which must not exist yet: a `file://` clone of depth 1 at the commit, `FENCED_PATHS` split on whitespace, each entry found (present in the clone's tree) or listed as matching nothing, removed, committed, squashed to one root commit, origin removed, reflog expired and pruned; then probed: root commits (exactly 1), commits (exactly 1), paths left in the tree, paths reachable in the object graph (a path of `git rev-list --objects --all` equal to the entry, its trailing `/` dropped, or beneath it) | `regeneration-cycle/prove-clean-room` |
-| E3, E4 | `fail-cycle` | after a refused fence (`fence-refused`, the refusal as detail), a builder that left nothing (`candidate-not-regenerated`) or outlived the regenerate timeout (`budget`), or a gate command that outlived the gate stage's timeout (`budget`, stage `gate`; `../decisions.md`, "Spec round 12" D2) | `regeneration-cycle/fail-cycle` |
+| E3, E4 | `fail-cycle` | after a refused fence (`fence-refused`, the refusal as detail), a builder that left nothing (`candidate-not-regenerated`) or outlived the regenerate timeout (`budget`), or a gate command that outlived the gate stage's timeout (`budget`, stage `gate`; `../decisions.md`, "Spec round 12" D2), or any other program a leaf runs that outlived what was left of its stage's timeout (`budget`, that stage; "The trees", every wait has a bound) | `regeneration-cycle/fail-cycle` |
 | E4 | `regenerate` | a fresh builder room (the clean room, an empty candidate scope `APP_DIR`), `LOYLY_BUILDER_CMD <builder-room> <instruction>` launched and waited for within the regenerate timeout, with a third argument, the builder image's path, when the configuration names one (`BUILDER_IMAGE`, "Handed in"); the candidate digest below; the detail names the builder image and its digest, when there is one (`../decisions.md`, "Spec round 9" D1) | `regeneration-cycle/record-regenerated-candidate` (attempt 1, `fresh-generation`, no evidence) |
 | E5 | `install` | a copy of the candidate in a fresh gate room under the run's directory, taken when the builder ended; the gate room is the gate's and out of the builder's reach, and writable by the candidate's own `test.sh` and `start.sh`, as legacy `verify.sh` runs the candidate in a writable tree; the candidate digest recorded is the digest of the copy as taken, before the gate runs, so what the candidate's own run writes does not change it (`../decisions.md`, "Spec round 7d"). For either seam the gate room is a copy of the gated tree, as legacy `verify.sh` gates the tree it sits in: the clean room's files (not its history) plus the candidate's copy at `APP_DIR`, so the candidate reads the spec beside it in the gate room as it did in the builder room, and the gate room is the gate's `ROOT` (`verify.sh` line 23, `ROOT` the tree's root); the candidate digest is still the candidate scope's alone (`../decisions.md`, "Spec round 8" and "Spec round 11"). When a gate command is handed in (`LOYLY_GATE_CMD`, "Handed in"), the gate room is instead the cut's tree: every file of the commit, with no history (`git archive` of the commit), the fenced paths included and nothing at `APP_DIR`; and the candidate's copy, taken as above, is a folder of its own beside the gate room, never inside it. The gate is the judge and out of the builder's reach, so it may hold what the fence hid from the builder, such as an identity probe and the files it reads; the command mounts the candidate at `APP_DIR` itself. The candidate digest is the copy's as taken, as above (`../decisions.md`, "Spec round 12" D2) | `regeneration-cycle/install-candidate-in-gate-room` |
 | E5 | `self-check` | as E2, before the gate, once per attempt (a gate again after a refusal does not self-check again) | `regeneration-cycle/record-harness-self-check` (`before-gate`) |
@@ -93,7 +93,8 @@ first. In order:
 | E7 | `file-score` | | `measurement/file-score` |
 | E7 | `fail-score-stage` | after a refused `file-item-verdicts` or `file-score`, the refusal as heard | `measurement/fail-score-stage` |
 
-- **The relay (E8)** is the relay leaf that follows every recording leaf ("The trees", below), as
+- **The relay (E8)** is the relay leaf that follows every recording leaf, and the stamps once all
+  are recorded ("The trees", below), as
   `harness/v2/assemble.clj` relays after every recording: the producer's
   handoff events (its `event-model/handoffs.edn`) not yet relayed are read from its store file,
   within its tenant, in store order, and each is handed in through the consumer's hand-in method
@@ -188,95 +189,218 @@ the run halts before the cycle (`../decisions.md`, "Spec round 8").
 Each flow of `event-model/area.edn` is one ORC tree, built with ORC's DSL as the workflow
 `cycle-runner/<flow>`, and a method runs one tick of its flow's tree (`../decisions.md`, "Spec
 round 14"). Each effect and each command of the runner is a named leaf of its own (`code`), and
-the tree holds their order; the leaves hold the domain rules ("The effects", above).
+the tree holds their order; the leaves hold the domain rules ("The effects", above). The trees
+follow ORC's own principles (ORC's `docs/ORC-PRINCIPLES.md`; `../decisions.md`, "Spec round
+16"): the blackboard is the run's state, each leaf is a function of its own, a gate attempt is one
+subtree delegated once per attempt, a `map-each` runs one primitive leaf, and every wait has a
+bound.
 
 **A leaf always completes.** It performs its one effect or command, writes what came of it to the
 blackboard and completes with success. A refusal, a failed attempt, a cycle that ended and an
 effect that could not be performed are outcomes a leaf writes, never an ORC failure. The tree
 branches on them with `condition` nodes, so a run that fails or halts still ends its tick with
 success, through a branch of the root `fallback`. What ORC does for every tree (ticks, traces, a
-leaf completed once, processors resumed where they stopped, retries) is ORC's, and not restated here.
+leaf completed once, processors resumed where they stopped, retries, a delegate's child tick and
+its own blackboard) is ORC's, and not restated here.
 
-**The blackboard.** `run` is the run as the last leaf left it: `running`; `refused` (the method
-refused, nothing recorded); `awaiting-verdicts` (a gate attempt passed); `grading` (the verdicts
-handed in); `gate-refused` (a gate stopped by a refusal guard, recorded and refused as heard);
-`failing` (the cycle is to be failed, `failure` its stage, reason and detail); `cycle-passed` or
-`cycle-failed` (the Regeneration cycle's `cycle-progress` shows the cycle concluded); `halting`
-(the run is to halt, `halt` its effect, reason and detail). What leaves hand on to each other (the
-selected slices, the candidate's copy, the attempt's gate evidence) is each tree's own.
+**The blackboard is the run's state.** Every value a leaf reads is a key of the blackboard or
+comes from the world (the project repository, the run's directory, a context's reply, a
+program's exit), and everything a leaf hands on is a key it writes: a leaf's `:reads` and
+`:writes` are its whole contract with the tree, and its function computes from its inputs and the
+world only. The runner keeps no run state beside the blackboard. What is not data lives outside
+it, kept by the runner itself under the run's id: the five contexts as they run (their programs,
+their pipes and the replies awaited), from the `start` leaf that launches them until the
+`conclude` or `halt` leaf (or a `start` that refuses) stops them. With them, between a run's
+ticks, the runner keeps the blackboard the run's last tick ended with (the tick's outputs), which
+seeds the run's next tick with the method's params added (`hand-in-verdicts`, or the conclusion a method owes first, below). A
+method replies from the runner's own store: the event its `start` or `hand-in` leaf recorded,
+read back, or the refusal that leaf wrote. The keys, as `blackboard` declares them (Malli; ORC
+takes no unconstrained schema, so a value with no shape of its own travels as text):
+
+| Key | Shape | What |
+|---|---|---|
+| `params` | `start-run`'s `:schema` (`event-model/cycle-run.edn`) | the start's params |
+| `verdicts` | `hand-in-verdicts`' `:schema` | the hand-in's params |
+| `handed-in` | `[:map-of :string :string]` | each variable of "Handed in" by its name, as `start` read it; one not handed in is absent |
+| `config` | `[:map-of :string :string]` | the configuration file's `KEY=value` lines |
+| `run-dir` | `:string` | the run's directory |
+| `stores` | `[:map-of :string :string]` | each context's store file, by context |
+| `before` | `[:map-of :string :int]` | each producer's handoffs in its store when the run started |
+| `relayed` | `[:map-of :string :int]` | each producer's handoffs the relay has read, those of `before` included |
+| `slices` | `[:vector Slice]`, Slice `[:map [:slice :string] [:path :string]]` | the selected slices in slice order: the slice's name and its spec file's path in the cut, a link resolved |
+| `slice` | Slice | the slice a `stamp` leaf stamps (`map-each`'s item) |
+| `stamp` | Stamp, `[:map [:slice :string] [:run [:enum "running" "halting"]] [:halt {:optional true} Halt]]` | what one slice's stamp came to |
+| `stamps` | `[:vector Stamp]` | the stamps', in slice order (`map-each`'s result) |
+| `attempt` | `[:int {:min 0 :max 3}]` | the gate attempt: 0 before the first candidate, then the attempt the last builder opened |
+| `builder-room` | `:string` | the last builder's room |
+| `candidate` | `[:map [:path :string] [:digest :string]]` | the candidate's copy the install took, and its digest |
+| `gate-room` | `:string` | the attempt's gate room |
+| `evidence-root` | `:string` | the last gate's evidence directory |
+| `gate-refusal` | `[:map [:refusal :string] [:detail :string]]` | a gate refused with one of the three codes `record-gate-refusal` takes |
+| `cycle` | `:string` | the `cycle` of the last `regeneration-cycle/cycle-progress` reply, its JSON text verbatim |
+| `run` | `[:enum "running" "refused" "awaiting-verdicts" "grading" "gate-refused" "failing" "cycle-passed" "cycle-failed" "halting"]` | the run as the last leaf left it (below) |
+| `refusal` | `[:map [:refusal :string] [:contexts {:optional true} [:vector :string]]]` | the method's own refusal (`refusal` and `data.contexts`, "Refusals") |
+| `failure` | Failure, `[:map [:stage :string] [:reason :string] [:detail :string]]` | the cycle to be failed |
+| `halt` | Halt, `[:map [:effect :string] [:reason :string] [:detail :string]]` | the run to be halted |
+
+`run` is `running`; `refused` (the method refused, nothing recorded); `awaiting-verdicts` (a gate
+attempt passed); `grading` (the verdicts handed in); `gate-refused` (a gate stopped by a refusal
+guard, recorded and refused as heard); `failing` (the cycle is to be failed, `failure` its stage,
+reason and detail); `cycle-passed` or `cycle-failed` (the Regeneration cycle's `cycle-progress`
+shows the cycle concluded); `halting` (the run is to halt, `halt` its effect, reason and detail).
+
+**Each leaf is a function of its own.** A `code` leaf names its own function (`:fn`), one per
+effect or command; the leaves of one effect in different places of the trees (`self-check:0` and
+an attempt's `self-check`) share their effect's function. No function serves several effects by
+the node's name, and no leaf reads its own name: the attempt is the blackboard's `attempt`. Each
+leaf's contract:
+
+| Leaf | Reads | Writes |
+|---|---|---|
+| `start` | `params` | `handed-in`, `config`, `run-dir`, `stores`, `before`, `relayed`, `slices`, `attempt`, `run`, `refusal` |
+| `stamp` | `params`, `handed-in`, `config`, `run-dir`, `slice` | `stamp` |
+| `stamped` | `stamps` | `run`, `halt` |
+| `pin` | `params`, `handed-in` | `run`, `halt` |
+| `checklist` | `params`, `handed-in`, `config`, `run-dir`, `slices` | `run`, `halt` |
+| `self-check` | `params`, `handed-in`, `config`, `attempt` | `run`, `failure`, `halt` |
+| `fence` | `params`, `handed-in`, `config`, `run-dir` | `run`, `failure`, `halt` |
+| `regenerate` | `params`, `handed-in`, `config`, `run-dir` | `builder-room`, `attempt`, `run`, `failure`, `halt` |
+| `repair` | `params`, `handed-in`, `config`, `run-dir`, `attempt`, `candidate`, `evidence-root` | `builder-room`, `attempt`, `run`, `failure`, `halt` |
+| `install` | `params`, `handed-in`, `config`, `run-dir`, `attempt`, `builder-room` | `candidate`, `gate-room`, `run`, `halt` |
+| `gate` | `params`, `handed-in`, `config`, `run-dir`, `attempt`, `candidate`, `gate-room` | `evidence-root`, `gate-refusal`, `run`, `failure`, `halt` |
+| `gate-refusal` | `params`, `attempt`, `gate-refusal` | `run`, `halt` |
+| `fail-cycle`, `fail-score-stage` | `params`, `attempt`, `failure` | `run`, `halt` |
+| `relay` | `params`, `stores`, `before`, `relayed`, `run` | `relayed`, `cycle`, `run`, `halt` |
+| `hand-in` | `params`, `verdicts` | `run`, `refusal` |
+| `file-verdicts`, `file-score` | `params`, `verdicts`, `attempt`, `candidate` | `run`, `failure`, `halt` |
+| `conclude` | `params`, `cycle` | `run` |
+| `halt` | `params`, `halt` | `run` |
+
+A delegate maps the same keys in and out: `gate-attempt:N` reads `params`, `handed-in`, `config`,
+`run-dir`, `stores`, `before`, `relayed`, `attempt`, `builder-room`, `cycle` and `run`, and
+writes `candidate`, `gate-room`, `evidence-root`, `relayed`, `cycle`, `run`, `failure` and
+`halt`; `cycle-failed-ends-run` reads `params` and `cycle`, `effect-not-performed-halts-run`
+reads `params` and `halt`, and each writes `run`.
 
 **Leaf names.** A leaf is named for its effect (E1 to E7: `stamp`, `pin`, `checklist`,
 `self-check`, `fence`, `fail-cycle`, `regenerate`, `install`, `gate`, `gate-refusal`, `repair`,
 `file-verdicts`, `file-score`, `fail-score-stage`) or its command (`start` for `start-run`,
 `hand-in` for `hand-in-verdicts`, `relay` for the relay E8, `conclude` for `conclude-run`, `halt`
-for `halt-run`). A name is unique in its tree, so a leaf that stands more than once carries a
-qualifier after a `:`: the attempt (`install:2`), the attempt and the try (`gate:1.2`), or, for a
-relay, the leaf it follows (`relay:fence`). The name before the first `:` is the one each step's
-`:leaf` declares in `event-model/area.edn`, and the gate's store check holds every event to it
+for `halt-run`); `stamped` performs neither, and writes the first stamp, in slice order, that did
+not leave the run running. A name is unique in its workflow, so a leaf that stands more than once
+in one workflow carries a qualifier after a `:`: the first self-check (`self-check:0`), a repair's
+attempt (`repair:2`), a gate's try within its attempt (`gate:2`, `gate-refusal:2`), or, for a
+relay, the leaf it follows (`relay:fence`, `relay:gate:2`). The attempt is never part of a
+leaf's name: it is `attempt` on the blackboard, recorded with every effect result, and the
+qualifier of the delegate that runs it (`gate-attempt:2`). The name before the first `:` is the
+one each step's `:leaf` declares in `event-model/area.edn`, and the gate's store check holds
+every event to it, in a tick of the step's flow or a child tick that tick delegated
 (`EachEffectInItsOwnLeaf`).
 
 **What a leaf writes.**
 - A recording the context records: `running`, or `awaiting-verdicts` for a gate attempt that
   passed, `grading` for the verdicts handed in, `gate-refused` for a gate refused with one of the
-  three codes `record-gate-refusal` takes ("A gate stopped by a refusal guard", above).
+  three codes `record-gate-refusal` takes ("A gate stopped by a refusal guard", above), with
+  `gate-refusal`.
 - A refused fence, a builder that left nothing, a refused `file-item-verdicts` or `file-score`:
   the refusal recorded as heard, then `failing` (the `fail-cycle` and `fail-score-stage` rows).
-- A leaf that runs a handed-in command holds its stage's timeout as its budget: it stops the
-  command when the timeout passes and writes `failing`, reason `budget`, stage the leaf's (a
-  builder at `regenerate`, a gate command at `gate`), recording nothing for the effect.
+- A leaf that runs a program holds what is left of its stage's timeout as its bound (below): it
+  stops the program when the bound passes and writes `failing`, reason `budget`, stage the
+  leaf's (a builder at `regenerate`, `fence.sh` at `fence`, the self-check before the gate, the
+  gate's own programs or a gate command at `gate`), recording nothing for the effect.
 - A recording refused before the cycle opened (the stamp, the pin or the checklist: no self-check
   has named the cycle yet, so there is no cycle to fail): `halting`, `refused-before-the-cycle`
   (AGENTS.md: an unstamped scenario or an empty selection stops the cycle). So does a stamp whose
   identities are not the plan's own (E1): the stamp is recorded as Specification responded, and
-  the run halts at it, the `detail` naming the plan's identities and the stamp's.
+  the run halts at it, the `detail` naming the plan's identities and the stamp's. Each selected
+  slice's stamp is its own leaf run (`map-each`), so a slice is stamped whatever an earlier
+  slice's stamp came to; `stamped` then writes the run as the first stamp, in slice order, that
+  did not leave it running left it, and so the run halts at that stamp.
 - A refusal of `record-gate-attempt` with any other code, or of `record-gate-refusal`: recorded as
   heard, then `halting` at that effect, `effect-could-not-run`, the `detail` naming the refusal
   (gating again would offer the same again); but `cycle-concluded` means the cycle ended (its
   stage clock), and the leaf reads the cycle's progress instead.
 - An effect that could not be performed at all records nothing for it and writes `halting`: a
-  context that did not respond (`context-did-not-respond`), a handed-in command that could not be
-  started, a gate command whose result says the gate could not be performed ("The gate command's
-  result", above) or a reply that is not a refusal (`-32601`, `-32602`: the runner offered what
-  the seam does not take, the error's message the `detail`), each `effect-could-not-run`.
-- A relay leaf hands in the handoffs the recording before it caused, then, once the cycle exists
-  (from `self-check:0`), reads the Regeneration cycle's `cycle-progress` and writes
-  `cycle-passed` or `cycle-failed` when its `status` says so; otherwise it leaves `run` as it
-  found it. A consumer that did not respond is `halting`, `context-did-not-respond`.
+  context that did not respond within its bound (`context-did-not-respond`), a handed-in command
+  that could not be started, a gate command whose result says the gate could not be performed
+  ("The gate command's result", above) or a reply that is not a refusal (`-32601`, `-32602`: the
+  runner offered what the seam does not take, the error's message the `detail`), each
+  `effect-could-not-run`.
+- A relay leaf hands in the handoffs the recordings before it caused, then reads the Regeneration
+  cycle's `cycle-progress` of the run's cycle into `cycle` and writes `cycle-passed` or
+  `cycle-failed` when its `status` says so; a cycle not opened yet (no self-check has named it, the
+  reply `null`) and a cycle still running leave `run` as the relay found it. A consumer that did
+  not respond is `halting`, `context-did-not-respond`.
 - `conclude` records `conclude-run` with that progress: a failed cycle's stage, reason and detail
   are the Regeneration cycle's (the run's `cycle.failure`). `halt` records `halt-run` with `halt`.
   Either way the run ends and its contexts are stopped; a halt is never the cycle's conclusion.
 
+**Every wait has a bound.** ORC bounds a tick and a delegate, never a leaf, so a leaf holds the
+bound of what it waits for, and each delegate and each tick is bounded by the stages its subtree
+spends (the run's `budget`, its `stage-timeouts-seconds`):
+- a context's reply to one request: `context_reply_seconds`, 60 (`context.allium`, config); no
+  reply within it is `context-did-not-respond`. A start's first query to each context keeps its
+  own 60 seconds from the context's launch ("Handed in");
+- a program a leaf runs: what is left of the timeout of the stage it runs in (the builder in
+  `regenerate`; legacy `fence.sh` in `fence`; the self-check before the gate, the gate's own
+  programs or the gate command in `gate`); the first self-check runs before the cycle has a
+  stage, and only its tick bounds it;
+- the delegate `gate-attempt:N`: the gate stage's timeout and `context_reply_seconds` more, for
+  the leaves that record and relay what came of the stage's end; the delegates to the two
+  one-leaf flows: `context_reply_seconds`;
+- a tick, of any flow of the run: the run's budget, `fence + gate-attempt-limit × (regenerate +
+  gate) + score` seconds, and `tick_margin_seconds`, 3600, more for what no stage clock times
+  (the start, the stamps, the pin, the checklist, the first self-check, the relays).
+
+A delegate's bound is part of its tree as ORC builds it, so `run-to-gate` is built when a run
+starts, with that run's bounds (ORC builds a workflow by its name and content: a run whose budget
+is the last run's builds nothing new). A tick that does not end with success, because its bound
+or a delegate's passed before the leaves wrote an outcome, is no leaf's outcome: the method then
+halts the run, ticking `effect-not-performed-halts-run` with `halt` the effect of the leaf that
+had not completed (or, when none, of the last that did), `effect-could-not-run`, and the bound
+that passed as the `detail`.
+
 **The trees.** `ok?` is the condition `run` equals `running`, `<value>?` the condition `run`
-equals that value, and `not gate-refused?` the condition `run` does not equal `gate-refused`. Each
-recording leaf `X` is followed by its relay leaf `relay:X`, written here as `X+`.
+equals that value, `not gate-refused?` the condition `run` does not equal `gate-refused`, and
+`ended?` the condition `run` does not equal `running`. Each recording leaf `X` is followed by its
+relay leaf `relay:X`, written here as `X+`. A gate attempt is one subtree, the workflow
+`cycle-runner/gate-attempt.v1`, delegated once per attempt (`gate-attempt:N`); it is versioned by
+its name, so a changed attempt is a new workflow (`gate-attempt.v2`) and `run-to-gate` names the
+version it delegates to. The gate's tries stay inside it, written out.
 
 ```text
 run-to-gate                          fallback
 ├─ sequence
 │  ├─ start, ok?
-│  ├─ map-each selected slice, in slice order: stamp+, ok?
+│  ├─ map-each slices as slice into stamps, in slice order: stamp
+│  ├─ relay:stamp, stamped, ok?
 │  ├─ pin+, ok?
 │  ├─ checklist+, ok?
 │  ├─ self-check:0+, ok?
 │  ├─ fence+, ok?
 │  ├─ regenerate+, ok?
-│  ├─ attempt 1    sequence: install:1+, ok?, self-check:1+, ok?, gate-tries 1
-│  ├─ attempt 2    fallback: awaiting-verdicts?,
-│  │                         sequence: ok?, repair:2+, ok?, install:2+, ok?, self-check:2+, ok?, gate-tries 2
-│  ├─ attempt 3    as attempt 2
+│  ├─ gate-attempt:1
+│  ├─ fallback: awaiting-verdicts?, sequence: ok?, repair:2+, ok?, gate-attempt:2
+│  ├─ fallback: awaiting-verdicts?, sequence: ok?, repair:3+, ok?, gate-attempt:3
 │  └─ awaiting-verdicts?
 ├─ sequence: failing?, fail-cycle+, cycle-failed?, delegate cycle-failed-ends-run
 ├─ sequence: cycle-failed?, delegate cycle-failed-ends-run
 ├─ sequence: halting?, delegate effect-not-performed-halts-run
 └─ refused?
 
-gate-tries N                         sequence
-├─ gate:N.1+
-└─ fallback: not gate-refused?,
-             sequence: gate-refusal:N.1+, ok?, gate:N.2+,
-                       fallback: not gate-refused?,
-                                 sequence: gate-refusal:N.2+, ok?, gate:N.3+,
-                                           fallback: not gate-refused?, gate-refusal:N.3+
+gate-attempt:N                       delegate cycle-runner/gate-attempt.v1
+
+cycle-runner/gate-attempt.v1         fallback
+├─ sequence
+│  ├─ install+, ok?
+│  ├─ self-check+, ok?
+│  ├─ gate:1+
+│  └─ fallback: not gate-refused?,
+│               sequence: gate-refusal:1+, ok?, gate:2+,
+│                         fallback: not gate-refused?,
+│                                   sequence: gate-refusal:2+, ok?, gate:3+,
+│                                             fallback: not gate-refused?, gate-refusal:3+
+└─ ended?
 
 verdicts-to-conclusion               fallback
 ├─ sequence: hand-in, grading?, file-verdicts+, grading?, file-score+, cycle-passed?, conclude
@@ -291,14 +415,17 @@ effect-not-performed-halts-run       halt
 
 So a repair follows a failed attempt only while the cycle is still running, and the Regeneration
 cycle's policy decides exhaustion and the third gate refusal in a row (`ok?` before each repair and
-each try); an attempt is gated at most three times, and no fourth attempt exists. Before a method
-is checked, a run whose cycle already ended is concluded: `start-run` and `hand-in-verdicts` first
-read `regeneration-cycle/cycle-progress` of the run in progress, and when its `status` is `passed`
-or `failed` they tick `cycle-failed-ends-run` for it, then their own tree. The stage clock fails a
-stage on the wall clock, between methods, so a run that awaits its verdicts may find its cycle
-already failed: verdicts handed in after the cycle failed are refused `run-not-awaiting-verdicts`,
-and a start is not refused `run-in-progress` for a run whose cycle already ended
-(`../decisions.md`, "Spec round 12" D4).
+each try); an attempt is gated at most three times, and no fourth attempt exists. A repair belongs
+to the regenerate stage and stays in `run-to-gate`; the attempt's install, self-check and gate
+belong to the gate stage, and its delegate is bounded by it. An attempt's subtree always ends its
+child tick with success: every `ok?` that stops it leaves `run` not `running`, and `ended?` then
+holds. Before a method is checked, a run whose cycle already ended is concluded: `start-run` and
+`hand-in-verdicts` first read `regeneration-cycle/cycle-progress` of the run in progress, and when
+its `status` is `passed` or `failed` they tick `cycle-failed-ends-run` for it, then their own
+tree. The stage clock fails a stage on the wall clock, between methods, so a run that awaits its
+verdicts may find its cycle already failed: verdicts handed in after the cycle failed are refused
+`run-not-awaiting-verdicts`, and a start is not refused `run-in-progress` for a run whose cycle
+already ended (`../decisions.md`, "Spec round 12" D4).
 
 ## Handed in
 
@@ -340,7 +467,8 @@ Read when `start-run` runs, never only at boot, so a grader changes them between
   60 seconds for them. A context is a JVM that loads Clojure, ORC and Grain before it responds,
   about 20 seconds on the reference host (`../decisions.md`, "Spec round 13" D1).
   A context not named, or not responding, refuses the start (`contexts-not-responding`), and
-  `data.contexts` names every such context. A context that stops responding later halts the run
+  `data.contexts` names every such context. A context that stops responding later, one that exits or does not reply to a request within
+  60 seconds (`context_reply_seconds`; `../decisions.md`, "Spec round 16" D5), halts the run
   (`context-did-not-respond`).
 - `LOYLY_SELF_CHECK_CMD`: the harness self-check, legacy `harness/check.sh --local`.
 - `LOYLY_STORE_CHECK_CMD`: for the `stdio` seam, the gate's event-store check, run in the
@@ -429,17 +557,20 @@ Everything the runner acts on is a fixture a grader states, so no item waits for
   1, or sleeps past the gate timeout; so no item of the gate command needs a VM or a world;
 - the five gated candidates of slices 01 to 05 as `LOYLY_CONTEXTS` (the relay reads their Grain
   stores), or an entrypoint that never responds, exits at once, or wraps a gated candidate and
-  exits when asked one method, to see a refusal or a halt;
+  exits, or stops replying without exiting, when asked one method, to see a refusal or a halt;
 - a verdicts file in legacy `score.clj`'s shape (a list of `{"id", "verdict", "evidence"}`, an
   optional `"reason"`), handed in by `hand-in-verdicts`.
 
 The grader observes through `run-progress` only: the effect results with the contexts' replies, the
-relayed handoffs, the cycle's progress at the conclusion, and the run's status. There are two
-exceptions, each the grader's own file. A measurement history store: after the run ended, the
+relayed handoffs, the cycle's progress at the conclusion, and the run's status. There are three
+exceptions, each the grader's own. A measurement history store: after the run ended, the
 grader may start the gated Measurement candidate on it and read `measurement/scoreboard` through
 Measurement's own seam. And the runner's own store (`LOYLY_GRAIN_STORE`): after the method
 responded, the grader may read it, as the gate's store check does, to see each effect inside its
-own leaf ("The trees", above; `@item-06-059`). What the stub
+own leaf and each gate attempt in a child tick of its own ("The trees", above; `@item-06-059`,
+`@item-06-061`). And a copy of the candidate the grader made, in a folder of its own outside the
+project repository, to see it run with no spec around it ("The build", below; `@item-06-062`).
+What the stub
 builder and the fixture candidates record (the paths a builder room held, each launch, whether a
 launch entrypoint ran) is the grader's own fixture, read from where the grader told it to write.
 
@@ -511,9 +642,38 @@ and the gate's store check holds each event to its leaf (`event-model/area.edn`,
 | Command | ORC workflow | Leaf |
 |---|---|---|
 | `start-run`; `record-effect` and `relay-handoff` before the verdicts | `cycle-runner/run-to-gate` | `start`; the effect's; `relay` |
+| `record-effect` and `relay-handoff` of an attempt's install, self-check, gates and gate refusals | `cycle-runner/gate-attempt.v1`, a child tick of the run's `run-to-gate` tick | the effect's; `relay` |
 | `hand-in-verdicts`; `record-effect`, `relay-handoff` and `conclude-run` after the verdicts | `cycle-runner/verdicts-to-conclusion` | `hand-in`; the effect's; `relay`; `conclude` |
 | `conclude-run` of a failed cycle | `cycle-runner/cycle-failed-ends-run` | `conclude` |
 | `halt-run` | `cycle-runner/effect-not-performed-halts-run` | `halt` |
+
+A flow's events may lie in a workflow its tree delegates to: a delegate runs as a child tick of
+the flow's tick (ORC's), and the store check follows that lineage (`../decisions.md`, "Spec round
+16" D8). The two one-leaf flows, delegated from the others, are flows of their own and are held
+to their own workflow, as before.
+
+## The build
+
+What the candidate's folder (`APP_DIR`) holds, beyond its seam (`../decisions.md`, "Spec round
+16" D6, D7):
+
+- **Its own event models.** The runner registers its context's event model as its room gives it
+  (AGENTS.md) and reads the five contexts' contracts and handoffs from their event models. It
+  carries a copy of each, byte for byte as its room holds them at the cut: every
+  `.pi/spec/<context>/event-model/*.edn` of `cycle-runner` and of the five contexts it speaks, at
+  `event-model/<context>/<file>` in its own folder, and it reads them only there. It reads no
+  file outside its own folder to run: a copy of the candidate started anywhere, with no spec
+  beside it, runs as the candidate does in its room, and a later change to the repository's spec
+  changes nothing in a build until a cycle rebuilds it.
+- **Only its build.** Its launch entrypoint and suite (`start.sh`, `test.sh`), its build file, its
+  sources, its tests and the fixtures they read, its copy of the event models, and its notes
+  (`README.md`, `UNCARRIED.md`). No copy of ORC's or Grain's sources: the room's `orc/` and
+  `grain/` are read in place, and the build takes them as dependencies at their pinned commits.
+  No builder scratch: every file on the build's paths is one its launch or its suite loads. What
+  a build or a run leaves behind (`.cpcache/`, `classes/`, `target/`, output files, stores) is
+  not the build, and the source digest recorded at acceptance (`PROVENANCE.md`) leaves it out.
+  The final judge checks it at acceptance; no gate checks it yet (`TheCandidateHoldsOnlyItsBuild`,
+  planned `candidate-contents`).
 
 ## Not in this slice
 
@@ -522,4 +682,7 @@ gate to a provided command (`LOYLY_GATE_CMD`, `../decisions.md`, "Spec round 12"
 it in a VM with its world; a fence other than legacy `fence.sh`'s (a mount-table fence, a
 candidate scope of more than one folder; "Spec round 12", later); a sealed Löyly grader (OG1 = no; still
 open after the switch, `../decisions.md`, "The switch to the new harness" 7); one shared store (A1, deferred in Spec round 5); the room policy check
-(`TheGateRoomIsNotTheBuilders`, planned `room-policy`).
+(`TheGateRoomIsNotTheBuilders`, planned `room-policy`); a check of each leaf's declared contract
+and bounds as ORC recorded them (`TheBlackboardIsTheRunsState`, `EveryWaitHasABound`, planned
+`leaf-contract`) and of what the candidate's folder holds (`TheCandidateHoldsOnlyItsBuild`,
+planned `candidate-contents`).
