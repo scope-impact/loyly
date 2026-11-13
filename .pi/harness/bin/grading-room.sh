@@ -4,11 +4,13 @@
 # instrument"; ../README.md, "The grader command"). From git at <spec-commit> (never the working
 # tree, which a spec round may be editing): the slice's own spec folder, the other contexts'
 # seam.md and event-model/, .pi/spec/decisions.md, and the gate's store check as reference
-# (harness/v2/event_store_check.clj, event-store-check.sh, deps.edn). Copied: the gated candidate
-# to candidate/ (so the grader may run its start.sh and test.sh) and the promoted sibling contexts
-# of <contexts-dir> (default harness-impl/ of this checkout) to contexts/, without host build caches
-# (.cpcache, .m2, .gitlibs, .home, .tmp, .test-state, test-work, target/classpath.txt), which name
-# host paths; the grader's VM fetches dependencies again. Plus checklist.txt (one item id per line,
+# (harness/v2/event_store_check.clj, event-store-check.sh, deps.edn). Copied, at the repository's
+# own layout because every context reads ../../.pi/spec/<context>/event-model from where it sits:
+# the gated candidate to harness-impl/NN-<context>/ (so the grader may run its start.sh and
+# test.sh) and the promoted sibling contexts of <contexts-dir> (default harness-impl/ of this
+# checkout) to harness-impl/<their names>/, without host build caches
+# (.cpcache, .m2, .gitlibs, .home, .tmp, .test-state, test-work, target/classpath.txt; the
+# candidate's classes/), which name host paths; the grader's VM fetches dependencies again. Plus checklist.txt (one item id per line,
 # in file order) and an empty, writable work/. Nothing else of the repository: no builders,
 # prompts, prior verdicts, harness/v2/cycles, scores or other candidates.
 set -euo pipefail
@@ -37,14 +39,17 @@ mkdir -p "$OUT/.pi/plan"; ln -s "../spec/$ctx" "$OUT/$plan"
 grep -o '@item-[0-9][0-9]-[0-9][0-9][0-9]' "$OUT/.pi/spec/$ctx/spec.feature" | sed 's/^@item-//' > "$OUT/checklist.txt"
 EXCL=(--exclude .cpcache --exclude .m2 --exclude .gitlibs --exclude .home --exclude .tmp
       --exclude .test-state --exclude test-work --exclude target/classpath.txt --exclude .git)
-rsync -a "${EXCL[@]}" "$CAND/" "$OUT/candidate/"
+# The candidate's classes/ too: AOT output of its own build.sh, compiled on the host against host
+# dependency checkouts; in the VM the freshly fetched sources are newer, Clojure loads them over the
+# AOT classes and a protocol no longer matches its AOT implementation. start.sh runs from src.
+rsync -a "${EXCL[@]}" --exclude /classes "$CAND/" "$OUT/harness-impl/$NN-$ctx/"
 for d in "$CTXS"/[0-9][0-9]-*; do
   [[ -d "$d" ]] || continue
   [[ "$(basename "$d")" == "$NN-"* ]] && continue
-  rsync -a "${EXCL[@]}" "$d/" "$OUT/contexts/$(basename "$d")/"
+  rsync -a "${EXCL[@]}" "$d/" "$OUT/harness-impl/$(basename "$d")/"
 done
 chmod -R u+w "$OUT"
 { echo "slice=$NN"; echo "context=$ctx"; echo "spec_commit=$(git -C "$REPO" rev-parse "$COMMIT")"
-  echo "candidate=$(cd "$CAND" && pwd)"; echo "contexts=$(cd "$CTXS" && pwd)"
+  echo "candidate=$(cd "$CAND" && pwd)"; echo "candidate_in_room=harness-impl/$NN-$ctx"; echo "contexts=$(cd "$CTXS" && pwd)"
   echo "items=$(wc -l < "$OUT/checklist.txt" | tr -d ' ')"; echo "built=$(date -u +%FT%TZ)"; } > "$OUT/.grading-room.txt"
 echo "grading room $OUT: $ctx at $(git -C "$REPO" rev-parse --short "$COMMIT"), $(wc -l < "$OUT/checklist.txt" | tr -d ' ') items"

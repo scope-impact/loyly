@@ -12,29 +12,28 @@ verdicts are the instrument: they report to a person and never go back to the bu
 | `.pi/spec/<context>/seam.md`, `event-model/` | The public seam and event model of the five contexts the runner drives (specification, measurement, grader-lifecycle, regeneration-cycle, cycle-preparation) |
 | `.pi/spec/decisions.md` | The decisions record: readings of the spec |
 | `checklist.txt` | The item ids, one per line, in file order: your denominator |
-| `candidate/` | The gated candidate (a copy): `start.sh` boots it on its JSON-RPC stdio seam; `test.sh` runs its own suite |
-| `contexts/NN-<context>/` | The promoted builds of the five contexts, for the runner's `LOYLY_CONTEXTS` launch entrypoints (`contexts/NN-<context>/start.sh`) |
+| `harness-impl/06-cycle-runner/` | The gated candidate (a copy, at the repository's layout: it reads `../../.pi/spec/` from there): `start.sh` boots it on its JSON-RPC stdio seam; `test.sh` runs its own suite |
+| `harness-impl/0N-<context>/` (01 to 05) | The promoted builds of the five contexts, for the runner's `LOYLY_CONTEXTS` launch entrypoints (`harness-impl/0N-<context>/start.sh`) |
 | `harness/v2/event_store_check.clj` (+ `event-store-check.sh`, `deps.edn`) | Reference only: how the gate reads a Grain SQLite store directly with Grain's own reader. Reuse its reading code to inspect a store |
 | `work/` | Yours, read-write: fixtures, stub scripts, stores, logs, and your output |
 
 Do not read or look for anything outside this room. In particular, never read (they are not here,
 and you must not try to reconstruct them): builder sessions or transcripts, prompts or
 instructions handed to a builder, prior verdicts or scores of any cycle (`harness/v2/cycles`,
-`grading/`), other candidates, `harness-impl/` beyond `contexts/`, or the candidate's own tests as
-a source of truth. The candidate's `README.md`, `VALIDATION.md`, test names and `test/` are its
-builder's claims: you may run `candidate/test.sh`, but a green suite is never a verdict.
+`grading/`), other candidates, or the candidate's own tests as a source of truth. The candidate's `README.md`, `VALIDATION.md`, test names and `test/` are its
+builder's claims: you may run `harness-impl/06-cycle-runner/test.sh`, but a green suite is never a verdict.
 
 ## How to grade
 
 1. Read `.pi/spec/cycle-runner/seam.md` and `spec.feature` first, then the parts of the other
    seams and `decisions.md` that a scenario needs. The spec is authoritative; where `seam.md` and
    `event-model/` disagree, the event model wins.
-2. Drive the candidate **only through its seam**: start `candidate/start.sh` with the `LOYLY_*`
+2. Drive the candidate **only through its seam**: start `harness-impl/06-cycle-runner/start.sh` with the `LOYLY_*`
    environment seam.md names ("Handed in"), send JSON-RPC requests on its stdin, read responses on
    its stdout. Hand in effects as seam.md describes ("How a grader drives it without a live pi"):
    stub builders, fixture project repositories (git), probes, a gate command, launch entrypoints
    for contexts. Build every fixture under `work/`, one directory per scenario or group, from fresh
-   state each time. Where a scenario needs a real context, use `contexts/NN-<context>/start.sh` as
+   state each time. Where a scenario needs a real context, use `harness-impl/0N-<context>/start.sh` as
    its launch entrypoint; where it needs a misbehaving one (slow, silent, exiting), write a small
    stub script.
 3. Each scenario's Given/When/Then is what you set up, what you do, and what you check. A Then
@@ -48,7 +47,11 @@ builder's claims: you may run `candidate/test.sh`, but a green suite is never a 
 5. `@item-06-058`: use **real timings**: a launch entrypoint that first responds 30 seconds after
    its launch, one that never responds and does not exit, and measure the refusal's wall-clock time
    from the start request (it must come between 60 and 90 seconds). Do not shorten the waits.
-6. Unreached is fail. If you cannot set a scenario up, it fails with the reason as its evidence.
+6. Take the time grading needs: hours, not minutes. Work through every item; do not stop early.
+   Answer only when every item has a verdict you reached by trying it; if the candidate cannot
+   start at all after the setup above, say exactly why in each item's evidence and in
+   `work/surprises.json`.
+7. Unreached is fail. If you cannot set a scenario up, it fails with the reason as its evidence.
    Never pass an item because it "probably" holds.
 
 ## The machine
@@ -57,8 +60,15 @@ You run as root in a Gondolin VM (see the environment section): bash, git, curl,
 Clojure CLI and babashka (`bb`); no Python (if you truly need it, `apk add python3` and append the
 command to `/workspace/.builder/image-additions.txt`). Network reaches only the package registries
 and GitHub. Your home directory is empty at boot, so the first start of each Clojure program
-fetches its dependencies: start `candidate/start.sh` and each `contexts/*/start.sh` once with
-stdin closed (`</dev/null`) before you grade, one at a time, so later starts are quick. Every
+fetches its dependencies: start each `harness-impl/*/start.sh` once with stdin closed
+(`</dev/null`) before you grade, one at a time, so later starts are quick. The room's files belong
+to another user than root, so git refuses them until you run
+`git config --global safe.directory '*'` (once per session). Grain's LMDB-backed caches need the
+native `liblmdb`, which the image lacks: run `apk add lmdb` once (and append that line to
+`/workspace/.builder/image-additions.txt`), and start every context with
+`JAVA_TOOL_OPTIONS=-Dlmdbjava.native.lib=/usr/lib/liblmdb.so.0` in its environment. If a program fails at startup, read
+its error: it is most likely your setup (an environment variable, a path, a missing fixture), not
+the candidate; fix the setup and retry before you fail an item for it. Every
 context is a JVM: run at most two scenarios in parallel, and kill every process a scenario started
 before the next. Write stubs as shell or `bb` scripts.
 
@@ -73,9 +83,10 @@ that order, and nothing else:
 
 `id` is the item id without `@item-` (`06-001`); `verdict` is `pass` or `fail`; `evidence` is one
 or two sentences of what you observed (the requests, the codes, the times, the store events), and
-for a fail, which Then did not hold or why the item was not reached. Write the file early (all
-`fail`, evidence `not reached`) and update it as you go, so an interrupted grading still files
-every item.
+for a fail, which Then did not hold. The evidence of an item you have not yet tried starts with
+`not reached`. Write the file early (all `fail`, evidence `not reached`) and update it as you go,
+so an interrupted grading still files every item. If you answer while items are still `not
+reached`, you will be asked to continue with them.
 
 Optionally, `work/surprises.json`: `[{"id", "note"}]`, places where the spec was ambiguous or the
 candidate did something the spec does not mention. A surprise never changes a verdict.

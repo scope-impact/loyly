@@ -13,6 +13,11 @@
 #                              (a launch.txt without model= ran host.ts's default, gpt-6.1-sol)
 #   LOYLY_GRADER_PI_SETTINGS   pi settings selecting the tools (default ../config/pi.grader.settings.json)
 #   LOYLY_VM_MEMORY, LOYLY_VM_CPUS  the VM's size (vm-daemon.ts); unset: Gondolin's 1 GB, 2 CPUs
+#   LOYLY_GRADER_ROUNDS        rounds at most (default 6). A model may answer while items are still
+#                              unreached; then the same session (same store) gets one more input,
+#                              round-N, that names only the ids whose evidence in work/verdicts.json
+#                              starts with "not reached" and says to continue as the instruction says.
+#                              Mechanical and content-free: it carries nothing but the grader's own ids.
 # Exit: host.ts's (0 answered, 1 unanswered, 2 setup error); 3 answered but no work/verdicts.json.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -53,15 +58,32 @@ sha() { [[ -f "$1" ]] && shasum -a 256 "$1" | cut -d' ' -f1 || echo missing; }
 cp "$INSTR" "$L/instruction-as-handed.md"
 cd "$ROOM" || exit 2
 unset LOYLY_STEER_DIR
-LOYLY_PI_MODEL="$MODEL" LOYLY_PI_PROMPT="Grade it now, as the attached instruction says." \
-LOYLY_ROOM_LABEL="the grading room" \
-  node "$HOST/host.ts" "$ROOM" "$INSTR" "$STORE" "$RID" "$PI_SETTINGS" \
-  < /dev/null > "$L/pi.stdout" 2> "$L/pi.stderr" &
-pid=$!
-echo "host_pid=$pid" >> "$L/launch.txt"
-trap 'kill -TERM "$pid" 2>/dev/null' TERM INT
-wait "$pid"; rc=$?
-while kill -0 "$pid" 2>/dev/null; do wait "$pid"; rc=$?; done
+ROUNDS="${LOYLY_GRADER_ROUNDS:-6}"
+unreached() {  # the ids whose evidence starts with "not reached", one per line
+  [[ -f "$ROOM/work/verdicts.json" ]] || return 0
+  node -e 'try{for(const x of JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")))if(/^\s*not reached/i.test(String(x.evidence??"")))console.log(x.id)}catch{}' "$ROOM/work/verdicts.json"
+}
+stopped=0
+trap 'stopped=1; kill -TERM "$pid" 2>/dev/null' TERM INT
+round=1; in="$INSTR"; rid="$RID"
+while :; do
+  LOYLY_PI_MODEL="$MODEL" LOYLY_PI_PROMPT="Grade it now, as the attached instruction says." \
+  LOYLY_ROOM_LABEL="the grading room" \
+    node "$HOST/host.ts" "$ROOM" "$in" "$STORE" "$rid" "$PI_SETTINGS" \
+    < /dev/null >> "$L/pi.stdout" 2>> "$L/pi.stderr" &
+  pid=$!
+  echo "host_pid=$pid" >> "$L/launch.txt"
+  wait "$pid"; rc=$?
+  while kill -0 "$pid" 2>/dev/null; do wait "$pid"; rc=$?; done
+  left="$(unreached)"; n=$(printf '%s' "$left" | grep -c . || true)
+  echo "round=$round request_id=$rid exit=$rc unreached=$n at=$(date -u +%FT%TZ)" >> "$L/launch.txt"
+  (( rc == 0 && n > 0 && round < ROUNDS && stopped == 0 )) || break
+  round=$((round+1)); rid="$RID-round-$round"; in="$L/round-$round.md"
+  { echo "$n items in work/verdicts.json are still marked not reached:"; echo
+    echo "$left" | tr '\n' ' '; echo; echo
+    echo "Continue grading them, as the attached grading instruction says, and update work/verdicts.json."
+    echo "Answer only when every item has a verdict you reached by trying it."; } > "$in"
+done
 if [[ -f "$ROOM/work/verdicts.json" ]]; then
   cp "$ROOM/work/verdicts.json" "$L/verdicts.json"; cp "$ROOM/work/verdicts.json" "$EV/verdicts.json"
   [[ -f "$ROOM/work/surprises.json" ]] && cp "$ROOM/work/surprises.json" "$L/surprises.json"
