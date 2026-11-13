@@ -12,7 +12,7 @@
 #                              when its model equals the model= of the builder's last launch.txt
 #                              (a launch.txt without model= ran host.ts's default, gpt-6.1-sol)
 #   LOYLY_GRADER_PI_SETTINGS   pi settings selecting the tools (default ../config/pi.grader.settings.json)
-#   LOYLY_VM_MEMORY, LOYLY_VM_CPUS  the VM's size (vm-daemon.ts); unset: Gondolin's 1 GB, 2 CPUs
+#   LOYLY_VM_MEMORY, LOYLY_VM_CPUS  the VM's size; unset: 16G, 10 CPUs (vm-daemon.ts)
 #   LOYLY_GRADER_ROUNDS        rounds at most (default 6). A model may answer while items are still
 #                              unreached; then the same session (same store) gets one more input,
 #                              round-N, that names only the ids whose evidence in work/verdicts.json
@@ -50,7 +50,7 @@ sha() { [[ -f "$1" ]] && shasum -a 256 "$1" | cut -d' ' -f1 || echo missing; }
   echo "grader_image=$GONDOLIN_GUEST_DIR"; echo "image_manifest_sha256=$(sha "$GONDOLIN_GUEST_DIR/manifest.json")"
   echo "pi_settings=$PI_SETTINGS"; echo "pi_settings_sha256=$(sha "$PI_SETTINGS")"
   echo "vm_policy=$HOST/policy.ts"; echo "vm_policy_sha256=$(sha "$HOST/policy.ts")"
-  echo "vm_memory=${LOYLY_VM_MEMORY:-}"; echo "vm_cpus=${LOYLY_VM_CPUS:-}"
+  echo "vm_memory=${LOYLY_VM_MEMORY:-16G}"; echo "vm_cpus=${LOYLY_VM_CPUS:-10}"
   echo "model=$MODEL"; echo "builder_model=${bmodel:-}"
   [[ -f "$ROOM/.grading-room.txt" ]] && sed 's/^/grading_room./' "$ROOM/.grading-room.txt"
   echo "store=$STORE"; echo "request_id=$RID"; echo "wrapper_pid=$$"

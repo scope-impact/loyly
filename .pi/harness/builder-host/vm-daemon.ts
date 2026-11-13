@@ -32,17 +32,18 @@ const httpHooks: HttpHooks =
 				isRequestAllowed: (request) => allowed.has(new URL(request.url).hostname.toLowerCase()),
 			}).httpHooks;
 
-// The VM's size. Gondolin's defaults (1 GB, 2 CPUs) starved runner cycle 08's suite (a JVM per
-// test plus five stand-in contexts). Optional, from the environment, which pi-env passes through:
-//   LOYLY_VM_MEMORY  qemu syntax, a positive integer with an optional K/M/G/T suffix ("8G")
-//   LOYLY_VM_CPUS    a positive integer
-const vmMemory = process.env.LOYLY_VM_MEMORY?.trim() || undefined;
-const vmCpus = process.env.LOYLY_VM_CPUS?.trim() || undefined;
-if (vmMemory && !/^[1-9]\d*[KMGT]?$/i.test(vmMemory)) {
+// The VM's size: 16G and 10 CPUs unless the environment (which pi-env passes through) says
+// otherwise. Gondolin's defaults (1 GB, 2 CPUs) starved runner cycle 08's suite, and runner cycle
+// 11's suite (six JVMs per test) was CPU-bound at 8G/6; the host has 48 GB and 14 cores.
+//   LOYLY_VM_MEMORY  qemu syntax, a positive integer with an optional K/M/G/T suffix ("16G")
+//   LOYLY_VM_CPUS    a positive integer ("10")
+const vmMemory = process.env.LOYLY_VM_MEMORY?.trim() || "16G";
+const vmCpus = process.env.LOYLY_VM_CPUS?.trim() || "10";
+if (!/^[1-9]\d*[KMGT]?$/i.test(vmMemory)) {
 	process.stderr.write(`vm-daemon: LOYLY_VM_MEMORY=${vmMemory}: expected a positive integer with an optional K/M/G/T suffix\n`);
 	process.exit(2);
 }
-if (vmCpus && !/^[1-9]\d*$/.test(vmCpus)) {
+if (!/^[1-9]\d*$/.test(vmCpus)) {
 	process.stderr.write(`vm-daemon: LOYLY_VM_CPUS=${vmCpus}: expected a positive integer\n`);
 	process.exit(2);
 }
@@ -51,8 +52,8 @@ const vm = await VM.create({
 	httpHooks,
 	sessionLabel: `loyly-builder ${basename(room)}`,
 	vfs: { mounts: { [GUEST_WORKSPACE]: new RealFSProvider(room) } },
-	...(vmMemory ? { memory: vmMemory } : {}),
-	...(vmCpus ? { cpus: Number(vmCpus) } : {}),
+	memory: vmMemory,
+	cpus: Number(vmCpus),
 });
 
 let closing: Promise<void> | undefined;

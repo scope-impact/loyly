@@ -105,8 +105,8 @@ pi's GitHub Copilot OAuth refresh fails: the subscription has ended).
 toolchain (JDK 21, Clojure CLI, babashka, git, curl, bash); it has no Python, so a grader writes its
 stubs in shell or `bb`. The guest's home is a tmpfs, so the first start of the candidate and of each
 sibling context fetches its dependencies from Maven Central, Clojars and GitHub, all on the existing
-allow list: the egress policy is unchanged. Size the VM like the builder's, `LOYLY_VM_MEMORY=8G
-LOYLY_VM_CPUS=6`: a run starts a JVM per context.
+allow list: the egress policy is unchanged. The VM defaults to 16G and 10 CPUs, like the builder's
+(a run starts a JVM per context); set `LOYLY_VM_MEMORY` and `LOYLY_VM_CPUS` only to override them.
 
 `builder-host/host.ts` takes, all optional and unset for the builder as before: `LOYLY_PI_MODEL`
 (provider/modelId), `LOYLY_PI_PROMPT` (the line after the instruction), `LOYLY_ROOM_LABEL` (what the
@@ -122,7 +122,6 @@ also records `model=`, `steer_dir=` (`launch-N/steer/`), `wrapper_pid=` and `hos
 S=.pi/harness/.state
 .pi/harness/bin/grading-room.sh $S/grading/06-c9-pi/room 06 $S/rooms/06-c9-a2/harness-impl/06-cycle-runner 4178d65
 GRADER_EVIDENCE_DIR=$S/grading/06-c9-pi LOYLY_BUILDER_EVIDENCE_DIR=$S/builders/06-c9 \
-LOYLY_VM_MEMORY=8G LOYLY_VM_CPUS=6 \
   .pi/harness/bin/grader.sh $S/grading/06-c9-pi/room .pi/harness/grader-instruction-06.md $S/assets/builder-clojure
 # for a real cycle, file it as before (score.sh claims the next cycle number):
 # harness/v2/score.sh 06 <room> --verdicts <evidence>/verdicts.json --by "grader.sh (gpt-6.1-terra)"
