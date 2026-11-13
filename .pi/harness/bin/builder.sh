@@ -17,6 +17,9 @@
 #   LOYLY_BUILDER_PI_SETTINGS a pi settings.json whose defaultTools selects the builder's tools
 #                             (default ../config/pi.builder.settings.json)
 #   PI_HARNESS_STATE_ROOT     the state root (default .pi/harness/.state beside this script)
+#   LOYLY_PI_MODEL            optional: provider/modelId (default openai-codex/gpt-6.1-sol, host.ts)
+# launch.txt also records model=, wrapper_pid= and host_pid= (for stop.sh), and steer_dir=, the
+# host's steer inbox (LOYLY_STEER_DIR, host.ts; written by steer.sh).
 # launch.txt records the pi settings file, the image's Gondolin manifest.json and the VM policy
 # (../builder-host/policy.ts), each with its sha256: what the builder was given and told.
 set -uo pipefail
@@ -55,14 +58,18 @@ mkdir -p "$(dirname "$STORE")"
   echo "pi_settings=$PI_SETTINGS"; echo "pi_settings_sha256=$(sha "$PI_SETTINGS")"
   echo "vm_policy=$HOST/policy.ts"; echo "vm_policy_sha256=$(sha "$HOST/policy.ts")"
   echo "session_id=$SID"; echo "store=$STORE"; echo "request_id=$RID"
+  echo "model=${LOYLY_PI_MODEL:-openai-codex/gpt-6.1-sol}"; echo "steer_dir=$L/steer"; echo "wrapper_pid=$$"
   echo "start=$(date -u +%FT%TZ)"; echo "cwd_before=$(pwd)"; } > "$L/launch.txt"
 cp "$INSTR" "$L/instruction-as-handed.md"
+mkdir -p "$L/steer"
+export LOYLY_STEER_DIR="$L/steer"
 cd "$ROOM" || exit 2
 set -x
 node "$HOST/host.ts" "$ROOM" "$INSTR" "$STORE" "$RID" "$PI_SETTINGS" \
   < /dev/null > "$L/pi.stdout" 2> "$L/pi.stderr" &
 pid=$!
 set +x
+echo "host_pid=$pid" >> "$L/launch.txt"
 # SIGTERM to the wrapper reaches the host, which aborts the run and closes the store.
 trap 'kill -TERM "$pid" 2>/dev/null' TERM INT
 wait "$pid"; rc=$?

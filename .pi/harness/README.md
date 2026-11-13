@@ -75,3 +75,50 @@ builder host's VM reaches only the package registries, GitHub hosts and Alpine m
 1.12.6.1673, babashka 1.13.226 and git, all in `/usr/bin`, because a Gondolin guest keeps none
 of the image's `ENV` (its `PATH` is `/usr/sbin:/usr/bin:/sbin:/bin`, and `/root` is a tmpfs).
 Java trusts Gondolin's TLS proxy through `java-cacerts`, regenerated when the guest boots.
+
+## The grader command and the supervisor's tools
+
+Added 2026-11-13 (provided tools, hand-written like `bin/builder.sh`; never regenerated; the
+decision is recorded in `../spec/decisions.md` by the operator). Grading moves from a Claude
+subagent into a pi-durable session in a Gondolin VM, and the operator's Claude Code session (or a
+Claude subagent it starts) supervises builders and graders with three small scripts
+([`supervisor/README.md`](supervisor/README.md)).
+
+| Command | What it does |
+|---|---|
+| `bin/grading-room.sh <out-room> <NN> <candidate-dir> <spec-commit> [<contexts-dir>]` | Builds a fresh grading room: from git at `<spec-commit>` (never the working tree a spec round may be editing) the slice's spec folder, the other contexts' `seam.md` and `event-model/`, `decisions.md` and the gate's store check (`harness/v2/event_store_check.clj`, `event-store-check.sh`, `deps.edn`) as reference; copies of the gated candidate (`candidate/`) and of the promoted sibling contexts (`contexts/NN-*`, default `harness-impl/`), without host build caches; `checklist.txt`; an empty `work/`. Nothing else: no builders, prompts, prior verdicts, `harness/v2/cycles`, scores or other candidates. |
+| `bin/grader.sh <grading-room> <instruction-file> <image-dir>` | The grader: `builder-host/host.ts` with the grader's model, prompt line ("Grade it now, as the attached instruction says.") and no steer inbox; tools as `config/pi.grader.settings.json` selects (the builder's seven); the VM mounts only the grading room and has the builder's egress allow list (unchanged). Evidence: `$GRADER_EVIDENCE_DIR/launch-N/{launch.txt,instruction-as-handed.md,session.sqlite,pi.stdout,pi.stderr,verdicts.json}`; `work/verdicts.json` is also copied to `$GRADER_EVIDENCE_DIR/verdicts.json`, the file `harness/v2/score.sh` files. Exit 0 answered, 1 unanswered, 2 setup error or refused, 3 answered without `work/verdicts.json`. |
+| `grader-instruction-06.md` | The grading instruction for slice 06 (the cycle runner): one verdict per `@item-06-NNN`, driven over the seam only; the must-not-read list; `@item-06-059` from the runner's own store; `@item-06-058` with real 30 s / 60 s timings; `[{"id","verdict","evidence"}]` for every item in order, unreached = fail. |
+| `bin/watch.sh`, `bin/steer.sh`, `bin/stop.sh` | The supervisor's tools: a read-only digest of a session, a steer into a running builder, a stop by recorded pid ([`supervisor/README.md`](supervisor/README.md)). |
+
+**The grader's model.** `LOYLY_GRADER_MODEL`, default `openai-codex/gpt-6.1-terra`: Codex through
+pi's existing `openai-codex` login, the builder's login, but a different model from the builder's
+`gpt-6.1-sol`. `launch.txt` records `model=`. Given `LOYLY_BUILDER_EVIDENCE_DIR` (the cycle's
+builder evidence), `grader.sh` refuses to start when its model equals the `model=` of the builder's
+last `launch.txt` (one without `model=` ran `host.ts`'s default, `gpt-6.1-sol`), so the two never
+silently match. Known trade-off: grader and builder are the same model family (OpenAI Codex); a
+Claude model (`github-copilot/claude-*`) can be swapped in when that login works (on 2026-11-13
+pi's GitHub Copilot OAuth refresh fails: the subscription has ended).
+
+**What the candidate needs in the VM.** The builder's `assets/builder-clojure` image carries the
+toolchain (JDK 21, Clojure CLI, babashka, git, curl, bash); it has no Python, so a grader writes its
+stubs in shell or `bb`. The guest's home is a tmpfs, so the first start of the candidate and of each
+sibling context fetches its dependencies from Maven Central, Clojars and GitHub, all on the existing
+allow list: the egress policy is unchanged. Size the VM like the builder's, `LOYLY_VM_MEMORY=8G
+LOYLY_VM_CPUS=6`: a run starts a JVM per context.
+
+`builder-host/host.ts` takes, all optional and unset for the builder as before: `LOYLY_PI_MODEL`
+(provider/modelId), `LOYLY_PI_PROMPT` (the line after the instruction), `LOYLY_ROOM_LABEL` (what the
+environment prompt calls the room) and `LOYLY_STEER_DIR` (the steer inbox, below). `builder.sh` now
+also records `model=`, `steer_dir=` (`launch-N/steer/`), `wrapper_pid=` and `host_pid=` in
+`launch.txt`.
+
+```bash
+S=.pi/harness/.state
+.pi/harness/bin/grading-room.sh $S/grading/06-c9-pi/room 06 $S/rooms/06-c9-a2/harness-impl/06-cycle-runner 4178d65
+GRADER_EVIDENCE_DIR=$S/grading/06-c9-pi LOYLY_BUILDER_EVIDENCE_DIR=$S/builders/06-c9 \
+LOYLY_VM_MEMORY=8G LOYLY_VM_CPUS=6 \
+  .pi/harness/bin/grader.sh $S/grading/06-c9-pi/room .pi/harness/grader-instruction-06.md $S/assets/builder-clojure
+# for a real cycle, file it as before (score.sh claims the next cycle number):
+# harness/v2/score.sh 06 <room> --verdicts <evidence>/verdicts.json --by "grader.sh (gpt-6.1-terra)"
+```

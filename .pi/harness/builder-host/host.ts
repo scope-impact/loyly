@@ -8,12 +8,22 @@
 // `defaultTools` key (pi's own format and resolution); the VM's limits are policy.ts, and its image
 // is GONDOLIN_GUEST_DIR (Gondolin's manifest.json). The builder's prompt is generated from those three.
 //
+// The same host runs the grader (../bin/grader.sh), with these optional variables (unset: the builder's):
+//   LOYLY_PI_MODEL   provider/modelId of the session's model (default openai-codex/gpt-6.1-sol)
+//   LOYLY_PI_PROMPT  the line appended to the instruction (default PROMPT below)
+//   LOYLY_ROOM_LABEL what the prompt calls the mounted room (default "the builder room")
+//   LOYLY_STEER_DIR  a steer inbox: every <name>.md file that appears there while the run works is
+//                    submitted to the running session as a steer (pi-durable's `whenBusy: "steer"`,
+//                    `whenIdle: "reject"`, request id `steer-<name>`, so a rerun never steers twice),
+//                    and answered with <name>.steered (the submission id) or <name>.refused (why).
+//                    pi-durable allows one writer per store, so a steer goes through this process.
+//
 // ORC owns the workflow (attempts, retries, timeouts); this host owns only the session. Rerunning it
 // with the same store and request id reopens the session, resumes unfinished work, and finds the
 // existing submission instead of submitting again. Exit: 0 answered, 1 unanswered (reason printed;
 // SIGTERM aborts the run, which ends unanswered with reason aborted), 2 setup error.
 import { basename, dirname, join, resolve } from "node:path";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { Models } from "@earendil-works/pi-ai";
@@ -28,6 +38,14 @@ const context = BACKGROUND_CONTEXT;
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const PROMPT = "Build it now, as the attached instruction says.";
 export const MODEL = { provider: "openai-codex", modelId: "gpt-6.1-sol" } as const;
+
+/** The session's model: LOYLY_PI_MODEL (provider/modelId), or MODEL. */
+export function modelFromEnv(value = process.env.LOYLY_PI_MODEL?.trim()): { provider: string; modelId: string } {
+	if (!value) return MODEL;
+	const slash = value.indexOf("/");
+	if (slash <= 0 || slash === value.length - 1) throw new Error(`LOYLY_PI_MODEL=${value}: expected provider/modelId`);
+	return { provider: value.slice(0, slash), modelId: value.slice(slash + 1) };
+}
 
 /** The builder room as an ExecutionEnv inside a Gondolin VM; the VM starts on first use. */
 export function gondolinEnv(room: string, onLog?: (text: string) => void) {
@@ -75,7 +93,7 @@ function installCommand(): string | undefined {
 }
 
 /** The builder's environment as a prompt section, generated from what the VM and tools enforce. */
-export function environmentText(tools: readonly string[]): string {
+export function environmentText(tools: readonly string[], roomLabel = "the builder room"): string {
 	const network =
 		ALLOWED_HOSTS.length === 0
 			? "Network: none. Every outbound connection from the VM is refused; nothing can be downloaded, so work with what the image already has."
@@ -83,7 +101,7 @@ export function environmentText(tools: readonly string[]): string {
 	return [
 		`You run as ${GUEST_USER} (superuser) in ${imageLine()}.`,
 		network,
-		`Your working directory is ${GUEST_WORKSPACE}: the builder room, read-write, and the only host directory the VM can see.`,
+		`Your working directory is ${GUEST_WORKSPACE}: ${roomLabel}, read-write, and the only host directory the VM can see.`,
 		"The image already carries the toolchain; use it first.",
 		...(installCommand()
 			? [
@@ -103,6 +121,12 @@ export interface BuilderRun {
 	model?: { provider: string; modelId: string };
 	/** pi tool names, as `toolsFromPiSettings()` resolves them. */
 	tools: readonly string[];
+	/** The line appended to the instruction (default PROMPT). */
+	prompt?: string;
+	/** What the environment prompt calls the room (default "the builder room"). */
+	roomLabel?: string;
+	/** A steer inbox directory (LOYLY_STEER_DIR), polled while the run works. */
+	steerDir?: string;
 	log?: (text: string) => void;
 }
 
@@ -111,7 +135,7 @@ export async function runBuilder(run: BuilderRun) {
 	const log = run.log ?? ((text: string) => process.stderr.write(`${text}\n`));
 	const { env, close: closeEnv } = gondolinEnv(run.room, (text) => log(`[pi-env] ${text.trimEnd()}`));
 	const registry = createRegistry();
-	const prompt = environmentText(run.tools);
+	const prompt = environmentText(run.tools, run.roomLabel);
 	registry.install(
 		defineExtension({
 			name: "loyly-builder",
@@ -133,15 +157,26 @@ export async function runBuilder(run: BuilderRun) {
 		root?.abort(context).catch((error) => log(`abort: ${String(error)}`));
 	};
 	process.once("SIGTERM", onTerm);
+	let steering: ReturnType<typeof setInterval> | undefined;
 	try {
 		harness.resume();
 		root = await harness.root(context, {
 			agent: { model: run.model ?? MODEL, thinkingLevel: "high", cwd: GUEST_WORKSPACE },
 		});
 		if (terminated) throw new Error("SIGTERM before the submission; nothing submitted");
-		const content = `${readFileSync(run.instruction, "utf8")}\n\n${PROMPT}`;
+		const content = `${readFileSync(run.instruction, "utf8")}\n\n${run.prompt ?? PROMPT}`;
 		const submission = await root.submit({ type: "input", content, requestId: run.requestId }, context);
 		log(`submission ${submission.id} request ${run.requestId}`);
+		if (run.steerDir) {
+			const dir = run.steerDir;
+			const target = root;
+			let busy = false;
+			steering = setInterval(() => {
+				if (busy) return;
+				busy = true;
+				steerOnce(dir, target, log).finally(() => (busy = false));
+			}, 5000);
+		}
 		const settled = await submission.wait(context);
 		let answer: string | undefined;
 		if (settled.status === "done" && settled.type === "input") {
@@ -154,9 +189,40 @@ export async function runBuilder(run: BuilderRun) {
 		}
 		return { settled, answer };
 	} finally {
+		if (steering) clearInterval(steering);
 		process.off("SIGTERM", onTerm);
 		await harness.close(context);
 		closeEnv();
+	}
+}
+
+/** Submit each new <name>.md of the steer inbox as a steer of the running work; answer it with .steered or .refused. */
+async function steerOnce(
+	dir: string,
+	root: { submit: (input: { type: "input"; content: string; requestId: string; whenBusy: "steer"; whenIdle: "reject" }, ctx: typeof context) => Promise<{ id: number | string }> },
+	log: (text: string) => void,
+) {
+	let names: string[];
+	try {
+		names = readdirSync(dir).filter((f) => f.endsWith(".md")).sort();
+	} catch {
+		return;
+	}
+	for (const file of names) {
+		const name = file.slice(0, -3);
+		if (!/^[A-Za-z0-9._-]+$/.test(name)) continue;
+		const base = join(dir, name);
+		if (existsSync(`${base}.steered`) || existsSync(`${base}.refused`)) continue;
+		try {
+			const content = readFileSync(join(dir, file), "utf8");
+			const steer = await root.submit({ type: "input", content, requestId: `steer-${name}`, whenBusy: "steer", whenIdle: "reject" }, context);
+			writeFileSync(`${base}.steered`, `submission ${steer.id} request steer-${name}\n`);
+			log(`steer ${name}: submission ${steer.id}`);
+		} catch (error) {
+			const why = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+			writeFileSync(`${base}.refused`, `${why}\n`);
+			log(`steer ${name} refused: ${why}`);
+		}
 	}
 }
 
@@ -173,22 +239,33 @@ async function main(argv: string[]) {
 		process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
 		return 2;
 	}
-	process.stderr.write(`environment prompt:\n${environmentText(tools)}\n`);
+	let model: { provider: string; modelId: string };
+	try {
+		model = modelFromEnv();
+	} catch (error) {
+		process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+		return 2;
+	}
+	const roomLabel = process.env.LOYLY_ROOM_LABEL?.trim() || undefined;
+	const prompt = process.env.LOYLY_PI_PROMPT?.trim() || undefined;
+	const steerDir = process.env.LOYLY_STEER_DIR?.trim() || undefined;
+	process.stderr.write(`model: ${model.provider}/${model.modelId}\n`);
+	process.stderr.write(`environment prompt:\n${environmentText(tools, roomLabel)}\n`);
 	// pi's own model runtime over pi's own auth store (~/.pi/agent/auth.json, or PI_CODING_AGENT_DIR):
 	// the existing openai-codex login, read the way pi reads it. Nothing here logs in or writes a credential;
 	// pi's store itself persists a rotated OAuth token when the access token needs a refresh, as pi does.
 	const { ModelRuntime } = await import("@earendil-works/pi-coding-agent");
 	const models = await ModelRuntime.create({ refreshOnCreate: false });
-	if (!models.getModel(MODEL.provider, MODEL.modelId)) {
-		process.stderr.write(`model not found: ${MODEL.provider}/${MODEL.modelId}\n`);
+	if (!models.getModel(model.provider, model.modelId)) {
+		process.stderr.write(`model not found: ${model.provider}/${model.modelId}\n`);
 		return 2;
 	}
-	if (!(await models.listCredentials()).some((c) => c.providerId === MODEL.provider)) {
-		process.stderr.write(`no ${MODEL.provider} login in pi's auth store; log in with pi first (this host never logs in)\n`);
+	if (!(await models.listCredentials()).some((c) => c.providerId === model.provider)) {
+		process.stderr.write(`no ${model.provider} login in pi's auth store; log in with pi first (this host never logs in)\n`);
 		return 2;
 	}
 	try {
-		const { settled, answer } = await runBuilder({ room, instruction, store, requestId, models, tools });
+		const { settled, answer } = await runBuilder({ room, instruction, store, requestId, models, model, tools, prompt, roomLabel, steerDir });
 		if (answer) process.stdout.write(`${answer}\n`);
 		if (settled.status === "done") {
 			process.stderr.write("status=done\n");
