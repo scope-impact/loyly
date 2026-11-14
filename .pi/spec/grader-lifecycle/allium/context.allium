@@ -9,8 +9,9 @@
 -- Aggregates (one file each; .pi/spec/grader-lifecycle/event-model/):
 --   InstrumentGolden  instrument-golden.allium  one per instrument scenario
 --
--- Handoffs produced: InstrumentGoldenWritten and InstrumentGoldenMoved, to the
--- regeneration cycle, whose harness self-check reproduces the current goldens.
+-- Produced: InstrumentGoldenWritten and InstrumentGoldenMoved, which the regeneration
+-- cycle folds from the one store: its harness self-check reproduces the current goldens
+-- (decisions.md, "Spec round 18").
 --
 -- Legacy: harness/oracle/ and README "The goldens, and the three reasons one can change".
 

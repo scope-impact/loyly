@@ -9,7 +9,8 @@
 --   Slice  slice.allium  one per slice's spec file: its stamped items and the next free
 --                        number, from a ledger that never goes down
 --
--- Handoff produced: ScenarioStamped, to measurement (slice.allium).
+-- Produced: ScenarioStamped (slice.allium), which measurement folds from the one store
+-- (decisions.md, "Spec round 18").
 --
 -- Legacy: stamp_item_ids.clj and the reading gen_checklist.clj shares with it
 -- (archive/legacy-harness/spec.feature, @harness-001 to @harness-022, @harness-049).

@@ -2,12 +2,12 @@
 
 A from-scratch specification of the Pi harness, built in rounds.
 
-Today (2026-11-13): six contexts are accepted, each a slice under `../plan/`, 212 stamped items
+Today (2026-11-14): six contexts are accepted, each a slice under `../plan/`, 210 stamped items
 (specification 15, measurement 43, grader-lifecycle 11, regeneration-cycle 76,
-cycle-preparation 4, cycle-runner 63; the recorded checklist golden agrees). Since the switch
-the new harness runs the regeneration cycles: the slice-06 cycle runner driving the five
-contexts of slices 01-05, with the legacy harness as the reference (`decisions.md`, "The switch
-to the new harness"). Every decision is in `decisions.md`, in
+cycle-preparation 4, cycle-runner 62). Since spec round 18 the six contexts are one candidate,
+the ORC tree `cycle-runner/cycle.v1` on one store; until it runs, the legacy shell harness drives
+cycles and builds it, in one cycle with all six specs. The contexts 01 to 05 are built only
+inside slice 06, never on their own. Every decision is in `decisions.md`, in
 order; where two disagree the later one wins.
 
 | Round | What | Where |
@@ -29,6 +29,7 @@ order; where two disagree the later one wins.
 | Spec rounds 1 to 6 | Fixes and acceptances after the cycles of slices 01 to 05: 21 new minimum items (round 2), 4 (round 3), wording and readings (rounds 4, 5; round 5: the assembly is a relay of each producer's handoffs, `harness/v2/assemble.sh`), 50 balance items (round 6) | `decisions.md` ("Spec round 1" to "Spec round 6") |
 | Spec rounds 7c, 7d | The shadow runs' gate gaps: the probe gets the served URL (`@item-06-036`), the gate room writable by the candidate's own run and SKIP lines read whole (`@item-06-037`, `@item-06-038`) | `decisions.md` ("Spec round 7c", "Spec round 7d"), `cycle-runner/seam.md` |
 | The switch | Not a spec round: the new harness runs the regeneration cycles after shadow runs 4 and 5 agreed with the legacy harness at every stage; legacy stays the reference; what stays open | `decisions.md` ("The switch to the new harness") |
+| Spec round 18 | One tree on one store: slice 06 rewritten as `cycle-runner/cycle.v1` (the builder a pi-durable session, the judge grading each item, resume, OTLP export), the relay, hand-in methods and handoff contracts removed from 01 to 05, and 01 to 05 built only inside slice 06; 212 → 210 items | `decisions.md` ("Spec round 18"), `cycle-runner/` |
 | | Every decision of the product owner, R1 to the switch | `decisions.md` |
 
 ## Contexts in R1
@@ -44,7 +45,7 @@ regeneration-cycle  HarnessSelfCheck, CleanRoom,
 measurement         Checklist, CycleMeasurement,
                     Scoreboard                 5 commands 6 events  policy report-scoreboard-once
 
-handoffs:
+events folded by another context, from the one store (spec round 18; before it, handoffs):
 specification --scenario-stamped--> measurement
 cycle-preparation --source-cut-pinned--> measurement, regeneration-cycle
 grader-lifecycle --instrument-golden-written/moved--> regeneration-cycle
@@ -54,7 +55,7 @@ measurement --measurement-filed, score-stage-failed, scoreboard-reported--> rege
 
 Each context folder has `README.md`, `domain-design.md` (Files table, decisions, which storm
 event became which block or refusal, the refusals R2 must write, open questions) and
-`event-model/` (one fragment per aggregate, `area.edn`, `handoffs.edn`).
+`event-model/` (one fragment per aggregate, and `area.edn`; `handoffs.edn` until spec round 18).
 
 The 31 legacy storm events became (after R2 and `decisions.md` b):
 

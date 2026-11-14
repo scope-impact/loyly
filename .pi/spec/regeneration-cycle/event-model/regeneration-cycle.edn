@@ -63,7 +63,7 @@
              [:concluded-at inst?]]}}
  :read-models
   {:regeneration-cycle/regeneration-cycles
-   {:description "Each cycle: its cut, status and stage, its harness digest, clean room, current candidate and gate attempts, and its conclusion. Folded from its stage facts and the measurement's handoffs; a measurement filed or a score stage failed is folded only into a cycle running at the score stage, a scoreboard reported only into a running cycle whose measurement is filed (spec round 3)."
+   {:description "Each cycle: its cut, status and stage, its harness digest, clean room, current candidate and gate attempts, and its conclusion. Folded from its stage facts and Measurement's events; a measurement filed or a score stage failed is folded only into a cycle running at the score stage, a scoreboard reported only into a running cycle whose measurement is filed (spec round 3)."
     :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :entity :name "RegenerationCycle"}]
     :consumes #{:regeneration-cycle/harness-self-check-passed :regeneration-cycle/harness-self-check-failed
                 :regeneration-cycle/clean-room-proved :regeneration-cycle/candidate-regenerated

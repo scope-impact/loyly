@@ -7,7 +7,7 @@
 -- before every gate attempt, as the legacy harness does (decisions.md H24; legacy fence.sh
 -- and verify.sh both call check.sh --local first, @harness-065).
 --
--- The two handoffs it reads arrive here: the pinned cuts (a cycle fences only a pinned
+-- The two other contexts' events it folds, from the one store, arrive here: the pinned cuts (a cycle fences only a pinned
 -- cut) and the instrument goldens (the self-check must reproduce the current ones).
 
 use "context.allium" as ctx
@@ -197,16 +197,16 @@ surface HarnessSelfCheckRecording {
         -- @harness-065; decisions.md H24; R2 question 4).
 }
 
--- Cycle preparation's handoff, as this context hears it.
-surface CyclePreparationHandoffs {
+-- Cycle preparation's event, as this context hears it from the one store.
+surface CyclePreparationEvents {
     facing preparation: CyclePreparationContext
 
     provides:
         SourceCutPinned(preparation, cut_id, commit, tree_digest)
 }
 
--- Grader lifecycle's handoffs, as this context hears them.
-surface GraderLifecycleHandoffs {
+-- Grader lifecycle's events, as this context hears them from the one store.
+surface GraderLifecycleEvents {
     facing lifecycle: GraderLifecycleContext
 
     provides:

@@ -10,8 +10,8 @@
 -- Aggregates (one file each; .pi/spec/cycle-preparation/event-model/):
 --   SourceCut  source-cut.allium  one per cut; immutable once pinned
 --
--- Handoff produced: SourceCutPinned, to measurement and the regeneration cycle
--- (source-cut.allium).
+-- Produced: SourceCutPinned (source-cut.allium), which measurement and the regeneration
+-- cycle fold from the one store (decisions.md, "Spec round 18").
 
 ------------------------------------------------------------
 -- Contracts

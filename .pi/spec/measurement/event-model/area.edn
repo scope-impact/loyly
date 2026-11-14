@@ -1,12 +1,13 @@
 ;; .pi/spec/measurement/event-model/area.edn
 ;; Measurement (instrument: score and scoreboard): its screen and its flows. Each aggregate's
-;; blocks are in its own fragment (checklist.edn, cycle-measurement.edn, scoreboard.edn,
-;; handoffs.edn). The instrument reports to a person, once a cycle, and never into the build
+;; blocks are in its own fragment (checklist.edn, cycle-measurement.edn, scoreboard.edn).
+;; The instrument reports to a person, once a cycle, and never into the build
 ;; loop: no block here produces a command of the Regeneration cycle.
 ;;
-;; Handoffs consumed: specification/scenario-stamped, cycle-preparation/source-cut-pinned,
-;; regeneration-cycle/gate-attempt-passed. Produced: measurement-filed, score-stage-failed,
-;; scoreboard-reported (handoffs.edn), which only conclude the cycle.
+;; Other contexts' events it folds, from the one store (spec round 18):
+;; specification/scenario-stamped, cycle-preparation/source-cut-pinned,
+;; regeneration-cycle/gate-attempt-passed. Its measurement-filed, score-stage-failed and
+;; scoreboard-reported only conclude the cycle, in the Regeneration cycle.
 ;; Allium: ../allium/ (surfaces InstrumentDesk, MeasurementReceipt, ScoreboardReport).
 {:measurement
  {:description "Measurement (instrument: score and scoreboard): the checklist that sets the denominator, one filed measurement per cycle with unreached items failed and counted, and the scoreboard to a person."
@@ -20,7 +21,7 @@
     :commands #{:measurement/derive-checklist}}}
   :flows
   {:measurement/stamping-to-checklist
-   {:description "A stamped scenario (handoff from Specification) becomes an item identity; the operator derives the checklist of a pinned cut (legacy: gen_checklist), refused if any scenario is unstamped or the checklist would be empty. Moved here from Specification's flow, which now ends at its own screen, so each context's model validates alone with the handoffs it consumes."
+   {:description "A stamped scenario (Specification's event, from the one store) becomes an item identity; the operator derives the checklist of a pinned cut (legacy: gen_checklist), refused if any scenario is unstamped or the checklist would be empty. Moved here from Specification's flow, which ends at its own screen."
     :grain/allium [{:spec ".pi/spec/measurement/allium/checklist.allium" :kind :rule :name "NoteItemIdentity"}
                    {:spec ".pi/spec/measurement/allium/checklist.allium" :kind :rule :name "DeriveChecklist"}]
     :steps [{:from [:event :specification/scenario-stamped] :to [:read-model :measurement/item-identities]}
@@ -30,7 +31,7 @@
             {:from [:read-model :measurement/checklists] :to [:query :measurement/checklist]}
             {:from [:query :measurement/checklist] :to [:screen :measurement/instrument-desk]}]}
    :measurement/scoring
-   {:description "A cycle the gate ratified (handoff from the Regeneration cycle) opens its measurement; the approved sealed grader files its item verdicts for the gated candidate, and ORC runtime files the one measurement, or records the score stage failed when the score was refused. The Regeneration cycle's own flow shows the same steps from its side; this one keeps them inside Measurement, so its model validates alone with the handoffs it consumes and each command of it runs as an ORC workflow of its own context (decisions.md, \"Slice 02\")."
+   {:description "A cycle the gate ratified (the Regeneration cycle's event, from the one store) opens its measurement; the approved sealed grader files its item verdicts for the gated candidate, and ORC runtime files the one measurement, or records the score stage failed when the score was refused. The Regeneration cycle's own flow shows the same steps from its side; in a run, each command is a leaf of cycle-runner/cycle.v1 on the one store (decisions.md, \"Spec round 18\")."
     :grain/allium [{:spec ".pi/spec/measurement/allium/cycle-measurement.allium" :kind :rule :name "OpenMeasurement"}
                    {:spec ".pi/spec/measurement/allium/cycle-measurement.allium" :kind :rule :name "FileItemVerdicts"}
                    {:spec ".pi/spec/measurement/allium/cycle-measurement.allium" :kind :rule :name "FileScore"}

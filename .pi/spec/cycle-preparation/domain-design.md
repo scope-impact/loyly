@@ -11,7 +11,7 @@ approve).
 |---|---|---|---|---|
 | Context | `event-model/area.edn` (screen `preparation`, flow `cut-to-fence`) | `allium/context.allium` (contract `ProjectRepository`, open questions) | none | |
 | Source cut | `event-model/source-cut.edn` | `allium/source-cut.allium` (rule `PinSourceCut`; surface `Preparation`) | **SourceCut** | the harness's event store; one per cut |
-| Handoffs produced | `event-model/handoffs.edn` (`source-cut-pinned`) | emitted by `PinSourceCut` | | consumed by Measurement and the Regeneration cycle |
+| Events other contexts fold | `event-model/source-cut.edn` (`source-cut-pinned`) | emitted by `PinSourceCut` | | folded by Measurement and the Regeneration cycle, from the one store (spec round 18) |
 
 ## Design decisions
 
@@ -32,7 +32,7 @@ approve).
 
 | Storm event | Became |
 |---|---|
-| ◆ Source cut pinned | event `cycle-preparation/source-cut-pinned` (handoff) |
+| ◆ Source cut pinned | event `cycle-preparation/source-cut-pinned` (folded by another context) |
 
 ## Refusals (the `requires`, numbered as in the Allium)
 

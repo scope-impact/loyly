@@ -11,7 +11,7 @@
 ;;      state ("Spec round 5" 1).
 ;;   2. The relay assembly ("Spec round 5" 1 and 2): each candidate on its own fresh store. One
 ;;      end-to-end story; after each command, every handoff is taken from the PRODUCER'S STORE
-;;      FILE (the events of its handoff types, event-model/handoffs.edn, within its tenant, in
+;;      FILE (the events of its handoff types, those a consumer's model names, within its tenant, in
 ;;      store order), not from command results, so a handoff a policy issues (Measurement's
 ;;      scoreboard-reported) travels like any other, and handed in UNCHANGED (its `type` the
 ;;      method, its other fields the params) to every consumer the event models name (a read
@@ -21,6 +21,12 @@
 ;;      filed ("Spec round 5" 3, option c).
 ;;
 ;; Exit 1 when a check fails. Every process it starts is stopped.
+;;
+;; Superseded by spec round 18 (.pi/spec/decisions.md, "Spec round 18"): the five contexts are one
+;; candidate on one store, with no relay, hand-in method or handoff contract. Kept to replay the
+;; relay-era builds (01 to 05 with their hand-in methods); its handoff types are now read from the
+;; producers' own fragments (an event of the producer a consumer's model names), since every
+;; event-model/handoffs.edn is gone.
 (ns assemble
   (:require [babashka.fs :as fs]
             [babashka.process :as p]
@@ -54,13 +60,6 @@
         opt? (fn [f] (and (map? (second f)) (:optional (second f))))]
     {:required (set (map k (remove opt? fields))) :all (set (map k fields))}))
 
-(def handoffs   ; "area/event" -> {:producer ctx :required #{} :all #{}}
-  (into {} (for [ctx (vals contexts)
-                 [t {:keys [schema]}] (get-in (edn/read-string (slurp (str (fs/path root ".pi/spec" ctx "event-model/handoffs.edn"))))
-                                              [(keyword ctx) :events])
-                 :let [t (str (namespace t) "/" (name t))]]
-             [t (assoc (schema-keys schema) :producer ctx)])))
-
 (def consumers  ; "area/event" -> [ctx ...], from the consumers' own event models
   (let [pairs (for [ctx (vals contexts)
                     :let [m (model-of ctx)]
@@ -69,6 +68,13 @@
                     :when (not= (namespace t) ctx)]
                 [(str (namespace t) "/" (name t)) ctx])]
     (reduce (fn [acc [t ctx]] (update acc t (fnil #(vec (distinct (conj % ctx))) []))) {} (sort pairs))))
+
+(def handoffs   ; "area/event" -> {:producer ctx :required #{} :all #{}}: a producer's event another context's model names
+  (into {} (for [ctx (vals contexts)
+                 [t {:keys [schema]}] (:events (model-of ctx))
+                 :let [t (str (namespace t) "/" (name t))]
+                 :when (contains? consumers t)]
+             [t (assoc (schema-keys schema) :producer ctx)])))
 
 ;; ---------------------------------------------------------------- the checks
 (def checks (atom []))

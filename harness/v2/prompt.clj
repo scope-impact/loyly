@@ -48,13 +48,12 @@
 
 (def slice-words
   "What differs between the slices, in the builder's words: :allium, what the context's Allium
-  holds beyond its rules, refusals and invariants; :product, the real work it does; :handoffs,
-  the producers whose handoff contracts it consumes (each .pi/spec/<producer>/event-model/
-  handoffs.edn, the only file of a producer in the room), with how they reach the candidate;
-  :inputs, what the candidate is handed besides its store, a sentence of the seam's; :drives,
-  for a context that drives the others through their seams (slice 06), how those contexts reach
-  it and how its own tests stand them in; :identity, what its identity probe
-  (harness/v2/probe-NN.sh) asks. A slice with no entry has no probe, and no prompt."
+  holds beyond its rules, refusals and invariants; :product, the real work it does; :inputs,
+  what the candidate is handed besides its store, a sentence of the seam's; :contains, for the
+  one candidate that holds the five other contexts (slice 06, spec round 18), how they are in it;
+  :identity, what its identity probe (harness/v2/probe-NN.sh) asks. A slice with no entry has
+  no probe, and no prompt. There is one event model, every context's event-model/*.edn, and no
+  handoff contract (.pi/spec/decisions.md, Spec round 18)."
   {"01" {:allium "the contract `ScenarioReading`"
          :product (str "it reads the spec file it is given with the one "
                        "reading of Gherkin the contract `ScenarioReading` describes, refuses what the Allium refuses, records "
@@ -63,12 +62,11 @@
          :identity (str "the product must stamp a fresh spec file's unstamped scenario through "
                         "`specification/stamp-slice` and report it through `specification/stamped-items`")}
    "02" {:allium "the contracts `Scoring`, `RateFormat` and `Comparison`"
-         :product (str "it takes the handoffs other contexts hand it, derives a pinned cut's checklist from the "
+         :product (str "it folds the other contexts' events it reads from the one store, derives a pinned cut's checklist from the "
                        "reading it is offered, files the approved grader's item verdicts for the gated candidate, files "
                        "the one measurement of every checklist item (an unreached item fails and stays counted), reports "
                        "each measured cycle's scoreboard once through its policy, refuses what the Allium refuses, records "
                        "its facts as Grain events, and answers its queries from its read models.")
-         :handoffs ["specification" "cycle-preparation" "regeneration-cycle"]
          :identity (str "the product must take a stamped scenario and a pinned cut handed in through "
                         "`specification/scenario-stamped` and `cycle-preparation/source-cut-pinned`, derive that cut's "
                         "checklist through `measurement/derive-checklist`, refuse one for a cut never pinned, and report "
@@ -93,7 +91,6 @@
                        "clock, records its facts as Grain events, and answers its queries from its read models. It acts "
                        "on nothing outside its store: it builds no room, runs no git, runs no self-check and boots "
                        "nothing; those results reach it as command params.")
-         :handoffs ["cycle-preparation" "grader-lifecycle" "measurement"]
          :inputs (str "It is also handed the repository's scoring tools, the JSON array that `LOYLY_SCORING_TOOL_PATHS` "
                       "holds, read at start.")
          :identity (str "the product must take a pinned cut and an instrument golden handed in through "
@@ -106,63 +103,60 @@
          :product (str "it pins each source cut at a commit of the project repository, checking the commit and its "
                        "tree digest against the repository's commits it is handed (the contract `ProjectRepository`), "
                        "never pins a cut identity twice, refuses what the Allium refuses, records each pinned cut as "
-                       "the event `cycle-preparation/source-cut-pinned`, the handoff it produces for Measurement and "
-                       "the Regeneration cycle (its contract is `.pi/spec/cycle-preparation/event-model/handoffs.edn`), "
-                       "and answers its query from its read model. It runs no git and computes no digest.")
+                       "the event `cycle-preparation/source-cut-pinned`, which Measurement and the Regeneration cycle "
+                       "fold from the one store, and answers its query from its read model. It runs no git and computes no digest.")
          :inputs (str "It is also handed the project repository's commits, a JSON file that `LOYLY_PROJECT_COMMITS` "
                       "names (each commit to its tree digest), read at every command, never only at boot.")
          :identity (str "the product, handed two commits through `LOYLY_PROJECT_COMMITS`, must pin a source cut at "
                         "one of them through `cycle-preparation/pin-source-cut`, refuse to pin that cut again at the "
                         "other, and report the one cut through `cycle-preparation/source-cuts`")}
-   "06" {:allium (str "the contracts `ContextSeams`, `ProjectRepository`, `BuilderLaunch` and `GateOnTheHost`, the "
-                      "value `RunBudget` and the config")
-         :product (str "it performs one regeneration cycle's effects in the real world, in the order `seam.md` lists "
-                       "them (it reads the project repository at the cut with git, stamps a copy of each plan spec file "
-                       "with its item tags removed, pins the cut, derives the checklist, runs the harness self-check, "
-                       "builds and probes the clean room, launches a fresh builder and waits for it, installs a copy of "
-                       "the candidate in a gate room and gates it on the host, repairs within the budget, and files the "
-                       "verdicts it is handed and the score), records each effect's result into the context that owns "
-                       "it through that context's seam, relays every handoff from its producer's Grain store to every "
-                       "consumer in the producer's order, concludes the run as its cycle concludes, halts loudly when "
-                       "an effect cannot be performed, records its own facts as Grain events, and answers its queries "
-                       "from its read models. It owns no rule of the five contexts: a refusal it shows is the context's, "
-                       "as heard. It never grades: the verdicts are handed in.")
-         :drives (str "The five contexts it records into (specification, cycle-preparation, grader-lifecycle, "
-                      "regeneration-cycle and measurement) are not in the room and are not built here: no candidate of "
-                      "theirs is in the room, and you must not look for one. Their contracts are: each "
-                      "`.pi/spec/<context>/seam.md` and `.pi/spec/<context>/event-model/*.edn`, the only files of those "
-                      "contexts in the room (their `handoffs.edn` names the handoffs you relay). The product reaches "
-                      "them only through the launch entrypoints `LOYLY_CONTEXTS` names. Your own tests stand them in, "
-                      "as `.pi/spec/cycle-runner/seam.md` says (\"How the candidate's own suite drives it without the "
-                      "five candidates\"): stand-in programs your test names in its own `LOYLY_CONTEXTS` file, each "
-                      "speaking one context's seam as the test scripts it (reply with events, refuse with a code, stop "
-                      "answering, exit) and appending the handoffs it produces, with exactly their contract's fields, "
-                      "to a Grain store at the `LOYLY_GRAIN_STORE` the runner hands it, so the relay reads them as it "
-                      "reads a real producer's store. The stand-ins, the fixture repository, the stub self-check and "
-                      "the stub builder belong to your suite, never to the product.")
+   "06" {:allium (str "the contracts `OneStore`, `ProjectRepository`, `BuilderSession`, `GateOnTheHost` and "
+                      "`TheJudge`, the value `RunBudget` and the config")
+         :product (str "it runs one regeneration cycle as one tick of the ORC tree `cycle-runner/cycle.v1`, its "
+                       "leaves in the order `seam.md` lists them (\"The tree\"): it reads the project repository at the "
+                       "cut with git, stamps each selected slice, pins the cut, derives the checklist, holds the run to "
+                       "the sealed grader, runs the harness self-check, builds and probes the clean room, renders the "
+                       "builder instruction, runs a builder session through the provided builder host and waits for it, "
+                       "installs a copy of the candidate in a gate room and gates it, repairs within the budget, grades "
+                       "each checklist item with the sealed grader `cycle-runner/grade.v1`, and files the verdicts and "
+                       "the score. Each leaf records its effect's result into the context that owns it, by that "
+                       "context's own command on the one store. It concludes the run as its cycle concludes, halts "
+                       "loudly when an effect cannot be performed or a refusal comes before the cycle, resumes every "
+                       "run in progress on its store when it starts, records its own facts as Grain events, and answers "
+                       "its queries from its read models. It owns no rule of the five contexts: a refusal it shows is "
+                       "the context's, as heard.")
+         :contains (str "The five contexts specification, cycle-preparation, grader-lifecycle, regeneration-cycle and "
+                        "measurement are in this one candidate and are built here, on its one Grain store: their specs "
+                        "are in the room (each `.pi/spec/<context>/`), their rules, event models and queries are in the "
+                        "product, and their methods (each context's `seam.md`) are methods of this same candidate. "
+                        "There is no previous candidate of theirs to look for. There is no relay, hand-in method or "
+                        "handoff contract: each event is appended once, by its producer's command, and every context "
+                        "that folds it reads it from the one store. Your own tests need no stand-in for them: the "
+                        "fixture repository, the stub self-check, the stub builder host, the stub model and the fixture "
+                        "candidates belong to your suite, never to the product.")
          :inputs (str "It is also handed, and reads at every `cycle-runner/start-run`, never only at boot: "
-                      "`LOYLY_RUNS_DIR`, `LOYLY_PROJECT_REPO`, `LOYLY_HARNESS_CONFIG`, `LOYLY_CONTEXTS`, "
-                      "`LOYLY_SELF_CHECK_CMD`, `LOYLY_STORE_CHECK_CMD`, `LOYLY_BUILDER_CMD`, `LOYLY_BUILDER_INSTRUCTION`, "
-                      "`LOYLY_BUILDER_IMAGES`, `LOYLY_MEASUREMENT_STORE` and "
-                      "`LOYLY_SCORING_TOOL_PATHS` (`seam.md`, \"Handed in\"). Its methods are synchronous: "
-                      "`cycle-runner/start-run` responds once the run awaits its verdicts, concluded or halted, and "
-                      "`cycle-runner/hand-in-verdicts` once it concluded or halted.")
-         :identity (str "the product, handed a fixture project repository, a stub self-check, a stub builder and five "
-                        "stub contexts through `LOYLY_CONTEXTS`, must refuse `cycle-runner/start-run` at a hex string that "
-                        "is no commit of the repository (`not-a-commit`, before it asks the contexts), refuse a start "
-                        "whose five contexts exit at once (`contexts-not-responding`, naming all five in "
-                        "`data.contexts`), start a run whose contexts reply but whose Specification exits when asked to "
-                        "stamp, and report that run through `cycle-runner/run-progress` halted at the stamp effect "
-                        "because a context did not respond, with no effect result, the self-check and the builder "
-                        "never launched")}})
+                      "`LOYLY_RUNS_DIR`, `LOYLY_PROJECT_REPO`, `LOYLY_HARNESS_CONFIG`, `LOYLY_SELF_CHECK_CMD`, "
+                      "`LOYLY_STORE_CHECK_CMD`, `LOYLY_BUILDER_HOST`, `LOYLY_GATE_CMD`, `LOYLY_BUILDER_IMAGES`, "
+                      "`LOYLY_BUILDER_INSTRUCTION`, `LOYLY_MODEL_API_BASE`, `LOYLY_RENDER_MODEL`, `LOYLY_GRADER_MODEL`, "
+                      "`LOYLY_GRADER_RUBRIC`, `LOYLY_SCORING_TOOL_PATHS` and the optional "
+                      "`OTEL_EXPORTER_OTLP_ENDPOINT` (`seam.md`, \"Handed in\"). `cycle-runner/start-run` responds once "
+                      "the run concluded or halted, and a `cycle-runner/run-progress` sent meanwhile is answered "
+                      "without waiting for it.")
+         :identity (str "the product, handed a fixture project repository whose commit holds a one-slice plan with one "
+                        "stamped scenario, a stub self-check, a stub builder host and a grader rubric, must refuse "
+                        "`cycle-runner/start-run` at a hex string that is no commit of the repository (`not-a-commit`), "
+                        "refuse a start whose configuration names a builder image `LOYLY_BUILDER_IMAGES` does not hold "
+                        "(`builder-image-missing`), and run a start whose approved grader digests do not name the "
+                        "rubric's through the stamp, the pin and the checklist, each recorded into its context, to a "
+                        "halt at the `grader` effect, `refused-before-the-cycle`, its detail naming that grader digest, "
+                        "reported through `cycle-runner/run-progress`, the self-check and the builder never launched")}})
 
 (defn render [slice]
   (let [{:keys [app-dir app-stack plan-dir app-probe]} (config slice)
         _ (when-not (= app-probe (str "harness/v2/probe-" slice ".sh"))
             (die "slice " slice " names no context: no " plan-dir "/" slice "-* link"))
-        {:keys [allium product handoffs inputs drives identity]} (slice-words slice)
+        {:keys [allium product inputs contains identity]} (slice-words slice)
         _ (when-not identity (die "slice " slice " has no identity probe yet"))
-        contracts (str/join ", " (map #(str "`.pi/spec/" % "/event-model/handoffs.edn`") handoffs))
         link (.getName (io/file app-dir))
         ctx (.getName (.getCanonicalFile (io/file root plan-dir link)))
         spec (str ".pi/spec/" ctx)
@@ -186,16 +180,13 @@
          "## The product\n\n"
          "One context, rebuilt from scratch. It does real work: " product " A result returned without doing the work (a canned answer, a fixed id, a "
          "number that is not in the store) is a defect the score will find.\n\n"
-         (when (seq handoffs)
-           (str "## The handoffs it consumes\n\n"
-                "Other contexts are not in the room and are not built here. The events this context consumes from "
-                "them are defined by their contracts, " contracts ", the only files of those contexts in the room. "
-                "Until the contexts are assembled, their facts reach your product through its seam: one method per "
-                "consumed event, named as the event, its params the contract's schema; the product appends exactly "
-                "that event to its Grain store, as the producer would, and its read models fold it. `" spec
-                "/seam.md` says how.\n\n"))
-         (when drives
-           (str "## The contexts it drives\n\n" drives "\n\n"))
+         "## The one event model\n\n"
+         "There is one event model: the union of every context's `.pi/spec/<context>/event-model/*.edn` in the "
+         "room, this context's and every other's. The other contexts' events this context folds are defined in "
+         "their producers' fragments, and reach it on the one Grain store, appended by the producer's own command; "
+         "there is no hand-in method and no handoff contract.\n\n"
+         (when contains
+           (str "## The five contexts in it\n\n" contains "\n\n"))
          "## The stack\n\n"
          "Exactly: " app-stack ".\n\n"
          "- ORC: " (coord orc) "\n"
@@ -203,11 +194,10 @@
          "`:deps/root`, for example `projects/grain-core-v2` (commands, queries, read models, the event store), "
          "`projects/grain-event-store-sqlite-v3` (the SQLite store) and `projects/grain-code-agent-tools` (the "
          "event-model validator and its boot guard).\n\n"
-         "Register the room's event model as given: copy every event model the build reads (`" spec
-         "/event-model/*.edn`, and those of the contracts named above) byte for byte into `event-model/<context>/` "
-         "in `" app-dir "`, read them only there (the build reads no file outside its own folder to run), merge "
-         "the fragments" (when (seq handoffs) " with the consumed events of the handoff contracts above") ", and "
-         "register the area with Grain's `register-event-model!`. Never edit them. Implement each "
+         "Register the room's one event model as given: copy every context's event model in the room (each `"
+         ".pi/spec/<context>/event-model/*.edn`) byte for byte into `event-model/<context>/` in `" app-dir
+         "`, read them only there (the build reads no file outside its own folder to run), merge the fragments "
+         "into the one event model, and register it with Grain's `register-event-model!`. Never edit them. Implement each "
          "command, query, read model and event of the model as the Grain building block of the same name, the "
          "event's schema being the model's schema, and make start refuse, through Grain's boot guard "
          "(`verify-or-throw!`), when the running blocks and the model are apart.\n\n"
@@ -225,8 +215,9 @@
          "diagnostics go to stderr). Within thirty seconds of start.sh launching, " identity
          ": identity is proved by domain behaviour, not by a name. Then the gate "
          "reads the Grain store directly, not through your seam: it must hold your events, every event an event "
-         "of the model" (when (seq handoffs) " or a handoff it consumes") " with exactly that event's fields, or ORC's own, and each event a command produced written "
-         "inside a run of its ORC workflow, in that same store, that completed with success: a store without "
+         "of the one event model with exactly that event's fields, or ORC's own, and each event a command produced written "
+         "inside a run of its ORC workflow (or, for another context's command a leaf of this context's flow "
+         "issues, of that flow's workflow), in that same store, that completed with success: a store without "
          "ORC's workflow runs fails the gate. Where the event model's flows name the leaf that writes an event "
          "(`:leaf`), that event must lie inside the ORC leaf of that name, in its flow's tick or a child tick that "
          "tick delegated: a one-node wrapper around orchestration of your own fails the gate. Each ORC tick must "

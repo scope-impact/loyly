@@ -1,9 +1,14 @@
 # Measurement: the public seam
 
 How a gate, a grader and an operator drive this context's candidate (slice 02). Derived from
-`event-model/*.edn` and the handoff contracts it consumes; where this note and the event model
+`event-model/*.edn` and the events of other contexts it folds; where this note and the event model
 disagree, the event model wins and this note is wrong. Decided 2026-11-07 (`../decisions.md`,
 "Slice 02"), in the shape of `../specification/seam.md` ("First light").
+
+**Built only inside slice 06.** Since spec round 18 this context has no candidate, build or
+identity probe of its own: its methods, rules, event model and queries are part of slice 06's one
+candidate (`../cycle-runner/seam.md`), built and gated only in slice 06's cycle, never standalone.
+"This context's candidate" below is that one candidate, and "the gate" is slice 06's gate.
 
 ## Transport
 
@@ -65,30 +70,20 @@ exactly the fields of that event's `:schema`.
   surface `MeasurementReceipt` also exposes `superseded`, which `:measurement/cycle-measurements`
   does not hold), and a grader reads no others (`../decisions.md`, "Spec round 3").
 
-## The consumed handoffs, handed in
+## Other contexts' events, on the one store
 
-Measurement consumes three events other contexts produce. In a cycle of this context alone
-those contexts are stubbed from their contracts, the producer's `event-model/handoffs.edn` (the
-only file of each the room holds), and their facts reach the candidate through this seam: one
-method per consumed event, named exactly as the event, its params exactly the event's contract
-`:schema`.
+Measurement folds three events other contexts produce, from the one store (`../decisions.md`,
+"Spec round 18"). No method hands them in: each is the producer's own fact, appended by
+the producer's command, and a grader causes it with that command over the same candidate's seam.
 
-| Method | Contract | The candidate's read model that folds it |
+| Event | Its producer's command | The read model that folds it |
 |---|---|---|
-| `specification/scenario-stamped` | `../specification/event-model/handoffs.edn` | `:measurement/item-identities` |
-| `cycle-preparation/source-cut-pinned` | `../cycle-preparation/event-model/handoffs.edn` | `:measurement/pinned-cuts` |
-| `regeneration-cycle/gate-attempt-passed` | `../regeneration-cycle/event-model/handoffs.edn` | `:measurement/gated-cycles` |
+| `specification/scenario-stamped` | `specification/stamp-slice` | `:measurement/item-identities` |
+| `cycle-preparation/source-cut-pinned` | `cycle-preparation/pin-source-cut` | `:measurement/pinned-cuts` |
+| `regeneration-cycle/gate-attempt-passed` | `regeneration-cycle/record-gate-attempt` | `:measurement/gated-cycles` |
 
-The candidate appends the event, exactly as given (its type and its fields, nothing added),
-to its Grain store as the producer would, and responds `{"events": [<that event>]}`. It runs no
-ORC workflow: the event is the producer's fact, not a command of this context. Params that do
-not match the contract are `-32602` and append nothing; nothing else refuses a handed-in event
-(the folds ignore one they already hold: `NoteItemIdentity`, `NotePinnedCut` and
-`OpenMeasurement`, requires 1). These methods stand in for the producers in a cycle of this
-context alone, and they are how the producers' facts reach it assembled: the assembly is a
-relay, which takes each handoff from its producer's store and hands it in unchanged, in the
-producer's order, through these methods (`../decisions.md`, "Spec round 5" 1). They are the
-only way another context's event enters the store.
+A fold ignores an event it already holds (`NoteItemIdentity`, `NotePinnedCut` and
+`OpenMeasurement`, requires 1).
 
 ## Refusals
 
@@ -126,14 +121,15 @@ The candidate records its facts in Grain's event store, the SQLite backend of Gr
   may use an in-memory store (its own tests, for example).
 - The gate hands the candidate a fresh file through `LOYLY_GRAIN_STORE`, and after the
   candidate has run, reads that file itself, not through this seam: it must hold at least
-  one event of `event-model/`; every event's type must be an event of `event-model/`, a
-  consumed handoff above, or ORC's or Grain's own; and every such event's fields, other than
-  Grain's own `:event/*` keys, must be exactly its `:schema` (a handoff's, its contract's).
-- ORC runs on this candidate's store: ORC shares this candidate's file and tenant, not a
-  store or tenant of its own, and no other context shares them: each context keeps its own
-  store (`../decisions.md`, "Spec round 5" 1). Each command method runs as the ORC
+  one event of `event-model/`; every event's type must be an event of the one event model
+  (every context's `event-model/`), or ORC's or Grain's own; and every such event's fields,
+  other than Grain's own `:event/*` keys, must be exactly its `:schema`.
+- ORC runs on this candidate's store: ORC shares its file and tenant, not a store or tenant
+  of its own. The store is the one store of the one candidate: since spec round 18 the six contexts are one candidate,
+  `cycle-runner/cycle.v1`, on one Grain store, and in a run each command of this context is a
+  leaf of that tree (`../cycle-runner/seam.md`; `../decisions.md`, "Spec round 18"). Over this seam, each command method runs as the ORC
   workflow named after the flow its command belongs to in `event-model/area.edn`; a query
-  method and a handed-in handoff run none.
+  method runs none.
 
   | Command | ORC workflow |
   |---|---|
@@ -141,10 +137,11 @@ The candidate records its facts in Grain's event store, the SQLite backend of Gr
   | `measurement/file-item-verdicts`, `measurement/file-score`, `measurement/fail-score-stage` | `measurement/scoring` |
   | `measurement/report-scoreboard`, also when the policy issues it | `measurement/scoreboard-restates-moved-item-set` |
 
-  The gate requires every event a command produced to be written inside a run of that
-  workflow which completed with success (between its `:sheet/tree-tick-started` and its
-  `:sheet/tree-tick-completed`, `:root-status :success`).
-- The candidate registers this context's event model, `event-model/*.edn` merged with the
-  three consumed handoff events from their contracts, as given (Grain's
+  The gate requires every event a command produced to be written inside a completed run of that
+  workflow or of `cycle-runner/cycle.v1`, whose leaves issue the five contexts' commands (a child
+  tick it delegated included): between its `:sheet/tree-tick-started` and its
+  `:sheet/tree-tick-completed`, `:root-status :success`.
+- The candidate registers the one event model, every context's `event-model/*.edn` merged, as
+  given (Grain's
   `register-event-model!`), and refuses to start when Grain's boot guard (`verify-or-throw!`)
   finds the running blocks and the model apart.

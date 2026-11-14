@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# SUPERSEDED by spec round 18 (.pi/spec/decisions.md, "Spec round 18", 9): the contexts 01 to
+# 05 are built only inside slice 06's one candidate, on one store, with no hand-in method, so no
+# slice 04 cycle runs on its own and this probe gates nothing; it hands other contexts' events in
+# through methods that round removed. Kept to replay the relay-era builds, as v2/assemble.clj is.
+#
 # harness/v2/probe-04.sh START_SCRIPT BUDGET_SECONDS: the identity probe of slice 04, the
 # regeneration-cycle context. It proves the thing answering records and guards a regeneration
 # cycle, by domain behaviour over the context's seam (.pi/spec/regeneration-cycle/seam.md), not

@@ -13,6 +13,14 @@
              [:tree-digest :string]]
     :reads #{:cycle-preparation/source-cuts}
     :produces #{:cycle-preparation/source-cut-pinned}}}
+  :events
+  {:cycle-preparation/source-cut-pinned
+   {:description "A source cut was pinned: one commit and its tree content, immutable from now on."
+    :schema [:map
+             [:cut-id :string]
+             [:commit [:re "^[0-9a-f]{40,64}$"]]
+             [:tree-digest :string]
+             [:pinned-at inst?]]}}
   :read-models
   {:cycle-preparation/source-cuts
    {:description "Every pinned cut, with its commit and tree digest."

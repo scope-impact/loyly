@@ -8,7 +8,7 @@
 -- one is refused. Legacy: score.clj.
 --
 -- The storm's "Score refused" is the refusals of FileItemVerdicts and FileScore. ORC's
--- score node then records the failed stage (FailScoreStage), a fact and a handoff: the
+-- score node then records the failed stage (FailScoreStage), a fact the Regeneration cycle folds: the
 -- conclude policy fails the cycle and the score is never retaken within it.
 
 use "context.allium" as ctx
@@ -72,7 +72,7 @@ entity VerdictFiling {
 -- Rules
 ------------------------------------------------------------
 
--- Regeneration cycle's handoff: the gate ratified the cycle's candidate, so it may be
+-- Regeneration cycle's event, from the one store: the gate ratified the cycle's candidate, so it may be
 -- scored, and only that candidate.
 rule OpenMeasurement {
     when: GateAttemptPassed(cycle, cycle_id, cut_id, candidate_digest)
@@ -281,8 +281,9 @@ surface MeasurementReceipt {
         measurement.refusal when measurement.status = score_stage_failed
 }
 
--- Regeneration cycle's handoff, as this context hears it: one way, from the gate.
-surface RegenerationCycleHandoffs {
+-- Regeneration cycle's event, as this context hears it from the one store: one way, from
+-- the gate.
+surface RegenerationCycleEvents {
     facing cycle: RegenerationCycleContext
 
     provides:

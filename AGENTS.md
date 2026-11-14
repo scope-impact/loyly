@@ -1,11 +1,11 @@
 # Löyly Agent Instructions
 
 The maintained assets are the behavioral specifications under `.pi/spec/` (spec v2, one folder
-per bounded context, 212 stamped items; `.pi/model/` is spec v1, history, kept for its
+per bounded context, 210 stamped items; `.pi/model/` is spec v1, history, kept for its
 glossary); generated
 implementation is a reproducible build product. Keep specification planning and
 implementation in separate rounds. Never repair a specification from inside a fenced
-builder run.
+builder run. The architecture, and the decisions behind it, is `.pi/spec/architecture/README.md`.
 
 ## Pi and ORC ownership
 
@@ -24,18 +24,18 @@ Each part has one language. Do not mix them.
 |---|---|---|
 | The model: behaviour | Gherkin scenarios, one stamped `@item-NN-SSS` per checklist item | `.pi/spec/<context>/spec.feature`; an accepted context is slice `NN` through its link `.pi/plan/NN-<context>` |
 | The model: event storming and rules | Grain Event Model (commands, events, read models, queries, processors) and Allium (entities, rules, invariants, surfaces); the public seam | `.pi/spec/<context>/event-model/*.edn`, `.pi/spec/<context>/allium/`, `.pi/spec/<context>/seam.md` |
-| The harness implementation | Clojure on ORC, with Grain for the event store; each context registers its room's event model as given | `harness-impl/NN-<context>/`, one per context, generated from `.pi/spec` by the regeneration cycle |
+| The harness implementation | Clojure on ORC, with Grain for the event store: one ORC tree, `cycle.v1`, on one store whose event model is the union of the contexts' (ADR 0001); until it is built, the promoted builds per context | `harness-impl/`, generated from `.pi/spec` by the regeneration cycle |
 | The builder and Gondolin rooms | `pi` with its Gondolin backend, on the existing Codex login, launched by the cycle runner (`LOYLY_BUILDER_CMD`, `.pi/spec/cycle-runner/seam.md`). Provided, like ORC and Grain: never regenerated. `.pi/harness/bin/builder.sh` runs each builder as a pi-durable session (`.pi/harness/builder-host/`) whose tools run in a Gondolin VM | `.pi/harness/`, `harness/Makefile`, `harness/<project-id>/` |
-| The graders | Elixir scripts (`.exs`), driving the candidate only over its JSON-RPC seam, sealed, calibrated and approved: the product rule (OG1 = no). Not built yet; until then a black-box grading agent's verdicts file is handed in with `cycle-runner/hand-in-verdicts` (legacy step 5, `harness/README.md`) | sealed under `.pi/harness/.state/graders/` |
+| The graders | An ORC judge workflow: a researcher drives the candidate black-box over its seam only and the judge scores each item, on a model other than the builder's; a published, approved workflow version is the sealed grader (`.pi/spec/architecture/adr/0003-judge-scores-checklist-items.md`). Not built yet; until then a black-box grading agent's verdicts file is handed in with `cycle-runner/hand-in-verdicts` (legacy step 5, `harness/README.md`) | sealed under `.pi/harness/.state/graders/` |
 | The legacy driver | Babashka and shell, the legacy harness tools: the reference since the switch, never deleted, not how the loop runs | `harness/`, `archive/legacy-harness/` |
 
-Graders use a functional language other than the product's Clojure, so they share no code or
-runtime with what they measure. The Elixir graders that scored the first spec-v2 cycles are
-retired (cb8f5c7); the three Python graders in `harness/graders.approved.json` were written for
-spec v1 and cover no spec-v2 item.
+A grader's independence is black-box access (the seam only, never the candidate's sources) and a
+model other than the builder's (ADR 0003). The Elixir graders that scored the first spec-v2
+cycles are retired (cb8f5c7); the three Python graders in `harness/graders.approved.json` were
+written for spec v1 and cover no spec-v2 item.
 
-How a context uses ORC (`.pi/spec/decisions.md`, "Spec round 14"): each flow its event model
-names is an ORC tree, and each effect or command the flow performs is a named leaf of its own. A
+How the harness uses ORC (`.pi/spec/decisions.md`, "Spec round 14"; ADR 0001): the harness is one
+ORC tree, and each effect or command a context's flows perform is a named leaf of its own. A
 leaf always completes and writes its outcome to the blackboard (passed, failed with a reason,
 refused with a code, halting): a domain failure is an outcome, never an ORC node failure. The tree
 branches on outcomes with `condition` nodes, so a failed or halted run still ends its tick with
@@ -59,7 +59,9 @@ ORC runs one cycle, in the shape of the legacy harness. Since 2026-11-08 the cyc
 `archive/legacy-harness/`) is the reference, never deleted (`.pi/spec/decisions.md`, "The switch
 to the new harness"). A run rebuilds **the Löyly app** (`docs/plan` into `impl/`); the harness is
 not asked to rebuild itself ("Self-hosting stopped"). Run-03 (2026-11-10) is the worked example:
-gate passed, grading 11/11.
+gate passed, grading 11/11. Until the cycle is one ORC tree (ADR 0001), cycles are driven by the
+legacy shell harness and slice 06 is not rebuilt; the legacy shell harness also builds the new
+harness, one tree from all six contexts' specs, never the cycle runner (ADR 0006).
 
 A run: start the runner with its `LOYLY_*` environment (seam.md, "Handed in"), call
 `cycle-runner/start-run`, grade the gated candidate black-box, then `cycle-runner/hand-in-verdicts`
@@ -68,9 +70,9 @@ is filed: a run cannot resume. `make -C harness/loyly start` (then `progress`, `
 run replays and the eval page are published at https://scope-impact.github.io/loyly/
 (`tools/spec/publish.sh`).
 
-The assembly is a relay: each context keeps its own Grain store, and a
-producer's handoffs reach a consumer only through the consumer's hand-in methods, one per
-consumed event; one shared store is deferred ("Spec round 5").
+The assembly is one tree on one Grain store (ADR 0001): no relay, hand-in methods or handoff
+contracts between contexts. Until that tree is built, the promoted builds keep a store per
+context and relay their handoffs ("Spec round 5").
 
 ```text
 fence → regenerate → gate → score → scoreboard
@@ -92,8 +94,9 @@ fence → regenerate → gate → score → scoreboard
 - **Scoreboard**: report the pass rate and compare with the previous cycle on shared items.
 
 The fence and the gate are the **harness**: they feed the build loop. The score and the
-scoreboard are the **instrument**: they report to a person, once a cycle, and never into the
-loop. Anything not written into the spec dies with the implementation.
+scoreboard are the **instrument**: they report to a person once a cycle, and the judge's scores
+feed GEPA between cycles, never a running build (ADR 0004). Anything not written into the spec
+dies with the implementation.
 
 ## The clean room
 
@@ -124,8 +127,10 @@ grading harness. The builder reads it read-only and writes only its declared sco
 
 The builder cannot declare completion. The gate and the score drive the real public seam
 from fresh state, preserve the approved denominator, and report failed, missing, unreached,
-or inconclusive items explicitly. Score evidence never becomes builder input; a failed score
-is measured, not retried within the cycle.
+or inconclusive items explicitly. Score evidence never enters a running build; a failed score
+is measured, not retried within the cycle. Between cycles, GEPA improves the builder
+instruction on held-out items and the grader instruction on calibration only, per project
+context (ADR 0004).
 
 ## How the harness improves itself
 
@@ -152,4 +157,5 @@ context: a fenced clean room, a fresh builder, the gate, grading, the score. Nev
 - **The builder never sees `harness-impl/`**: `harness/config.sh` fences it from every clean
   room.
 - **Self-hosting is stopped** (`.pi/spec/decisions.md`, "Self-hosting stopped"): the harness
-  builds Löyly and is not asked to rebuild itself.
+  builds Löyly and is not asked to rebuild itself. The legacy shell harness builds the new harness instead
+  (ADR 0006): one tree from all six contexts' specs, after slice 06 is rewritten.

@@ -10,10 +10,10 @@ R2 Allium and the product owner's decisions, `../decisions.md`). From the storm
 | Module | Event Model | Allium | Aggregate | Lives |
 |---|---|---|---|---|
 | Context | `event-model/area.edn` (screen `instrument-desk`, flows `stamping-to-checklist` (moved from Specification, 2026-11-06) and `scoreboard-restates-moved-item-set`) | `allium/context.allium` (values, enums, contracts `Scoring`, `RateFormat`, `Comparison`, open questions) | none | |
-| Checklist | `event-model/checklist.edn` | `allium/checklist.allium` (rule `DeriveChecklist`; the stamp and cut handoffs; surface `InstrumentDesk`) | **Checklist** | event store; one per pinned cut (later: per approved selection) |
-| Cycle measurement | `event-model/cycle-measurement.edn` | `allium/cycle-measurement.allium` (rules `FileItemVerdicts`, `FileScore`, `FailScoreStage`; the gate handoff; surfaces `VerdictFilingSeam`, `ScoreStage`, `MeasurementReceipt`) | **CycleMeasurement** (filings, the one measurement, or the failed stage) | event store; one per gated cycle |
+| Checklist | `event-model/checklist.edn` | `allium/checklist.allium` (rule `DeriveChecklist`; the stamp and cut events; surface `InstrumentDesk`) | **Checklist** | event store; one per pinned cut (later: per approved selection) |
+| Cycle measurement | `event-model/cycle-measurement.edn` | `allium/cycle-measurement.allium` (rules `FileItemVerdicts`, `FileScore`, `FailScoreStage`; the gate event; surfaces `VerdictFilingSeam`, `ScoreStage`, `MeasurementReceipt`) | **CycleMeasurement** (filings, the one measurement, or the failed stage) | event store; one per gated cycle |
 | Scoreboard | `event-model/scoreboard.edn` | `allium/scoreboard.allium` (rule `ReportScoreboard`; policy `ReportScoreboardOnce`; surface `ScoreboardReport`) | **Scoreboard** | event store; one per measured cycle |
-| Handoffs produced | `event-model/handoffs.edn` (`measurement-filed`, `score-stage-failed`, `scoreboard-reported`) | emitted by `FileScore`, `FailScoreStage`, `ReportScoreboard` | | consumed by the Regeneration cycle, only to conclude |
+| Events other contexts fold | `event-model/cycle-measurement.edn`, `event-model/scoreboard.edn` (`measurement-filed`, `score-stage-failed`, `scoreboard-reported`) | emitted by `FileScore`, `FailScoreStage`, `ReportScoreboard` | | folded by the Regeneration cycle, only to conclude, from the one store (spec round 18) |
 
 Actors: the **operator** derives a checklist and reads the receipt and the scoreboard; the
 **grader** (its run reported by ORC runtime) files item verdicts; **ORC runtime** (the
@@ -81,10 +81,10 @@ rates.
 | ✗ Unreached item recorded as fail | field of `measurement-filed`: `verdict fail`, `reason unreached`, counted in `unreached` |
 | ✗ Duplicate verdict superseded | field of `measurement-filed`: `superseded` |
 | ✗ Score refused | refusals of `FileItemVerdicts` and `FileScore` |
-| ✗ Score stage failed, not retried | event `measurement/score-stage-failed` (handoff) |
-| ◆ Measurement filed | event `measurement/measurement-filed` (handoff) |
+| ✗ Score stage failed, not retried | event `measurement/score-stage-failed` (folded by another context) |
+| ◆ Measurement filed | event `measurement/measurement-filed` (folded by another context) |
 | Moved item set restated | event `measurement/moved-item-set-restated` |
-| ◆ Scoreboard reported | event `measurement/scoreboard-reported` (handoff) |
+| ◆ Scoreboard reported | event `measurement/scoreboard-reported` (folded by another context) |
 
 ## Refusals (the `requires`, numbered as in the Allium)
 

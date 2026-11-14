@@ -1,8 +1,8 @@
 ;; .pi/spec/specification/event-model/area.edn
 ;; The Specification context: the published language every other context conforms to
 ;; (item identity, stamped scenario). Its screen and its flow. The aggregate's blocks are in
-;; slice.edn; the handoff it publishes is in handoffs.edn. The loader merges them into one
-;; Grain :event-model and refuses a block defined twice.
+;; slice.edn, scenario-stamped among them. The loader merges every context's fragments into
+;; the one Grain :event-model and refuses a block defined twice (spec round 18).
 ;;
 ;; Commands produce only what happened. A refusal is the command's reply, written as a
 ;; `requires` in R2's Allium, and is not an event (domain-design.md).
@@ -17,7 +17,7 @@
     :commands #{:specification/stamp-slice}}}
   :flows
   {:specification/stamping
-   {:description "A scenario is stamped once; its item identity is what a checklist may count. The flow stays inside this context: what Measurement does with a stamped scenario is its own flow (measurement/stamping-to-checklist), so this context's model validates on its own, as a candidate registers it."
+   {:description "A scenario is stamped once; its item identity is what a checklist may count. What Measurement does with a stamped scenario is its own flow (measurement/stamping-to-checklist), on the one store."
     :grain/allium [{:spec ".pi/spec/specification/allium/slice.allium" :kind :rule :name "StampSlice"}]
     :steps [{:from [:screen :specification/spec-authoring] :to [:command :specification/stamp-slice]}
             {:from [:command :specification/stamp-slice] :to [:event :specification/scenario-stamped]}

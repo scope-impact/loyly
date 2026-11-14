@@ -5,6 +5,11 @@ How a gate, a grader and an operator drive this context's candidate (slice 03). 
 this note is wrong. Decided 2026-11-07 (`../decisions.md`, "Slice 03"), in the shape of
 `../specification/seam.md` ("First light") and `../measurement/seam.md` ("Slice 02").
 
+**Built only inside slice 06.** Since spec round 18 this context has no candidate, build or
+identity probe of its own: its methods, rules, event model and queries are part of slice 06's one
+candidate (`../cycle-runner/seam.md`), built and gated only in slice 06's cycle, never standalone.
+"This context's candidate" below is that one candidate, and "the gate" is slice 06's gate.
+
 ## Transport
 
 - `start.sh` starts the candidate reading JSON-RPC 2.0 requests on stdin and writing
@@ -22,7 +27,7 @@ One method per Grain command and query of `event-model/`, named exactly as the b
 the leading colon. Params are the block's `:schema`, field names verbatim (kebab-case). Values
 that are instants travel as ISO-8601 UTC text. A command's result is `{"events": [...]}`: the
 events that command produced, in the order produced, each `{"type": "<area>/<event>", ...}`
-with exactly the fields of that event's `:schema` (`event-model/handoffs.edn`).
+with exactly the fields of that event's `:schema` (`event-model/`).
 
 | Method | Block | Result |
 |---|---|---|
@@ -93,11 +98,12 @@ The candidate records its facts in Grain's event store, the SQLite backend of Gr
 - The gate hands the candidate a fresh file through `LOYLY_GRAIN_STORE`, and after the
   candidate has run, reads that file itself, not through this seam: it must hold at least
   one event of `event-model/`; every event's type must be an event of `event-model/` or ORC's
-  or Grain's own (this context consumes no handoff); and every such event's fields, other
+  or Grain's own (this context folds no other context's event); and every such event's fields, other
   than Grain's own `:event/*` keys, must be exactly its `:schema`.
-- ORC runs on this candidate's store: ORC shares this candidate's file and tenant, not a
-  store or tenant of its own, and no other context shares them: each context keeps its own
-  store (`../decisions.md`, "Spec round 5" 1). Each command method runs as the ORC
+- ORC runs on this candidate's store: ORC shares its file and tenant, not a store or tenant
+  of its own. The store is the one store of the one candidate: since spec round 18 the six contexts are one candidate,
+  `cycle-runner/cycle.v1`, on one Grain store, and in a run each command of this context is a
+  leaf of that tree (`../cycle-runner/seam.md`; `../decisions.md`, "Spec round 18"). Over this seam, each command method runs as the ORC
   workflow named after the flow its command belongs to in `event-model/area.edn`; a query
   method runs none.
 
@@ -105,9 +111,10 @@ The candidate records its facts in Grain's event store, the SQLite backend of Gr
   |---|---|
   | `grader-lifecycle/write-instrument-golden`, `grader-lifecycle/move-instrument-golden` | `grader-lifecycle/golden-written-then-moved` |
 
-  The gate requires every event a command produced to be written inside a run of that
-  workflow which completed with success (between its `:sheet/tree-tick-started` and its
-  `:sheet/tree-tick-completed`, `:root-status :success`).
-- The candidate registers this context's event model, `event-model/*.edn` merged, as given
-  (Grain's `register-event-model!`), and refuses to start when Grain's boot guard
+  The gate requires every event a command produced to be written inside a completed run of that
+  workflow or of `cycle-runner/cycle.v1`, whose leaves issue the five contexts' commands (a child
+  tick it delegated included): between its `:sheet/tree-tick-started` and its
+  `:sheet/tree-tick-completed`, `:root-status :success`.
+- The candidate registers the one event model, every context's `event-model/*.edn` merged, as
+  given (Grain's `register-event-model!`), and refuses to start when Grain's boot guard
   (`verify-or-throw!`) finds the running blocks and the model apart.

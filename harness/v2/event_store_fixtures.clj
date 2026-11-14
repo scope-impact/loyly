@@ -6,11 +6,11 @@
 ;; event against the malli schema registered under its type, so every type here is registered
 ;; as an open map: the fixtures may hold anything, and only the check judges them. The
 ;; "02-" stores are judged against slice 02 (measurement), the "03-" stores against slice 03
-;; (grader-lifecycle, which consumes no handoff), the "04-" stores against slice 04
-;; (regeneration-cycle, which consumes six), the "05-" stores against slice 05
-;; (cycle-preparation, which consumes none), the "06-" stores against slice 06 (cycle-runner,
-;; which consumes none: it relays the others' handoffs, never holds them), the others against
-;; slice 01. Every completed run
+;; (grader-lifecycle), the "04-" stores against slice 04 (regeneration-cycle), the "05-" stores
+;; against slice 05 (cycle-preparation), the "06-" stores against slice 06 (cycle-runner), the
+;; others against slice 01. Since spec round 18 the one event model is every context's, so
+;; another context's event is allowed, held to its schema and owed an ORC run of its own flow or
+;; of the slice's own (the cycle runner's leaves issue the five contexts' commands). Every completed run
 ;; carries Grain's processor checkpoints, except where a case takes them out (unchecked) or
 ;; doubles a processor's output (doubled).
 (ns event-store-fixtures
@@ -115,36 +115,36 @@
   {:cycle-id "C-1" :candidate-digest "sha256:d1" :grader-digest "sha256:g1"
    :verdicts [{:item-id "07-001" :verdict "pass" :evidence ""}] :filed-at (java.util.Date.)})
 
-;; Slice 02 (measurement), checked against its own model plus the handoffs it consumes: the
-;; handoffs are handed in through the seam outside any ORC run, as the stubbed producers' facts.
-(def handed-in
-  [[:specification/scenario-stamped stamped]
-   [:cycle-preparation/source-cut-pinned pinned]
-   [:regeneration-cycle/gate-attempt-passed gate-passed]])
+;; Slice 02 (measurement), on the one store: the other contexts' events it folds lie inside
+;; runs of their producers' own workflows (spec round 18: no hand-in, no handoff contract).
+(def others
+  (concat (orc-run "specification/stamping" :success [[:specification/scenario-stamped stamped]])
+          (orc-run "cycle-preparation/cut-to-fence" :success [[:cycle-preparation/source-cut-pinned pinned]])
+          (orc-run "regeneration-cycle/fence-to-scoreboard" :success [[:regeneration-cycle/gate-attempt-passed gate-passed]])))
 
 (def cases-02
-  {"02-pass-handoffs-and-runs" (concat handed-in
+  {"02-pass-others-and-runs"   (concat others
                                        (orc-run "measurement/stamping-to-checklist" :success
                                                 [[:measurement/checklist-derived derived]])
                                        (orc-run "measurement/scoring" :success
                                                 [[:measurement/item-verdicts-filed verdicts-filed]]))
-   "02-fail-only-handoffs"     handed-in
-   "02-fail-handoff-schema"    (concat [[:cycle-preparation/source-cut-pinned (assoc pinned :branch "main")]]
+   "02-fail-only-others"       others
+   "02-fail-other-schema"      (concat [[:cycle-preparation/source-cut-pinned (assoc pinned :branch "main")]]
                                        (orc-run "measurement/stamping-to-checklist" :success
                                                 [[:measurement/checklist-derived derived]]))
-   "02-fail-foreign-event"     (concat handed-in
-                                       [[:regeneration-cycle/gate-attempt-failed {:cycle-id "C-1"}]]
+   "02-fail-other-outside-run" (concat others
+                                       [[:regeneration-cycle/gate-attempt-passed gate-passed]]
                                        (orc-run "measurement/stamping-to-checklist" :success
                                                 [[:measurement/checklist-derived derived]]))
-   "02-fail-outside-run"       (concat handed-in [[:measurement/checklist-derived derived]]
+   "02-fail-outside-run"       (concat others [[:measurement/checklist-derived derived]]
                                        (orc-run "measurement/scoring" :success
                                                 [[:measurement/item-verdicts-filed verdicts-filed]]))
-   "02-fail-wrong-workflow"    (concat handed-in
+   "02-fail-wrong-workflow"    (concat others
                                        (orc-run "measurement/stamping-to-checklist" :success
                                                 [[:measurement/item-verdicts-filed verdicts-filed]]))})
 
-;; Slice 03 (grader-lifecycle): both commands run as the one workflow of its one flow, and it
-;; consumes no handoff, so any other context's event is refused.
+;; Slice 03 (grader-lifecycle): both commands run as the one workflow of its one flow; another
+;; context's event outside any ORC run is refused.
 (def written
   {:golden-id "G-1" :scenario "the probe's scenario" :scenario-digest "s-1" :path "harness/oracle/g1.golden"
    :digest "g-1" :written-at (java.util.Date.)})
@@ -162,13 +162,13 @@
    "03-fail-outside-run"        (concat [[:grader-lifecycle/instrument-golden-written written]]
                                         (orc-run "grader-lifecycle/golden-written-then-moved" :success
                                                  [[:grader-lifecycle/instrument-golden-moved moved]]))
-   "03-fail-unconsumed-handoff" (concat [[:specification/scenario-stamped stamped]]
+   "03-fail-other-outside-run"  (concat [[:specification/scenario-stamped stamped]]
                                         (orc-run "grader-lifecycle/golden-written-then-moved" :success
                                                  [[:grader-lifecycle/instrument-golden-written written]]))})
 
 ;; Slice 04 (regeneration-cycle): its commands run as the workflows of the flows that hold
-;; them, its six consumed handoffs are handed in outside any ORC run, and any other context's
-;; event is refused, a non-handoff event of a producer among them.
+;; them; the other contexts' events it folds lie inside runs of their producers' workflows, and
+;; another context's event outside any ORC run is refused.
 (def budget
   {:gate-attempt-limit 3 :max-outer-cycles 1 :max-continuations 0
    :stage-timeouts-seconds {:fence 3600 :regenerate 3600 :gate 3600 :score 3600}})
@@ -185,35 +185,35 @@
   {:cycle-id "C-1" :attempt 1 :refusal "identity-probe-missing" :detail "no probe" :refused-at (java.util.Date.)})
 (def score-failed
   {:cycle-id "C-1" :refusal "zero-verdicts" :detail "no verdict filed" :failed-at (java.util.Date.)})
-(def handed-in-04
-  [[:cycle-preparation/source-cut-pinned pinned]
-   [:grader-lifecycle/instrument-golden-written written]
-   [:measurement/score-stage-failed score-failed]])
+(def others-04
+  (concat (orc-run "cycle-preparation/cut-to-fence" :success [[:cycle-preparation/source-cut-pinned pinned]])
+          (orc-run "grader-lifecycle/golden-written-then-moved" :success [[:grader-lifecycle/instrument-golden-written written]])
+          (orc-run "measurement/scoring" :success [[:measurement/score-stage-failed score-failed]])))
 
 (def cases-04
-  {"04-pass-handoffs-and-runs" (concat handed-in-04
+  {"04-pass-others-and-runs"   (concat others-04
                                        (orc-run "regeneration-cycle/fence-to-scoreboard" :success
                                                 [[:regeneration-cycle/harness-self-check-passed self-check-passed]
                                                  [:regeneration-cycle/clean-room-proved clean-room-proved]])
                                        (orc-run "regeneration-cycle/fence-refused-fails-cycle" :success
                                                 [[:regeneration-cycle/cycle-failed cycle-failed]]))
-   "04-fail-handoff-schema"    (concat [[:measurement/score-stage-failed (assoc score-failed :refusal "make-it-green")]]
+   "04-fail-other-schema"      (concat [[:measurement/score-stage-failed (assoc score-failed :refusal "make-it-green")]]
                                        (orc-run "regeneration-cycle/fence-to-scoreboard" :success
                                                 [[:regeneration-cycle/harness-self-check-passed self-check-passed]]))
-   "04-fail-foreign-event"     (concat handed-in-04 [[:measurement/checklist-derived derived]]
+   "04-fail-other-outside-run" (concat others-04 [[:measurement/checklist-derived derived]]
                                        (orc-run "regeneration-cycle/fence-to-scoreboard" :success
                                                 [[:regeneration-cycle/harness-self-check-passed self-check-passed]]))
-   "04-fail-outside-run"       (concat handed-in-04
+   "04-fail-outside-run"       (concat others-04
                                        (orc-run "regeneration-cycle/fence-to-scoreboard" :success
                                                 [[:regeneration-cycle/harness-self-check-passed self-check-passed]])
                                        [[:regeneration-cycle/clean-room-proved clean-room-proved]])
-   "04-fail-wrong-workflow"    (concat handed-in-04
+   "04-fail-wrong-workflow"    (concat others-04
                                        (orc-run "regeneration-cycle/fence-to-scoreboard" :success
                                                 [[:regeneration-cycle/harness-self-check-passed self-check-passed]
                                                  [:regeneration-cycle/gate-attempt-refused gate-refused]]))})
 
-;; Slice 05 (cycle-preparation): its one command runs as the workflow of its one flow, and it
-;; consumes no handoff, so any other context's event is refused.
+;; Slice 05 (cycle-preparation): its one command runs as the workflow of its one flow; another
+;; context's event outside any ORC run is refused.
 (def cases-05
   {"05-pass-pinned"             (orc-run "cycle-preparation/cut-to-fence" :success
                                          [[:cycle-preparation/source-cut-pinned pinned]])
@@ -224,15 +224,15 @@
                                          [[:cycle-preparation/source-cut-pinned (assoc pinned :commit "4f2a9c1")]])
    "05-fail-outside-run"        (concat [[:cycle-preparation/source-cut-pinned pinned]]
                                         (orc-run "cycle-preparation/cut-to-fence" :success []))
-   "05-fail-unconsumed-handoff" (concat [[:specification/scenario-stamped stamped]]
+   "05-fail-other-outside-run"  (concat [[:specification/scenario-stamped stamped]]
                                         (orc-run "cycle-preparation/cut-to-fence" :success
                                                  [[:cycle-preparation/source-cut-pinned pinned]]))})
 
-;; Slice 06 (cycle-runner): start-run runs as the workflow of the flow run-to-gate, halt-run as
-;; that of effect-not-performed-halts-run (what probe-06.sh causes); it consumes no handoff, so
-;; another context's event in its store is refused. Its steps declare leaves (spec round 14), so
-;; its passing stores write each event in the leaf named for it (orc-tree-run); a one-node
-;; wrapper, every command in one "perform-command" leaf, fails.
+;; Slice 06 (cycle-runner): the run is one tick of the one tree cycle-runner/cycle.v1 (spec
+;; round 18), a gate attempt a child tick of cycle-runner/gate-attempt.v1 it delegated. Its steps
+;; declare leaves, so its passing stores write each event in the leaf named for it
+;; (orc-tree-run), the five contexts' events their leaves issue among them; a one-node wrapper,
+;; every command in one "perform-command" leaf, fails.
 (def run-started
   {:run-id "R-probe" :cycle-id "C-probe" :cut-id "K-probe" :commit "0123456789abcdef0123456789abcdef01234567"
    :selection-id "whole-plan"
@@ -240,7 +240,7 @@
             :stage-timeouts-seconds {:fence 60 :regenerate 60 :gate 60 :score 60}}
    :grader-digests ["r-probe"] :started-at (java.util.Date.)})
 (def run-halted
-  {:run-id "R-probe" :effect "stamp" :reason "context-did-not-respond" :detail "specification exited"
+  {:run-id "R-probe" :effect "grader" :reason "refused-before-the-cycle" :detail "sha256:unapproved"
    :halted-at (java.util.Date.)})
 
 (def effect-recorded
@@ -253,9 +253,6 @@
    :cycle {:stage "fence" :status "failed" :attempts 0 :failure {:reason "fence-refused"}}
    :concluded-at (java.util.Date.)})
 
-(def handoff-relayed
-  {:run-id "R-probe" :handoff-type "regeneration-cycle/cycle-failed" :producer "regeneration-cycle"
-   :position 1 :consumer "measurement" :outcome "accepted" :relayed-at (java.util.Date.)})
 (def self-check-recorded
   (assoc effect-recorded :position 1 :effect "self-check" :method "regeneration-cycle/record-harness-self-check"
          :outcome "recorded" :events [] :detail "passed"))
@@ -270,52 +267,51 @@
          :events [{:type "regeneration-cycle/gate-attempt-passed" :cycle-id "C-probe"}]))
 
 (def cases-06
-  {"06-pass-halted"          (concat (orc-tree-run "cycle-runner/run-to-gate"
-                                                   [["start" [[:cycle-runner/run-started run-started]]]])
-                                     (orc-tree-run "cycle-runner/effect-not-performed-halts-run"
-                                                   [["halt" [[:cycle-runner/run-halted run-halted]]]]))
-   "06-pass-concluded"       (concat (orc-tree-run "cycle-runner/run-to-gate"
-                                                   [["start" [[:cycle-runner/run-started run-started]]]
-                                                    ["self-check:0" [[:cycle-runner/effect-recorded self-check-recorded]]]
-                                                    ["fence" [[:cycle-runner/effect-recorded (assoc effect-recorded :position 2)]]]
-                                                    ["relay:fence" [[:cycle-runner/handoff-relayed handoff-relayed]]]])
-                                     (orc-tree-run "cycle-runner/cycle-failed-ends-run"
-                                                   [["conclude" [[:cycle-runner/run-concluded run-concluded]]]]))
-   "06-fail-one-node-wrapper" (concat (orc-tree-run "cycle-runner/run-to-gate"
+  {"06-pass-halted"          (orc-tree-run "cycle-runner/cycle.v1"
+                                           [["start" [[:cycle-runner/run-started run-started]]]
+                                            ["halt" [[:cycle-runner/run-halted run-halted]]]])
+   "06-pass-concluded"       (orc-tree-run "cycle-runner/cycle.v1"
+                                           [["start" [[:cycle-runner/run-started run-started]]]
+                                            ["self-check:0" [[:cycle-runner/effect-recorded self-check-recorded]]]
+                                            ["fence" [[:regeneration-cycle/cycle-failed cycle-failed]
+                                                      [:cycle-runner/effect-recorded (assoc effect-recorded :position 2)]]]
+                                            ["conclude" [[:cycle-runner/run-concluded run-concluded]]]])
+   "06-fail-one-node-wrapper" (concat (orc-tree-run "cycle-runner/cycle.v1"
                                                     [["perform-command" [[:cycle-runner/run-started run-started]]]])
-                                      (orc-tree-run "cycle-runner/run-to-gate"
+                                      (orc-tree-run "cycle-runner/cycle.v1"
                                                     [["perform-command" [[:cycle-runner/effect-recorded effect-recorded]]]])
-                                      (orc-tree-run "cycle-runner/cycle-failed-ends-run"
+                                      (orc-tree-run "cycle-runner/cycle.v1"
                                                     [["perform-command" [[:cycle-runner/run-concluded run-concluded]]]]))
    ;; spec round 16: a gate attempt runs as a child tick of cycle-runner/gate-attempt.v1,
-   ;; delegated from the run's run-to-gate tick; its effects are held to their leaves there
-   "06-pass-delegated-attempt" (orc-tree-run "cycle-runner/run-to-gate"
+   ;; delegated from the run's cycle.v1 tick; its effects are held to their leaves there, and
+   ;; the Regeneration cycle's event the gate leaf issues lies in it
+   "06-pass-delegated-attempt" (orc-tree-run "cycle-runner/cycle.v1"
                                              [["start" [[:cycle-runner/run-started run-started]]]
                                               ["regenerate" [[:cycle-runner/effect-recorded (assoc regenerate-recorded :position 1)]]]
                                               [:delegate "cycle-runner/gate-attempt.v1"
                                                [["install" [[:cycle-runner/effect-recorded (assoc install-recorded :position 2)]]]
                                                 ["self-check" [[:cycle-runner/effect-recorded (assoc self-check-recorded :position 3 :attempt 1)]]]
-                                                ["gate:1" [[:cycle-runner/effect-recorded (assoc gate-recorded :position 4)]]]
-                                                ["relay:gate:1" [[:cycle-runner/handoff-relayed handoff-relayed]]]]]])
-   "06-fail-delegated-wrong-leaf" (orc-tree-run "cycle-runner/run-to-gate"
+                                                ["gate:1" [[:regeneration-cycle/gate-attempt-passed gate-passed]
+                                                           [:cycle-runner/effect-recorded (assoc gate-recorded :position 4)]]]]]])
+   "06-fail-delegated-wrong-leaf" (orc-tree-run "cycle-runner/cycle.v1"
                                                 [["start" [[:cycle-runner/run-started run-started]]]
                                                  [:delegate "cycle-runner/gate-attempt.v1"
                                                   [["install" [[:cycle-runner/effect-recorded (assoc gate-recorded :position 1)]]]]]])
-   "06-fail-orphan-attempt"  (concat (orc-tree-run "cycle-runner/run-to-gate"
+   "06-fail-orphan-attempt"  (concat (orc-tree-run "cycle-runner/cycle.v1"
                                                    [["start" [[:cycle-runner/run-started run-started]]]])
                                      (orc-tree-run "cycle-runner/gate-attempt.v1"
                                                    [["gate:1" [[:cycle-runner/effect-recorded (assoc gate-recorded :position 1)]]]]
                                                    (random-uuid)))
-   "06-fail-wrong-leaf"      (orc-tree-run "cycle-runner/run-to-gate"
+   "06-fail-wrong-leaf"      (orc-tree-run "cycle-runner/cycle.v1"
                                            [["start" [[:cycle-runner/run-started run-started]]]
                                             ["pin" [[:cycle-runner/effect-recorded effect-recorded]]]])
-   "06-fail-halt-reason"     (orc-run "cycle-runner/effect-not-performed-halts-run" :success
-                                      [[:cycle-runner/run-halted (assoc run-halted :reason "gave-up")]])
+   "06-fail-halt-reason"     (orc-run "cycle-runner/cycle.v1" :success
+                                      [[:cycle-runner/run-halted (assoc run-halted :reason "context-did-not-respond")]])
    "06-fail-outside-run"     (concat [[:cycle-runner/run-started run-started]]
-                                     (orc-run "cycle-runner/run-to-gate" :success []))
-   "06-fail-relayed-handoff" (orc-run "cycle-runner/run-to-gate" :success
-                                      [[:cycle-runner/run-started run-started]
-                                       [:specification/scenario-stamped stamped]])})
+                                     (orc-run "cycle-runner/cycle.v1" :success []))
+   "06-fail-other-outside-run" (concat [[:specification/scenario-stamped stamped]]
+                                       (orc-tree-run "cycle-runner/cycle.v1"
+                                                     [["start" [[:cycle-runner/run-started run-started]]]]))})
 
 (def cases-01
   {"pass-two-events"       (orc-run [[:specification/scenario-stamped stamped]
@@ -331,7 +327,7 @@
    "fail-run-failed"       (orc-run "specification/stamping" :failure [[:specification/scenario-stamped stamped]])
    "fail-outside-run"      (concat (orc-run []) [[:specification/scenario-stamped stamped]])
    "fail-other-workflow"   (orc-run "specification-stamping" :success [[:specification/scenario-stamped stamped]])
-   "fail-unconsumed-handoff" (concat [[:cycle-preparation/source-cut-pinned pinned]]
+   "fail-other-outside-run" (concat [[:cycle-preparation/source-cut-pinned pinned]]
                                      (orc-run [[:specification/scenario-stamped stamped]]))
    "pass-re-ticked-run"    (re-ticked-run "specification/stamping" [[:specification/scenario-stamped stamped]])
    "fail-doubled-completion" (doubled :sheet/tree-tick-completed (orc-run [[:specification/scenario-stamped stamped]]))

@@ -4,4 +4,5 @@ Feature: Cycle runner, draft scenarios
   stamper gives it an @item id and the @draft tag is dropped. Every noun is a term of
   .pi/model/GLOSSARY.md.
   None left: spec round 7b accepted all 34 drafts of round 7a, and added one (decisions.md,
-  "Spec round 7b").
+  "Spec round 7b"); spec round 18 wrote its new scenarios straight into spec.feature
+  (decisions.md, "Spec round 18").

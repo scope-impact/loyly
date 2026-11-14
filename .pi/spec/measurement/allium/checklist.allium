@@ -100,14 +100,14 @@ rule DeriveChecklist {
         ChecklistDerived(cut_id: cut_id, selection_id: selection_id, checklist_digest: digest_of(items), items: items, total: items.count, skipped_slices: skipped_slices)
 }
 
--- Specification's handoff: an identity the stamper handed out.
+-- Specification's event, from the one store: an identity the stamper handed out.
 rule NoteItemIdentity {
     when: ScenarioStamped(specification, item_id, slice, source, line, title)
     requires: not exists ItemIdentity{item_id: item_id}
     ensures: ItemIdentity.created(item_id: item_id, slice: slice, source: source)
 }
 
--- Cycle preparation's handoff: a pinned cut.
+-- Cycle preparation's event, from the one store: a pinned cut.
 rule NotePinnedCut {
     when: SourceCutPinned(preparation, cut_id, commit, tree_digest)
     requires: not exists PinnedCut{cut_id: cut_id}
@@ -198,16 +198,16 @@ surface InstrumentDesk {
         -- the refusal that failed the score stage.
 }
 
--- Specification's handoff, as this context hears it.
-surface SpecificationHandoffs {
+-- Specification's event, as this context hears it from the one store.
+surface SpecificationEvents {
     facing specification: SpecificationContext
 
     provides:
         ScenarioStamped(specification, item_id, slice, source, line, title)
 }
 
--- Cycle preparation's handoff, as this context hears it.
-surface CyclePreparationHandoffs {
+-- Cycle preparation's event, as this context hears it from the one store.
+surface CyclePreparationEvents {
     facing preparation: CyclePreparationContext
 
     provides:

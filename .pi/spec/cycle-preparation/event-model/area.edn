@@ -13,7 +13,7 @@
     :commands #{:cycle-preparation/pin-source-cut}}}
   :flows
   {:cycle-preparation/cut-to-fence
-   {:description "A pinned cut is what the checklist is derived from and what the fence builds a clean room of; the harness self-check of a cycle names its cut. The flow stays inside this context: Measurement and the Regeneration cycle fold source-cut-pinned (a handoff) into their own pinned-cuts, so this context's model validates alone, as a candidate registers it (decisions.md, \"Slice 05\")."
+   {:description "A pinned cut is what the checklist is derived from and what the fence builds a clean room of; the harness self-check of a cycle names its cut. Measurement and the Regeneration cycle fold source-cut-pinned into their own pinned-cuts, from the one store (decisions.md, \"Spec round 18\")."
     :grain/allium [{:spec ".pi/spec/cycle-preparation/allium/source-cut.allium" :kind :rule :name "PinSourceCut"}]
     :steps [{:from [:screen :cycle-preparation/preparation] :to [:command :cycle-preparation/pin-source-cut]}
             {:from [:command :cycle-preparation/pin-source-cut] :to [:event :cycle-preparation/source-cut-pinned]}

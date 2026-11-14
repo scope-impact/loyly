@@ -17,7 +17,16 @@
     :reads #{:specification/stamped-items}
     :produces #{:specification/scenario-stamped :specification/empty-title-headings-reported}}}
   :events
-  {:specification/empty-title-headings-reported
+  {:specification/scenario-stamped
+   {:description "A scenario received its item identity, @item-<slice>-<number>. It keeps it through every rewording; the scenario digest, not the identity, changes with the behavior."
+    :schema [:map
+             [:item-id [:re "^[0-9]+-[0-9]{3,}$"]]
+             [:slice [:re "^[0-9]+$"]]
+             [:source :string]
+             [:line pos-int?]
+             [:title :string]
+             [:stamped-at inst?]]}
+   :specification/empty-title-headings-reported
    {:description "The stamper found Scenario headings with nothing after the colon in a slice's spec file: not items, never stamped or counted, and reported loudly by line so the author sees them (legacy @harness-021; decisions.md, R2 question 6)."
     :schema [:map
              [:slice :string]

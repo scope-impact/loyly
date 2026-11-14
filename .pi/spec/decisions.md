@@ -1804,3 +1804,171 @@ and another failed it as unobservable).
 `@item-06-023`, `@item-06-056` and `@item-06-060` for the recorded reason "wording replaced"; no
 item is added, so the checklist golden stays at 212: `@item-06-060`'s name re-recorded, and the
 sources of the slice-06 items after `@item-06-022` moved by the new comment lines. The three items are not a holdout: they are reworded, not new.
+
+## Architecture direction (2026-11-13)
+
+Decided by the product owner on 2026-11-13: the whole cycle (fence, build, gate, grade, score) is
+one simple ORC tree that uses ORC's features thoroughly, pi is the model behind its nodes, the
+judge is the grader, GEPA improves the builder and the grader per project context, and the
+harness reports through OpenTelemetry. The architecture is written once, in
+`architecture/README.md` (the cycle tree and the spec set against ORC's features), with one ADR
+per decision in `architecture/adr/`.
+
+- **Accepted.** ADR 0003 (the judge scores checklist items; it supersedes the rule that graders
+  use another functional language), ADR 0004 (GEPA improves the builder instruction on held-out
+  items and the grader instruction on calibration only, per project context, between cycles; it
+  supersedes "Spec round 16b" D5 and the rules that a score never becomes builder input and the
+  instrument never reports into the loop), ADR 0006 (the shell runbook drives cycles until ADR
+  0001 lands; slice 06 is not rebuilt meanwhile). The domain specs 01 to 05 are unchanged.
+- **Proposed.** ADR 0001 (the harness is one ORC tree), ADR 0002 (Gondolin for build, gate and
+  grade), ADR 0005 (OpenTelemetry; its backend open). They are settled by the throwaway prototype
+  on `proto/orc-harness` and its findings.
+- Slice 06 (the cycle runner) is rewritten as ADR 0001's tree after the prototype, in a round of
+  its own.
+
+`AGENTS.md` follows: the architecture pointer, the graders row (ADR 0003), the shell runbook
+(ADR 0006), and the instrument and ratification lines (ADR 0004). No stamped item, event-model
+schema or Allium rule changed in this round; the checklist golden stays at 212.
+
+### Legacy builds one tree (2026-11-13)
+
+Decided by the product owner on 2026-11-13, after the prototype's round 2 (`proto/orc-harness`,
+5b3389e). Superseded ADRs are deleted, not kept beside their replacements.
+
+- **ADR 0006, rewritten and accepted.** The legacy shell harness (not ORC) drives cycles and builds
+  the new harness (ORC); the cycle runner does neither. "Self-hosting stopped" is lifted for this
+  one regeneration.
+- **ADR 0001, still proposed,** is now "one ORC tree on one store": `cycle.v1` on one Grain store,
+  the commands of 01 to 05 its leaves. It supersedes "Spec round 5"'s relay (a store per context,
+  hand-in methods) and round 17's tree per context. It gains the prototype's evidence: build and
+  repair are pi-durable `code` leaves (they resume), grading's driver a `repl-researcher`, an
+  `llm` node renders the builder instruction for GEPA.
+
+The next spec round rewrites slice 06 as `cycle.v1` and removes the relay, hand-in methods and
+handoff contracts from 01 to 05. Nothing is regenerated before it is approved.
+
+## Spec round 18 (2026-11-13)
+
+The round "Legacy builds one tree" asked for: slice 06 rewritten as the one tree `cycle.v1` on
+one store, and the relay, hand-in methods and handoff contracts removed from 01 to 05. The legacy
+shell harness then builds it, in one cycle. The one tree stays proposed: its evidence is a
+prototype, and it is accepted once a build of this tree runs a cycle.
+
+1. **Slice 06 is `cycle-runner/cycle.v1`** (`cycle-runner/seam.md`, "The tree"). One flow, one
+   tick per run, on one store. In order: `start`; the stamps (`map-each`); `pin`; `checklist`;
+   `grader`; `self-check:0`; `fence`; `render` (`llm`); `regenerate`; up to three
+   `gate-attempt:N`, each a delegate to `gate-attempt.v1` (install, self-check, gate with its
+   refusal tries, and the repair after a failed attempt the cycle allows); then, when an attempt
+   passed, each checklist item delegated to the sealed grader `grade.v1` (`clear-evidence`,
+   `drive-seam` a `repl-researcher`, `judge` a `code` leaf); then `file-verdicts` and
+   `file-score`; then `conclude` or `halt`. The stamp, the pin, the checklist and the grader come
+   before the self-check, as before: a refusal there comes before the cycle opens, so the run
+   halts with no cycle to fail (`refused-before-the-cycle`). The architecture tree's grouping
+   ("prepare" first) is reordered to match.
+2. **The five contexts are one candidate on one store.** Their commands are issued by the leaves
+   on that store; the one event model is the union of every context's `event-model/*.edn`. Each
+   `handoffs.edn` is gone: its events moved, unchanged, into the producer's aggregate fragment
+   (`scenario-stamped` to `specification/event-model/slice.edn`, `source-cut-pinned` to
+   `cycle-preparation/event-model/source-cut.edn`, both golden events to
+   `grader-lifecycle/event-model/instrument-golden.edn`, `gate-attempt-passed` to
+   `regeneration-cycle/event-model/gate-attempt.edn`, `measurement-filed` and
+   `score-stage-failed` to `measurement/event-model/cycle-measurement.edn`,
+   `scoreboard-reported` to `measurement/event-model/scoreboard.edn`). Measurement's and the
+   Regeneration cycle's "consumed handoffs, handed in" sections became "Other contexts' events,
+   on the one store": no hand-in method; a grader causes another context's event with the
+   producer's own command on the same candidate. Each context's seam says the store is the one
+   store, and the candidate registers the one event model. The fold rules (`NoteItemIdentity`,
+   `NotePinnedCut`, `OpenMeasurement`, `NoteGoldenWritten`, `NoteGoldenMoved`,
+   `NoteMeasurementFiled`, `NoteScoreStageFailed`, `NoteScoreboardReported`) are unchanged; the
+   surfaces that heard them are renamed from `…Handoffs` to `…Events`. Round 5's relay and round
+   17's tree per context are superseded. No domain rule of 01 to 05 changed, and none of their
+   scenarios: their stamps and counts stand.
+3. **Removed from slice 06**: `hand-in-verdicts` (rule `HandInVerdicts`, event
+   `verdicts-handed-in`, `RecordEffectAfterTheVerdicts`); the relay E8 (`relay-handoff`,
+   `handoff-relayed`, `RelayedHandoff`, `RelayHandoff`, `EachHandoffOncePerConsumer`,
+   `InTheProducersOrder`, the read model `relayed-handoffs`); the five contexts as programs
+   (`LOYLY_CONTEXTS`, `contexts_respond`, `StartRun` requires 5 `contexts-not-responding`,
+   `AReplyWithinItsBound`, `context_start_seconds`, `context_reply_seconds`, the halt reason
+   `context-did-not-respond`); `LOYLY_MEASUREMENT_STORE` (the one store keeps Measurement's
+   history); the `LOYLY_BUILDER_CMD` launcher; the flows `run-to-gate`,
+   `verdicts-to-conclusion`, `cycle-failed-ends-run` and `effect-not-performed-halts-run` (their
+   leaves now stand in `cycle.v1`); the run statuses `awaiting-verdicts` and `grading`; "a run
+   cannot resume". `StartRun`'s `builder-image-missing` is now requires 5.
+4. **Added to slice 06**: the builder session (`BuilderSession`: a pi-durable session through the
+   provided builder host, `LOYLY_BUILDER_HOST`, its identity `<run-id>/<tick-id>/<attempt>` so a
+   resumed leaf reopens it, `ASessionResumesAsItself`; the instruction rendered by the `llm` node
+   `render`, GEPA's target between cycles, `TheInstructionIsRendered`); grading (`TheJudge`:
+   `OnlyAnApprovedGrader`, `EachItemStartsClear`, `TheResearcherDrivesTheSeamOnly`,
+   `ReasonBeforeScore`, `AModelOtherThanTheBuildersOwn` verified by the planned gate
+   `model-independence`; the grader digest over `grade.v1` and the rubric handed in,
+   `LOYLY_GRADER_RUBRIC`; the model handed in, `LOYLY_MODEL_API_BASE`, `LOYLY_RENDER_MODEL`,
+   `LOYLY_GRADER_MODEL`); resume (`AStoppedRunResumes`: the runner resumes every run in progress
+   on its store when it starts); `run-progress` over the run's tick (its nodes, from ORC's tick
+   and node events) and the judge's scores; requests answered while a run runs; the OTLP export
+   to `OTEL_EXPORTER_OTLP_ENDPOINT`, diagnostic, no stamped item. Kept: the fence,
+   the clean room, the gate as judge and its three seams, at most three attempts, an honest score
+   (an item with no score is Measurement's unreached fail), the wait bounds, a leaf per effect,
+   the outcomes on the blackboard, each node's `:reads` and `:writes` in the seam.
+5. **Q1 on one store.** Measurement's history now lives in the one store, kept across runs, so a
+   later run meets Specification's ledger of the same slices. A slice the ledger already holds is
+   not restamped: the stamp offers the original file's own unstamped scenarios (none for a stamped
+   plan), and the identities compared with the file's own tags are the ledger's
+   (`cycle-runner/allium/context.allium`, Q1; `@item-06-051`).
+6. **Stamps** (`tools/spec/v2/stamp.clj`'s rule: never renumbered or reused, the next one past the
+   highest). Removed with their scenarios: `@item-06-006` (contexts not responding), `007` (the
+   relay), `025`, `027` to `032` (the verdicts hand-in), `033` (a context that stops answering),
+   `058` (the context start deadline), `063` (a context's reply bound): 12. Added:
+   `@item-06-064` to `@item-06-073` (the judge scores each item in its own tick, each item starts
+   clear, the researcher's input and room, reason before score, an unapproved grader halts, no
+   score fails the score stage, resume, the rendered instruction, a failed render halts, the
+   tick in `run-progress`): 10. Reworded, keeping their stamps for the recorded reason "wording
+   replaced" (the behaviour carried, the steps named the relay, a hand-in, a launched builder,
+   one cut for several runs on one store, or a run awaiting its verdicts): `001`, `003`, `014`,
+   `015`, `024`, `026`, `034`, `035`, `036`, `039`, `051`, `057`, `059`, `061`, `062`; and only
+   their comments and tags (the contracts renamed, `StartRun` requires 6 now 5): `008`, `012`,
+   `013`, `016`, `023`, `049`, `050`. Slice 06: 63 → 61 items; the checklist:
+   212 → 210 (01 15, 02 43, 03 11, 04 76, 05 4 unchanged). The recorded golden
+   (the legacy harness's `checklist.golden.json`) is the harness's to re-record. The new items are the
+   untuned holdout; the reworded ones are not.
+7. **Tools.** `tools/spec/v2/grain-validate.clj` no longer checks each context alone with its
+   consumed handoffs (there is one model and one candidate), and `tools/spec/v2/structural.py`
+   reads `gate-attempt-passed` from `gate-attempt.edn`. Event names were checked across the one
+   model: 25 events, no two with the same name; the read models `pinned-cuts` (Measurement, the
+   Regeneration cycle) and `instrument-goldens` (Grader lifecycle, the Regeneration cycle) share
+   a name across contexts, which their namespaces keep apart, so nothing was renamed.
+8. **One store, one cut per run.** A cut is pinned once and its checklist derived once on the one
+   store (`PinSourceCut` 1, `DeriveChecklist` 6), so each run names a cut identity of its own;
+   a run at a pinned cut halts at its pin (`cycle-runner/seam.md`, "Handed in").
+
+Follow-ups, the same day (2026-11-14), from decisions the product owner had already taken (one
+tree, on one store, built in one cycle by the legacy shell harness):
+
+9. **01 to 05 are built only inside slice 06.** None has a candidate, build or identity probe of
+   its own; each `README.md` and `seam.md` of 01 to 05 says so. `harness/v2/probe-02.sh` and
+   `probe-04.sh`, which hand in other contexts' events through a lone candidate's seam, are marked
+   superseded and kept for the relay-era builds, as `harness/v2/assemble.clj` is.
+10. **The gate's store check.** An event a command produced lies in a completed run of its own
+   flow's workflow or of `cycle-runner/cycle.v1`, whose leaves issue the five contexts' commands (a
+   child tick it delegated included); each seam of 01 to 05 says so, as
+   `harness/v2/event_store_check.clj` checks it.
+11. **The spec the builder reads is self-contained.** The architecture notes and their ADRs carry
+   recorded measurements, and the clean room holds none (AGENTS.md, "The clean room"), so they
+   stay fenced. Each context's files no longer cite them; `cycle-runner/seam.md` states the facts
+   the builder needs itself: the model provider registered under a name other than `:openai`
+   (ORC's marker format), the shim provided and never regenerated, GEPA between cycles only.
+12. **A judge reply needs its reason.** ORC's banded-output check reads only the level, so in the
+   prototype a judge reply with a level and no reasoning scored 1.0. The judge checks the reason
+   itself (`ReasonBeforeScore`, `cycle-runner/seam.md`, "Grading"). `@item-06-067` covers it, no
+   new item: its judge reply is the level of a pass with no reasoning, which files no score for
+   the item, and Measurement files it as an unreached fail, still counted. Slice 06 stays at 61
+   items; the checklist stays at 210. `cycle-runner/seam.md`'s "How a grader drives it without a live pi" also says how a
+   stub model replies (the marker format), that a scripted researcher reads `(get-input :item)`,
+   and that a stub matches requests on stable substrings. The grader instruction for slice 06
+   (`.pi/harness/grader-instruction-06.md`) is re-authored for this round.
+
+Open, for the product owner: whether the five contexts' methods stay a seam of the one candidate
+for grading 01 to 05 (this round assumes so, and a grader of Measurement must now drive a gated
+cycle through the Regeneration cycle's commands where it handed in `gate-attempt-passed` before);
+whether a `map-each` may delegate (round 16 said it runs one primitive leaf; the grading needs a
+three-node subtree per item); and what a run stopped while a researcher was in flight does at the
+pin (`resume-in-progress!` resumes leaves only).

@@ -53,34 +53,39 @@ the room's candidate, `verify.sh` runs unchanged (with `v2/probe-01.sh`), and th
 event a command produced must lie inside a completed run of its workflow.
 `v2/event-store-check-test.sh` judges that check on hand-made stores.
 
-A context that consumes other contexts' handoffs is built alone too: its room keeps each
-producer's `event-model/handoffs.edn` and nothing else of it (`config.sh` finds them in the
-context's event model), and the gate and the grader hand those events in through the
-candidate's seam, one method per consumed event (`.pi/spec/decisions.md`, "Slice 02"). The
-event-store check allows exactly the consumed handoff types, each held to its contract's
-schema and never counted as the candidate's own, and refuses any other foreign type. Slice 02,
-`measurement`, consumes `specification/scenario-stamped`, `cycle-preparation/source-cut-pinned`
-and `regeneration-cycle/gate-attempt-passed`; its probe is `v2/probe-02.sh`.
+Since spec round 18 (`.pi/spec/decisions.md`, "Spec round 18") there is one event model, the
+union of every context's `event-model/*.edn`, and no `handoffs.edn`, relay or hand-in method:
+every room keeps every other context's `event-model/` and nothing else of it (`config.sh`), and
+the event-store check takes the slice's own model plus every other context's, holds another
+context's event to its schema, never counts it as the candidate's own, and owes it a completed
+ORC run of its own flow or of one of the slice's flows (the cycle runner's leaves issue the five
+contexts' commands). The contexts 01 to 05 are built only inside slice 06, never on their own
+(`.pi/spec/decisions.md`, "Spec round 18" 9): the per-slice notes below describe the relay-era
+builds, and `v2/probe-02.sh` and `v2/probe-04.sh`, which hand other contexts' events in through a
+lone candidate's seam, are marked superseded and kept to replay them. Slice 02, `measurement`,
+folds `specification/scenario-stamped`, `cycle-preparation/source-cut-pinned` and
+`regeneration-cycle/gate-attempt-passed`.
 
-Slice 03, `grader-lifecycle`, consumes no handoff: its room holds no other context's file. Its
+Slice 03, `grader-lifecycle`, folds no other context's event. Its
 candidate is also handed the current scenario digests, a JSON file `LOYLY_SCENARIO_DIGESTS`
 names (`.pi/spec/decisions.md`, "Slice 03"); its probe, `v2/probe-03.sh`, writes one, then a
 golden from that scenario, moves it, has a move without a note refused and reads it back.
 
-Slice 04, `regeneration-cycle`, consumes six handoffs (`cycle-preparation/source-cut-pinned`,
+Slice 04, `regeneration-cycle`, folds six other contexts' events (`cycle-preparation/source-cut-pinned`,
 `grader-lifecycle/instrument-golden-written` and `-moved`, `measurement/measurement-filed`,
-`score-stage-failed` and `scoreboard-reported`): its room keeps those three producers'
-`handoffs.edn`. Its candidate records what ORC runtime's nodes did in a room, handed in as
+`score-stage-failed` and `scoreboard-reported`). Its candidate records what ORC runtime's nodes did in a room, handed in as
 command params, and acts on nothing outside its store; it is also handed the scoring tools'
 paths, `LOYLY_SCORING_TOOL_PATHS` (`.pi/spec/decisions.md`, "Slice 04"). Its probe,
 `v2/probe-04.sh`, hands in a pinned cut and a golden, opens a cycle on a self-check at the goldens
 digest `seam.md` defines, has a fence whose path matched nothing refused, proves the clean room
 and reads the cycle back.
 
-Slice 05, `cycle-preparation`, consumes no handoff and is handed the repository's commits
-(`LOYLY_PROJECT_COMMITS`); its probe is `v2/probe-05.sh`. Slice 06, `cycle-runner`, keeps the
-five other contexts' `seam.md` and `event-model/` in its room, the contracts the runner speaks
-(`harness/config.sh`); its probe is `v2/probe-06.sh`.
+Slice 05, `cycle-preparation`, folds no other context's event and is handed the repository's
+commits (`LOYLY_PROJECT_COMMITS`); its probe is `v2/probe-05.sh`. Slice 06, `cycle-runner`, is
+the one candidate `cycle-runner/cycle.v1` with the five contexts 01 to 05 in it, on one store:
+its room keeps the five other contexts whole (`harness/config.sh`); its probe, `v2/probe-06.sh`,
+refuses a start at no commit and one whose builder image is missing, then halts a run at an
+unapproved grader after its stamp, pin and checklist were recorded into their contexts.
 
 ### Scoring a spec-v2 cycle (legacy step 5)
 
@@ -105,6 +110,9 @@ feature, drafted in the spec (`.pi/spec/grader-lifecycle/drafts.feature`,
 "Spec round 3" 4).
 
 ### The assembly gate (2026-11-07)
+
+Superseded by spec round 18 (one candidate, one store, no relay); kept to replay the relay-era
+builds, its handoff types now read from the producers' own fragments.
 
 `harness/v2/assemble.sh ROOM01 ROOM02 ROOM03 ROOM04 ROOM05` (with `v2/assemble.clj` and
 `v2/store_reader.clj`) wires the five gated candidates together through their handoffs
@@ -431,3 +439,18 @@ configuration. It appended five stamped minimum items at the end of slice 06's `
 `harness/oracle.sh record`; its diff is additions plus the one `total` line (201 → 206). The
 slice-06 grader grows by those items for the recorded reason "spec grew". `harness/loyly-run`
 (added in `c8d4384`) is declared `LOCAL` in `harness/modules.sh`.
+
+**2026-11-14: the spec moved: spec round 18 (212 → 210).** The
+product owner's spec round 18 (`.pi/spec/decisions.md`, "Spec round 18") rewrote slice 06 as the
+one tree `cycle-runner/cycle.v1` on one store. It removed twelve slice-06 scenarios with their
+stamps (`06-006`, `06-007`, `06-025`, `06-027` to `06-033`, `06-058`, `06-063`: the relay, the
+verdicts hand-in, the five contexts as programs), added ten (`06-064` to `06-073`: the judge,
+resume, the rendered instruction, the tick in `run-progress`), and reworded others keeping their
+stamps for the recorded reason "wording replaced". The golden was re-recorded with
+`harness/oracle.sh record`; its diff removes exactly those twelve items, adds those ten, changes
+the names of the reworded items, moves `source` line numbers in slice 06, and the `total` line
+(212 → 210). Its follow-up ("Spec round 18" 12) reworded `06-067`, keeping its stamp ("wording
+replaced"), to a judge reply with a level and no reasoning; the golden was re-recorded again: its
+diff is that item's name and the `source` line numbers of the slice-06 items after it. The slice-06 grader instruction
+(`.pi/harness/grader-instruction-06.md`) was re-authored for the round; no approved grader's
+scenarios changed (`graders.approved.json` covers no spec-v2 item).

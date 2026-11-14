@@ -13,16 +13,17 @@
 ;;     and neither counted nor refused.
 ;;   - an event's fields, other than Grain's own :event/* keys, are not exactly its schema
 ;;     (the model's malli schema, closed: no missing, extra or ill-typed field)
-;;   - a handoff event of another context is not one the slice consumes. A consumed handoff
-;;     (a :<producer>/<event> the slice's model names that the producer's
-;;     event-model/handoffs.edn, beside EVENT-MODEL-DIR's context in this checkout, defines)
-;;     reaches a lone candidate through its seam, standing in for the stubbed producer
-;;     (decisions.md, "Slice 02"): it is listed, held to exactly its contract's schema like a
-;;     model event, and neither counted as the candidate's own nor owed an ORC run. Any other
-;;     foreign type is refused like an unknown one.
+;;   - an event of another context is not an event of the one event model. Since spec round 18
+;;     (decisions.md, "Spec round 18") the six contexts are one candidate on one store, and the
+;;     one event model is the union of every context's event-model/*.edn, beside
+;;     EVENT-MODEL-DIR's context in this checkout. Another context's event is held to exactly
+;;     its schema like the slice's own, is not counted as the slice's own, and is owed an ORC
+;;     run like any event a command produced: a run of its own flow's workflow, or of a flow of
+;;     the slice's own model (the cycle runner's tree issues the five contexts' commands inside
+;;     its leaves, cycle-runner/seam.md, "The event store"). Any other type is refused.
 ;;   - ORC did not run on this store (seam.md, "The event store"; decisions.md, "First light",
-;;     4). ORC's own events (types in the sheet, rlm or intervention namespaces, those of the
-;;     orc-service component) are listed like Grain's, neither counted nor refused. Each
+;;     4). ORC's own events (types in the sheet, rlm, intervention or judge namespaces, those of
+;;     the orc-service and evaluation components) are listed like Grain's, neither counted nor refused. Each
 ;;     event a command of the model produced must be written inside a run of the ORC workflow
 ;;     named after the command's flow (:specification/stamping for :specification/stamp-slice)
 ;;     that completed with success. The linkage is the store's own order, within the event's
@@ -67,39 +68,48 @@
             [malli.error :as me]
             [malli.util :as mu]))
 
-(defn consumed-handoffs
-  "{type schema} of the handoff events of other contexts that FRAGMENTS (the slice's model,
-  read from DIR) name, each from its producer's DIR/../../<producer>/event-model/handoffs.edn."
-  [dir fragments]
-  (let [own (set (map name (mapcat keys fragments)))
-        spec (.getParentFile (.getParentFile (.getCanonicalFile (io/file dir))))]
-    (into {} (for [k (set (filter #(and (keyword? %) (namespace %) (not (own (namespace %))))
-                                  (tree-seq coll? seq fragments)))
-                   :let [f (io/file spec (namespace k) "event-model" "handoffs.edn")]
-                   :when (.isFile f)
-                   :let [schema (get-in (edn/read-string (slurp f)) [(keyword (namespace k)) :events k :schema])]
-                   :when schema]
-               [k schema]))))
+(defn- fragments-of [dir]
+  (for [f (sort-by str (.listFiles (io/file dir)))
+        :when (str/ends-with? (.getName f) ".edn")]
+    (edn/read-string (slurp f))))
+
+(defn other-fragments
+  "The *.edn fragments of every other context's event model, DIR/../../<context>/event-model:
+  with DIR's own, the one event model (spec round 18)."
+  [dir]
+  (let [own (.getCanonicalFile (io/file dir))
+        spec (.getParentFile (.getParentFile own))]
+    (for [c (sort-by str (.listFiles spec))
+          :let [d (.getCanonicalFile (io/file c "event-model"))]
+          :when (and (.isDirectory d) (not= d own))
+          fr (fragments-of d)]
+      fr)))
 
 (defn load-model
-  "The *.edn fragments of DIR merged: {:events {type schema}, :consumed {type schema},
-  :workflows {event-type #{name}}, :leaves {event-type {flow leaf}}}, :consumed being the
-  handoff events of other contexts the model consumes, :workflows naming, for each event a
-  command produces, the flows that command belongs to, and :leaves, for each event a step
-  from a command declares a :leaf for, that leaf in each such flow."
+  "The one event model, DIR's context's fragments and every other context's: {:events {type
+  schema}, :others {type schema}, :workflows {event-type #{name}}, :leaves {event-type {flow
+  leaf}}}, :events the slice's own (DIR), :others every other context's, :workflows naming, for
+  each event a command produces, the flows that command belongs to (and, for another context's
+  event, the slice's own flows too, whose leaves may issue it), and :leaves, for each event a
+  step of the slice's own flows declares a :leaf for, that leaf in each such flow."
   [dir]
-  (let [fragments (for [f (sort-by str (.listFiles (io/file dir)))
-                        :when (str/ends-with? (.getName f) ".edn")]
-                    (edn/read-string (slurp f)))
+  (let [fragments (fragments-of dir)
+        others (other-fragments dir)
         areas (for [fr fragments [_area am] fr] am)
-        commands (apply merge (map :commands areas))
+        other-areas (for [fr others [_area am] fr] am)
+        commands (apply merge (map :commands (concat areas other-areas)))
         flows (apply merge (map :flows areas))
-        flows-of (fn [c] (set (for [[fname {:keys [steps]}] flows
+        all-flows (apply merge (map :flows (concat areas other-areas)))
+        own-flows (set (map #(subs (str %) 1) (keys flows)))
+        own-events (into {} (for [am areas [k {:keys [schema]}] (:events am)] [k schema]))
+        flows-of (fn [c] (set (for [[fname {:keys [steps]}] all-flows
                                     {:keys [from to]} steps
                                     :when (some #{[:command c]} [from to])]
                                 (subs (str fname) 1))))]
-    {:events (into {} (for [am areas [k {:keys [schema]}] (:events am)] [k schema]))
-     :consumed (consumed-handoffs dir fragments)
+    {:events own-events
+     :others (into {} (for [am other-areas [k {:keys [schema]}] (:events am)
+                            :when (not (contains? own-events k))]
+                        [k schema]))
      :leaves (apply merge-with merge {}
                     (for [[fname {:keys [steps]}] flows
                           {:keys [from to leaf]} steps
@@ -110,7 +120,7 @@
                              :let [ws (flows-of c)]
                              :when (seq ws)
                              e produces]
-                         {e ws}))}))
+                         {e (if (contains? own-events e) ws (into ws own-flows))}))}))
 
 (defn copy-store
   "Copy STORE and its -wal and -shm companions into a fresh directory; the copy's path."
@@ -134,7 +144,7 @@
 (defn grain-own? [t]
   (let [n (namespace t)] (boolean (and n (or (= n "grain") (str/starts-with? n "grain."))))))
 
-(def orc-namespaces #{"sheet" "rlm" "intervention"})
+(def orc-namespaces #{"sheet" "rlm" "intervention" "judge"})
 
 (defn orc-own? [t] (contains? orc-namespaces (namespace t)))
 
@@ -279,8 +289,8 @@
   (into {} (remove (fn [[k _]] (or (= "event" (namespace k)) (= ::tenant k)))) e))
 
 (defn check [model-dir store]
-  (let [{own :events consumed :consumed workflows :workflows leaves :leaves} (load-model model-dir)
-        schemas (merge consumed own)]
+  (let [{own :events others :others workflows :workflows leaves :leaves} (load-model model-dir)
+        schemas (merge others own)]
     (cond
       (empty? own)
       [(str "the event model at " model-dir " has no event: nothing to check against")]
@@ -294,18 +304,15 @@
                       (count (distinct (map ::tenant events))) " tenants"))
         (doseq [[t n] (sort-by (comp str key) (frequencies (map :event/type events)))]
           (println (format "  %4d  %s%s" n (subs (str t) 1)
-                           (cond (contains? own t) "" (contains? consumed t) "   (a consumed handoff, handed in)"
+                           (cond (contains? own t) "" (contains? others t) "   (another context's, on the one store)"
                                  (grain-own? t) "   (Grain's own)"
                                  (orc-own? t) "   (ORC's own)" :else "   (not in the event model)"))))
-        (when (seq consumed)
-          (println (str "  consumed handoffs allowed, each with its contract's schema: "
-                        (str/join ", " (sort (map #(subs (str %) 1) (keys consumed)))))))
         (if (not-any? #(contains? own (:event/type %)) events)
           ["the event store holds no event of the model: the candidate did not record its facts in Grain"]
           (vec (concat
                 (for [t (sort-by str (distinct (map :event/type events)))
                       :when (not (or (contains? schemas t) (grain-own? t) (orc-own? t)))]
-                  (str "event type " (subs (str t) 1) " is not an event of " model-dir))
+                  (str "event type " (subs (str t) 1) " is not an event of " model-dir " nor of another context's event model"))
                 (for [e events
                       :let [schema (schemas (:event/type e))]
                       :when schema
@@ -326,7 +333,7 @@
   (doseq [p problems] (println "  FAIL " p))
   (println (if (seq problems)
              (str "event-store check FAILED: " (count problems) " problem(s)")
-             (str "event-store check OK: every event is an event of the model or a handoff it consumes, "
+             (str "event-store check OK: every event is an event of the one event model, "
                   "with exactly its fields, or Grain's or ORC's own, and each event a command produced lies inside a completed run "
                   "of its ORC workflow (in its own named leaf, where the model names one), each tick completed once, and ORC's processors checkpointed")))
   (shutdown-agents)

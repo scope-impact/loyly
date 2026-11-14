@@ -24,10 +24,9 @@ It fails closed (exit 1) unless every gate passes, and prints the gate lines the
    composition gate: every command links an Allium rule, every screen an Allium surface,
    and every link (`{:spec ".pi/spec/<context>/allium/<file>.allium" :kind :rule|:surface|:entity :name "X"}`)
    resolves with `allium check` and `allium parse`. **The gate: 0 errors, 0 warnings in
-   both.** Then each accepted context (a `.pi/plan/NN-<context>` link) alone, as its
-   candidate registers it: its own fragments plus only the handoff events it names, from
-   each producer's `event-model/handoffs.edn`; structural, strict, 0 errors and 0 warnings
-   (`.pi/spec/decisions.md`, "Slice 02" 2). Run alone: `cd tools/spec/v2 && clojure -M -i grain-validate.clj`.
+   both.** The merged model is the one event model of the one candidate (`.pi/spec/decisions.md`,
+   "Spec round 18"; ADR 0001): no context is checked alone, and no context has a
+   `handoffs.edn`. Run alone: `cd tools/spec/v2 && clojure -M -i grain-validate.clj`.
 2b. **Structural** (`structural.py`): the named checks that verify a guarantee or a contract
    invariant whose prose says "Verified by: gate <name>" (decisions.md, "Calls after R3",
    3: structural obligations are not drafted as scenarios). One so far,

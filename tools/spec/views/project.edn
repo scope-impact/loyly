@@ -5,8 +5,8 @@
  :review-title "Löyly spec review"               ; <title> of dist/review.html (2 to 4 words)
  :spec-root ".pi/spec"                           ; one directory per bounded context
  :contexts :discover                             ; or a vector of context directory names, in order
- :files {:allium "allium" :event-model "event-model" :handoffs "handoffs.edn"
-         :spec "spec.feature" :drafts "drafts.feature"}
+ :files {:allium "allium" :event-model "event-model"          ; no :handoffs file since spec round 18:
+         :spec "spec.feature" :drafts "drafts.feature"}          ; a handoff is an own event another context reads
  :plan-dir ".pi/plan"                            ; optional: NN-<context> links give slice number and order
  :item-tag "@item-"                              ; the stamped item tag; the id follows it (NN-SSS)
  :tiers ["@minimum" "@balance" "@deferred"]      ; build-tier tags
@@ -20,24 +20,23 @@
  :site-pages [{:label "Runs" :dir "tools/spec/replay" :href "replay"}   ; optional: the other pages publish.sh
               {:label "Eval" :dir "tools/spec/eval" :href "eval"}]    ; publishes, linked from the site menu
  ;; The event storm (L0): its order comes from the event models' flows and handoffs; :after adds
- ;; the order they do not hold. The cycle runner reads every context's store instead of
- ;; consuming its events (cycle-runner/allium/context.allium, "One run in the legacy shape"), so
- ;; its run starts before the stamp and the pin, its verdicts are handed in after the gate's
- ;; pass, and it concludes after the cycle does. :unhappy marks the events drawn as unhappy paths;
- ;; :orchestrator names the context that only relays, drawn as a thin band at the top.
+ ;; the order they do not hold. The cycle runner's tree issues the other contexts' commands in its
+ ;; leaves, on the one store (spec round 18), so its run starts before the stamp and the pin, the
+ ;; item verdicts are filed after the gate's pass, and it concludes after the cycle does. :unhappy
+ ;; marks the events drawn as unhappy paths; :orchestrator names the context that drives the
+ ;; others, drawn as a thin band at the top.
  :story {:orchestrator "cycle-runner"
          :after [[:cycle-runner/run-started :specification/scenario-stamped]
                  [:cycle-runner/run-started :cycle-preparation/source-cut-pinned]
-                 [:regeneration-cycle/gate-attempt-passed :cycle-runner/verdicts-handed-in]
-                 [:cycle-runner/verdicts-handed-in :measurement/item-verdicts-filed]
+                 [:regeneration-cycle/gate-attempt-passed :measurement/item-verdicts-filed]
                  [:regeneration-cycle/cycle-passed :cycle-runner/run-concluded]
                  [:regeneration-cycle/cycle-failed :cycle-runner/run-concluded]]
          :unhappy "failed|refused|halted"}
  :text {:summary "Löyly rebuilds a software product from its written specification in a clean room, lets a gate it does not control decide whether the rebuild works, and scores the result item by item, one cycle at a time."
-        :intro "The Pi harness, specified as {contexts} bounded contexts. Each is a slice of its own: its Allium, its Grain Event Model, its stamped scenarios. The contexts meet only through handoffs, events one context defines and others read; the cycle runner relays each from its producer's store."
-        :handoffs-assembly "This is the assembly the cycle runner's relay drives: "
-        :handoffs-note " The cycle runner consumes none: it reads each from the producer's store and hands it in through the consumer's seam."
-        :relay-note " The cycle runner relays each from the producer's store to the consumer."
+        :intro "The Pi harness, specified as {contexts} bounded contexts. Each is a slice of its own: its Allium, its Grain Event Model, its stamped scenarios. The contexts meet only through handoffs, events one context defines and others read, on the one store of the one candidate."
+        :handoffs-assembly "Each is appended once, by its producer's command, on the one store: "
+        :handoffs-note " Every context that folds one reads it from the one store; there is no relay."
+        :relay-note " Every context that folds one reads it from the one store."
         :c4-card "How the harness runs: who uses it, the runnable parts, and each context's components, from "
         :c4-lede "The harness as it runs, at three levels of zoom."
         :drafts-unread "The harness does not read them until they are accepted and stamped."

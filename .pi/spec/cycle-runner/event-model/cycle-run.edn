@@ -1,16 +1,18 @@
-;; .pi/spec/cycle-runner/event-model/cycle-run.edn: aggregate CycleRun, in the runner's own
-;; event store (one per run). Slice 06 (decisions.md, "Slice 06 (draft)", "Spec round 7b"). The runner performs a
-;; cycle's effects in the real world and records each effect's result into the context that
-;; owns it, through that context's seam; its own facts are which effect it performed and what
-;; the context answered, which handoff it relayed and how the consumer took it, the verdicts
-;; handed in, and how the run ended. It owns no rule of the five contexts.
+;; .pi/spec/cycle-runner/event-model/cycle-run.edn: aggregate CycleRun, on the one store (one
+;; per run). Slice 06 (decisions.md, "Slice 06 (draft)", "Spec round 7b"; rewritten as the one
+;; tree cycle-runner/cycle.v1 in "Spec round 18"). A run performs one cycle's effects in
+;; the real world and records each effect's result into the context that owns it, by that
+;; context's command on the one store; its own facts are which effect it performed and what the
+;; context answered, and how the run ended. The judge's scores are ORC's own events
+;; (:judge/score-emitted), filed with Measurement by the score leaf. It owns no rule of the five
+;; contexts.
 ;; Legacy: the operator's hands between fence.sh, a builder session, verify.sh, a grading
-;; subagent's verdicts file, score.clj and scoreboard.clj; harness/v2/assemble.clj (the relay).
+;; subagent's verdicts file, score.clj and scoreboard.clj.
 ;; Allium: ../allium/cycle-run.allium.
 {:cycle-runner
  {:commands
   {:cycle-runner/start-run
-   {:description "Start a run of one cycle: the cut's commit, the selection, the budget and the approved grader digests. The five contexts' candidates are started for it, each on a fresh store but Measurement on the measurement history store when one is handed in, and the run performs its effects up to the gate's verdict before the method responds. Issued by: operator."
+   {:description "Start a run of one cycle: the cut's commit, the selection, the budget and the approved grader digests. The run is one tick of cycle-runner/cycle.v1 on the one store, and it performs every effect of the cycle, the grading and the score included, before the method responds. Issued by: operator."
     :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "StartRun"}]
     :schema [:map
              [:run-id :string]
@@ -27,9 +29,8 @@
     :reads #{:cycle-runner/runs}
     :produces #{:cycle-runner/run-started}}
    :cycle-runner/record-effect
-   {:description "Record one effect's result: the effect a node performed, the context method it was recorded through, and what the context replied (recorded, with the events it replied, verbatim, or refused, with its refusal code as heard). Issued by: the leaf of the flow's ORC tree named for the effect, after it performed the effect (seam.md, \"The trees\")."
-    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "RecordEffect"}
-                   {:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "RecordEffectAfterTheVerdicts"}]
+   {:description "Record one effect's result: the effect a leaf performed, the context command it was recorded through, and what the context replied (recorded, with the events it replied, verbatim, or refused, with its refusal code as heard). Issued by: the leaf of cycle.v1, or of a workflow it delegates to, named for the effect, after it performed the effect (seam.md, \"The tree\")."
+    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "RecordEffect"}]
     :schema [:map
              [:run-id :string]
              [:effect [:enum "stamp" "pin" "checklist" "self-check" "fence" "fail-cycle" "regenerate" "install"
@@ -43,29 +44,8 @@
              [:detail :string]]
     :reads #{:cycle-runner/runs}
     :produces #{:cycle-runner/effect-recorded}}
-   :cycle-runner/relay-handoff
-   {:description "Hand one producer's handoff, taken from the producer's own store, in store order, in to one consumer unchanged, and record how the consumer took it. Issued by: the relay leaf that follows every recording leaf of the flow's ORC tree."
-    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "RelayHandoff"}]
-    :schema [:map
-             [:run-id :string]
-             [:handoff-type :string]
-             [:producer :string]
-             [:position pos-int?]
-             [:consumer :string]
-             [:outcome [:enum "accepted" "refused"]]]
-    :reads #{:cycle-runner/runs :cycle-runner/relayed-handoffs}
-    :produces #{:cycle-runner/handoff-relayed}}
-   :cycle-runner/hand-in-verdicts
-   {:description "Hand in the verdicts file of the gated candidate: one verdict per checklist item, written by the grading subagent, and by the main session for an item it judges. The run then files them and the score with Measurement, relays, and concludes before the method responds. Issued by: operator."
-    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "HandInVerdicts"}]
-    :schema [:map
-             [:run-id :string]
-             [:verdicts-path :string]
-             [:grader-digest :string]]
-    :reads #{:cycle-runner/runs}
-    :produces #{:cycle-runner/verdicts-handed-in}}
    :cycle-runner/conclude-run
-   {:description "Conclude the run as its cycle concluded in the Regeneration cycle: passed or failed, with the cycle's progress as read. Issued by: the conclude leaf of the flow's ORC tree, when the cycle's progress shows it concluded."
+   {:description "Conclude the run as its cycle concluded in the Regeneration cycle: passed or failed, with the cycle's progress as read. Issued by: a conclude leaf of cycle.v1, when the cycle's progress shows it concluded."
     :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "ConcludeRunPassed"}
                    {:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "ConcludeRunFailed"}]
     :schema [:map
@@ -75,18 +55,18 @@
     :reads #{:cycle-runner/runs}
     :produces #{:cycle-runner/run-concluded}}
    :cycle-runner/halt-run
-   {:description "Halt the run: an effect could not be performed at all (a context did not respond, a handed-in command could not be started), so nothing was recorded for it; or the stamp, the pin or the checklist was refused before the cycle opened, or the stamp handed out identities that are not the plan's own, so there is no cycle to fail. A halt is the runner's fact, never the cycle's conclusion. Issued by: the halt leaf of effect-not-performed-halts-run."
+   {:description "Halt the run: an effect could not be performed at all (a handed-in command could not be started, a node that calls the model failed), so nothing was recorded for it; or the stamp, the pin or the checklist was refused before the cycle opened, the stamp handed out identities that are not the plan's own, or the sealed grader is not approved, so there is no cycle to fail. A halt is the runner's fact, never the cycle's conclusion. Issued by: the halt leaf of cycle.v1."
     :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "HaltRun"}]
     :schema [:map
              [:run-id :string]
              [:effect :string]
-             [:reason [:enum "context-did-not-respond" "effect-could-not-run" "refused-before-the-cycle"]]
+             [:reason [:enum "effect-could-not-run" "refused-before-the-cycle"]]
              [:detail :string]]
     :reads #{:cycle-runner/runs}
     :produces #{:cycle-runner/run-halted}}}
   :events
   {:cycle-runner/run-started
-   {:description "A run of one cycle started: its cut, commit, selection, budget and approved grader digests, and the five contexts started for it."
+   {:description "A run of one cycle started: its cut, commit, selection, budget and approved grader digests."
     :schema [:map
              [:run-id :string]
              [:cycle-id :string]
@@ -101,7 +81,7 @@
              [:grader-digests [:vector :string]]
              [:started-at inst?]]}
    :cycle-runner/effect-recorded
-   {:description "An effect was performed and its result recorded into a context: the method, and the context's reply as heard."
+   {:description "An effect was performed and its result recorded into a context: the command, and the context's reply as heard."
     :schema [:map
              [:run-id :string]
              [:position pos-int?]
@@ -114,25 +94,6 @@
              [:events [:vector [:map {:closed false}]]]
              [:detail :string]
              [:performed-at inst?]]}
-   :cycle-runner/handoff-relayed
-   {:description "A producer's handoff was handed in to one consumer, unchanged, and the consumer accepted or refused it."
-    :schema [:map
-             [:run-id :string]
-             [:handoff-type :string]
-             [:producer :string]
-             [:position pos-int?]
-             [:consumer :string]
-             [:outcome [:enum "accepted" "refused"]]
-             [:relayed-at inst?]]}
-   :cycle-runner/verdicts-handed-in
-   {:description "The verdicts file of the gated candidate was handed in: its path, its digest, the grader digest and the number of verdicts it holds."
-    :schema [:map
-             [:run-id :string]
-             [:verdicts-path :string]
-             [:verdicts-digest :string]
-             [:grader-digest :string]
-             [:verdicts :int]
-             [:handed-in-at inst?]]}
    :cycle-runner/run-concluded
    {:description "The run concluded as its cycle did: passed, or failed at the cycle's stage for the cycle's reason. cycle is the Regeneration cycle's progress of the cycle as read at the conclusion, verbatim."
     :schema [:map
@@ -142,29 +103,28 @@
              [:cycle [:map {:closed false}]]
              [:concluded-at inst?]]}
    :cycle-runner/run-halted
-   {:description "The run halted: an effect could not be performed, so nothing was recorded for it. Loud, and never the cycle's conclusion."
+   {:description "The run halted: an effect could not be performed, so nothing was recorded for it, or a refusal came before the cycle opened. Loud, and never the cycle's conclusion."
     :schema [:map
              [:run-id :string]
              [:effect :string]
-             [:reason [:enum "context-did-not-respond" "effect-could-not-run" "refused-before-the-cycle"]]
+             [:reason [:enum "effect-could-not-run" "refused-before-the-cycle"]]
              [:detail :string]
              [:halted-at inst?]]}}
   :read-models
   {:cycle-runner/runs
-   {:description "Each run: its cycle, cut and commit, its status (running, awaiting-verdicts, grading, passed, failed, halted), the effects recorded, the candidates regenerated, the verdicts digest, and how it ended."
+   {:description "Each run: its cycle, cut and commit, its status (running, passed, failed, halted), the effects recorded, the candidates regenerated, and how it ended."
     :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :entity :name "CycleRun"}]
-    :consumes #{:cycle-runner/run-started :cycle-runner/effect-recorded :cycle-runner/verdicts-handed-in
+    :consumes #{:cycle-runner/run-started :cycle-runner/effect-recorded
                 :cycle-runner/run-concluded :cycle-runner/run-halted}
     :schema [:map
              [:run-id :string]
              [:cycle-id :string]
              [:cut-id :string]
              [:commit :string]
-             [:status [:enum "running" "awaiting-verdicts" "grading" "passed" "failed" "halted"]]
+             [:status [:enum "running" "passed" "failed" "halted"]]
              [:effects :int]
              [:attempts :int]
              [:candidate-digest {:optional true} :string]
-             [:verdicts-digest {:optional true} :string]
              [:cycle {:optional true} :map]
              [:halt {:optional true} [:map [:effect :string] [:reason :string] [:detail :string]]]]}
    :cycle-runner/effect-results
@@ -181,20 +141,9 @@
              [:outcome :string]
              [:refusal {:optional true} :string]
              [:events [:vector :map]]
-             [:detail :string]]}
-   :cycle-runner/relayed-handoffs
-   {:description "Each run's relayed handoffs, in the order relayed: type, producer, position in the producer's store, consumer, outcome."
-    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :entity :name "RelayedHandoff"}]
-    :consumes #{:cycle-runner/handoff-relayed}
-    :schema [:map
-             [:run-id :string]
-             [:handoff-type :string]
-             [:producer :string]
-             [:position :int]
-             [:consumer :string]
-             [:outcome :string]]}}
+             [:detail :string]]}}
   :queries
   {:cycle-runner/run-progress
-   {:description "One run's status, effect results and relayed handoffs, or every run's. A view, never an authority."
+   {:description "One run's status and effect results, with its tick as ORC's tick events show it and the judge's scores of its items, or every run's. A view, never an authority."
     :schema [:map [:run-id {:optional true} :string]]
-    :reads #{:cycle-runner/runs :cycle-runner/effect-results :cycle-runner/relayed-handoffs}}}}}
+    :reads #{:cycle-runner/runs :cycle-runner/effect-results}}}}}

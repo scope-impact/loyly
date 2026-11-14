@@ -1,18 +1,18 @@
 -- allium: 3
 -- .pi/spec/cycle-runner/allium/cycle-run.allium
 --
--- Aggregate CycleRun, in the runner's own event store: one per run
--- (event-model/cycle-run.edn). A run performs one cycle's effects in the real world (a
--- git repository read, a clean room built, a builder launched and waited for, a gate run
--- on the host) and records each effect's result into the context that owns it, through
--- that context's seam. Its own facts are only that: which effect was performed and what
--- the context answered, which handoff it relayed and how the consumer took it, the
--- verdicts handed in, and how the run ended. Drafted in decisions.md "Slice 06 (draft)",
--- accepted in "Spec round 7b".
+-- Aggregate CycleRun, on the one store: one per run (event-model/cycle-run.edn). A run is one
+-- tick of the tree cycle-runner/cycle.v1. It performs one cycle's effects in the real world
+-- (a git repository read, a clean room built, a builder session run and waited for, a gate
+-- run, each item graded by the judge) and records each effect's result into the context
+-- that owns it, by that context's command on the one store. Its own facts are only that:
+-- which effect was performed and what the context answered, and how the run ended. Drafted
+-- in decisions.md "Slice 06 (draft)", accepted in "Spec round 7b", rewritten as cycle.v1 in
+-- "Spec round 18".
 --
 -- Legacy: the operator's hands between the legacy tools (archive/legacy-harness/README.md,
 -- "A cycle"): fence.sh, a builder session, verify.sh, a grading subagent's verdicts file,
--- score.clj, scoreboard.clj; and harness/v2/assemble.clj, the relay.
+-- score.clj, scoreboard.clj.
 
 use "context.allium" as ctx
 
@@ -20,11 +20,11 @@ use "context.allium" as ctx
 -- External Entities
 ------------------------------------------------------------
 
--- The person who starts a run and hands in its verdicts (the main session: it also
--- judges what a grading subagent cannot, and hands that verdict in with the others).
+-- The person who starts a run.
 external entity OperatorAccount {}
 
--- ORC's workflow worker: runs the leaves of the runner's ORC trees (seam.md, "The trees").
+-- ORC's workflow worker: runs the leaves of the tree cycle.v1 and of the workflows it
+-- delegates to (seam.md, "The tree").
 external entity OrcWorker {}
 
 ------------------------------------------------------------
@@ -39,34 +39,30 @@ entity CycleRun {
     selection_id: String
     budget: ctx.RunBudget
     grader_digests: Set<String>
-    status: running | awaiting_verdicts | grading | run_passed | run_failed | halted
+    status: running | run_passed | run_failed | halted
     -- Effects recorded so far; the next is recorded at position effects + 1.
     effects: Integer
     -- Candidates regenerated so far.
     attempts: Integer
     candidate_digest: String?
-    -- The digest of the verdicts file, once handed in.
-    verdicts_digest: String?
     gate_passed: Boolean
+    -- The judge's scores were offered to Measurement: the score stage began.
+    scoring_begun: Boolean
+    -- Measurement recorded the score.
+    scored: Boolean
     -- The cycle's conclusion as the Regeneration cycle shows it.
     cycle_status: String?
     halt_reason: ctx.HaltReason when status = halted
 
-    in_progress: status = running or status = awaiting_verdicts or status = grading
+    in_progress: status = running
 
     -- The cycle concluded in the Regeneration cycle, and the run has not yet.
     awaits_conclusion: in_progress and cycle_status_of(cycle_id) != "running"
 
     transitions status {
-        running -> awaiting_verdicts
+        running -> run_passed
         running -> run_failed
         running -> halted
-        awaiting_verdicts -> grading
-        awaiting_verdicts -> run_failed
-        awaiting_verdicts -> halted
-        grading -> run_passed
-        grading -> run_failed
-        grading -> halted
         terminal: run_passed, run_failed, halted
     }
 }
@@ -83,22 +79,9 @@ entity EffectResult {
     outcome: ctx.EffectOutcome
     refusal: String?
     detail: String
-    -- Whether the run's verdicts had been handed in when the effect was performed.
-    after_verdicts: Boolean
+    -- Whether the score stage had begun when the effect was performed.
+    after_scoring: Boolean
     performed_at: Timestamp
-}
-
--- One handoff taken from its producer's store and handed in to one consumer.
-entity RelayedHandoff {
-    run: CycleRun
-    handoff_type: String
-    producer: String
-    -- The handoff's place among its producer's handoffs of this run, in store order,
-    -- from 1: a handed-in history store's earlier handoffs are not this run's.
-    position: Integer
-    consumer: String
-    outcome: ctx.RelayOutcome
-    relayed_at: Timestamp
 }
 
 ------------------------------------------------------------
@@ -106,121 +89,63 @@ entity RelayedHandoff {
 ------------------------------------------------------------
 
 -- Start a run of one cycle: the cut's commit, the selection, the budget and the approved
--- grader digests. The five contexts are started for it, each on a fresh store, but
--- Measurement on the measurement history store when one is handed in
--- (ctx.MeasurementKeepsItsHistory). Issued by the operator.
+-- grader digests. The run is one tick of cycle.v1 on the one store. Issued by the operator.
 rule StartRun {
     when: StartRun(operator, run_id, cycle_id, cut_id, commit, selection_id, budget, grader_digests)
     -- 1. the run identity is taken: a second start records nothing
     requires: not exists CycleRun{run_id: run_id}
     -- 2. another run is in progress: one run at a time (one port, one builder)
-    requires: not exists CycleRun{status: running} and not exists CycleRun{status: awaiting_verdicts} and not exists CycleRun{status: grading}
+    requires: not exists CycleRun{status: running}
     -- 3. the cycle was run before: a cycle is numbered once (decisions.md H8)
     requires: not exists CycleRun{cycle_id: cycle_id}
     -- 4. not a commit of the project repository
     requires: is_commit(commit)
-    -- 5. a context's candidate is not handed in, or does not respond on its seam
-    requires: contexts_respond(run_id)
-    -- 6. the configuration names a builder image the builder images directory does not
+    -- 5. the configuration names a builder image the builder images directory does not
     --    hold (decisions.md, "Spec round 9" D2)
     requires: builder_image_present(run_id)
     ensures:
-        CycleRun.created(run_id: run_id, cycle_id: cycle_id, cut_id: cut_id, commit: commit, selection_id: selection_id, budget: budget, grader_digests: grader_digests, status: running, effects: 0, attempts: 0, candidate_digest: null, verdicts_digest: null, gate_passed: false, cycle_status: null)
+        CycleRun.created(run_id: run_id, cycle_id: cycle_id, cut_id: cut_id, commit: commit, selection_id: selection_id, budget: budget, grader_digests: grader_digests, status: running, effects: 0, attempts: 0, candidate_digest: null, gate_passed: false, scoring_begun: false, scored: false, cycle_status: null)
         RunStarted(run_id: run_id, cycle_id: cycle_id, cut_id: cut_id, commit: commit, selection_id: selection_id)
 }
 
--- Record one effect's result before the verdicts: the context method it was recorded
--- through and what the context answered. Issued by the leaf named for the effect, after it
--- performed the effect. A gate attempt recorded passed leaves the run awaiting its
--- verdicts: nothing of the score is the runner's to produce.
+-- Record one effect's result: the context command it was recorded through and what the
+-- context answered. Issued by the leaf named for the effect, after it performed the effect.
+-- Filing the judge's scores begins the score stage: no builder runs after it.
 rule RecordEffect {
     when: RecordEffect(runner, run_id, effect, attempt, context, method, outcome, refusal?, detail)
     let run = CycleRun{run_id: run_id}
-    -- 1. the run is not running: one that awaits its verdicts, concluded or halted
-    --    performs no effect before the verdicts
+    -- 1. the run is not running: one that concluded or halted performs no effect
     requires: run.status = running
     ensures:
-        EffectResult.created(run: run, position: run.effects + 1, effect: effect, attempt: attempt, context: context, method: method, outcome: outcome, refusal: refusal, detail: detail, after_verdicts: false, performed_at: now)
+        EffectResult.created(run: run, position: run.effects + 1, effect: effect, attempt: attempt, context: context, method: method, outcome: outcome, refusal: refusal, detail: detail, after_scoring: run.scoring_begun, performed_at: now)
         run.effects = run.effects + 1
         if outcome = recorded and (effect = regenerate or effect = repair):
             run.attempts = attempt
         if outcome = recorded and effect = gate and gate_attempt_passed(run.cycle_id, attempt):
             run.gate_passed = true
-            run.status = awaiting_verdicts
+        if effect = file_verdicts:
+            run.scoring_begun = true
+        if outcome = recorded and effect = file_score:
+            run.scored = true
         EffectRecorded(run_id: run_id, position: run.effects, effect: effect, attempt: attempt, context: context, method: method, outcome: outcome, refusal: refusal, detail: detail)
-}
-
--- Record one effect's result after the verdicts were handed in: filing them, filing the
--- score, or failing the score stage. Issued by the leaf named for the effect.
-rule RecordEffectAfterTheVerdicts {
-    when: RecordEffect(runner, run_id, effect, attempt, context, method, outcome, refusal?, detail)
-    let run = CycleRun{run_id: run_id}
-    -- 1. the run is not grading
-    requires: run.status = grading
-    ensures:
-        EffectResult.created(run: run, position: run.effects + 1, effect: effect, attempt: attempt, context: context, method: method, outcome: outcome, refusal: refusal, detail: detail, after_verdicts: true, performed_at: now)
-        run.effects = run.effects + 1
-        EffectRecorded(run_id: run_id, position: run.effects, effect: effect, attempt: attempt, context: context, method: method, outcome: outcome, refusal: refusal, detail: detail)
-}
-
--- Hand one producer's handoff in to one consumer, unchanged, and record how the consumer
--- took it. Issued by the relay leaf that follows every recording leaf.
-rule RelayHandoff {
-    when: RelayHandoff(runner, run_id, handoff_type, producer, position, consumer, outcome)
-    let run = CycleRun{run_id: run_id}
-    -- 1. the run is concluded or halted
-    requires: run.status in {running, awaiting_verdicts, grading}
-    ensures:
-        RelayedHandoff.created(run: run, handoff_type: handoff_type, producer: producer, position: position, consumer: consumer, outcome: outcome, relayed_at: now)
-        HandoffRelayed(run_id: run_id, handoff_type: handoff_type, producer: producer, position: position, consumer: consumer, outcome: outcome)
-}
-
--- Hand in the verdicts file of the gated candidate: one verdict per checklist item,
--- written by the grading subagent, and by the main session for an item it judges. The
--- runner judges no item. Issued by the operator.
-rule HandInVerdicts {
-    when: HandInVerdicts(operator, run_id, verdicts_path, grader_digest)
-    let run = CycleRun{run_id: run_id}
-    -- 1. no such run
-    requires: exists run
-    -- 2. the gate has not passed: verdicts are never taken for a candidate the gate did
-    --    not ratify
-    requires: run.gate_passed
-    -- 3. verdicts were already handed in: a run takes one verdicts file, and a failed
-    --    score is measured, not retaken
-    requires: run.verdicts_digest = null
-    -- 4. the run no longer awaits its verdicts: its cycle concluded or it halted. A cycle
-    --    the stage clock failed while the run awaited its verdicts is seen here: the runner
-    --    concludes the run with its cycle (ConcludeWithTheCycle) before it checks these
-    --    requires (seam.md, "The conclusion"; decisions.md, "Spec round 12" D4)
-    requires: run.status = awaiting_verdicts
-    -- 5. the grader digest is not one of the run's approved grader digests
-    requires: grader_digest in run.grader_digests
-    -- 6. the file is absent or is not a list of verdicts
-    requires: verdicts_readable(verdicts_path)
-    ensures:
-        run.verdicts_digest = digest_of_file(verdicts_path)
-        run.status = grading
-        VerdictsHandedIn(run_id: run_id, verdicts_path: verdicts_path, verdicts_digest: digest_of_file(verdicts_path), grader_digest: grader_digest)
 }
 
 -- The cycle concluded in the Regeneration cycle (its own policy, its stage clock, or the
--- runner's fail-cycle effect): the conclude leaf concludes the run as the cycle did. Each
--- relay leaf reads the cycle, and so do start-run and hand-in-verdicts, before that method's
--- requires: the stage clock concludes a cycle between methods (decisions.md, "Spec round 12"
--- D4; seam.md, "The trees").
+-- runner's fail-cycle effect): a conclude leaf concludes the run as the cycle did. The
+-- leaves read the cycle's progress after each recording that may conclude it (seam.md, "The
+-- tree").
 rule ConcludeWithTheCycle {
     when: run: CycleRun.awaits_conclusion
-    requires: run.status in {running, awaiting_verdicts, grading}
+    requires: run.status = running
     ensures: ConcludeRun(run_id: run.run_id, cycle_status: cycle_status_of(run.cycle_id))
 }
 
--- The cycle passed, after its verdicts were filed: the run passes.
+-- The cycle passed, after its score was filed: the run passes.
 rule ConcludeRunPassed {
     when: ConcludeRun(run_id, cycle_status)
     let run = CycleRun{run_id: run_id}
-    -- 1. the run is not grading
-    requires: run.status = grading
+    -- 1. the run is not running
+    requires: run.status = running
     -- 2. the cycle did not pass
     requires: cycle_status = "passed"
     ensures:
@@ -235,7 +160,7 @@ rule ConcludeRunFailed {
     when: ConcludeRun(run_id, cycle_status)
     let run = CycleRun{run_id: run_id}
     -- 1. the run is concluded or halted
-    requires: run.status in {running, awaiting_verdicts, grading}
+    requires: run.status = running
     -- 2. the cycle did not fail
     requires: cycle_status = "failed"
     ensures:
@@ -244,18 +169,19 @@ rule ConcludeRunFailed {
         RunConcluded(run_id: run_id, cycle_id: run.cycle_id, cycle_status: cycle_status)
 }
 
--- An effect could not be performed at all (a context did not respond, a handed-in command
--- could not be started, a gate command said the gate could not be performed), so nothing
--- is recorded for it; or a gate the context refused for a reason that leaves no next step
--- (seam.md, "The trees", what a leaf writes; decisions.md, "Spec round 12" D2, D3); or the stamp, the pin or the
--- checklist was refused before the cycle opened, or the stamp handed out identities that
--- are not the plan's own (decisions.md, "Spec round 7b" 2), so there is no cycle to fail.
--- The run halts, loudly. A halt is the runner's fact, never the cycle's conclusion.
+-- An effect could not be performed at all (a handed-in command could not be started, a gate
+-- command said the gate could not be performed, a node that calls the model failed), so
+-- nothing is recorded for it; or a gate the context refused for a reason that leaves no next
+-- step (seam.md, "The tree", what a leaf writes; decisions.md, "Spec round 12" D2, D3); or
+-- the stamp, the pin or the checklist was refused before the cycle opened, the stamp handed
+-- out identities that are not the plan's own (decisions.md, "Spec round 7b" 2), or the
+-- sealed grader is not approved, so there is no cycle to fail. The run halts, loudly. A
+-- halt is the runner's fact, never the cycle's conclusion.
 rule HaltRun {
     when: HaltRun(runner, run_id, effect, reason, detail)
     let run = CycleRun{run_id: run_id}
     -- 1. the run is concluded or halted
-    requires: run.status in {running, awaiting_verdicts, grading}
+    requires: run.status = running
     ensures:
         run.status = halted
         run.halt_reason = reason
@@ -286,31 +212,24 @@ invariant OneRunInProgress {
             a != b and a.in_progress implies not b.in_progress
 }
 
--- An effect result is recorded once, at its own position: a replayed effect records
--- nothing.
+-- An effect result is recorded once, at its own position: a replayed effect, a resumed one
+-- among them, records nothing.
 invariant OneResultPerPosition {
     for a in EffectResults:
         for b in EffectResults:
             a != b and a.run = b.run implies a.position != b.position
 }
 
--- Score evidence never reaches a builder: no builder is launched once the verdicts are in.
-invariant NoBuilderAfterTheVerdicts {
+-- Score evidence never reaches a builder: no builder runs once the score stage began.
+invariant NoBuilderAfterTheScoring {
     for e in EffectResults:
-        (e.effect = regenerate or e.effect = repair) implies not e.after_verdicts
+        (e.effect = regenerate or e.effect = repair) implies not e.after_scoring
 }
 
--- A handoff reaches each consumer once.
-invariant EachHandoffOncePerConsumer {
-    for a in RelayedHandoffs:
-        for b in RelayedHandoffs:
-            a != b and a.run = b.run and a.producer = b.producer and a.position = b.position implies a.consumer != b.consumer
-}
-
--- A run passes only as its cycle passed, which needs the verdicts handed in.
-invariant PassedOnlyWithVerdicts {
+-- A run passes only as its cycle passed, which needs the score filed.
+invariant PassedOnlyWithAScore {
     for r in CycleRuns:
-        r.status = run_passed implies (r.verdicts_digest != null and r.cycle_status = "passed")
+        r.status = run_passed implies (r.scored and r.cycle_status = "passed")
 }
 
 ------------------------------------------------------------
@@ -329,8 +248,8 @@ actor CycleRunner {
 -- Surfaces
 ------------------------------------------------------------
 
--- The operator's run desk (screen run-desk): start a run, hand in its verdicts, observe
--- its effects and how it ended.
+-- The operator's run desk (screen run-desk): start a run, observe its effects, its tick,
+-- its items' scores and how it ended.
 surface RunDesk {
     facing operator: Operator
     context run: CycleRun
@@ -343,28 +262,26 @@ surface RunDesk {
         run.effects
         run.attempts
         run.candidate_digest
-        run.verdicts_digest
         run.cycle_status
         run.halt_reason when run.status = halted
 
     provides:
         StartRun(operator, run_id, cycle_id, cut_id, commit, selection_id, budget, grader_digests)
-        HandInVerdicts(operator, run_id, verdicts_path, grader_digest)
 
     contracts:
         fulfils ProjectRepository
 
     @guarantee TheRunnerJudgesNoItem
-        -- Every item verdict comes from the verdicts file the operator hands in; the
-        -- runner files it as given, and an item the file does not name is Measurement's
-        -- to treat (unreached), never the runner's.
+        -- Every item verdict filed is the judge's score of that item, filed as scored; an
+        -- item the judge did not score is Measurement's to file as an unreached fail,
+        -- never the runner's to judge.
 
     @guarantee ObservingChangesNothing
         -- Reading a run's progress records nothing and performs no effect.
 
     @guarantee CarriesItsOwnEventModel
-        -- The runner carries a copy of the event models it registers and reads (its own and
-        -- the five contexts'), byte for byte as its room gave them, in its own folder, and
+        -- The runner carries a copy of the one event model it registers (every context's
+        -- event-model/*.edn), byte for byte as its room gave them, in its own folder, and
         -- reads no file outside its folder to run: a copy of it started anywhere, with no
         -- spec around it, runs a cycle (seam.md, "The build"; decisions.md, "Spec round
         -- 16" D6).
@@ -377,9 +294,9 @@ surface RunDesk {
         -- at acceptance until then).
 }
 
--- The leaves of the runner's ORC trees, one per effect or command: perform an effect,
--- record its result into a context, relay the handoffs, conclude or halt the run
--- (seam.md, "The trees"; decisions.md, "Spec round 14").
+-- The leaves of cycle.v1 and of the workflows it delegates to, one per effect or command:
+-- perform an effect, record its result into a context, grade an item, conclude or halt the
+-- run (seam.md, "The tree"; decisions.md, "Spec round 14" and "Spec round 18").
 surface EffectNodes {
     facing runner: CycleRunner
     context run: CycleRun
@@ -389,60 +306,62 @@ surface EffectNodes {
 
     provides:
         RecordEffect(runner, run_id, effect, attempt, context, method, outcome, refusal?, detail)
-        RelayHandoff(runner, run_id, handoff_type, producer, position, consumer, outcome)
         HaltRun(runner, run_id, effect, reason, detail)
 
     contracts:
-        fulfils ContextSeams
-        fulfils BuilderLaunch
+        fulfils OneStore
+        fulfils BuilderSession
         fulfils GateOnTheHost
+        fulfils TheJudge
 
     @guarantee OwnsNoContextRule
         -- The runner performs effects and records; it owns no rule the five contexts own.
         -- What a context refused is shown as that context's refusal, and the run ends as
         -- its cycle ends in the Regeneration cycle.
 
-    @guarantee InTheProducersOrder
-        -- After every recording the runner's relay leaf takes the producer's new handoffs from the
-        -- producer's own store, in store order, and hands each in unchanged to every
-        -- consumer the event models name, before the next effect (decisions.md, "Spec
-        -- round 5" 1 and 2). New means appended during this run and not yet relayed: a
-        -- handed-in measurement history store's earlier handoffs are never relayed again
-        -- (decisions.md, "Spec round 9" D6).
-
     @guarantee EachEffectInItsOwnLeaf
-        -- Each flow is an ORC tree, and each effect or command it performs is a leaf of
-        -- its own, named for it (seam.md, "The trees"; event-model/area.edn, :leaf). Every
-        -- event the runner records lies between the start and the completion of the leaf
-        -- its step names, in a tick of that step's flow or a child tick that tick
-        -- delegated, in the runner's own store: an effect result inside the leaf named for
-        -- its effect. A flow run as one leaf around the runner's own orchestration does not
-        -- hold it. The gate's store check reads it (harness/v2/event_store_check.clj), and
-        -- so does @item-06-059.
+        -- The flow is one ORC tree, cycle.v1, and each effect or command it performs is a
+        -- leaf of its own, named for it (seam.md, "The tree"; event-model/area.edn, :leaf).
+        -- Every event the runner records lies between the start and the completion of the
+        -- leaf its step names, in the run's tick of cycle.v1 or a child tick that tick
+        -- delegated, in the one store: an effect result inside the leaf named for its
+        -- effect. A flow run as one leaf around the runner's own orchestration does not
+        -- hold it. The gate's store check reads it, and so does @item-06-059.
 
     @guarantee EachGateAttemptOneDelegatedTick
-        -- A gate attempt (its install, its self-check, its gates and gate refusals, each
-        -- followed by its relay) is one subtree, the versioned workflow
-        -- cycle-runner/gate-attempt.v1, delegated from run-to-gate once per attempt, so each
-        -- attempt runs as one child tick of the run's run-to-gate tick. A repair stays in
-        -- run-to-gate. No attempt is written out in run-to-gate itself (seam.md, "The
-        -- trees"; decisions.md, "Spec round 16" D3).
+        -- A gate attempt (its install, its self-check, its gates and gate refusals, and the
+        -- repair that follows a failed attempt the cycle allows) is one subtree, the
+        -- versioned workflow cycle-runner/gate-attempt.v1, delegated from cycle.v1 once per
+        -- attempt, so each attempt runs as one child tick of the run's tick. No attempt is
+        -- written out in cycle.v1 itself (seam.md, "The tree"; decisions.md, "Spec round
+        -- 16" D3).
+
+    @guarantee EachItemGradedInItsOwnTick
+        -- Each checklist item is graded by the sealed grader, the versioned workflow
+        -- cycle-runner/grade.v1, delegated once per item over the checklist, so each item
+        -- runs as one child tick of the run's tick: its evidence cleared, the researcher
+        -- driving the seam, the judge scoring it.
+
+    @guarantee AStoppedRunResumes
+        -- When the runner starts on the one store, every run in progress there resumes
+        -- where it stopped, in its own tick (ORC's resume-in-progress!): what the run
+        -- recorded before it stopped stands, and no effect is recorded twice. A run is
+        -- never started again to recover it.
 
     @guarantee TheBlackboardIsTheRunsState
-        -- The run's state is its trees' blackboard: each leaf is a function of its own,
+        -- The run's state is its tree's blackboard: each leaf is a function of its own,
         -- computes from the keys it reads and the world, and hands on only the keys it
-        -- writes, as seam.md's table of leaves declares them. Only the five contexts as
-        -- they run, and between ticks the last tick's outputs, are kept outside it, by
-        -- run (seam.md, "The trees"; decisions.md, "Spec round 16" D1, D2). Verified by:
-        -- gate leaf-contract (planned; ORC records each node's reads, writes and function in
-        -- the store).
+        -- writes, as seam.md's table of leaves declares them. Only live handles (a builder
+        -- session, a gate's program, the grading VM) are kept outside it (seam.md, "The
+        -- tree"; decisions.md, "Spec round 16" D1, D2). Verified by: gate leaf-contract
+        -- (planned; ORC records each node's reads, writes and function in the store).
 
     @guarantee EveryWaitHasABound
-        -- A leaf holds the bound of what it waits for (a context's reply, a program within
-        -- its stage's timeout), each delegate is bounded by the stage its subtree spends,
-        -- and each tick by the run's budget and tick_margin_seconds; a tick that does not
-        -- end with success halts the run (seam.md, "The trees"; decisions.md, "Spec round
-        -- 16" D5). Verified by: gate leaf-contract (planned).
+        -- A leaf holds the bound of what it waits for (a program within its stage's
+        -- timeout, a model's reply), each delegate is bounded by the stages its subtree
+        -- spends, and each tick by the run's budget and tick_margin_seconds; a tick that
+        -- does not end with success halts the run (seam.md, "The tree"; decisions.md, "Spec
+        -- round 16" D5). Verified by: gate leaf-contract (planned).
 
     @guarantee TheGateRoomIsNotTheBuilders
         -- The gate room is the runner's, never the builder's. Verified by: gate

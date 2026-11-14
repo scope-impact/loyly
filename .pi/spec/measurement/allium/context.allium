@@ -5,8 +5,8 @@
 --        scoreboard). Every other file of the context uses this one.
 --
 -- The instrument reports to a person, once a cycle, and never into the loop (AGENTS.md,
--- The instrument). Nothing here issues a command of the build loop; its three handoffs
--- only conclude the cycle.
+-- The instrument). Nothing here issues a command of the build loop; its three events
+-- other contexts fold only conclude the cycle.
 --
 -- Aggregates (one file each; .pi/spec/measurement/event-model/):
 --   Checklist         checklist.allium          one per pinned cut; the denominator
@@ -15,7 +15,8 @@
 --   Scoreboard        scoreboard.allium         one per measured cycle; the
 --                                               report-scoreboard-once policy
 --
--- Handoffs consumed: specification ScenarioStamped and cycle-preparation SourceCutPinned
+-- Other contexts' events it folds, from the one store (decisions.md, "Spec round 18"):
+-- specification ScenarioStamped and cycle-preparation SourceCutPinned
 -- (checklist.allium); regeneration-cycle GateAttemptPassed (cycle-measurement.allium).
 -- Produced: MeasurementFiled, ScoreStageFailed (cycle-measurement.allium) and
 -- ScoreboardReported (scoreboard.allium), to the regeneration cycle, only to conclude.

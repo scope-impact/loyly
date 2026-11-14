@@ -3,12 +3,14 @@
 The scenarios and the item identity stamped on each; upstream of every cycle.
 
 - `event-model/slice.edn`: aggregate Slice (`stamp-slice` → `scenario-stamped`).
-- `event-model/handoffs.edn`: `scenario-stamped`, consumed by Measurement.
+- `scenario-stamped` is folded by Measurement from the one store (spec round 18; no handoff contract).
 - `event-model/area.edn`: screen `spec-authoring`; flow `stamping`, which stays inside the context.
 - `allium/`: `context.allium` (contract ScenarioReading: one reading of Gherkin for the stamper and the checklist), `slice.allium` (Slice, surface SpecAuthoring).
 - `domain-design.md`: the Files table, decisions, storm mapping.
 - `seam.md`: the public seam a gate, a grader and an operator drive: JSON-RPC over stdio, one
-  method per command and query, and the Grain store the gate hands the candidate.
+  method per command and query, and the Grain store the gate hands the candidate. Since spec round 18 the
+  context is built only inside slice 06's one candidate, never standalone, and has no identity
+  probe of its own.
 - `spec.feature`: the accepted scenarios, slice 01 (`@item-01-001` to `@item-01-015`) through
   `../../plan/01-specification`; `drafts.feature`: two deferred drafts (`../decisions.md`, "Spec round 6" 4).
 

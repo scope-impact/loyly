@@ -1,27 +1,29 @@
 #!/usr/bin/env bash
 # harness/v2/probe-06.sh START_SCRIPT BUDGET_SECONDS: the identity probe of slice 06, the
-# cycle-runner context. It proves the thing answering runs cycles, by domain behaviour over the
-# context's seam (.pi/spec/cycle-runner/seam.md), not by a name: within the boot budget,
-# counted from launching start.sh, the candidate must read a git repository it is handed, start
-# the contexts it is handed and hear whether they respond, and halt a run loudly when a context
-# stops responding. Everything it acts on is the probe's own fixture, written to a temporary
-# directory: no real context, no builder and no gate is needed.
+# cycle-runner context: since spec round 18 the one candidate, cycle-runner/cycle.v1 with the
+# five contexts 01 to 05 in it, on one store. It proves the thing answering runs cycles, by
+# domain behaviour over the context's seam (.pi/spec/cycle-runner/seam.md), not by a name:
+# within the boot budget, counted from launching start.sh, the candidate must read a git
+# repository it is handed, record a run's first effects into the contexts it holds, and halt
+# the run before the cycle when its sealed grader is not approved. Everything it acts on is the
+# probe's own fixture, written to a temporary directory: no builder, gate or model is needed.
 #
 #   0. a fixture project repository (git, one commit): a plan of one slice with one stamped
-#      scenario, its harness configuration; a stub self-check and a stub builder that each
-#      leave a mark when launched (neither may run); LOYLY_CONTEXTS names a file of the
-#      probe's, rewritten between the steps (the seam: read at every start-run)
+#      scenario, its harness configuration; a stub self-check and a stub builder host that
+#      each leave a mark when launched (neither may run); a grader rubric; the configuration
+#      file the probe hands in, rewritten between the steps (the seam: read at every start-run)
 #   1. cycle-runner/start-run of R-probe at a well-formed hex string that is no commit of the
-#      repository, the five contexts exiting at once: refused, -32000 not-a-commit (StartRun
-#      requires 4 comes before 5)
-#   2. the same at the repository's commit: refused, -32000 contexts-not-responding, its
-#      data.contexts naming all five, each of which was launched
-#   3. the five contexts now reply to every request except specification/stamp-slice, where
-#      Specification exits: start-run answers exactly one cycle-runner/run-started, once the
-#      run halted (the methods are synchronous)
-#   4. cycle-runner/run-progress of R-probe: halted at the stamp effect, reason
-#      context-did-not-respond, no effect result; the run list holds R-probe once (the two
-#      refusals recorded nothing); neither the self-check nor the builder ran
+#      repository: refused, -32000 not-a-commit (StartRun requires 4)
+#   2. the same at the repository's commit, the configuration naming a builder image that
+#      LOYLY_BUILDER_IMAGES does not hold: refused, -32000 builder-image-missing (requires 5)
+#   3. the same, no builder image named, the run's approved grader digests not naming the
+#      rubric's: start-run answers exactly one cycle-runner/run-started, once the run halted
+#   4. cycle-runner/run-progress of R-probe: halted at the grader effect, reason
+#      refused-before-the-cycle, its detail naming the rubric's grader digest ("sha256:" and the
+#      SHA-256 of the line cycle-runner/grade.v1 LF followed by the rubric's bytes); its effect
+#      results the stamp, the pin and the checklist, each recorded into its context; the run
+#      list holds R-probe once (the two refusals recorded nothing); neither the self-check nor
+#      the builder ran
 #
 # The candidate gets its Grain store through LOYLY_GRAIN_STORE: GATE_STORE when the gate
 # (harness/v2/gate.sh) set one, so the event-store check reads what this probe caused, and a
@@ -31,11 +33,10 @@ set -uo pipefail
 START="${1:?usage: probe-06.sh START_SCRIPT BUDGET_SECONDS}"
 BUDGET="${2:?usage: probe-06.sh START_SCRIPT BUDGET_SECONDS}"
 exec python3 - "$START" "$BUDGET" "${GATE_STORE:-}" <<'PY'
-import json, os, select, signal, socket, stat, subprocess, sys, tempfile, time
+import hashlib, json, os, select, signal, socket, stat, subprocess, sys, tempfile, time
 start, budget, gate_store = sys.argv[1], float(sys.argv[2]), sys.argv[3]
 work = tempfile.mkdtemp(prefix="probe-06.")
 began = time.monotonic()
-CONTEXTS = ["specification", "cycle-preparation", "grader-lifecycle", "regeneration-cycle", "measurement"]
 
 def write(path, text, executable=False):
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -71,40 +72,26 @@ self_check = write(os.path.join(work, "stubs/self-check.sh"),
 builder = write(os.path.join(work, "stubs/builder.sh"),
                 f"#!/bin/sh\ntouch '{marks}/builder'\nexit 0\n", executable=True)
 instruction = write(os.path.join(work, "instruction.md"), "Build the probe's product.\n")
-config_file = write(os.path.join(work, "config.sh"), config)
-contexts_file = os.path.join(work, "contexts.json")
+rubric = write(os.path.join(work, "rubric.md"), "Pass when the item's behaviour is observed over the seam; else fail.\n")
+with open(rubric, "rb") as f:
+    grader_digest = "sha256:" + hashlib.sha256(b"cycle-runner/grade.v1\n" + f.read()).hexdigest()
+images = os.path.join(work, "images")
+os.makedirs(images)
+config_file = write(os.path.join(work, "config.sh"), config + "BUILDER_IMAGE=probe-image\n")
 
-def contexts(kind):
-    """Five entrypoints of KIND: 'exit' exits at once; 'reply' answers every request with an
-    empty result, except Specification, which exits when asked to stamp. Each marks its launch."""
-    entry = {}
-    for c in CONTEXTS:
-        launched = os.path.join(marks, f"launched-{kind}-{c}")
-        if kind == "exit":
-            body = f"#!/bin/sh\ntouch '{launched}'\nexit 0\n"
-        else:
-            body = ("#!/usr/bin/env python3\nimport json, sys\n"
-                    f"open({launched!r}, 'a').close()\n"
-                    "for line in sys.stdin:\n"
-                    "    try: req = json.loads(line)\n"
-                    "    except ValueError: continue\n"
-                    f"    if {c!r} == 'specification' and req.get('method') == 'specification/stamp-slice': sys.exit(0)\n"
-                    "    sys.stdout.write(json.dumps({'jsonrpc': '2.0', 'id': req.get('id'), 'result': {}}) + '\\n')\n"
-                    "    sys.stdout.flush()\n")
-        entry[c] = write(os.path.join(work, f"stubs/{kind}/{c}"), body, executable=True)
-    with open(contexts_file, "w") as f:
-        json.dump(entry, f)
-
-contexts("exit")
 env = dict(os.environ,
            LOYLY_GRAIN_STORE=gate_store or os.path.join(work, "store.sqlite"),
            LOYLY_RUNS_DIR=os.path.join(work, "runs"),
            LOYLY_PROJECT_REPO=repo,
            LOYLY_HARNESS_CONFIG=config_file,
-           LOYLY_CONTEXTS=contexts_file,
            LOYLY_SELF_CHECK_CMD=self_check,
-           LOYLY_BUILDER_CMD=builder,
+           LOYLY_BUILDER_HOST=builder,
+           LOYLY_BUILDER_IMAGES=images,
            LOYLY_BUILDER_INSTRUCTION=instruction,
+           LOYLY_GRADER_RUBRIC=rubric,
+           LOYLY_MODEL_API_BASE="http://127.0.0.1:9",
+           LOYLY_RENDER_MODEL="probe-render",
+           LOYLY_GRADER_MODEL="probe-grader",
            LOYLY_SCORING_TOOL_PATHS="[]")
 env.pop("GATE_STORE", None)
 proc = subprocess.Popen([start], stdin=subprocess.PIPE, stdout=subprocess.PIPE, cwd=work, env=env,
@@ -148,47 +135,50 @@ run = {"run-id": "R-probe", "cycle-id": "C-probe", "cut-id": "K-probe", "selecti
                   "stage-timeouts-seconds": {"fence": 60, "regenerate": 60, "gate": 60, "score": 60}},
        "grader-digests": ["r-probe"]}
 
-# 1. not a commit, before the contexts are asked
+# 1. not a commit
 err = call(1, "cycle-runner/start-run", dict(run, commit=not_a_commit), refused=True)
 if refusal(err) != "not-a-commit":
     fail(f"a start at {not_a_commit}, no commit of the repository, answered {json.dumps(err)[:300]}, "
          f"not the refusal not-a-commit")
 
-# 2. the five contexts exit at once
+# 2. a builder image the images directory does not hold
 err = call(2, "cycle-runner/start-run", dict(run, commit=commit), refused=True)
-named = (err.get("data") or {}).get("contexts")
-if refusal(err) != "contexts-not-responding" or not isinstance(named, list) or sorted(named) != sorted(CONTEXTS):
-    fail(f"a start whose five contexts exit at once answered {json.dumps(err)[:300]}, not the refusal "
-         f"contexts-not-responding naming all five in data.contexts")
-unlaunched = [c for c in CONTEXTS if not os.path.exists(os.path.join(marks, f"launched-exit-{c}"))]
-if unlaunched:
-    fail(f"contexts-not-responding was answered without launching {', '.join(unlaunched)}")
+if refusal(err) != "builder-image-missing":
+    fail(f"a start whose configuration names a builder image {images} does not hold answered "
+         f"{json.dumps(err)[:300]}, not the refusal builder-image-missing")
 
-# 3. the contexts reply, but Specification exits when asked to stamp
-contexts("reply")
+# 3. no image named; the rubric's grader digest not approved
+write(config_file, config)
 events = (call(3, "cycle-runner/start-run", dict(run, commit=commit)) or {}).get("events")
 if (not isinstance(events, list) or len(events) != 1 or events[0].get("type") != "cycle-runner/run-started"
         or events[0].get("run-id") != "R-probe" or events[0].get("commit") != commit):
     fail(f"cycle-runner/start-run answered {json.dumps(events)[:300]}, not exactly one "
          f"cycle-runner/run-started of R-probe at {commit}")
 
-# 4. the run halted at the stamp, loudly, and nothing else ran
+# 4. the run halted at the grader, before the cycle, after the stamp, the pin and the checklist
 r = (call(4, "cycle-runner/run-progress", {"run-id": "R-probe"}) or {}).get("run") or {}
 halt = r.get("halt") or {}
-if (r.get("status") != "halted" or halt.get("effect") != "stamp"
-        or halt.get("reason") != "context-did-not-respond" or r.get("effect-results") != []):
-    fail(f"cycle-runner/run-progress of R-probe answered {json.dumps(r)[:400]}: want halted at the stamp "
-         f"effect, reason context-did-not-respond, with no effect result")
+results = r.get("effect-results")
+if (r.get("status") != "halted" or halt.get("effect") != "grader"
+        or halt.get("reason") != "refused-before-the-cycle" or grader_digest not in str(halt.get("detail"))):
+    fail(f"cycle-runner/run-progress of R-probe answered {json.dumps(r)[:400]}: want halted at the grader "
+         f"effect, reason refused-before-the-cycle, its detail naming {grader_digest}")
+want = [("stamp", "specification"), ("pin", "cycle-preparation"), ("checklist", "measurement")]
+if (not isinstance(results, list)
+        or [(x.get("effect"), x.get("context")) for x in results] != want
+        or any(x.get("outcome") != "recorded" for x in results)):
+    fail(f"the effect results of R-probe are {json.dumps(results)[:400]}: want the stamp, the pin and the "
+         f"checklist, each recorded into its context")
 runs = (call(5, "cycle-runner/run-progress", {}) or {}).get("runs")
 if not isinstance(runs, list) or [x.get("run-id") for x in runs] != ["R-probe"]:
     fail(f"cycle-runner/run-progress answered {json.dumps(runs)[:300]}: want R-probe once, the refused "
          f"starts having recorded nothing")
 ran = [m for m in ("self-check", "builder") if os.path.exists(os.path.join(marks, m))]
 if ran:
-    fail(f"the {' and the '.join(ran)} ran for a run halted at the stamp")
+    fail(f"the {' and the '.join(ran)} ran for a run halted at the grader")
 elapsed = time.monotonic() - began
 stop()
-print(f"refused a start at no commit and one whose contexts exit, halted R-probe at the stamp when "
-      f"Specification stopped responding, ran no self-check and no builder, in {elapsed:.1f}s of the "
-      f"{budget:g}s budget: a cycle runner over its seam")
+print(f"refused a start at no commit and one whose builder image is missing, stamped, pinned and derived "
+      f"the checklist of R-probe and halted it at the unapproved grader {grader_digest}, ran no self-check "
+      f"and no builder, in {elapsed:.1f}s of the {budget:g}s budget: a cycle runner over its seam")
 PY

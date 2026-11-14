@@ -16,7 +16,8 @@
 --   CleanRoom          clean-room.allium          one per cycle; what the fence's probe found
 --   GateAttempt        gate-attempt.allium        one per cycle and attempt
 --
--- Handoffs consumed: cycle-preparation SourceCutPinned, grader-lifecycle
+-- Other contexts' events it folds, from the one store (decisions.md, "Spec round 18"):
+-- cycle-preparation SourceCutPinned, grader-lifecycle
 -- InstrumentGoldenWritten and InstrumentGoldenMoved (harness-self-check.allium);
 -- measurement MeasurementFiled, ScoreStageFailed, ScoreboardReported, only to conclude
 -- (regeneration-cycle.allium). Produced: GateAttemptPassed, to measurement, one way

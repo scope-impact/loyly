@@ -1,10 +1,15 @@
 # Regeneration cycle: the public seam
 
 How a gate, a grader and an operator drive this context's candidate (slice 04). Derived from
-`event-model/*.edn` and the handoff contracts it consumes; where this note and the event model
+`event-model/*.edn` and the events of other contexts it folds; where this note and the event model
 disagree, the event model wins and this note is wrong. Decided 2026-11-07 (`../decisions.md`,
 "Slice 04"), in the shape of `../specification/seam.md` ("First light"),
 `../measurement/seam.md` ("Slice 02") and `../grader-lifecycle/seam.md` ("Slice 03").
+
+**Built only inside slice 06.** Since spec round 18 this context has no candidate, build or
+identity probe of its own: its methods, rules, event model and queries are part of slice 06's one
+candidate (`../cycle-runner/seam.md`), built and gated only in slice 06's cycle, never standalone.
+"This context's candidate" below is that one candidate, and "the gate" is slice 06's gate.
 
 ## What the candidate does, and what it is told
 
@@ -83,7 +88,7 @@ produced, each `{"type": "<area>/<event>", ...}` with exactly the fields of that
 digest with `goldens_digest_of(CurrentGoldens)`, the function of the contract
 `HarnessSelfCheckRun` the surface `HarnessSelfCheckRecording` fulfils. The candidate computes
 it from the current instrument goldens its read model `:regeneration-cycle/instrument-goldens`
-folds from the handed-in golden events (below):
+folds from the golden events on the one store (below):
 
 - `goldens_digest_of` is `"sha256:"` followed by the lowercase hexadecimal SHA-256 of the UTF-8
   text made of one line per current golden, `<golden-id>` TAB `<digest>` LF, the goldens ordered
@@ -105,58 +110,39 @@ in, like the store:
   variable itself, read when the candidate starts: `["harness/score.clj", "harness/scoreboard.clj"]`.
   Unset or empty, there is no scoring tool, and requires 9 always holds.
 
-## The consumed handoffs, handed in
+## Other contexts' events, on the one store
 
-The Regeneration cycle consumes six events other contexts produce. In a cycle of this context
-alone those contexts are stubbed from their contracts, each producer's
-`event-model/handoffs.edn` (the only file of each the room holds), and their facts reach the
-candidate through this seam: one method per consumed event, named exactly as the event, its
-params exactly the event's contract `:schema`.
+The Regeneration cycle folds six events other contexts produce, from the one store
+(`../decisions.md`, "Spec round 18"). No method hands them in: each is the producer's
+own fact, appended by the producer's command, and a grader causes it with that command over the
+same candidate's seam.
 
-| Method | Contract | The candidate's read models that fold it |
+| Event | Its producer's command | The read models that fold it |
 |---|---|---|
-| `cycle-preparation/source-cut-pinned` | `../cycle-preparation/event-model/handoffs.edn` | `:regeneration-cycle/pinned-cuts` |
-| `grader-lifecycle/instrument-golden-written` | `../grader-lifecycle/event-model/handoffs.edn` | `:regeneration-cycle/instrument-goldens` |
-| `grader-lifecycle/instrument-golden-moved` | `../grader-lifecycle/event-model/handoffs.edn` | `:regeneration-cycle/instrument-goldens` |
-| `measurement/measurement-filed` | `../measurement/event-model/handoffs.edn` | `:regeneration-cycle/regeneration-cycles`, `:regeneration-cycle/cycles-to-conclude` |
-| `measurement/score-stage-failed` | `../measurement/event-model/handoffs.edn` | `:regeneration-cycle/regeneration-cycles`, `:regeneration-cycle/cycles-to-conclude` |
-| `measurement/scoreboard-reported` | `../measurement/event-model/handoffs.edn` | `:regeneration-cycle/regeneration-cycles`, `:regeneration-cycle/cycles-to-conclude` |
+| `cycle-preparation/source-cut-pinned` | `cycle-preparation/pin-source-cut` | `:regeneration-cycle/pinned-cuts` |
+| `grader-lifecycle/instrument-golden-written` | `grader-lifecycle/write-instrument-golden` | `:regeneration-cycle/instrument-goldens` |
+| `grader-lifecycle/instrument-golden-moved` | `grader-lifecycle/move-instrument-golden` | `:regeneration-cycle/instrument-goldens` |
+| `measurement/measurement-filed` | `measurement/file-score` | `:regeneration-cycle/regeneration-cycles`, `:regeneration-cycle/cycles-to-conclude` |
+| `measurement/score-stage-failed` | `measurement/fail-score-stage` | `:regeneration-cycle/regeneration-cycles`, `:regeneration-cycle/cycles-to-conclude` |
+| `measurement/scoreboard-reported` | `measurement/report-scoreboard`, also when Measurement's policy issues it | `:regeneration-cycle/regeneration-cycles`, `:regeneration-cycle/cycles-to-conclude` |
 
-The candidate appends the event, exactly as given (its type and its fields, nothing added),
-to its Grain store as the producer would, and responds `{"events": [<that event>]}`. It runs no
-ORC workflow for it: the event is the producer's fact, not a command of this context. Params
-that do not match the contract are `-32602` and append nothing; nothing else refuses a
-handed-in event. A fold ignores an event its rule does not take (`NotePinnedCut` and
-`NoteGoldenWritten`, requires 1: one already held; `NoteGoldenMoved`, requires 1: a golden never
-written; `NoteMeasurementFiled`, `NoteScoreStageFailed`, `NoteScoreboardReported`, requires 1: a
-cycle that does not exist; `NoteMeasurementFiled` and `NoteScoreStageFailed`, requires 2: a
-cycle not running at the score stage, so a measurement filed after the cycle failed leaves it
-where it failed; `NoteScoreboardReported`, requires 2: a cycle not running or with no
-measurement filed, so a scoreboard with no measurement filed passes nothing). A cycle is due
-to pass only with its measurement filed and its scoreboard reported (`awaits_passing`). A
-handed-in `measurement/score-stage-failed` or
-`measurement/scoreboard-reported` may make a cycle due to conclude: the policy then runs before
-the method responds (below). These methods stand in for the producers in a cycle of this
-context alone, and they are how the producers' facts reach it assembled: the assembly is a
-relay, which takes each handoff from its producer's store and hands it in unchanged, in the
-producer's order, through these methods (`../decisions.md`, "Spec round 5" 1). They are the
-only way another context's event enters the store.
-
-- **Measurement's handoffs are handed in in the producer's order.** Measurement reports a
-  cycle's scoreboard only after that cycle's measurement is filed, and once: its rule
-  `ReportScoreboard` requires 1 a filed measurement (legacy `@harness-043`: no scoreboard
-  without a recorded score), and its policy `report-scoreboard-once` (`ReportScoreboardOnce`)
-  subscribes to `measurement/measurement-filed` and reports no scoreboard twice
-  (`../measurement/allium/scoreboard.allium`, `../measurement/event-model/scoreboard.edn`). So a
-  `measurement/scoreboard-reported` handed in before the cycle's `measurement/measurement-filed`
-  is a stub's artefact: it is ignored (`NoteScoreboardReported`, requires 2) and Measurement
-  never sends it again. A cycle whose scoreboard was ignored so waits for a scoreboard no
-  producer would report (`../decisions.md`, "Spec round 4").
+A fold ignores an event its rule does not take (`NotePinnedCut` and `NoteGoldenWritten`,
+requires 1: one already held; `NoteGoldenMoved`, requires 1: a golden never written;
+`NoteMeasurementFiled`, `NoteScoreStageFailed`, `NoteScoreboardReported`, requires 1: a cycle
+that does not exist; `NoteMeasurementFiled` and `NoteScoreStageFailed`, requires 2: a cycle not
+running at the score stage, so a measurement filed after the cycle failed leaves it where it
+failed; `NoteScoreboardReported`, requires 2: a cycle not running or with no measurement filed).
+A cycle is due to pass only with its measurement filed and its scoreboard reported
+(`awaits_passing`). A `measurement/score-stage-failed` or `measurement/scoreboard-reported` may
+make a cycle due to conclude: the policy then runs before the method that recorded it responds
+(below). Measurement reports a cycle's scoreboard only after that cycle's measurement is filed,
+and once (`ReportScoreboard`, requires 1; the policy `report-scoreboard-once`), so on the one
+store a scoreboard never precedes its measurement.
 
 ## The conclude-cycle policy and the stage clock
 
 - **The policy runs first.** When an event the policy `conclude-cycle` subscribes to is recorded
-  (`harness-self-check-failed`, `gate-attempt-failed`, `gate-attempt-refused`, or a handed-in
+  (`harness-self-check-failed`, `gate-attempt-failed`, `gate-attempt-refused`, or Measurement's
   `measurement/score-stage-failed` or `measurement/scoreboard-reported`) and it makes a running
   cycle due (`ConcludeOnFailedSelfCheck`, `ConcludeOnExhaustedGateAttempts`,
   `ConcludeOnRepeatedGateRefusals`, `ConcludeOnFailedScoreStage`,
@@ -223,14 +209,15 @@ The candidate records its facts in Grain's event store, the SQLite backend of Gr
   may use an in-memory store (its own tests, for example).
 - The gate hands the candidate a fresh file through `LOYLY_GRAIN_STORE`, and after the
   candidate has run, reads that file itself, not through this seam: it must hold at least
-  one event of `event-model/`; every event's type must be an event of `event-model/`, a
-  consumed handoff above, or ORC's or Grain's own; and every such event's fields, other than
-  Grain's own `:event/*` keys, must be exactly its `:schema` (a handoff's, its contract's).
-- ORC runs on this candidate's store: ORC shares this candidate's file and tenant, not a
-  store or tenant of its own, and no other context shares them: each context keeps its own
-  store (`../decisions.md`, "Spec round 5" 1). Each command runs as the ORC workflow named
+  one event of `event-model/`; every event's type must be an event of the one event model
+  (every context's `event-model/`), or ORC's or Grain's own; and every such event's fields,
+  other than Grain's own `:event/*` keys, must be exactly its `:schema`.
+- ORC runs on this candidate's store: ORC shares its file and tenant, not a store or tenant
+  of its own. The store is the one store of the one candidate: since spec round 18 the six contexts are one candidate,
+  `cycle-runner/cycle.v1`, on one Grain store, and in a run each command of this context is a
+  leaf of that tree (`../cycle-runner/seam.md`; `../decisions.md`, "Spec round 18"). Over this seam, each command runs as the ORC workflow named
   after a flow of `event-model/area.edn` that holds its command, whoever issues it; a query
-  method and a handed-in handoff run none.
+  method runs none.
 
   | Command, by its issuer | ORC workflow |
   |---|---|
@@ -244,11 +231,12 @@ The candidate records its facts in Grain's event store, the SQLite backend of Gr
   | `fail-cycle` by the policy, on a failed score stage | `regeneration-cycle/refused-score-fails-cycle` |
   | `fail-cycle` by the stage clock | `regeneration-cycle/stage-timeout-fails-cycle` |
 
-  The gate requires every event a command produced to be written inside a run of a workflow
-  named after a flow holding that command, which completed with success (between its
-  `:sheet/tree-tick-started` and its `:sheet/tree-tick-completed`, `:root-status :success`).
-- The candidate registers this context's event model, `event-model/*.edn` merged with the
-  six consumed handoff events from their contracts, as given (Grain's `register-event-model!`),
+  The gate requires every event a command produced to be written inside a completed run of a
+  workflow named after a flow holding that command or of `cycle-runner/cycle.v1`, whose leaves
+  issue the five contexts' commands (a child tick it delegated included): between its
+  `:sheet/tree-tick-started` and its `:sheet/tree-tick-completed`, `:root-status :success`.
+- The candidate registers the one event model, every context's `event-model/*.edn` merged, as
+  given (Grain's `register-event-model!`),
   and refuses to start when Grain's boot guard (`verify-or-throw!`) finds the running blocks
   and the model apart.
 

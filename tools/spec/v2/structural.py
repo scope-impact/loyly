@@ -52,7 +52,7 @@ def budget_in_seconds_and_polls():
                     return "%s is emitted without %s" % (ev, field.rstrip(":"))
     if not re.search(r"\n\s*boot_margin_polls: boot_polls - answered_on_poll\n", src):
         return "the margin is not derived from the poll that answered (GateAttempt.boot_margin_polls)"
-    schemas = read("regeneration-cycle", "event-model", "handoffs.edn") + read("regeneration-cycle", "event-model", "gate-attempt.edn")
+    schemas = read("regeneration-cycle", "event-model", "gate-attempt.edn")
     for ev, extra in (("gate-attempt-passed", ["answered-on-poll"]), ("gate-attempt-failed", [])):
         m = re.search(r":regeneration-cycle/%s\n([\s\S]*?)\]\}" % ev, schemas)
         if not m:

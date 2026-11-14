@@ -443,7 +443,7 @@ Feature: Regeneration cycle
 
   Rule: The instrument's facts only conclude the cycle, and never feed the build loop
 
-    # regeneration-cycle.allium, rule NoteMeasurementFiled; surface MeasurementHandoffs, guarantee ConcludeOnly
+    # regeneration-cycle.allium, rule NoteMeasurementFiled; surface MeasurementEvents, guarantee ConcludeOnly
     @minimum @allium-rule-success.NoteMeasurementFiled @allium-guarantee.ConcludeOnly
     @item-04-038
     Scenario: A filed measurement moves the cycle to the scoreboard and nothing else

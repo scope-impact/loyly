@@ -35,9 +35,13 @@
                          :when (or (= :discover (:contexts cfg :discover)) (some #{(.getName d)} (:contexts cfg)))] (.getName d)))
         frags (fn [c] (for [f (.listFiles (io/file dir c (:event-model F))) :when (str/ends-with? (.getName f) ".edn")] f))
         kws (fn [c] (set (for [f (frags c) :when (not= (:handoffs F) (.getName f)) x (tree-seq coll? seq (edn/read-string (slurp f))) :when (keyword? x)] x)))
+        own-events (fn [p] (let [h (when (:handoffs F) (io/file dir p (:event-model F) (:handoffs F)))]   ; the handoffs file when there is one, else every own event
+                             (if (and h (.exists h))
+                               (mapcat (comp keys :events) (vals (edn/read-string (slurp h))))
+                               (for [f (frags p) [_ am] (edn/read-string (slurp f)) e (keys (:events am))] e))))
         block-keys (fn [c k] (set (for [f (frags c) [_ am] (edn/read-string (slurp f)) bk (keys (get am k))] bk)))
-        edges (set (for [p ctxs :let [h (io/file dir p (:event-model F) (:handoffs F))] :when (.exists h)
-                         e (mapcat (comp keys :events) (vals (edn/read-string (slurp h))))
+        edges (set (for [p ctxs
+                         e (own-events p)
                          c ctxs :when (and (not= c p) ((kws c) e))]
                      (str p "|" (namespace e) "/" (name e) "|" c)))
         item-re (re-pattern (str (java.util.regex.Pattern/quote (:item-tag cfg)) "(\\d+-\\d+)"))

@@ -4,7 +4,7 @@
 -- Aggregate RegenerationCycle, in the harness's event store: one per cycle identity
 -- (event-model/regeneration-cycle.edn). It owns the stage order, the budget, the attempt
 -- count and the one conclusion. Its facts arrive from the sibling aggregates (self-check,
--- clean room, gate attempt) and from measurement's handoffs; it folds them the way the
+-- clean room, gate attempt) and from measurement's events; it folds them the way the
 -- regeneration-cycles read model does, and the conclude-cycle policy reads the result.
 --
 -- The cycle identity is given in the core and minted at submission later (decisions.md H8):
@@ -221,7 +221,7 @@ rule NoteGateAttemptRefused {
     ensures: cycle.consecutive_gate_refusals = cycle.consecutive_gate_refusals + 1
 }
 
--- Measurement's handoffs, only to conclude: nothing here feeds the build loop.
+-- Measurement's events, only to conclude: nothing here feeds the build loop.
 rule NoteMeasurementFiled {
     when: MeasurementFiled(measurement, cycle_id)
     let cycle = RegenerationCycle{cycle_id: cycle_id}
@@ -524,8 +524,9 @@ surface BuilderRoomBoundary {
         -- room-policy (planned; domain-design.md, "Checks").
 }
 
--- Measurement's handoffs, as this context hears them: only to conclude the cycle.
-surface MeasurementHandoffs {
+-- Measurement's events, as this context hears them from the one store: only to conclude
+-- the cycle.
+surface MeasurementEvents {
     facing measurement: MeasurementContext
 
     provides:

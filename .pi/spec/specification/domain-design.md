@@ -16,7 +16,7 @@ identity**, the **stamped scenario** and, since R2, the **one reading of Gherkin
 |---|---|---|---|---|
 | Context | `event-model/area.edn` (screen `spec-authoring`, flow `stamping`, which stays inside the context) | `allium/context.allium` (value `UnstampedScenario`, contract `ScenarioReading`, open question) | none | |
 | Slice | `event-model/slice.edn` | `allium/slice.allium` (rules `StampFirstScenarios`, `StampSlice`; surface `SpecAuthoring`) | **Slice** (its stamped items, the ledger's next number) | the project repository; one per slice's `spec.feature` |
-| Handoffs produced | `event-model/handoffs.edn` (`scenario-stamped`) | emitted by both stamping rules | | consumed by Measurement |
+| Events other contexts fold | `event-model/slice.edn` (`scenario-stamped`) | emitted by both stamping rules | | folded by Measurement, from the one store (spec round 18) |
 
 ## Design decisions
 
@@ -49,7 +49,7 @@ identity**, the **stamped scenario** and, since R2, the **one reading of Gherkin
 
 | Storm event | Became |
 |---|---|
-| Scenario stamped | event `specification/scenario-stamped` (handoff) |
+| Scenario stamped | event `specification/scenario-stamped` (folded by another context) |
 | ✗ Unstamped scenario found | `measurement` `DeriveChecklist` refusal 2 |
 
 ## Refusals (the `requires`, numbered as in the Allium)

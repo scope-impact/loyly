@@ -2,26 +2,23 @@
 -- .pi/spec/cycle-runner/allium/context.allium
 --
 -- Scope: the shared language of the Cycle runner (slice 06; drafted in spec round 7a,
---        accepted in spec round 7b, decisions.md "Spec round 7b"): the ORC
---        workflow that performs a cycle's effects in the real world and records each
---        effect's result into the context that owns it, through that context's seam. It
---        owns no rule of the five contexts: every refusal it shows is a context's, as
---        heard, and a run ends as its cycle ends.
+--        accepted in spec round 7b, rewritten as the one tree cycle-runner/cycle.v1 in spec
+--        round 18, decisions.md "Spec round 18"): the ORC workflow that performs a
+--        cycle's effects in the real world and records each effect's result into the
+--        context that owns it, by that context's command on the one store. It owns no rule
+--        of the five contexts: every refusal it shows is a context's, as heard, and a run
+--        ends as its cycle ends.
 --
--- One run in the legacy shape (archive/legacy-harness/README.md), the effects E1 to E8 of
--- the stage-1 triage (decisions.md, "Slice 06 (draft)"):
---     stamp, pin, checklist -> self-check -> fence -> regenerate -> install, self-check,
---     gate (repair, at most three attempts) -> the verdicts handed in -> file the verdicts,
---     file the score -> the cycle concludes
--- After every recording the runner relays the producer's new handoffs, from the producer's
--- own store, to every consumer, in the producer's order (decisions.md, "Spec round 5").
+-- One run, one tick of cycle.v1, in the legacy shape (archive/legacy-harness/README.md):
+--     stamp, pin, checklist, the sealed grader -> self-check -> fence -> the builder
+--     instruction -> regenerate -> install, self-check, gate (repair, at most three
+--     attempts) -> grade each item -> file the verdicts, file the score -> the cycle
+--     concludes
+-- The six contexts are one candidate on one store; there is no relay, hand-in method or
+-- handoff contract.
 --
 -- Aggregates (one file; .pi/spec/cycle-runner/event-model/):
---   CycleRun  cycle-run.allium  one per run; its effect results and relayed handoffs
---
--- Handoffs: none consumed and none produced. The five contexts' events never enter the
--- runner's store: it reads them from each producer's store and hands them in through the
--- consumers' seams.
+--   CycleRun  cycle-run.allium  one per run; its effect results
 
 ------------------------------------------------------------
 -- Value Types
@@ -43,41 +40,30 @@ value RunBudget {
 -- Contracts
 ------------------------------------------------------------
 
--- The five contexts' candidates, started for one run, each reached over its public seam
--- (JSON-RPC 2.0 over stdio, each context's seam.md) and each on its own store.
-contract ContextSeams {
-    contexts_respond: (run_id: String) -> Boolean
+-- The five contexts, in the one candidate, on the one store: the runner's leaves issue their
+-- commands and read their queries there (decisions.md, "Spec round 18").
+contract OneStore {
     cycle_status_of: (cycle_id: String) -> String
     gate_attempt_passed: (cycle_id: String, attempt: Integer) -> Boolean
 
-    @invariant OnlyThroughTheSeams
-        -- The runner records into a context only by calling a method of its seam, and
-        -- reads a context only through its queries and, for the relay, the handoff
-        -- events of its own store. It never reads a context's source and never writes
-        -- into a context's store.
-
-    @invariant AReplyWithinItsBound
-        -- The runner waits for a context's reply to one request at most
-        -- context_reply_seconds (config). A context that does not reply within it, whether
-        -- it exited or not, did not respond: nothing is recorded for that effect and the
-        -- run halts, context_did_not_respond. ORC bounds no leaf, so the leaf holds this
-        -- bound itself (seam.md, "The trees", every wait has a bound; decisions.md, "Spec
-        -- round 16" D5).
+    @invariant OnlyThroughTheCommands
+        -- The runner records into a context only by issuing a command of that context, and
+        -- reads a context only through its queries. It never appends another context's
+        -- event itself, and no event is copied from one context to another: each is
+        -- appended once, by its producer's command, and every context that folds it reads
+        -- it from the one store.
 
     @invariant RefusalsAreTheContexts
         -- Every refusal of a recording is the context's reply, recorded as heard: the
-        -- refusal code of its seam, never re-derived. The runner does not decide what a
+        -- refusal code of its rule, never re-derived. The runner does not decide what a
         -- context would refuse, and does not skip a recording because it expects one.
 
     @invariant MeasurementKeepsItsHistory
-        -- Each context is started for a run on a fresh store, except Measurement when a
-        -- measurement history store is handed in: Measurement is then started on that one
-        -- file for every run, and it is kept when the run ends, so its scoreboard compares
-        -- a cycle with the last measured cycle of the same selection across runs
-        -- (AGENTS.md, the scoreboard; measurement contract Comparison,
-        -- LastMeasuredCycleOfTheSameSelection). The relay hands on only the handoffs that
-        -- store gained during this run. With none handed in, Measurement too starts fresh
-        -- and every scoreboard is a baseline (decisions.md, "Spec round 9" D6).
+        -- The one store is kept across runs, so Measurement keeps every measured cycle and
+        -- a scoreboard compares a cycle with the last measured cycle of the same selection
+        -- across runs (AGENTS.md, the scoreboard; measurement contract Comparison,
+        -- LastMeasuredCycleOfTheSameSelection; decisions.md, "Spec round 9" D6). A run on a
+        -- fresh store has no history, and its scoreboard is a baseline.
 }
 
 -- The project repository of the benchmark: the cut's commit and its tree.
@@ -99,22 +85,34 @@ contract ProjectRepository {
         -- the run halts before the cycle (decisions.md, "Spec round 8").
 }
 
--- The builder: one pi session with its Gondolin backend, launched by the runner, which
--- waits for it to end (decisions.md, "Slice 06 (draft)").
-contract BuilderLaunch {
+-- The builder: one pi-durable session, its tools in a Gondolin VM, run by a code leaf of the
+-- tree through the provided builder host, which the leaf waits for (decisions.md, "Spec round
+-- 18").
+contract BuilderSession {
     builder_image_present: (run_id: String) -> Boolean
 
     @invariant OneFreshBuilderPerRegenerate
-        -- Each regenerate and each repair launches one fresh builder session and waits
-        -- for it; no builder session continues another, and one run has one builder at
-        -- a time.
+        -- Each regenerate and each repair runs one fresh builder session and waits for it;
+        -- no builder session continues another, and one run has one builder at a time.
+
+    @invariant ASessionResumesAsItself
+        -- A builder session's identity is derived from the run's tick and the attempt, never
+        -- drawn at random: the leaf that runs again in the same tick, after a stopped runner
+        -- resumed the run, runs the same session again, and the builder host reopens it
+        -- where it stopped. A new attempt is a new session.
+
+    @invariant TheInstructionIsRendered
+        -- The builder instruction is the text the render node wrote for this run, from the
+        -- instruction version the run names (the one GEPA improves between cycles,
+        -- never during a run). The repair instruction is that text and a closing paragraph naming the
+        -- previous candidate and the gate evidence, read-only. Nothing else is appended.
 
     @invariant TheBuilderSeesOnlyItsMounts
         -- A fresh builder is handed the clean room and an empty candidate scope; a repair
         -- builder also the previous candidate and this cycle's gate evidence, read-only.
-        -- Neither is handed the verdicts file, an item verdict, a score or a scoreboard
-        -- (decisions.md H6). The repair effect's detail names the gate evidence it
-        -- mounted (spec round 16b).
+        -- Neither is handed an item's evidence, a judge's score, a filed verdict, a score
+        -- or a scoreboard (decisions.md H6). The repair effect's detail names the gate
+        -- evidence it mounted (spec round 16b).
 
     @invariant TheBuilderExitIsNoVerdict
         -- How a builder session ends is not evidence: the runner records the candidate
@@ -123,18 +121,17 @@ contract BuilderLaunch {
 
     @invariant TheBuilderRunsInTheConfiguredImage
         -- When the configuration names a builder image, every builder of the run, fresh
-        -- and repair, is launched with that image: the folder of its name in the builder
-        -- images directory handed in, as the builder command's third argument. Each
-        -- regenerate and repair effect names the image and its digest in its detail. A
-        -- configuration that names none launches the builder with two arguments, as before
-        -- (decisions.md, "Spec round 9" D1).
+        -- and repair, runs in that image: the folder of its name in the builder images
+        -- directory handed in, as the builder host's third argument. Each regenerate and
+        -- repair effect names the image and its digest in its detail. A configuration that
+        -- names none runs the builder host with two arguments (decisions.md, "Spec round 9"
+        -- D1).
 
     -- The builder image named for a stack carries that stack's toolchain, the same tools
-    -- the gate's host runs the candidate with (for Clojure: a JDK, the Clojure CLI, git and
-    -- bb), so a builder never brings its own. Proving that is the provided image build's
-    -- (harness/Makefile), when it builds the image, never the runner's: the runner checks
-    -- only that the named image is there, and records which one each builder ran in
-    -- (decisions.md, "Spec round 9" D2, D4).
+    -- the gate runs the candidate with (for Clojure: a JDK, the Clojure CLI, git and bb), so
+    -- a builder never brings its own. Proving that is the provided image build's
+    -- (harness/Makefile), never the runner's: the runner checks only that the named image is
+    -- there, and records which one each builder ran in (decisions.md, "Spec round 9" D2, D4).
 }
 
 -- The gate, run on the host for stage 1. For the http seam (the default) in the order of
@@ -238,11 +235,42 @@ contract GateOnTheHost {
         -- none handed in, the digest is as before.
 }
 
+-- The judge: for each checklist item a researcher drives the gated candidate over its public
+-- seam, and the judge scores the item pass or fail on what the researcher recorded. The sealed grader is a published, versioned judge workflow, cycle-runner/grade.v1,
+-- with its rubric; its digest is approved by the operator.
+contract TheJudge {
+    @invariant OnlyAnApprovedGrader
+        -- A run grades only with the sealed grader whose digest is one of the run's approved
+        -- grader digests; another digest halts the run before the cycle opens, before any
+        -- clean room or builder (AGENTS.md, The instrument).
+
+    @invariant EachItemStartsClear
+        -- Each item's grading starts with its evidence cleared: no item's researcher sees
+        -- the evidence another item's researcher recorded.
+
+    @invariant TheResearcherDrivesTheSeamOnly
+        -- The researcher is given the item's scenario, the candidate's seam and the event
+        -- model it names, and one tool, a shell in a Gondolin VM whose only mount is the
+        -- grading room (the clean room's files with the gated candidate's copy at its
+        -- scope), fresh for each item. It records what it set up, sent and observed.
+
+    @invariant ReasonBeforeScore
+        -- The judge writes its reason before its score, on one binary scale, pass or fail;
+        -- a reply with a score and no reason scores nothing, a level with no reasoning among
+        -- them (ORC's banded-output check reads the level only). Each score is recorded as ORC's
+        -- judge score event, its judge name carrying the item identity, so each item keeps
+        -- its own score.
+
+    @invariant AModelOtherThanTheBuildersOwn
+        -- The researcher and the judge run on another model than the one the builder
+        -- session runs on. Verified by: gate model-independence (planned).
+}
+
 ------------------------------------------------------------
 -- Enumerations
 ------------------------------------------------------------
 
--- The effect a leaf of the run performed, each recorded into one context's method
+-- The effect a leaf of the run performed, each recorded into one context's command
 -- (seam.md, "The effects").
 enum Effect {
     stamp | pin | checklist | self_check | fence | fail_cycle | regenerate | install
@@ -251,25 +279,21 @@ enum Effect {
 
 enum EffectOutcome { recorded | refused }
 
-enum RelayOutcome { accepted | refused }
-
 -- The gate's contract with the candidate, from the handed-in configuration's APP_SEAM:
 -- http, legacy verify.sh's HTTP seam (the default, the Löyly benchmark); stdio, the JSON-RPC
 -- over stdio seam of the harness's own contexts, gated as harness/v2/gate.sh gates them
 -- (decisions.md, "Spec round 8").
 enum AppSeam { http | stdio }
 
--- Why a run halted: an effect that could not be performed at all, so nothing was
--- recorded for it; or a recording refused before the cycle opened (the stamp, the pin or
--- the checklist), where there is no cycle to fail (AGENTS.md: an unstamped scenario or an
--- empty selection stops the cycle). A stamp whose identities are not the plan's own is
--- refused_before_the_cycle too: the runner stamps a copy of each plan spec file with its
--- item tags removed, and the identities the stamp hands out must equal the file's own
--- tags, in file order (decisions.md, "Spec round 7b" 2, Q1). A gate recording the context
--- refused with no next step, and a gate command whose result says the gate could not be
--- performed, are effect_could_not_run, the detail naming what failed (decisions.md, "Spec
--- round 12" D2, D3).
-enum HaltReason { context_did_not_respond | effect_could_not_run | refused_before_the_cycle }
+-- Why a run halted: an effect that could not be performed at all, so nothing was recorded
+-- for it (a handed-in command that could not start, a gate command whose result says the gate
+-- could not be performed, a node that calls the model and failed, a gate recording the
+-- context refused with no next step; decisions.md, "Spec round 12" D2, D3); or a refusal
+-- before the cycle opened (the stamp, the pin or the checklist refused, the stamp's
+-- identities not the plan's own, or the sealed grader not approved), where there is no cycle
+-- to fail (AGENTS.md: an unstamped scenario or an empty selection stops the cycle;
+-- decisions.md, "Spec round 7b" 2, Q1).
+enum HaltReason { effect_could_not_run | refused_before_the_cycle }
 
 ------------------------------------------------------------
 -- Config
@@ -288,7 +312,7 @@ config {
     -- The selected slice numbers (spec round 8): empty, every slice of the plan.
     plan_slices: Set<String>
     -- The builder image for the stack (spec round 9): a folder of the builder images
-    -- directory handed in. Empty, none: the builder command gets two arguments.
+    -- directory handed in. Empty, none: the builder host gets two arguments.
     builder_image: String = ""
     -- Legacy verify.sh: ten seconds, twenty polls at half a second, a poll first and then the
     -- wait: poll 1 at once after start.sh is launched, poll n at (n - 1) * 0.5 seconds, poll 20
@@ -299,14 +323,12 @@ config {
     -- harness/verify.sh, the stdio seam: thirty seconds, held by the probe, one poll.
     stdio_boot_budget_seconds: Integer = 30
     stdio_boot_polls: Integer = 1
-    -- How long a start waits for each context to respond to its first query, counted from its
-    -- own launch (spec round 13): a context loads Clojure, ORC and Grain first, about 20 s.
-    context_start_seconds: Integer = 60
-    -- How long a leaf waits for a context's reply to one request (spec round 16): ORC
-    -- bounds no leaf, so the leaf holds it.
-    context_reply_seconds: Integer = 60
+    -- How long a node that calls the model waits for one reply (spec round 18): ORC bounds
+    -- no node, so the node's provider holds it.
+    model_reply_seconds: Integer = 600
     -- Added to a tick's bound, the run's budget, for what no stage clock times: the start,
-    -- the stamps, the pin, the checklist, the first self-check, the relays (spec round 16).
+    -- the stamps, the pin, the checklist, the first self-check, the render, the grading
+    -- (spec rounds 16 and 18).
     tick_margin_seconds: Integer = 3600
 }
 
@@ -314,15 +336,17 @@ config {
 -- Decided questions (spec round 7b; decisions.md, "Spec round 7b")
 ------------------------------------------------------------
 --
--- Q1: the stamped plan against a fresh Specification ledger: the runner restamps a copy
---     of each plan spec file with its item tags removed; the restamped identities must
---     equal the file's own tags, else the run halts (HaltReason above). Specification is
---     unchanged.
+-- Q1: the stamped plan against Specification's ledger: the runner restamps a copy of each
+--     plan spec file with its item tags removed; the restamped identities must equal the
+--     file's own tags, else the run halts (HaltReason above). A slice the one store's
+--     ledger already holds is not stamped again; its identities are read from the ledger,
+--     and must equal the file's own tags in the same way (spec round 18). Specification
+--     is unchanged.
 -- Q2, Q5: the benchmark's configuration is its own, handed in: the archived Löyly
 --     configuration with the fence "impl harness-impl .pi archive/legacy-harness/cycles".
 -- Q3: the harness digest is the SHA-256 of the configuration file, the self-check command
 --     and the identity probe, in that order; for the stdio seam the store-check command
 --     follows (spec round 8, TheHarnessDigestCoversTheStoreCheck).
--- Q4: the methods are synchronous (StartRun responds once the run awaits its verdicts,
---     concluded or halted).
+-- Q4: the method is synchronous (StartRun responds once the run concluded or halted, the
+--     grading and the score included since spec round 18).
 -- Q6: the scenario digest is the runner's reading (seam.md); Specification names none.

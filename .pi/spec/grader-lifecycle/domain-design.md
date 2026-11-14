@@ -11,7 +11,7 @@ preparation) and the legacy README ("The goldens, and the three reasons one can 
 |---|---|---|---|---|
 | Context | `event-model/area.edn` (screen `instrument-goldens`, flow `golden-written-then-moved`) | `allium/context.allium` (enum `MoveReason`, contract `ScenarioDigests`, open questions) | none | |
 | Instrument golden | `event-model/instrument-golden.edn` | `allium/instrument-golden.allium` (rules `WriteInstrumentGolden`, `MoveInstrumentGolden`; surface `InstrumentGoldenDesk`) | **InstrumentGolden** (its digest, its scenario digest and its move history) | the harness repository; one per instrument scenario |
-| Handoffs produced | `event-model/handoffs.edn` (`instrument-golden-written`, `instrument-golden-moved`) | emitted by both rules | | consumed by the Regeneration cycle (the self-check) |
+| Events other contexts fold | `event-model/instrument-golden.edn` (`instrument-golden-written`, `instrument-golden-moved`) | emitted by both rules | | folded by the Regeneration cycle (the self-check), from the one store (spec round 18) |
 
 ## Design decisions
 
@@ -21,7 +21,7 @@ preparation) and the legacy README ("The goldens, and the three reasons one can 
 2. **A move carries exactly one reason**, one of the three the legacy README names, and a
    note; "moved" and "reason recorded" are one fact.
 3. **`spec_grew` carries its test**: `additions_only`, refused without it.
-4. **Both golden events are handoffs** to the Regeneration cycle, whose self-check must
+4. **Both golden events are handoffs** (since spec round 18, events on the one store) to the Regeneration cycle, whose self-check must
    reproduce the current goldens.
 5. **A golden carries the digest of the scenario it was written from** (decision h): written
    from the scenario, never recorded from a run, and a reworded scenario shows as a
@@ -38,8 +38,8 @@ preparation) and the legacy README ("The goldens, and the three reasons one can 
 
 | Storm event | Became |
 |---|---|
-| Instrument golden written | event `grader-lifecycle/instrument-golden-written` (handoff) |
-| Instrument golden moved, reason recorded | event `grader-lifecycle/instrument-golden-moved` (handoff), reason in the event |
+| Instrument golden written | event `grader-lifecycle/instrument-golden-written` (folded by another context) |
+| Instrument golden moved, reason recorded | event `grader-lifecycle/instrument-golden-moved` (folded by another context), reason in the event |
 
 ## Refusals (the `requires`, numbered as in the Allium)
 

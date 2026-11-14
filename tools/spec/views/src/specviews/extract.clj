@@ -4,7 +4,10 @@
 ;;   allium/*.allium                 behaviour (entities, rules, invariants, contracts, surfaces)
 ;;   event-model/*.edn               the Grain Event Model fragments, merged by load.clj
 ;;                                   (one home per block)
-;;   event-model/handoffs.edn        the events the context hands to others
+;;   event-model/handoffs.edn        the events the context hands to others, when the project
+;;                                   names such a file (:files :handoffs) and it exists; else
+;;                                   every event of the context's own fragments that another
+;;                                   context reads (Löyly since spec round 18: one event model)
 ;;   spec.feature, drafts.feature    examples, tags, tiers
 ;;   <:plan-dir>/NN-<context>        optional: the slice number of an accepted context
 ;; <:architecture>, its C4 views (### Level N: … then a ```mermaid block), stamped with its own
@@ -137,8 +140,10 @@
                    modules (into (sorted-map) (for [f (files (io/file d (:allium FL)) ".allium")] [(str ctx "--" (str/replace f ".allium" "")) (parse-allium ctx f)]))
                    areas (areas-of ctx)
                    scen (vec (for [[k f] [["spec" spec] ["drafts" drafts]] :when (.exists f) sc (parse-feature (str f) sl k)] (assoc sc :ctx ctx)))
-                   handoffs (let [f (io/file d (:event-model FL) (:handoffs FL))]
-                              (when (.exists f) (vec (sort (map nm (mapcat (comp keys :events) (vals (edn/read-string (slurp f)))))))))]]
+                   handoffs (let [f (when (:handoffs FL) (io/file d (:event-model FL) (:handoffs FL)))]
+                              (if (and f (.exists f))
+                                (vec (sort (map nm (mapcat (comp keys :events) (vals (edn/read-string (slurp f)))))))
+                                (vec (sort (for [[_ a] areas [ek _] (:events a)] ek)))))]]
          {:id ctx :slice sl :n (re-find #"^\d+" sl) :accepted (boolean (slice-of ctx))
           :feature (second (re-find #"(?m)^Feature:\s*(.*)$" src))
           :description (or (some :description (vals areas)) "")
@@ -149,14 +154,16 @@
           :items (vec (sort (distinct (keep :item (filter #(= "spec" (:kind %)) scen)))))})))
 
 ;; ---------- the handoffs: producer -> event -> consumer, the assembly the relay drives ----------
-(def handoffs
-  (vec (for [p contexts e (:handoffs p)]
-         {:producer (:id p) :event e
-          :consumers (vec (for [c contexts :when (not= (:id c) (:id p))
-                                :let [blocks (for [[_ a] (:areas c) k [:read-models :todo-processors :periodic-tasks :commands :queries :screens]
-                                                   [bk b] (get a k) :when (some #{e} (concat (:consumes b) (:subscribes b) (:reads b)))] [bk k])]
-                                :when (seq blocks)]
-                            {:ctx (:id c) :blocks (vec blocks)}))})))
+(def handoffs   ; only the events another context reads
+  (vec (for [p contexts e (:handoffs p)
+             :let [h {:producer (:id p) :event e
+                      :consumers (vec (for [c contexts :when (not= (:id c) (:id p))
+                                            :let [blocks (for [[_ a] (:areas c) k [:read-models :todo-processors :periodic-tasks :commands :queries :screens]
+                                                               [bk b] (get a k) :when (some #{e} (concat (:consumes b) (:subscribes b) (:reads b)))] [bk k])]
+                                            :when (seq blocks)]
+                                        {:ctx (:id c) :blocks (vec blocks)}))}]
+             :when (seq (:consumers h))]
+         h)))
 
 (def commit (str/trim (:out (sh/sh "git" "-C" root "log" "-1" "--format=%h" "--" SR (or (:plan-dir cfg) SR)))))
 (def dirty (not (str/blank? (:out (sh/sh "git" "-C" root "status" "--porcelain" "--" SR (or (:plan-dir cfg) SR))))))

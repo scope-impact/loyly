@@ -1,15 +1,15 @@
 ;; .pi/spec/regeneration-cycle/event-model/area.edn
 ;; The Regeneration cycle (harness: fence and gate): its screen and its flows. Each
 ;; aggregate's blocks are in its own fragment (harness-self-check.edn, clean-room.edn,
-;; regeneration-cycle.edn, gate-attempt.edn, handoffs.edn).
+;; regeneration-cycle.edn, gate-attempt.edn).
 ;;
 ;; Commands issued by ORC runtime (its workflow nodes) enter a flow from nil: ORC owns the
 ;; execution order; the harness records the stage facts and guards them. Policies are to-do
 ;; processors reading a to-do query. A refusal is the command's reply, not an event.
 ;;
-;; Handoffs consumed: cycle-preparation/source-cut-pinned, grader-lifecycle/instrument-golden-*,
+;; Other contexts' events it folds, from the one store (spec round 18):
+;; cycle-preparation/source-cut-pinned, grader-lifecycle/instrument-golden-*,
 ;; measurement/measurement-filed, score-stage-failed, scoreboard-reported.
-;; Produced: gate-attempt-passed (handoffs.edn).
 ;; Allium: ../allium/ (surface CycleProgress; the flows link the rules they pass through).
 {:regeneration-cycle
  {:description "Regeneration cycle (harness: fence and gate): one cycle in the legacy shape, fence -> regenerate -> gate -> score -> scoreboard, and its one conclusion. The fence and the gate feed the build loop; the gated candidate goes one way to the measurement."
@@ -20,7 +20,7 @@
     :queries #{:regeneration-cycle/cycle-progress}}}
   :flows
   {:regeneration-cycle/fence-to-scoreboard
-   {:description "The legacy cycle end to end: the harness self-checks, the fence proves the clean room, a candidate is regenerated, the gate ratifies it, the grader files item verdicts, the instrument files the measurement and reports the scoreboard, and the cycle concludes passed. The score and the scoreboard are Measurement's (its flow scoring): this flow stays inside this context and hears them as the handoffs measurement-filed and scoreboard-reported, which enter it from nil, as a command ORC runtime issues does, so its model validates alone with the handoffs it consumes (decisions.md, \"Slice 04\")."
+   {:description "The legacy cycle end to end: the harness self-checks, the fence proves the clean room, a candidate is regenerated, the gate ratifies it, the grader files item verdicts, the instrument files the measurement and reports the scoreboard, and the cycle concludes passed. The score and the scoreboard are Measurement's (its flow scoring): this flow stays inside this context and hears them as Measurement's events measurement-filed and scoreboard-reported, from the one store, which enter it from nil, as a command ORC runtime issues does (decisions.md, \"Spec round 18\")."
     :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/harness-self-check.allium" :kind :rule :name "RecordHarnessSelfCheck"}
                    {:spec ".pi/spec/regeneration-cycle/allium/clean-room.allium" :kind :rule :name "ProveCleanRoom"}
                    {:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :rule :name "RecordRegeneratedCandidate"}
@@ -113,7 +113,7 @@
             {:from [:query :regeneration-cycle/cycle-progress] :to [:screen :regeneration-cycle/cycle-progress]}]}
 
    :regeneration-cycle/refused-score-fails-cycle
-   {:description "A refused score files nothing: ORC's score node records the score stage failed (Measurement's fail-score-stage, heard here as the handoff score-stage-failed), never retried, and the cycle fails at the score."
+   {:description "A refused score files nothing: ORC's score node records the score stage failed (Measurement's fail-score-stage, heard here as its event score-stage-failed), never retried, and the cycle fails at the score."
     :grain/allium [{:spec ".pi/spec/regeneration-cycle/allium/regeneration-cycle.allium" :kind :rule :name "ConcludeOnFailedScoreStage"}]
     :steps [{:from [:event :measurement/score-stage-failed] :to [:read-model :regeneration-cycle/cycles-to-conclude]}
             {:from [:read-model :regeneration-cycle/cycles-to-conclude] :to [:query :regeneration-cycle/cycles-to-conclude]}

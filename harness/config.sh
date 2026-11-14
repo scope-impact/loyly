@@ -54,17 +54,13 @@ FENCED_PATHS="archive/legacy-harness/cycles docs/plan harness-impl impl raw"
 #     spec v1      .pi/model (all but GLOSSARY.md, which spec v2 uses), .pi/architecture.md,
 #                  .pi/affordances.schema.json, and its tools (tools/spec, all but v2)
 #     other spec   every other .pi/spec/<context> and .pi/plan link, the R0 board and the
-#                  legacy trace (event-storm.*, legacy-trace.md). A producer whose handoff
-#                  events the context consumes (a :<producer>/<event> its event-model names
-#                  that the producer's event-model/handoffs.edn defines) is fenced file by
-#                  file, all but that handoffs.edn: the contract the stubbed neighbour keeps
-#                  (decisions.md, "Slice 02"). Slices 01, 03 and 05 consume none; slice 02 keeps
-#                  the handoffs.edn of specification, cycle-preparation and regeneration-cycle;
-#                  slice 04 those of cycle-preparation, grader-lifecycle and measurement.
-#                  A context that drives the others through their seams (its seam.md names
-#                  LOYLY_CONTEXTS: slice 06, cycle-runner) keeps, of every other context with
-#                  a seam.md, that seam.md and its event-model/: the contracts it speaks; the
-#                  rest of that context is fenced file by file (decisions.md, "Spec round 7b" 7).
+#                  legacy trace (event-storm.*, legacy-trace.md). Since spec round 18 there is
+#                  one event model, the union of every context's event-model/*.edn, and no
+#                  handoff contract (decisions.md, "Spec round 18"): every room keeps every
+#                  other context's event-model/, and the rest of that context is fenced file
+#                  by file. Slice 06 (cycle-runner) is the one candidate: the five contexts
+#                  01 to 05 are in it, their rules included, so its room keeps every other
+#                  context whole (cycle-runner/seam.md, "What the candidate does").
 #     prior work   the legacy driver in harness/ (it implements the stamper, the checklist,
 #                  the score, the fence and the gate: every context's earlier answer), its
 #                  archive, tools/spec/v2/stamp.clj, the instrument in harness/v2, and the
@@ -90,16 +86,8 @@ if [[ -n "${SLICE:-}" ]]; then
     _cfg_fence="docs/plan impl raw archive/legacy-harness tools/spec/v2/stamp.clj harness-impl"
     _cfg_fence+=" .pi/architecture.md .pi/affordances.schema.json"
     _cfg_fence+=" .pi/spec/event-storm.md .pi/spec/event-storm.edn .pi/spec/legacy-trace.md"
-    _cfg_producers=" "
-    _cfg_drives=""
-    git -C "$_cfg_root" show "HEAD:.pi/spec/$_cfg_ctx/seam.md" 2>/dev/null | grep -q LOYLY_CONTEXTS && _cfg_drives=1
-    for _cfg_k in $(git -C "$_cfg_root" grep -h -o -E ':[a-z][a-z0-9-]*/[a-z][a-z0-9-]*' HEAD \
-                      -- ".pi/spec/$_cfg_ctx/event-model/" 2>/dev/null | sort -u); do
-      _cfg_ns="${_cfg_k#:}"; _cfg_ns="${_cfg_ns%%/*}"
-      [[ "$_cfg_ns" != "$_cfg_ctx" && "$_cfg_producers" != *" $_cfg_ns "* ]] || continue
-      git -C "$_cfg_root" show "HEAD:.pi/spec/$_cfg_ns/event-model/handoffs.edn" 2>/dev/null \
-        | grep -qE "(^|[{[:space:]])$_cfg_k([[:space:]]|\$)" && _cfg_producers+="$_cfg_ns "
-    done
+    _cfg_one=""
+    [[ "$_cfg_ctx" == cycle-runner ]] && _cfg_one=1
     for _cfg_p in $(git -C "$_cfg_root" ls-tree --name-only HEAD \
                       .pi/model/ tools/spec/ harness/ .pi/spec/ .pi/plan/ 2>/dev/null); do
       case "$_cfg_p" in
@@ -107,16 +95,12 @@ if [[ -n "${SLICE:-}" ]]; then
         .pi/spec/"$_cfg_ctx"|"$_cfg_link") ;;
         .pi/spec/*.md|.pi/spec/*.edn) ;;
         *)
-          _cfg_ns="${_cfg_p#.pi/spec/}"
-          if [[ "$_cfg_p" == .pi/spec/* && -n "$_cfg_drives" ]] \
-               && git -C "$_cfg_root" cat-file -e "HEAD:$_cfg_p/seam.md" 2>/dev/null; then
-            for _cfg_f in $(git -C "$_cfg_root" ls-tree -r --name-only HEAD "$_cfg_p/"); do
-              [[ "$_cfg_f" == "$_cfg_p/seam.md" || "$_cfg_f" == "$_cfg_p/event-model/"* ]] || _cfg_fence+=" $_cfg_f"
-            done
-          elif [[ "$_cfg_p" == .pi/spec/* && "$_cfg_producers" == *" $_cfg_ns "* ]]; then
-            for _cfg_f in $(git -C "$_cfg_root" ls-tree -r --name-only HEAD "$_cfg_p/"); do
-              [[ "$_cfg_f" == "$_cfg_p/event-model/handoffs.edn" ]] || _cfg_fence+=" $_cfg_f"
-            done
+          if [[ "$_cfg_p" == .pi/spec/* ]] \
+               && git -C "$_cfg_root" cat-file -e "HEAD:$_cfg_p/event-model" 2>/dev/null; then
+            [[ -n "$_cfg_one" ]] ||
+              for _cfg_f in $(git -C "$_cfg_root" ls-tree -r --name-only HEAD "$_cfg_p/"); do
+                [[ "$_cfg_f" == "$_cfg_p/event-model/"* ]] || _cfg_fence+=" $_cfg_f"
+              done
           else
             _cfg_fence+=" $_cfg_p"
           fi ;;

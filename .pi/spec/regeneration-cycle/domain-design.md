@@ -10,11 +10,11 @@ R2 Allium and the product owner's decisions, `../decisions.md`). From the storm
 | Module | Event Model | Allium | Aggregate | Lives |
 |---|---|---|---|---|
 | Context | `event-model/area.edn` (screen `cycle-progress`; six flows) | `allium/context.allium` (Budget, enums, config, contracts `HarnessSelfCheckRun`, `FenceProbe`, `GateRoom`, open questions) | none | |
-| Harness self-check | `event-model/harness-self-check.edn` | `allium/harness-self-check.allium` (rule `RecordHarnessSelfCheck`; the cut and golden handoffs; surface `HarnessSelfCheckRecording`) | **HarnessSelfCheck** | event store; one per cycle, occasion and attempt |
+| Harness self-check | `event-model/harness-self-check.edn` | `allium/harness-self-check.allium` (rule `RecordHarnessSelfCheck`; the cut and golden events; surface `HarnessSelfCheckRecording`) | **HarnessSelfCheck** | event store; one per cycle, occasion and attempt |
 | Clean room | `event-model/clean-room.edn` | `allium/clean-room.allium` (rule `ProveCleanRoom`; surface `Fence`) | **CleanRoom** | event store; one per cycle |
-| Regeneration cycle | `event-model/regeneration-cycle.edn` | `allium/regeneration-cycle.allium` (rules `RecordRegeneratedCandidate`, `PassCycle`, `FailCycle`; the conclude-cycle policy; surfaces `CycleStages`, `CycleProgress`, `BuilderRoomBoundary`, `MeasurementHandoffs`) | **RegenerationCycle** (stage, budget, attempts, the one conclusion) | event store; one per cycle identity |
+| Regeneration cycle | `event-model/regeneration-cycle.edn` | `allium/regeneration-cycle.allium` (rules `RecordRegeneratedCandidate`, `PassCycle`, `FailCycle`; the conclude-cycle policy; surfaces `CycleStages`, `CycleProgress`, `BuilderRoomBoundary`, `MeasurementEvents`) | **RegenerationCycle** (stage, budget, attempts, the one conclusion) | event store; one per cycle identity |
 | Gate attempt | `event-model/gate-attempt.edn` | `allium/gate-attempt.allium` (rules `InstallCandidateInGateRoom`, `RecordGateAttempt`; surface `Gate`) | **GateAttempt** | event store; one per cycle and attempt |
-| Handoffs produced | `event-model/handoffs.edn` (`gate-attempt-passed`) | emitted by `RecordGateAttempt` | | consumed by Measurement |
+| Events other contexts fold | `event-model/gate-attempt.edn` (`gate-attempt-passed`) | emitted by `RecordGateAttempt` | | folded by Measurement, from the one store (spec round 18) |
 
 Actors: **ORC runtime** issues every command here except the two conclusions; the
 **conclude-cycle** policy issues `pass-cycle` and `fail-cycle` (ORC also issues `fail-cycle`
@@ -123,7 +123,7 @@ budget; new flow `gate-attempt-repaired`.
 | ✗ Fence refused: prior candidate reachable in the object graph | `ProveCleanRoom` refusal 6; ORC records `cycle-failed` (stage fence) |
 | ◆ Candidate regenerated | event `candidate-regenerated` |
 | Candidate installed in the gate room | event `candidate-installed-in-gate-room` |
-| ◆ Gate attempt passed | event `gate-attempt-passed` (handoff) |
+| ◆ Gate attempt passed | event `gate-attempt-passed` (folded by another context) |
 | ✗ Gate attempt failed | event `gate-attempt-failed` |
 | ✗ Gate refused: tool missing or no-op suite | `gate-attempt-failed`, reason `contract-missing` |
 | ✗ Gate refused: suite discovery empty | `gate-attempt-failed`, reason `suite-discovery-empty` |
