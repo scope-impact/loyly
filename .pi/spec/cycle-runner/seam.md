@@ -629,6 +629,17 @@ the tree with the fixtures above (a fixture repository, a stub self-check, a stu
 stub model, fixture candidates) and reads the one store. The stubs are the suite's, never the
 product's.
 
+The spine comes first. A build makes one run go through the whole tree before it widens: start,
+stamp, pin, checklist, grader, self-check, fence, render, regenerate, a gate attempt, each item's
+grading (`clear-evidence`, `drive-seam`, `judge`), `file-verdicts`, `file-score` and `conclude`,
+with the stubs above. Only then does it carry the other items one at a time. The gate's
+identity probe drives such a run to a filed score (`@item-06-064`), so a candidate that halts
+before the score fails the gate, however many other items it carries.
+
+The suite is bounded. `test.sh` runs the whole suite in at most five minutes on the gate's host.
+It starts one JVM, and one ORC and one store per fixture run inside it, never a new JVM per test.
+(`../decisions.md`, "Spec round 19".)
+
 ## Refusals
 
 A refusal records nothing and is the error `-32000` with `data.refusal`, one of the codes below.

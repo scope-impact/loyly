@@ -5,8 +5,10 @@
 # domain behaviour over the context's seam (.pi/spec/cycle-runner/seam.md), not by a name:
 # within the boot budget, counted from launching start.sh, the candidate must read a git
 # repository it is handed, record a run's first effects into the contexts it holds, and halt
-# the run before the cycle when its sealed grader is not approved. Everything it acts on is the
-# probe's own fixture, written to a temporary directory: no builder, gate or model is needed.
+# the run before the cycle when its sealed grader is not approved, and then take one run through
+# the whole tree to a filed score (spec round 19, `@item-06-064`). Everything it acts on is the
+# probe's own fixture, written to a temporary directory: a stub builder host, a stub gate command
+# and a stub model stand in for pi, Gondolin and the model, so no live builder, VM or model runs.
 #
 #   0. a fixture project repository (git, one commit): a plan of one slice with one stamped
 #      scenario, its harness configuration; a stub self-check and a stub builder host that
@@ -24,6 +26,13 @@
 #      results the stamp, the pin and the checklist, each recorded into its context; the run
 #      list holds R-probe once (the two refusals recorded nothing); neither the self-check nor
 #      the builder ran
+#   5. cycle-runner/start-run of R-full at the commit, its approved grader digests naming the
+#      rubric's, with LOYLY_GATE_CMD a stub gate command that passes and LOYLY_MODEL_API_BASE a
+#      stub model (ORC's marker format: it answers every output field a request names, `level` 1,
+#      a researcher's code a bare `(final! ...)` with the keys the request asks for): within
+#      RUN_BUDGET seconds the run passed with its cycle, the self-check and the builder ran, the
+#      model was called, run-progress shows the file-verdicts and file-score effects recorded and a
+#      score for the one item, 01-001. A runner that halts or fails before the score fails here.
 #
 # The candidate gets its Grain store through LOYLY_GRAIN_STORE: GATE_STORE when the gate
 # (harness/v2/gate.sh) set one, so the event-store check reads what this probe caused, and a
@@ -33,10 +42,11 @@ set -uo pipefail
 START="${1:?usage: probe-06.sh START_SCRIPT BUDGET_SECONDS}"
 BUDGET="${2:?usage: probe-06.sh START_SCRIPT BUDGET_SECONDS}"
 exec python3 - "$START" "$BUDGET" "${GATE_STORE:-}" <<'PY'
-import hashlib, json, os, select, signal, socket, stat, subprocess, sys, tempfile, time
+import hashlib, http.server, json, os, re, select, signal, socket, stat, subprocess, sys, tempfile, threading, time
 start, budget, gate_store = sys.argv[1], float(sys.argv[2]), sys.argv[3]
 work = tempfile.mkdtemp(prefix="probe-06.")
 began = time.monotonic()
+RUN_BUDGET = 600   # step 5, one whole run with stubs: seconds from its start-run to its answer
 
 def write(path, text, executable=False):
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -70,7 +80,50 @@ os.makedirs(marks)
 self_check = write(os.path.join(work, "stubs/self-check.sh"),
                    f"#!/bin/sh\ntouch '{marks}/self-check'\nexit 0\n", executable=True)
 builder = write(os.path.join(work, "stubs/builder.sh"),
-                f"#!/bin/sh\ntouch '{marks}/builder'\nexit 0\n", executable=True)
+                f"#!/bin/sh\ntouch '{marks}/builder'\nmkdir -p \"$1/app\"\n"
+                "printf '#!/bin/sh\\nexit 0\\n' > \"$1/app/test.sh\"\n"
+                "printf '#!/bin/sh\\necho probe\\n' > \"$1/app/start.sh\"\n"
+                "chmod +x \"$1/app/test.sh\" \"$1/app/start.sh\"\nexit 0\n", executable=True)
+gate_cmd = write(os.path.join(work, "stubs/gate.sh"),
+                 f"#!/bin/sh\ntouch '{marks}/gate'\necho gated > \"$3/gate.txt\"\n"
+                 "echo 'BOOT 20 10'\necho 'ANSWERED 1'\necho 'the probe answered'\nexit 0\n", executable=True)
+
+# the stub model: an OpenAI-compatible /chat/completions in ORC's marker format, no live model
+model_calls = []
+def stub_reply(text):
+    head = text.split("Your output fields are:", 1)[-1].split("All interactions", 1)[0]
+    fields = re.findall(r"^\d+\. `([^`]+)`", head, re.M) or ["answer"]
+    keys = re.search(r"\(final! \{[^}]*\}\) with keys: \[([^\]]*)\]", text)
+    keys = (keys.group(1).replace(",", " ").split() if keys else []) or [":evidence"]
+    out = []
+    for f in fields:
+        if f == "code":
+            v = "(final! {" + " ".join(f'{k} "stub: the scenario was observed over the seam"' for k in keys) + "})"
+        elif f == "level":
+            v = "1"
+        else:
+            v = f"stub {f}: the scenario holds, as observed over the seam."
+        out.append(f"[[ ## {f} ## ]]\n{v}")
+    return "\n\n".join(out) + "\n\n[[ ## completed ## ]]"
+class StubModel(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *a): pass
+    def do_POST(self):
+        body = json.loads(self.rfile.read(int(self.headers.get("content-length") or 0)) or b"{}")
+        if not self.path.endswith("/chat/completions"):
+            self.send_response(404); self.end_headers(); return
+        def txt(c):
+            return c if isinstance(c, str) else "".join(p.get("text", "") for p in (c or []) if isinstance(p, dict))
+        model_calls.append(body.get("model"))
+        reply = json.dumps({"id": f"stub-{len(model_calls)}", "object": "chat.completion", "created": 0,
+                            "model": body.get("model"),
+                            "choices": [{"index": 0, "finish_reason": "stop", "message": {
+                                "role": "assistant",
+                                "content": stub_reply("\n".join(txt(m.get("content")) for m in body.get("messages", [])))}}],
+                            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}}).encode()
+        self.send_response(200); self.send_header("content-type", "application/json")
+        self.send_header("content-length", str(len(reply))); self.end_headers(); self.wfile.write(reply)
+model_server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), StubModel)
+threading.Thread(target=model_server.serve_forever, daemon=True).start()
 instruction = write(os.path.join(work, "instruction.md"), "Build the probe's product.\n")
 rubric = write(os.path.join(work, "rubric.md"), "Pass when the item's behaviour is observed over the seam; else fail.\n")
 with open(rubric, "rb") as f:
@@ -89,7 +142,8 @@ env = dict(os.environ,
            LOYLY_BUILDER_IMAGES=images,
            LOYLY_BUILDER_INSTRUCTION=instruction,
            LOYLY_GRADER_RUBRIC=rubric,
-           LOYLY_MODEL_API_BASE="http://127.0.0.1:9",
+           LOYLY_GATE_CMD=gate_cmd,
+           LOYLY_MODEL_API_BASE=f"http://127.0.0.1:{model_server.server_address[1]}/v1",
            LOYLY_RENDER_MODEL="probe-render",
            LOYLY_GRADER_MODEL="probe-grader",
            LOYLY_SCORING_TOOL_PATHS="[]")
@@ -103,13 +157,14 @@ def stop():
     except subprocess.TimeoutExpired: os.killpg(proc.pid, signal.SIGKILL)
 def fail(why):
     print(why); stop(); sys.exit(1)
-def call(rid, method, params, refused=False):
+def call(rid, method, params, refused=False, deadline=None):
     proc.stdin.write(json.dumps({"jsonrpc": "2.0", "id": rid, "method": method, "params": params}) + "\n")
     proc.stdin.flush()
     while True:
-        left = budget - (time.monotonic() - began)
+        left = (deadline - time.monotonic()) if deadline else budget - (time.monotonic() - began)
         if left <= 0:
-            fail(f"no answer to {method} within the {budget:g}s boot budget")
+            fail(f"no answer to {method} within " + (f"the run budget of {RUN_BUDGET}s" if deadline
+                 else f"the {budget:g}s boot budget"))
         ready, _, _ = select.select([proc.stdout], [], [], left)
         if not ready: continue
         line = proc.stdout.readline()
@@ -177,8 +232,36 @@ ran = [m for m in ("self-check", "builder") if os.path.exists(os.path.join(marks
 if ran:
     fail(f"the {' and the '.join(ran)} ran for a run halted at the grader")
 elapsed = time.monotonic() - began
+
+# 5. one whole run, its grader approved: built, gated, graded and scored, with stubs
+t5 = time.monotonic()
+full = dict(run, **{"run-id": "R-full", "cycle-id": "C-full", "cut-id": "K-full", "commit": commit,
+                    "grader-digests": [grader_digest]})
+full["budget"] = dict(run["budget"], **{"stage-timeouts-seconds": {"fence": 120, "regenerate": 120,
+                                                                     "gate": 120, "score": 300}})
+events = (call(6, "cycle-runner/start-run", full, deadline=t5 + RUN_BUDGET) or {}).get("events")
+if not isinstance(events, list) or not any(e.get("type") == "cycle-runner/run-started" for e in events):
+    fail(f"cycle-runner/start-run of R-full answered {json.dumps(events)[:300]}, no cycle-runner/run-started")
+r = (call(7, "cycle-runner/run-progress", {"run-id": "R-full"}, deadline=t5 + RUN_BUDGET) or {}).get("run") or {}
+done = {x.get("effect"): x.get("outcome") for x in (r.get("effect-results") or []) if isinstance(x, dict)}
+scored = [s.get("item-id") for s in (r.get("scores") or []) if isinstance(s, dict)]
+if r.get("status") != "passed":
+    fail(f"R-full, a run whose grader is approved, with a stub builder, gate and model, did not reach a "
+         f"score: run-progress answered status {r.get('status')!r}, halt {json.dumps(r.get('halt'))[:200]}, "
+         f"effects {sorted(done)}; want passed with its cycle")
+missing = [e for e in ("self-check", "fence", "regenerate", "file-verdicts", "file-score")
+           if done.get(e) != "recorded"]
+if missing or scored != ["01-001"]:
+    fail(f"R-full passed, but its effect results {json.dumps(done)[:300]} lack {missing} recorded, or its "
+         f"scores are {scored}, not one score for 01-001")
+ran = [m for m in ("self-check", "builder", "gate") if not os.path.exists(os.path.join(marks, m))]
+if ran or not model_calls:
+    fail(f"R-full passed, but " + (f"the {' and the '.join(ran)} never ran" if ran else "the model was never called"))
 stop()
+model_server.shutdown()
 print(f"refused a start at no commit and one whose builder image is missing, stamped, pinned and derived "
       f"the checklist of R-probe and halted it at the unapproved grader {grader_digest}, ran no self-check "
-      f"and no builder, in {elapsed:.1f}s of the {budget:g}s budget: a cycle runner over its seam")
+      f"and no builder, in {elapsed:.1f}s of the {budget:g}s budget; then ran R-full through build, gate, "
+      f"grading ({len(model_calls)} model calls) and score to passed, in {time.monotonic() - t5:.1f}s: "
+      f"a cycle runner over its seam")
 PY

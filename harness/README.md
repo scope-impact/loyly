@@ -85,7 +85,11 @@ commits (`LOYLY_PROJECT_COMMITS`); its probe is `v2/probe-05.sh`. Slice 06, `cyc
 the one candidate `cycle-runner/cycle.v1` with the five contexts 01 to 05 in it, on one store:
 its room keeps the five other contexts whole (`harness/config.sh`); its probe, `v2/probe-06.sh`,
 refuses a start at no commit and one whose builder image is missing, then halts a run at an
-unapproved grader after its stamp, pin and checklist were recorded into their contexts.
+unapproved grader after its stamp, pin and checklist were recorded into their contexts. Since spec round 19 it also drives one more run through the whole tree
+to a filed score: an approved grader, a stub builder host, a stub gate command
+(`LOYLY_GATE_CMD`) and a stub model in ORC's marker format, all inside the probe, within ten
+minutes. A runner that halts or fails before the score fails the gate (`@item-06-064`). Cycle
+12's candidate passed the old probe while halting at grading.
 
 ### Scoring a spec-v2 cycle (legacy step 5)
 
@@ -149,9 +153,13 @@ with that and turned the oracle red with no instrument defect, and moving the go
 recorded reason this is not. `score.clj` and `scoreboard.clj` find `harness/cycles` from their
 own location, not from an argument, so `v2/score.sh` runs unchanged copies of them in its
 scratch root, whose `harness/cycles` is a link to `v2/cycles/NN`; no shared module file changed
-and no golden moved. One root per slice also makes the legacy scoreboard's "previous cycle"
-(the number minus one) the last cycle of the same selection, the slice, as
-`.pi/spec/decisions.md` g asks.
+and no golden moved. One root per slice keeps the comparison within the same selection, the
+slice, as `.pi/spec/decisions.md` g asks. The legacy scoreboard takes "the previous cycle" to be
+the cycle number minus one. Since spec round 19 the scratch root's `harness/cycles` holds only two
+links: this cycle, and, at the number minus one, the slice's last earlier cycle with a
+`scores.json`. The scoreboard's lines name that cycle. A cycle number skipped or a cycle stopped
+unscored no longer makes a baseline: slice 06's cycle 12 followed 09, because 10 was never
+claimed and 11 stopped (`STOPPED.md`).
 
 ### Where a spec-v2 cycle's run state goes (2026-11-08)
 

@@ -1972,3 +1972,57 @@ cycle through the Regeneration cycle's commands where it handed in `gate-attempt
 whether a `map-each` may delegate (round 16 said it runs one primitive leaf; the grading needs a
 three-node subtree per item); and what a run stopped while a researcher was in flight does at the
 pin (`resume-in-progress!` resumes leaves only).
+
+## Spec round 19 (2026-11-14)
+
+Cycle 12 of slice 06 (`06-c12`, spec 50c5d20) was the first cycle to build the one tree `cycle.v1`,
+driven by the legacy shell harness. One builder session (pi, gpt-6.1-sol, in Gondolin) ran
+3h42m, used 24.9M tokens and made 155 tool calls. Its suite grew from 1.6 to 17 minutes a run. It
+answered with a partial build: in its own words, Gondolin grading and automatic scoring were not
+implemented, and the runner halted at grading. The gate passed on attempt 1. The suite was green,
+the identity probe answered, and the store check found three completed runs of `cycle.v1` with
+01, 02 and 05's events on the one store. A black-box grader (gpt-6.1-terra, 2 rounds) scored
+43/61. Of the 18 failures, six were the judge items `@item-06-064` to `067`, `069` and `070`.
+This round makes the next cycle reach a score. It adds no item and changes no rule, so slice 06
+stays at 61 items and the checklist at 210.
+
+1. **The gate requires a run to reach a score** (harness only). `@item-06-064` already asks that
+   a run with a stub model files a score and passes with its cycle. The identity probe never
+   drove such a run: it stopped at an unapproved grader, so a runner that halts at grading
+   passed the gate. `harness/v2/probe-06.sh` gains a step 5. Within ten minutes, one run with an
+   approved grader goes through the whole tree to `passed`, and `run-progress` shows the
+   self-check, fence, regenerate, `file-verdicts` and `file-score` effects recorded and a score
+   for the one item. The run uses a stub builder host that leaves a two-file candidate, a stub
+   `LOYLY_GATE_CMD` that passes, and a stub model. The stub model fills every output field a
+   request names, in ORC's marker format: `level` 1, and for the researcher's `code` a bare
+   `(final! …)` with the keys the request asks for. It reads no node's wording, so it holds for
+   any candidate. The builder instruction's identity line for 06 says so. On 06-c12's candidate,
+   the new probe fails the gate (the review page records the line).
+2. **The spine first, and a bounded suite** (`cycle-runner/seam.md`, "How the candidate's own
+   suite drives it").
+   - A build makes one run go through the whole tree with the stubs, judge included, before it
+     carries other items.
+   - `test.sh` runs the whole suite in at most five minutes on the gate's host: one JVM, and one
+     ORC and store per fixture run inside it, never a new JVM per test.
+
+   06-c12 spent its session on a suite that grew to 17 minutes a run, and ran out before the
+   judge. No gate checks the bound yet. A suite over it is visible in the builder's evidence and
+   in how long the gate's suite took.
+3. **The scoreboard compares with the last scored cycle** (harness only). `harness/v2/score.sh`
+   linked the slice's whole cycle root, so the legacy scoreboard compared with the cycle number
+   minus one. Slice 06's cycle 12 followed 09: 10 was never claimed and 11 stopped unscored.
+   So 12 was reported as a baseline. The scratch root now links that earlier scored cycle at the
+   number minus one, and the report names it. `score.clj` and `scoreboard.clj` are unchanged.
+   Against cycle 09, cycle 12 passes 38/48 of the shared items. Cycle 12's filed scores are
+   unchanged.
+4. **Claude Code builds the new harness, on the host** (harness only; product owner, 2026-11-14).
+   From cycle 13 the legacy harness's builder for slice 06 is a fresh Claude Code subagent of the
+   operating session (Opus), not pi, and it runs on the host, not in the Gondolin image. It is
+   given the rendered instruction (`harness/v2/prompt.clj`) and the fenced room only, and writes
+   only the candidate scope. A repair is a new subagent given the candidate and the gate's
+   evidence. The black-box grader is a subagent on another model (Sonnet), so the grader's model
+   still differs from the builder's (ADR 0003). The reason: the candidate itself launches pi and
+   Gondolin VMs, and a builder inside a Gondolin VM could not run either (06-c12 left Gondolin
+   grading unimplemented). Nothing but the fence and the instruction keeps a host builder in its
+   room. `cycle.v1`'s own behaviour is unchanged: it still runs pi in Gondolin for its build and
+   grading sessions (ADR 0002). Builds of the Löyly app are unchanged.

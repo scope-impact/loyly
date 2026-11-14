@@ -149,7 +149,11 @@
                         "(`builder-image-missing`), and run a start whose approved grader digests do not name the "
                         "rubric's through the stamp, the pin and the checklist, each recorded into its context, to a "
                         "halt at the `grader` effect, `refused-before-the-cycle`, its detail naming that grader digest, "
-                        "reported through `cycle-runner/run-progress`, the self-check and the builder never launched")}})
+                        "reported through `cycle-runner/run-progress`, the self-check and the builder never launched; "
+                        "then, with the rubric's digest approved, a stub builder host, a stub gate command "
+                        "(`LOYLY_GATE_CMD`) and a stub model in ORC's marker format, run one start through the whole tree "
+                        "to a passed run whose `run-progress` shows the self-check, fence, regenerate, file-verdicts and "
+                        "file-score effects recorded and one score per checklist item, within ten minutes of that start")}})
 
 (defn render [slice]
   (let [{:keys [app-dir app-stack plan-dir app-probe]} (config slice)

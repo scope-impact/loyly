@@ -1,0 +1,492 @@
+{
+ "items": [
+  {
+   "id": "06-001",
+   "name": "The operator starts a run, and it performs the cycle's effects up to the score",
+   "rule": "A run starts once, one at a time, on a commit of the project repository",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:20",
+   "verdict": "fail",
+   "evidence": "A green HTTP candidate served sauna and its gate passed; progress then halted at grading, 'Gondolin grading room is not implemented', with no file-verdicts or file-score instead of passing with 11 recorded effects."
+  },
+  {
+   "id": "06-002",
+   "name": "A run identity is started once",
+   "rule": "A run starts once, one at a time, on a commit of the project repository",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:30",
+   "verdict": "pass",
+   "evidence": "After R-1 failed at the fence, starting R-1 for C-2 returned run-already-started; the list showed R-1 once for C-1."
+  },
+  {
+   "id": "06-003",
+   "name": "A second run is refused while the first is running",
+   "rule": "A run starts once, one at a time, on a commit of the project repository",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:40",
+   "verdict": "pass",
+   "evidence": "During R-1’s sleeping builder, start R-2 returned -32000 run-in-progress, R-2 progress was null and R-1 progress was running."
+  },
+  {
+   "id": "06-004",
+   "name": "A cycle is run once",
+   "rule": "A run starts once, one at a time, on a commit of the project repository",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:49",
+   "verdict": "fail",
+   "evidence": "A gate-passing R-1 halted at grading instead of concluding passed, so the required passed-cycle setup could not be established; a subsequent R-2 for C-1 was nevertheless refused cycle-already-run."
+  },
+  {
+   "id": "06-005",
+   "name": "A run of something that is not a commit of the project repository is refused",
+   "rule": "A run starts once, one at a time, on a commit of the project repository",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:58",
+   "verdict": "pass",
+   "evidence": "Started R-1 with the syntactically valid nonexistent deadbeef commit; start returned -32000 not-a-commit and run-progress returned null, with no builder launch."
+  },
+  {
+   "id": "06-008",
+   "name": "A checklist Measurement refuses halts the run with Measurement's refusal",
+   "rule": "The runner stamps, pins and derives the checklist, on the one store",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:70",
+   "verdict": "pass",
+   "evidence": "With an empty feature, start then progress showed checklist refused empty-checklist and the run halted at checklist before self-check or fence."
+  },
+  {
+   "id": "06-009",
+   "name": "A plan whose item identities a fresh stamp does not give back halts the run before the cycle",
+   "rule": "The runner stamps, pins and derives the checklist, on the one store",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:81",
+   "verdict": "pass",
+   "evidence": "Added an unstamped third scenario: stamp recorded 01-001 through 01-003, then progress showed halt at stamp for differing identities and no pin or checklist."
+  },
+  {
+   "id": "06-010",
+   "name": "A failing self-check fails the cycle at the fence, and the run with it",
+   "rule": "No clean room is built over a failed harness self-check",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:94",
+   "verdict": "pass",
+   "evidence": "Self-check exited 1 with golden checklist differs; progress showed the cycle failed at fence for harness-self-check-failed with that detail, with self-check last and no fence or regenerate."
+  },
+  {
+   "id": "06-011",
+   "name": "A check the self-check skips is recorded as a listed skip",
+   "rule": "No clean room is built over a failed harness self-check",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:104",
+   "verdict": "pass",
+   "evidence": "Self-check printed SKIP bb-tools and exited 0; its passed event listed bb-tools, and the effect detail named it."
+  },
+  {
+   "id": "06-012",
+   "name": "A fenced path that matches nothing fails the cycle at the fence",
+   "rule": "The fence builds the clean room of the cut and proves it, as legacy fence.sh does",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:116",
+   "verdict": "pass",
+   "evidence": "Fenced impl and absent harness/cycles: fence was refused fenced-path-matched-nothing, followed by recorded fail-cycle; progress failed at fence for fence-refused without regenerate."
+  },
+  {
+   "id": "06-013",
+   "name": "The fresh builder sees the clean room of one commit with no fenced path",
+   "rule": "The fence builds the clean room of the cut and proves it, as legacy fence.sh does",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:127",
+   "verdict": "pass",
+   "evidence": "Fenced existing impl and harness/cycles; the builder logged an empty impl, plan and config in the object listing, one commit, and no impl or harness/cycles object path."
+  },
+  {
+   "id": "06-014",
+   "name": "Each regenerate runs one builder session and waits for it",
+   "rule": "A regenerate runs one fresh builder session and records what it left in its candidate scope",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:139",
+   "verdict": "pass",
+   "evidence": "The red-then-green HTTP fixture produced two recorded builder sessions with different attempt-suffixed identities; regenerate completed before the failed gate and subsequent repair launch, and attempt 2 passed the gate."
+  },
+  {
+   "id": "06-015",
+   "name": "A builder that exits non-zero but leaves a candidate is gated",
+   "rule": "A regenerate runs one fresh builder session and records what it left in its candidate scope",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:149",
+   "verdict": "fail",
+   "evidence": "The builder left a candidate and exited 1; regenerate recorded its digest and the HTTP gate passed, but the run halted at grading rather than passing with its cycle."
+  },
+  {
+   "id": "06-016",
+   "name": "A builder that leaves nothing fails the cycle at regenerate",
+   "rule": "A regenerate runs one fresh builder session and records what it left in its candidate scope",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:159",
+   "verdict": "pass",
+   "evidence": "The builder exited 0 without producing files; progress showed no regenerate effect, a recorded fail-cycle, and failure at regenerate for candidate-not-regenerated."
+  },
+  {
+   "id": "06-017",
+   "name": "A builder that outlives the regenerate timeout is stopped and the cycle fails for its budget",
+   "rule": "A regenerate runs one fresh builder session and records what it left in its candidate scope",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:168",
+   "verdict": "pass",
+   "evidence": "The builder slept 30 seconds with regenerate timeout 2; it was stopped, no regenerate event was recorded, and progress failed at regenerate for budget."
+  },
+  {
+   "id": "06-018",
+   "name": "Something answering on the port is a gate refusal, and three in a row fail the cycle",
+   "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:180",
+   "verdict": "pass",
+   "evidence": "Held the configured HTTP port open; attempt 1 recorded three seam-answered-before-boot refusals, each followed by gate-refusal, and failed at gate for infrastructure. The launch marker was absent."
+  },
+  {
+   "id": "06-019",
+   "name": "A red suite fails the attempt before the candidate is booted",
+   "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:191",
+   "verdict": "pass",
+   "evidence": "With one HTTP attempt, a red suite and a launch script that would create a marker, the gate recorded suite-red; no launch marker appeared and the cycle failed for gate-attempts-exhausted."
+  },
+  {
+   "id": "06-020",
+   "name": "A candidate with no launch entrypoint fails the attempt for a missing contract",
+   "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:202",
+   "verdict": "pass",
+   "evidence": "With one allowed HTTP attempt and a builder-produced executable test.sh but no start.sh, gate-attempt-failed was recorded for contract-missing."
+  },
+  {
+   "id": "06-021",
+   "name": "A served page without the marker fails the attempt for its identity",
+   "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:212",
+   "verdict": "pass",
+   "evidence": "A green HTTP suite served a page without sauna, with one attempt; the gate recorded identity-probe-failed with detail page lacks marker."
+  },
+  {
+   "id": "06-022",
+   "name": "What a builder writes after it ended does not reach the gate",
+   "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:221",
+   "verdict": "pass",
+   "evidence": "The builder started a delayed write that changed its suite to red after exit; the installed copy passed its HTTP gate and its digest equalled regenerate's, while the builder room's suite had changed to exit 1."
+  },
+  {
+   "id": "06-023",
+   "name": "A repair builder sees the previous candidate and the gate evidence, read-only",
+   "rule": "A failed gate attempt is repaired by a fresh builder that sees only the previous candidate and the gate's evidence",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:234",
+   "verdict": "pass",
+   "evidence": "After the first red suite, the repair event named the first failed gate's evidence root and verification-repair; the second builder saw previous-candidate and gate-evidence, and attempts to write into each returned permission denied."
+  },
+  {
+   "id": "06-024",
+   "name": "Three failed attempts fail the cycle, no fourth builder is launched, and nothing is graded",
+   "rule": "A failed gate attempt is repaired by a fresh builder that sees only the previous candidate and the gate's evidence",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:244",
+   "verdict": "pass",
+   "evidence": "The builder made red suites for all three attempts; its log showed exactly three sessions, the cycle failed for gate-attempts-exhausted, no grader model call occurred, and no file-verdicts effect appeared."
+  },
+  {
+   "id": "06-026",
+   "name": "An item the judge did not score is Measurement's to record as unreached",
+   "rule": "The judge grades each item of the gated candidate, its scores are filed as scored, and the run ends as its cycle ends",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:257",
+   "verdict": "fail",
+   "evidence": "With the researcher scripted to fail on 01-002, the command gate passed but the runner halted at grading before any researcher call; neither file-verdicts nor file-score was recorded, so the requested one scored and one unreached result did not occur."
+  },
+  {
+   "id": "06-034",
+   "name": "A run that ended stays as it ended",
+   "rule": "A run that cannot perform an effect halts, loudly, and a run that ended stays as it ended",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:269",
+   "verdict": "pass",
+   "evidence": "On one store R-1 failed at the fence and R-2 halted at the empty checklist; later readings five seconds apart retained those statuses and their effect results matched the readings just after each start."
+  },
+  {
+   "id": "06-035",
+   "name": "Reading a run's progress changes nothing",
+   "rule": "A run that cannot perform an effect halts, loudly, and a run that ended stays as it ended",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:279",
+   "verdict": "fail",
+   "evidence": "Two progress queries for the same gate-passing run were identical, but that run had halted at unimplemented grading instead of passing, so the required still-passed Then did not hold."
+  },
+  {
+   "id": "06-036",
+   "name": "The identity probe is handed the served URL, and passes a candidate that serves the marker",
+   "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:291",
+   "verdict": "fail",
+   "evidence": "The probe accepted only the full configured URL and a marker-bearing page, and the gate passed; the run then halted at grading rather than passing with its cycle."
+  },
+  {
+   "id": "06-037",
+   "name": "A candidate whose suite writes inside its own directory passes the gate",
+   "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:302",
+   "verdict": "pass",
+   "evidence": "The candidate's HTTP suite created and removed a directory under impl; the gate passed and install's candidate digest matched regenerate's."
+  },
+  {
+   "id": "06-038",
+   "name": "A skipped check is recorded with the whole text after SKIP",
+   "rule": "No clean room is built over a failed harness self-check",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:314",
+   "verdict": "pass",
+   "evidence": "The self-check printed the full legacy SKIP line; the passed event's skipped-checks and effect detail contained the whole text after SKIP."
+  },
+  {
+   "id": "06-039",
+   "name": "A stdio candidate whose suite, identity probe and store check pass passes the gate",
+   "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:326",
+   "verdict": "fail",
+   "evidence": "With a green stdio suite, passing probe and store check, gate recorded a pass with 30 seconds, one poll, and the expected probe line; the run halted at grading with 'Gondolin grading room is not implemented' instead of passing."
+  },
+  {
+   "id": "06-040",
+   "name": "The identity probe is handed the gate room's launch entrypoint, the boot budget and the gate's store, and the store check reads that store",
+   "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:339",
+   "verdict": "pass",
+   "evidence": "The stdio probe recorded its two arguments: the gate-room impl/start.sh absolute path and 30; its only store variable was GATE_STORE under the evidence directory outside the gate room. The store check received that exact path."
+  },
+  {
+   "id": "06-041",
+   "name": "A red stdio suite fails the attempt before the identity probe, and the suite is handed no store",
+   "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:352",
+   "verdict": "pass",
+   "evidence": "With one allowed attempt the stdio suite recorded its environment and exited 1; the gate recorded suite-red, the environment had neither GATE_STORE nor LOYLY_ variables, and neither probe nor store-check log appeared."
+  },
+  {
+   "id": "06-042",
+   "name": "An identity probe that fails fails the attempt for its identity, and the store is not checked",
+   "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:364",
+   "verdict": "pass",
+   "evidence": "A green stdio suite and a probe exiting 1 with the specified 30-second message yielded gate-attempt-failed identity-probe-failed with that message; the store check was not run."
+  },
+  {
+   "id": "06-043",
+   "name": "A store check that fails fails the attempt for its identity, with the store check's output as the detail",
+   "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:377",
+   "verdict": "pass",
+   "evidence": "With a passing stdio probe and a failing store check, gate recorded identity-probe-failed with the store-check line, and the one-attempt cycle failed for gate-attempts-exhausted."
+  },
+  {
+   "id": "06-044",
+   "name": "A stdio candidate reads the spec beside it in the gate room",
+   "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:391",
+   "verdict": "pass",
+   "evidence": "A stdio suite tested for plan/01-a/spec.feature from its working directory; gate passed and the install and regenerate digests were identical."
+  },
+  {
+   "id": "06-045",
+   "name": "A stdio run whose store check cannot be started halts at the gate",
+   "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:401",
+   "verdict": "pass",
+   "evidence": "With passing stdio suite and probe but an empty store-check command, run-progress showed halted at gate for effect-could-not-run and no gate effect result."
+  },
+  {
+   "id": "06-046",
+   "name": "The harness digest of a stdio run covers the store-check command",
+   "rule": "A stdio candidate is gated as harness/v2/gate.sh gates it: its suite, its identity probe, then the store the probe's candidate wrote",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:412",
+   "verdict": "pass",
+   "evidence": "Two stdio runs on one store used the same probe and config but store-check command suffixes one and two; both first self-checks passed and carried different harness digests."
+  },
+  {
+   "id": "06-047",
+   "name": "A slice that is a symbolic link in the plan is read at its target",
+   "rule": "The runner stamps, pins and derives the checklist, on the one store",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:425",
+   "verdict": "fail",
+   "evidence": "The 01-a symlink was stamped and the checklist named 01-001 and 01-002 with 01-a sources, but the run subsequently halted at grading instead of not halting."
+  },
+  {
+   "id": "06-048",
+   "name": "The configuration's plan slices select what is stamped and checklisted",
+   "rule": "The runner stamps, pins and derives the checklist, on the one store",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:435",
+   "verdict": "pass",
+   "evidence": "With two slices and PLAN_SLICES=02, progress showed a single stamp for 02-001 and a checklist containing only 02-001."
+  },
+  {
+   "id": "06-049",
+   "name": "Each builder is handed the configured builder image, and each regenerate names the image and its digest",
+   "rule": "A regenerate runs one fresh builder session and records what it left in its candidate scope",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:448",
+   "verdict": "pass",
+   "evidence": "With builder-clojure configured, both sessions logged its image path as third argument; the regenerate and repair effect details named builder-clojure and the same image digest."
+  },
+  {
+   "id": "06-050",
+   "name": "A start whose configured builder image is not in the builder images directory is refused",
+   "rule": "A run starts once, one at a time, on a commit of the project repository",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:461",
+   "verdict": "pass",
+   "evidence": "Configured missing builder image with an empty images directory: start returned -32000 builder-image-missing and progress returned null."
+  },
+  {
+   "id": "06-051",
+   "name": "Two runs on one store compare the second cycle with the first",
+   "rule": "Measurement keeps its history across runs on the one store, so a scoreboard compares a cycle with the last measured cycle of its selection",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:473",
+   "verdict": "fail",
+   "evidence": "Two successive gate-passing runs shared one store and the second stamp recorded no new identities, but both halted at grading and the scoreboard query for C-2 returned null instead of reporting C-1 as previous."
+  },
+  {
+   "id": "06-052",
+   "name": "An identity probe that reads a file beside it in the cut passes a candidate that serves the marker",
+   "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:485",
+   "verdict": "pass",
+   "evidence": "The cut's harness/probe.sh read harness/config.sh relative to itself and checked the marker in the HTTP page; the gate passed and regenerate and install carried the same digest."
+  },
+  {
+   "id": "06-053",
+   "name": "A gate command that exits 0 passes the attempt with the budget, the poll and the probe line it printed",
+   "rule": "A gate command handed in is the gate: the runner hands it the cut's tree, the candidate's copy and an evidence directory, and records its result",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:499",
+   "verdict": "pass",
+   "evidence": "The command logged one call in the project repo with the cut tree without impl, the separate candidate copy and an initially empty evidence directory; the pass event recorded 20 polls, 10 seconds, poll 3 and ledger answered as itself, with the copied candidate digest matching install and no candidate launch marker."
+  },
+  {
+   "id": "06-054",
+   "name": "A gate command that exits 1 naming a reason fails the attempt with that reason, and the repair builder is handed its evidence",
+   "rule": "A gate command handed in is the gate: the runner hands it the cut's tree, the candidate's copy and an evidence directory, and records its result",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:513",
+   "verdict": "pass",
+   "evidence": "The gate command wrote receipt and returned suite-red 3 of 65 tests failed on attempt 1; the event preserved that reason and detail, the repair builder saw the receipt read-only, and attempt 2's gate passed."
+  },
+  {
+   "id": "06-055",
+   "name": "A gate command whose last line is a refusal to grade is a gate refusal, and three in a row fail the cycle",
+   "rule": "A gate command handed in is the gate: the runner hands it the cut's tree, the candidate's copy and an evidence directory, and records its result",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:525",
+   "verdict": "pass",
+   "evidence": "The command printed BOOT 20 10 and seam-answered-before-boot then exited 1: progress showed three refused gates each followed by a recorded gate-refusal, and failed at gate for infrastructure."
+  },
+  {
+   "id": "06-056",
+   "name": "A gate command whose last line names no code the runner reads halts the run at the gate",
+   "rule": "A gate command handed in is the gate: the runner hands it the cut's tree, the candidate's copy and an evidence directory, and records its result",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:537",
+   "verdict": "pass",
+   "evidence": "The command printed BOOT 20 10 and infrastructure the world did not come up, then exited 2; progress halted at gate with effect-could-not-run and that detail, with no gate, fail-cycle, or cycle."
+  },
+  {
+   "id": "06-057",
+   "name": "The harness digest covers the gate command, and is unchanged when none is handed in",
+   "rule": "A gate command handed in is the gate: the runner hands it the cut's tree, the candidate's copy and an evidence directory, and records its result",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:548",
+   "verdict": "pass",
+   "evidence": "Three HTTP runs with no gate command, gate-a, and gate-b all passed their gates and their self-checks carried three distinct digests; the first matched SHA-256 of config bytes, the self-check command text, then probe bytes."
+  },
+  {
+   "id": "06-059",
+   "name": "Each effect a run records lies inside the leaf of the tree named for that effect",
+   "rule": "The run is one ORC tree, cycle.v1, and each effect the runner performs is a leaf of its own",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:560",
+   "verdict": "fail",
+   "evidence": "The green HTTP run's Grain store passed the reference check for its recorded effects and showed cycle.v1 and a gate-attempt child, but the run halted at grading and recorded only nine effects, not the required passing run and eleven leaves."
+  },
+  {
+   "id": "06-060",
+   "name": "A candidate that refuses its first three requests is answered on a later poll, its margin 20 less that poll",
+   "rule": "The gate grades a copy of the candidate on the host, in legacy verify.sh's order",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:575",
+   "verdict": "pass",
+   "evidence": "A server returned HTTP 503 to its first three requests; gate recorded a 10-second, 20-poll pass on poll 5. The regeneration-cycle progress query showed boot-margin-polls 15."
+  },
+  {
+   "id": "06-061",
+   "name": "Each gate attempt runs as a child tick of its own of the workflow \"cycle-runner/gate-attempt.v1\"",
+   "rule": "A gate attempt is one subtree, delegated once per attempt",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:589",
+   "verdict": "fail",
+   "evidence": "The first HTTP suite failed and the second gate passed; the Grain reference reader found two successful gate-attempt.v1 runs. The parent run halted at unimplemented grading instead of passing with its cycle."
+  },
+  {
+   "id": "06-062",
+   "name": "A copy of the candidate in a folder of its own, with no spec around it, runs a cycle",
+   "rule": "The runner carries its own event model, as its room gave it",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:603",
+   "verdict": "fail",
+   "evidence": "Started a detached copy of the candidate against a fixture repo; its HTTP gate passed, but the run halted at grading with 'Gondolin grading room is not implemented' instead of passing."
+  },
+  {
+   "id": "06-064",
+   "name": "The judge scores each item in a child tick of its own, the scores are filed as scored, and the run passes as its cycle passes",
+   "rule": "The judge grades each item of the gated candidate, its scores are filed as scored, and the run ends as its cycle ends",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:615",
+   "verdict": "fail",
+   "evidence": "With the judge scripted for booked/pass and no receipt/fail, the gate passed but the runner halted at grading without scores, verdicts or score. The Grain reader showed only cycle.v1 and one gate-attempt child tick, and no grade.v1 ticks or judge scores."
+  },
+  {
+   "id": "06-065",
+   "name": "Each item's grading starts with no other item's evidence",
+   "rule": "The judge grades each item of the gated candidate, its scores are filed as scored, and the run ends as its cycle ends",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:627",
+   "verdict": "fail",
+   "evidence": "The researcher stub was set up to return E-ONE for the first item, but the gate-passing run halted at grading before any researcher or judge request, so no first-item judge request contained E-ONE."
+  },
+  {
+   "id": "06-066",
+   "name": "The researcher is given the item, the seam and the event model, and a shell in the grading room only",
+   "rule": "The judge grades each item of the gated candidate, its scores are filed as scored, and the run ends as its cycle ends",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:637",
+   "verdict": "fail",
+   "evidence": "The researcher stub was set up to call vm_bash for its directory and files; after a passing gate the runner halted at grading before sending any researcher request or opening a grading-room shell."
+  },
+  {
+   "id": "06-067",
+   "name": "A judge reply with the level of a pass and no reasoning scores nothing, and the item is filed unreached",
+   "rule": "The judge grades each item of the gated candidate, its scores are filed as scored, and the run ends as its cycle ends",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:648",
+   "verdict": "fail",
+   "evidence": "With the judge scripted to omit reasoning for 01-002, the gate passed but the run halted before any judge request; progress had no scores and the Grain reader found no judge score events, so neither 01-001’s score nor the requested unreached measurement was filed."
+  },
+  {
+   "id": "06-068",
+   "name": "A sealed grader whose digest the run did not approve halts the run before the cycle",
+   "rule": "A run grades only with the approved sealed grader",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:662",
+   "verdict": "pass",
+   "evidence": "Approved only r-1, not the computed rubric digest; progress halted at grader with refused-before-the-cycle and the actual sha256 digest, before self-check, fence or builder."
+  },
+  {
+   "id": "06-069",
+   "name": "No item scored fails the score stage, and the run fails with its cycle",
+   "rule": "The judge grades each item of the gated candidate, its scores are filed as scored, and the run ends as its cycle ends",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:675",
+   "verdict": "fail",
+   "evidence": "With the model scripted to reject all researcher requests, the gate passed but the runner halted at grading before calling it; neither the zero-verdicts refusal nor fail-score-stage was recorded, and the run did not fail with its cycle."
+  },
+  {
+   "id": "06-070",
+   "name": "A runner stopped while a builder session runs resumes the run, and the session with it",
+   "rule": "A run stopped with its runner resumes where it stopped",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:687",
+   "verdict": "fail",
+   "evidence": "Killed the runner and sleeping builder five seconds into the first session, then restarted on the same store; the builder saw the same session identity twice and progress retained one pre-gate effect each, but after the gate passed the run halted at unimplemented grading rather than passing."
+  },
+  {
+   "id": "06-071",
+   "name": "The builder's instruction is the rendered text, and the repair's adds only the closing paragraph",
+   "rule": "The builder instruction is rendered by the model, and the builder is handed nothing more",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:701",
+   "verdict": "pass",
+   "evidence": "The render stub returned INSTRUCTION-7; the first copied instruction was exactly that text, while the repair's copied instruction added only a paragraph naming previous-candidate and gate-evidence, both read-only."
+  },
+  {
+   "id": "06-072",
+   "name": "A render the model does not reply to halts the run before any builder",
+   "rule": "The builder instruction is rendered by the model, and the builder is handed nothing more",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:712",
+   "verdict": "pass",
+   "evidence": "With an unreachable model endpoint, render failed after the fence; progress halted at render for effect-could-not-run and had no regenerate effect."
+  },
+  {
+   "id": "06-073",
+   "name": "Reading a running run shows its tick and the leaves it completed",
+   "rule": "A run that cannot perform an effect halts, loudly, and a run that ended stays as it ended",
+   "source": ".pi/plan/06-cycle-runner/spec.feature:723",
+   "verdict": "pass",
+   "evidence": "While the builder slept, run-progress showed a tick id with running status, completed fence then render, and regenerate as the final running node."
+  }
+ ]
+}

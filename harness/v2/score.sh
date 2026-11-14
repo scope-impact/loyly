@@ -18,17 +18,20 @@
 #      harness/cycles: harness/oracle.sh (a shared module file) reads harness/cycles/01 as spec
 #      v1's recorded cycle, judged by harness/oracle/scoreboard-01.golden, so a v2 cycle 01
 #      there would turn the oracle red over a golden that records something else. One root
-#      per slice also makes the legacy scoreboard's "previous cycle" (MM minus one) the last
-#      cycle of the same selection, the slice (decisions.md g). harness/README.md, "Spec v2".
+#      per slice keeps the comparison within the same selection, the slice (decisions.md g).
+#      harness/README.md, "Spec v2".
 #   3. the slice's checklist, derived by the legacy harness/gen_checklist.clj from slice NN's
 #      spec alone (a scratch root holding only .pi/plan/NN-context), into the cycle
 #   4. FILE copied into the cycle as its verdicts.json
 #   5. the legacy harness/score.clj files the verdicts (an unreached item fails and stays in
 #      the denominator; zero verdicts are refused), then the legacy harness/scoreboard.clj
 #      reports the cycle. Both resolve harness/cycles from their own location, never from an
-#      argument, so they run as unchanged copies in the scratch root, whose harness/cycles is
-#      a link to the slice's harness/v2/cycles/NN; "harness/cycles/MM" in their output means
-#      that directory.
+#      argument, so they run as unchanged copies in the scratch root. Its harness/cycles holds
+#      two links: MM to this cycle, and MM minus one to the slice's last earlier cycle that has
+#      a scores.json. That is the previous cycle, even where numbers were skipped or a cycle was
+#      stopped unscored (spec round 19: cycle 12 of slice 06 followed 09, 10 never claimed and 11
+#      stopped). The scoreboard's lines naming MM minus one are rewritten to name that cycle.
+#      "harness/cycles/MM" in their output means harness/v2/cycles/NN/MM.
 #
 set -uo pipefail
 die() { echo "score.sh: $*" >&2; exit 1; }
@@ -71,7 +74,11 @@ scratch="$(mktemp -d "${TMPDIR:-/tmp}/score-$SLICE.XXXXXX")"; trap 'rm -rf "$scr
 mkdir -p "$scratch/harness" "$scratch/.pi/plan/$CONTEXT"
 cp "$ROOT/harness/gen_checklist.clj" "$ROOT/harness/hjson.clj" "$ROOT/harness/config.sh" \
    "$ROOT/harness/score.clj" "$ROOT/harness/scoreboard.clj" "$scratch/harness/"
-ln -s "$CYCLES" "$scratch/harness/cycles"
+mkdir "$scratch/harness/cycles"; ln -s "$CYC" "$scratch/harness/cycles/$CYCLE"
+PREV="$(ls "$CYCLES" | grep -E '^[0-9]+$' | sort -n | while read -r c; do
+  (( 10#$c < 10#$CYCLE )) && [[ -f "$CYCLES/$c/scores.json" ]] && echo "$c"; done | tail -1)"
+MM1="$(printf "%0${#CYCLE}d" $((10#$CYCLE - 1)))"
+[[ -n "$PREV" ]] && ln -s "$CYCLES/$PREV" "$scratch/harness/cycles/$MM1"
 for f in spec.feature plan.md; do [[ -e "$ROOT/$link/$f" ]] && cp -L "$ROOT/$link/$f" "$scratch/.pi/plan/$CONTEXT/"; done
 bb "$scratch/harness/gen_checklist.clj" --out "$CYC/checklist.json" 2>"$CYC/checklist.log" \
   || die "score refused: the checklist could not be derived: $(tail -c 400 "$CYC/checklist.log")"
@@ -83,4 +90,8 @@ cp "$VERDICTS" "$CYC/verdicts.json" || die "score refused: $VERDICTS could not b
 
 # ---- 5. file and report, with the legacy tools
 bb "$scratch/harness/score.clj" "$CYCLE" --verdicts "$CYC/verdicts.json" || die "score refused by harness/score.clj (above)"
+if [[ -n "$PREV" && "$PREV" != "$MM1" ]]; then
+  bb "$scratch/harness/scoreboard.clj" "$CYCLE" | sed -E "s/cycle $MM1([^0-9]|\$)/cycle $PREV\1/g"
+  exit "${PIPESTATUS[0]}"
+fi
 bb "$scratch/harness/scoreboard.clj" "$CYCLE"
