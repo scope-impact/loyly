@@ -27,8 +27,8 @@ cycle number (next: `14`).
 
 The fence clones HEAD, so the spec the builder reads must be committed.
 
-1. `git status` / `git diff`: review the round. Round 20 (drafted 2026-11-14, may still be
-   uncommitted) covers: the researcher's shell in a Gondolin VM the runner starts
+1. `git status` / `git diff`: review the round. Round 20 (committed `69ea324`, 2026-11-14; the next
+   cycle, 14, builds on it) covers: the researcher's shell in a Gondolin VM the runner starts
    (`LOYLY_GRADER_IMAGE`, @item-06-066 wording replaced), the harness digest's self-check
    command read as handed in, readings for 013 and 071, the builder's open choices, and the
    harness edits (`prompt.clj` host wording, `grader-instruction-06.md` host machine section and
@@ -165,3 +165,4 @@ take into the next round.
 |---|---|---|---|---|---|
 | 12 | 50c5d20 | pi gpt-6.1-sol in Gondolin, 3h42m | passed, attempt 1 | 43/61 | halted at grading |
 | 13 | 2a85cda | Claude Opus subagent, host, 67 min | passed, attempt 1 | 60/61 | 066: no Gondolin VM |
+| 14 | 69ea324 | (next) | | | round 20: researcher VM, new leaf `grading-vm` |
