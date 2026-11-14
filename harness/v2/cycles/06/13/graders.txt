@@ -1,0 +1,2 @@
+verdicts: sha256:10437fdbfe1d8a1055f21e44e76f5a5815ccf57627ff6ca75fb8b054b4c98bd8 verdicts.json
+by: claude subagent sonnet, grader-instruction-06 (host machine section)

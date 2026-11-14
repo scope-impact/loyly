@@ -1,0 +1,245 @@
+[ {
+  "id" : "06-001",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: run status passed, cycle passed; OK: effects [\"stamp\" \"pin\" \"checklist\" \"self-check\" \"fence\" \"regenerate\" \"install\" \"self-check\" \"gate\" \"file-verdicts\" \"file-score\"] positions [1 2 3 4 5 6 7 8 9 10 11]; OK: positions 1..11; OK: each recorded; OK: gate events [\"regeneration-cycle/gate-attempt-passed\"]"
+}, {
+  "id" : "06-002",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: R-1 first ended failed cycle {:stage \"fence\", :reason \"fence-refused\", :detail \"fenced-path-matched-nothing: Fenced paths match nothing: nothing/here\"}; OK: second start {:jsonrpc \"2.0\", :id 7, :error {:code -32000, :message \"start-run refused: run-already-started\", :data {:refusal \"run-already-started\"}}}; OK: refusal run-already-started; OK: runs [[\"R-1\" \"C-1\"]]"
+}, {
+  "id" : "06-003",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: R-1 status while builder sleeps running; OK: R-2 start {:jsonrpc \"2.0\", :id 24, :error {:code -32000, :message \"start-run refused: run-in-progress\", :data {:refusal \"run-in-progress\"}}}; OK: refusal run-in-progress; OK: R-2 progress {:run nil}; OK: R-1 still running after refusal; OK: R-1 afterwards passed"
+}, {
+  "id" : "06-004",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: R-1 passed; OK: R-2 start {:jsonrpc \"2.0\", :id 8, :error {:code -32000, :message \"start-run refused: cycle-already-run\", :data {:refusal \"cycle-already-run\"}}}; OK: refusal cycle-already-run; OK: no run R-2"
+}, {
+  "id" : "06-005",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: {:jsonrpc \"2.0\", :id 6, :error {:code -32000, :message \"start-run refused: not-a-commit\", :data {:refusal \"not-a-commit\"}}}; OK: refusal not-a-commit; OK: no run R-1; OK: no builder launched"
+}, {
+  "id" : "06-008",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: checklist refused empty-checklist; OK: refusal empty-checklist; OK: halt {:effect \"checklist\", :reason \"refused-before-the-cycle\", :detail \"empty-checklist: The checklist would be empty\"}; OK: halted; OK: no self-check/fence"
+}, {
+  "id" : "06-009",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: stamp recorded slice 01-a (docs/plan/01-a/spec.feature): 3 identities stamped; ledger 01-001 01-002 01-003; the file's own 01-001 01-002; OK: halt {:effect \"stamp\", :reason \"refused-before-the-cycle\", :detail \"the stamp handed out [\\\"01-001\\\" \\\"01-002\\\" \\\"01-003\\\"], not the plan's own [\\\"01-001\\\" \\\"01-002\\\"]\"}; OK: halted; OK: no pin/checklist"
+}, {
+  "id" : "06-010",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: failed; OK: {:stage \"fence\", :failure {:stage \"fence\", :reason \"harness-self-check-failed\", :detail \"golden checklist differs\"}, :cycle-id \"C-1\", :attempts [], :stage-entered-at \"2026-11-14T17:05:24.649106Z\", :status \"failed\", :cut-id \"K-1\", :harness-digest \"05d750953d9fba2a9c7c50d2aa3011f4eff92687678288ce3a461c3eb21c0d64\", :budget {:gate-attempt-limit 3, :max-outer-cycles 1, :max-continuations 0, :stage-timeouts-seconds {:fence 120, :regenerate 300, :gate 120, :score 600}}, :gate-attempts 0, :consecutive-gate-refusals 0}; OK: failure {:stage \"fence\", :reason \"harness-self-check-failed\", :detail \"golden checklist differs\"}; OK: last effect self-check; OK: no fence/regenerate"
+}, {
+  "id" : "06-011",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: events [\"regeneration-cycle/harness-self-check-passed\"]; OK: detail: passed; skipped checks: bb-tools"
+}, {
+  "id" : "06-012",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: fence refused fenced-path-matched-nothing; OK: next effect fail-cycle; OK: failed; OK: {:stage \"fence\", :reason \"fence-refused\", :detail \"fenced-path-matched-nothing: Fenced paths match nothing: harness/cycles\"}; OK: no builder"
+}, {
+  "id" : "06-013",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: room holds the plan; OK: room holds harness/config.sh (configuration in repo); OK: candidate scope holds no file; impl dir: clojure.lang.LazySeq@31623f; OK: commits 1; OK: no impl/harness/cycles path in object graph; OK: no fenced path in HEAD tree; OK: old.txt not in objects; OK: placeholder.txt not in objects; OK: roots 676894647db28a01f0a5bc84d686a35b0b35af37"
+}, {
+  "id" : "06-014",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: launches 2; OK: sessions [\"R-1/e2346327-eba6-4010-9a7e-e6ff06bcdf0b/1\" \"R-1/e2346327-eba6-4010-9a7e-e6ff06bcdf0b/2\"]; OK: second start 1794676093014 > first end 1794676091460; OK: effects regenerate then repair; OK: passed"
+}, {
+  "id" : "06-015",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: regenerate recorded session R-1/2de357f0-fc08-4b74-be02-da963500615f/1; instruction 6a596f7d8a1e7e3ea4be31db35d40fd97754a9e5e803d026520847771b830291; no builder image; builder exit 1; candidate sha256:9ed51f7177da29bcdd0766bb6afd5991526b1da5b6e1fb297ba8f788d23aac47; OK: digest in detail; OK: passed"
+}, {
+  "id" : "06-016",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: no regenerate effect; OK: fail-cycle recorded; OK: failed; OK: {:stage \"regenerate\", :reason \"candidate-not-regenerated\", :detail \"the builder left nothing in impl\"}"
+}, {
+  "id" : "06-017",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: builder pid 41058 alive afterwards: false; OK: builder never finished (no end-ms), was stopped; OK: {:stage \"regenerate\", :reason \"budget\", :detail \"the builder outlived the regenerate stage's timeout and was stopped\"}; OK: failed"
+}, {
+  "id" : "06-018",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: gate effects 3; OK: gate outcomes [[1 \"refused\" \"seam-answered-before-boot\"] [1 \"refused\" \"seam-answered-before-boot\"] [1 \"refused\" \"seam-answered-before-boot\"]]; OK: gate-refusal effects 3; OK: each gate followed by gate-refusal; OK: {:stage \"gate\", :reason \"infrastructure\", :detail \"three consecutive gate refusals\"}; OK: start.sh never started"
+}, {
+  "id" : "06-019",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: gate events [\"regeneration-cycle/gate-attempt-failed\"]; OK: reason suite-red; OK: start.sh never ran; OK: {:stage \"gate\", :reason \"gate-attempts-exhausted\", :detail \"gate attempts exhausted\"}"
+}, {
+  "id" : "06-020",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: gate events [\"regeneration-cycle/gate-attempt-failed\"]; OK: reason contract-missing"
+}, {
+  "id" : "06-021",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: gate events [\"regeneration-cycle/gate-attempt-failed\"]; OK: reason identity-probe-failed detail identity-probe-failed: the page at http://127.0.0.1:63063 does not carry the marker sauna"
+}, {
+  "id" : "06-022",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: gate events [\"regeneration-cycle/gate-attempt-passed\"]; OK: regenerate digest sha256:ea2cd654017d8409e36898bbe8c015f66aecd596e89b6fee5734b856ea5097e8 install digest sha256:ea2cd654017d8409e36898bbe8c015f66aecd596e89b6fee5734b856ea5097e8; OK: passed"
+}, {
+  "id" : "06-023",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: repair events [\"regeneration-cycle/candidate-regenerated\"]; OK: repair purpose verification-repair attempt 2; OK: evidence root /Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/023/runs/R-1/gate-1/evidence-1 in repair detail: evidence /Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/023/runs/R-1/gate-1/evidence-1; session R-1/fa1059a1-a242-49cb-b80c-9e39b7d28324/2; no builder image; builder exit 0; candidate sha256:95f1d49089ab0b7356e281201780794b62bdb44ac3c24c46e88e4581662ed778; OK: second launch saw the clean room, previous candidate and gate evidence: [\".git\" \".repair\" \".repair/gate-evidence\" \".repair/gate-evidence/gate.log\" \".repair/previous-candidate\" \".repair/previous-candidate/page.html\" \".repair/previous-candidate/server.py\" \".repair/previous-candidate/start.sh\" \".repair/previous-candidate/test.sh\" \"docs\" \"docs/plan\" \"docs/plan/01-a\" \"docs/plan/01-a/event-model\" \"docs/plan/01-a/event-model/area.edn\" \"docs/plan/01-a/seam.md\" \"docs/plan/01-a/spec.feature\" \"harness\" \"harness/config.sh\" \"harness/cycles\" \"harness/cycles/old.txt\" \"harness/probe.sh\" \"impl\"]; OK: write probes {\".repair/previous-candidate\" false, \"docs/plan/01-a/event-model\" true, \"docs/plan/01-a\" true, \"harness/cycles\" true, \".repair/gate-evidence\" false, \".repair\" false, \"harness\" true, \"docs/plan\" true, \"docs\" true, \"impl\" true}"
+}, {
+  "id" : "06-024",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: launches 3; OK: failed; OK: {:stage \"gate\", :reason \"gate-attempts-exhausted\", :detail \"gate attempts exhausted\"}; OK: model requests 1, none for researcher; OK: no file-verdicts"
+}, {
+  "id" : "06-026",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: file-verdicts offered [{:item-id \"01-001\", :verdict \"pass\", :evidence \"judged ok\"}] detail 1 verdicts: 01-001 pass; OK: measurement-filed {:unreached 1, :cycle-id \"C-1\", :grader-digests [\"sha256:20a39031191095a757a7711e89d8ccecf76e543f3965450c7ca99a63bde6ed7c\"], :candidate-digest \"sha256:2da0a63b34edc8e15bde198fc5efb978ec25f8c740200c46715c69058c5d5550\", :type \"measurement/measurement-filed\", :selection-id \"S-1\", :superseded [], :passes 1, :total 2, :cut-id \"K-1\", :filed-at \"2026-11-14T17:35:58.711434Z\", :items [{:item-id \"01-001\", :verdict \"pass\", :evidence \"judged ok\"} {:item-id \"01-002\", :verdict \"fail\", :reason \"unreached\", :evidence \"\"}], :checklist-digest \"sha256:60af296503d24b05ea78dbf99d91d99f19c74d2e3f91c92dbb309aa87c0a1ab0\"}; OK: passed"
+}, {
+  "id" : "06-034",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: R-1 failed; OK: R-2 halted halt {:effect \"checklist\", :reason \"refused-before-the-cycle\", :detail \"empty-checklist: The checklist would be empty\"}; OK: R-2 halted at checklist; OK: R-1 still failed after 5s; OK: R-2 still halted after 5s; OK: R-1 same effect results; OK: R-2 same effect results"
+}, {
+  "id" : "06-035",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: passed; OK: two readings of R-1 identical; OK: two readings of all runs identical; OK: still passed"
+}, {
+  "id" : "06-036",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: gate events [\"regeneration-cycle/gate-attempt-passed\"]; OK: probe args: http://127.0.0.1:63599; OK: passed"
+}, {
+  "id" : "06-037",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: gate events [\"regeneration-cycle/gate-attempt-passed\"]; OK: digests sha256:ce49de2d39c70d22e84770a4b8e6d1832ff6453d9512d2afda28822146188450 sha256:ce49de2d39c70d22e84770a4b8e6d1832ff6453d9512d2afda28822146188450"
+}, {
+  "id" : "06-038",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: events [\"regeneration-cycle/harness-self-check-passed\"]; OK: detail: passed; skipped checks: the oracle cannot judge this tree: a tool it grades is absent."
+}, {
+  "id" : "06-039",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: gate events [\"regeneration-cycle/gate-attempt-passed\"]; OK: event {:evidence-root \"/Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/039/runs/R-1/gate-1/evidence-1\", :identity-probe-result \"answered as the context\", :answered-on-poll 1, :cycle-id \"C-1\", :candidate-digest \"sha256:2b4854933ed64bf3ac1cc1d9f6cd767f65cabeffa675104c7f14bd5778c3fef7\", :type \"regeneration-cycle/gate-attempt-passed\", :cut-id \"K-1\", :boot-budget-seconds 30, :boot-polls 1, :attempt 1, :passed-at \"2026-11-14T17:16:51.129481Z\"}; OK: no gate-refusal; OK: passed"
+}, {
+  "id" : "06-040",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: probe args [\"/Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/040/runs/R-1/gate-1/room/impl/start.sh\" \"30\"]; OK: arg1 /Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/040/runs/R-1/gate-1/room/impl/start.sh vs gate-room /Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/040/runs/R-1/gate-1/room; OK: arg2 30; OK: GATE_STORE /Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/040/runs/R-1/gate-1/evidence-1/events.sqlite; OK: LOYLY_ vars in probe env: []; OK: store-check args: /Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/040/runs/R-1/gate-1/evidence-1/events.sqlite"
+}, {
+  "id" : "06-041",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: gate events [\"regeneration-cycle/gate-attempt-failed\"]; OK: reason suite-red; OK: suite env had clojure.lang.LazySeq@1; OK: suite env recorded, 59 vars; OK: probe did not run; OK: store check did not run"
+}, {
+  "id" : "06-042",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: gate events [\"regeneration-cycle/gate-attempt-failed\"]; OK: reason identity-probe-failed; OK: detail identity-probe-failed: no response within the 30s boot budget; OK: store check never ran"
+}, {
+  "id" : "06-043",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: gate events [\"regeneration-cycle/gate-attempt-failed\"]; OK: reason identity-probe-failed; OK: detail identity-probe-failed: FAIL event 7 was not written inside a run of the ORC workflow; OK: {:stage \"gate\", :reason \"gate-attempts-exhausted\", :detail \"gate attempts exhausted\"}"
+}, {
+  "id" : "06-044",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: gate events [\"regeneration-cycle/gate-attempt-passed\"] suite pwd /Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/044/runs/R-1/gate-1/room\n; OK: digests equal"
+}, {
+  "id" : "06-045",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: halted; OK: halt {:effect \"gate\", :reason \"effect-could-not-run\", :detail \"the store check could not be started: \\\"/nonexistent/no-such-store-check\\\"\"}; OK: reason effect-could-not-run; OK: no gate effect result"
+}, {
+  "id" : "06-046",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: R-1 self-check [\"regeneration-cycle/harness-self-check-passed\"]; OK: R-2 self-check [\"regeneration-cycle/harness-self-check-passed\"]; OK: event digests 6c9509f0db74c3cb7ea1652810f5a0adfa056f05ffcad85e546d27d7989a462b vs 3886efa0c0a92087ee37c5fcb54d070383641d351d364534522197f23066ccd3; OK: cycle digests 6c9509f0db74c3cb7ea1652810f5a0adfa056f05ffcad85e546d27d7989a462b vs 3886efa0c0a92087ee37c5fcb54d070383641d351d364534522197f23066ccd3"
+}, {
+  "id" : "06-047",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: stamp recorded slice 01-a (docs/spec/a/spec.feature): 2 identities stamped; ledger 01-001 01-002; the file's own 01-001 01-002; OK: status passed halt ; OK: items [{:item-id \"01-001\", :scenario-digest \"sha256:6ff2f2224b0e274facb1b0d3b8f952128968bfa30651954a17c45278e91e9998\", :rule \"Fixture rule\", :source \"docs/plan/01-a/spec.feature:9\", :title \"First scenario\"} {:item-id \"01-002\", :scenario-digest \"sha256:a22f4d9d6900f0772410d252e833123bc9b2dd314d118b4ebc764cdff28eac48\", :rule \"Fixture rule\", :source \"docs/plan/01-a/spec.feature:17\", :title \"Second scenario\"}]; OK: sources [\"docs/plan/01-a/spec.feature:9\" \"docs/plan/01-a/spec.feature:17\"]"
+}, {
+  "id" : "06-048",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: stamp effects [\"slice 02-a (docs/plan/02-a/spec.feature): 1 identities stamped; ledger 02-001; the file's own 02-001\"]; OK: stamped slice 02 only; OK: checklist items [\"02-001\"]"
+}, {
+  "id" : "06-049",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: launches 2; OK: nargs [3 3]; OK: third args [\"/Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/049/images/builder-clojure\" \"/Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/049/images/builder-clojure\"] expected /Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/049/images/builder-clojure; OK: details: session R-1/ec162f7d-8640-49fc-a171-836a2604952c/1; instruction 6a596f7d8a1e7e3ea4be31db35d40fd97754a9e5e803d026520847771b830291; builder image builder-clojure sha256:a014fe1ea5d4037589f5544dd0f6ced27f6175f744aadd7116286686a5300d8a; builder exit 0; candidate sha256:22801212d05e043a05ee2c9ef9691004048df494ddfe8923dbc06c7a6b6dee72 || evidence /Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/049/runs/R-1/gate-1/evidence-1; session R-1/ec162f7d-8640-49fc-a171-836a2604952c/2; builder image builder-clojure sha256:a014fe1ea5d4037589f5544dd0f6ced27f6175f744aadd7116286686a5300d8a; builder exit 0; candidate sha256:5a0e342428ce6143351591316854e13c3744036974a53a867e68efc4e4acf755"
+}, {
+  "id" : "06-050",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: {:jsonrpc \"2.0\", :id 4, :error {:code -32000, :message \"start-run refused: builder-image-missing\", :data {:refusal \"builder-image-missing\"}}}; OK: refusal builder-image-missing; OK: no run R-1; OK: no builder launched"
+}, {
+  "id" : "06-051",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: R-1 passed; OK: R-2 passed halt ; OK: scoreboard of C-2 {:scoreboard {:reported-at \"2026-11-14T17:23:38.714409Z\", :restatement nil, :previous-cycle-id \"C-1\", :cycle-id \"C-2\", :new-items [], :dropped-items [], :selection-id \"S-1\", :rate \"100.0%\", :passes 2, :total 2, :shared {:items 2, :previous-passes 2, :passes 2, :previous-rate \"100.0%\", :rate \"100.0%\", :newly-passing [], :newly-failing []}, :previous-selection-id \"S-1\"}}; OK: R-2 stamp effect events [] detail slice 01-a (docs/plan/01-a/spec.feature): 0 identities stamped; ledger 01-001 01-002; the file's own 01-001 01-002"
+}, {
+  "id" : "06-052",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: gate events [\"regeneration-cycle/gate-attempt-passed\"] probe result probe: read marker sauna from /Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/052/runs/R-1/gate-1/room/harness/config.sh; OK: digests equal"
+}, {
+  "id" : "06-053",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: gate events [\"regeneration-cycle/gate-attempt-passed\"]; OK: {:evidence-root \"/Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/053/runs/R-1/gate-1/evidence-1\", :identity-probe-result \"ledger answered as itself\", :answered-on-poll 3, :cycle-id \"C-1\", :candidate-digest \"sha256:f38fe68a7058ffb694a20e1adf33c2e3757b661dff93098422c86e79955a9093\", :type \"regeneration-cycle/gate-attempt-passed\", :cut-id \"K-1\", :boot-budget-seconds 10, :boot-polls 20, :attempt 1, :passed-at \"2026-11-14T17:25:29.593075Z\"}; OK: gate command launched once; OK: cwd /Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/053/repo repo /Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/053/repo; OK: gate room holds nothing at impl; files ./docs/plan/01-a/event-model/area.edn ./docs/plan/01-a/seam.md ./docs/plan/01-a/spec.feature ./harness/config.sh ./harness/cycles/old.txt ./harness/probe.sh ; OK: cand digest sha256:f38fe68a7058ffb694a20e1adf33c2e3757b661dff93098422c86e79955a9093 install sha256:f38fe68a7058ffb694a20e1adf33c2e3757b661dff93098422c86e79955a9093; OK: evidence dir empty; OK: evidence dir /Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/053/runs/R-1/gate-1/room|/Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/053/runs/R-1/gate-1/candidate|/Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/053/runs/R-1/gate-1/evidence-1 event root /Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/053/runs/R-1/gate-1/evidence-1; OK: candidate's start.sh never started by the runner"
+}, {
+  "id" : "06-054",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: attempt 1 events [\"regeneration-cycle/gate-attempt-failed\"]; OK: {:evidence-root \"/Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/054/runs/R-1/gate-1/evidence-1\", :cycle-id \"C-1\", :candidate-digest \"sha256:b9057c92459bf31d0a154134ada4d4bd58159e7a086cab3e6bbbf568010f9b20\", :type \"regeneration-cycle/gate-attempt-failed\", :reason \"suite-red\", :failed-at \"2026-11-14T17:25:48.212574Z\", :boot-budget-seconds 10, :boot-polls 20, :attempt 1, :detail \"3 of 65 tests failed\"}; OK: repair room files with the evidence: [\".repair/gate-evidence/gate-evidence.txt\"]; OK: write probes in repair room {\".repair/previous-candidate\" false, \"docs/plan/01-a/event-model\" true, \"docs/plan/01-a\" true, \"harness/cycles\" true, \".repair/gate-evidence\" false, \".repair\" false, \"harness\" true, \"docs/plan\" true, \"docs\" true, \"impl\" true} files [\".git\" \".repair\" \".repair/gate-evidence\" \".repair/gate-evidence/gate-evidence.txt\" \".repair/previous-candidate\" \".repair/previous-candidate/page.html\" \".repair/previous-candidate/server.py\" \".repair/previous-candidate/start.sh\" \".repair/previous-candidate/test.sh\" \"docs\" \"docs/plan\" \"docs/plan/01-a\" \"docs/plan/01-a/event-model\" \"docs/plan/01-a/event-model/area.edn\" \"docs/plan/01-a/seam.md\" \"docs/plan/01-a/spec.feature\" \"harness\" \"harness/config.sh\" \"harness/cycles\" \"harness/cycles/old.txt\" \"har...; OK: attempt 2 events [\"regeneration-cycle/gate-attempt-passed\"]"
+}, {
+  "id" : "06-055",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: gate effects 3; OK: [[1 \"refused\" \"seam-answered-before-boot\"] [1 \"refused\" \"seam-answered-before-boot\"] [1 \"refused\" \"seam-answered-before-boot\"]]; OK: each gate followed by gate-refusal; OK: gate-refusal effects 3; OK: {:stage \"gate\", :reason \"infrastructure\", :detail \"three consecutive gate refusals\"}"
+}, {
+  "id" : "06-056",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: halted; OK: {:effect \"gate\", :reason \"effect-could-not-run\", :detail \"infrastructure the world did not come up\"}; OK: detail infrastructure the world did not come up; OK: no gate effect result; OK: no fail-cycle effect; OK: no cycle: false"
+}, {
+  "id" : "06-057",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: statuses [\"passed\" \"passed\" \"passed\"]; OK: self-check effects of R-1: 2; OK: R-1 harness digest 61d588f7a6625aaf7af3fe7803ba5f1989275d65dfa5c74625dd65c323d0d8dc matches formula: [\"cfg+cmdfile+probe\"]; variants {\"h(cfg)\\\\nh(cmdfile)\\\\nh(probe)\" \"7cf90a4688bd7ef467ee728bdd3a54a36286307155e86ccee6648da5be4f16d5\", \"h(cfg)h(cmd)h(probe)\" \"985c77c74bc62f688c5b3e61b5b6241d43696650bb28c9d93a34c843edf6b76f\", \"cfg+cmd+probe\" \"aae9d738f4a058b087392f17634179d4bda683ae1708d01b293a9d48f7c75b5d\", \"h(cfg)h(cmdfile)h(probe)\" \"a7cb5d14cb7283c2b6314acec78996e882181cb21e7ec1fee62a0985bdba6324\", \"cfg+cmdfile+probe\" \"61d588f7a6625aaf7af3fe7803ba5f1989275d65dfa5c74625dd65c323d0d8dc\", \"cfg+cmd\\\\n+probe\" \"0172ef07d17ee289c077c84642bbc0df7f0435a454a966e8e4b8390366d42df5\", \"h(cfg)\\\\nh(cmd)\\\\nh(probe)\" \"fd9abb0fe4ff1a512bb255730d92deeca7493a8890d3510c0ada457deb79eca1\", \"h(cfg)+h(cmdfile)+h(probe) lines\" \"5e349dbdfd3ca606c92d141abfa7445c2967b3561d1694507818dfb4a7517ee5\", \"cfg\\\\ncmd\\\\nprobe\" \"1cd6f2df29b9ab462df0bd45c9b8de503d7ad598cd96c7351cc6743cfaafbcb0\"}; OK: digests 61d588f7a6625aaf7af3fe7803ba5f1989275d65dfa5c74625dd65c323d0d8dc 5ffebd83d52a1766ca3ed636764995cd3177ca759cce408c81faafb8faf04bac 8f512a1ab726c4b4606ff1d20f0b7ac281717fd5ff0cd93330b59b02ad8416a2; OK: R-1's two self-check effects carry the same digest; OK: R-2/R-3 self-checks consistent"
+}, {
+  "id" : "06-059",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: passed; OK: effect-recorded events of R-1: 11; OK: rows [{:effect \"stamp\", :attempt 0, :leaves [[\"stamp\" \"cycle-runner/cycle.v1\"]]} {:effect \"pin\", :attempt 0, :leaves [[\"pin\" \"cycle-runner/cycle.v1\"]]} {:effect \"checklist\", :attempt 0, :leaves [[\"checklist\" \"cycle-runner/cycle.v1\"]]} {:effect \"self-check\", :attempt 0, :leaves [[\"self-check:0\" \"cycle-runner/cycle.v1\"]]} {:effect \"fence\", :attempt 0, :leaves [[\"fence\" \"cycle-runner/cycle.v1\"]]} {:effect \"regenerate\", :attempt 1, :leaves [[\"regenerate\" \"cycle-runner/cycle.v1\"]]} {:effect \"install\", :attempt 1, :leaves [[\"install\" \"cycle-runner/gate-attempt.v1\"]]} {:effect \"self-check\", :attempt 1, :leaves [[\"self-check\" \"cycle-runner/gate-attempt.v1\"]]} {:effect \"gate\", :attempt 1, :leaves [[\"gate:1\" \"cycle-runner/gate-attempt.v1\"]]} {:effect \"file-verdicts\", :attempt 1, :leaves [[\"file-verdicts\" \"cycle-runner/cycle.v1\"]]} {:effect \"file-score\", :attempt 1, :leaves [[\"file-score\" \"cycle-runner/cycle.v1\"]]}]; OK: distinct leaves 11; OK: the eleven effect names in order"
+}, {
+  "id" : "06-060",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: gate events [\"regeneration-cycle/gate-attempt-passed\"]; OK: event {:evidence-root \"/Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/060/runs/R-1/gate-1/evidence-1\", :identity-probe-result \"probe: answered as sauna\", :answered-on-poll 5, :cycle-id \"C-1\", :candidate-digest \"sha256:f873c1619cd50a0d4c4ade198f296639427583be8b00a53e3b3a836da159f9c2\", :type \"regeneration-cycle/gate-attempt-passed\", :cut-id \"K-1\", :boot-budget-seconds 10, :boot-polls 20, :attempt 1, :passed-at \"2026-11-14T17:27:36.901948Z\"}; OK: attempt 1 boot-margin-polls 15 answered 5"
+}, {
+  "id" : "06-061",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: passed; OK: gate attempt 2 passed; OK: attempt1 ticks #{#uuid \"da64669a-74b9-4bcb-b120-583511b18100\"} attempt2 ticks #{#uuid \"770246bd-2479-488f-be3a-1ce2adfa503d\"} (efforts: [[\"stamp\" 0] [\"pin\" 0] [\"checklist\" 0] [\"self-check\" 0] [\"fence\" 0] [\"regenerate\" 1] [\"install\" 1] [\"self-check\" 1] [\"gate\" 1] [\"repair\" 2] [\"install\" 2] [\"self-check\" 2] [\"gate\" 2] [\"file-verdicts\" 2] [\"file-score\" 2]]); OK: cycle ticks [#uuid \"78bb4a68-021e-4cb9-b26f-3effeebd1542\"] parents [#uuid \"78bb4a68-021e-4cb9-b26f-3effeebd1542\" #uuid \"78bb4a68-021e-4cb9-b26f-3effeebd1542\"]; OK: gate-attempt.v1 ticks 2; OK: repair (attempt 2) tick #{#uuid \"da64669a-74b9-4bcb-b120-583511b18100\"} repair attempt-1 tick #{} vs attempt 1 tick #{#uuid \"da64669a-74b9-4bcb-b120-583511b18100\"}"
+}, {
+  "id" : "06-062",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: copy at /Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/062/candcopy holds event-model/: [\"regeneration-cycle\" \"measurement\" \"cycle-runner\" \"specification\" \"cycle-preparation\" \"grader-lifecycle\"]; OK: no .pi in the copy; OK: run passed (copy is under the grading room, whose ancestors do include a .pi folder; could not place it elsewhere); OK: gate [\"regeneration-cycle/gate-attempt-passed\"] Extra check: the same copy with its event-model/ folder deleted refused to start ("
+}, {
+  "id" : "06-064",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: file-verdicts and file-score recorded; OK: measurement-filed {:unreached 0, :cycle-id \"C-1\", :grader-digests [\"sha256:20a39031191095a757a7711e89d8ccecf76e543f3965450c7ca99a63bde6ed7c\"], :candidate-digest \"sha256:c9a8a47e76d41c36b64b398376c24314e450ecd736a8b106093f0382e9a6bd81\", :type \"measurement/measurement-filed\", :selection-id \"S-1\", :superseded [], :passes 1, :total 2, :cut-id \"K-1\", :filed-at \"2026-11-14T17:21:37.245921Z\", :items [{:item-id \"01-001\", :verdict \"pass\", :evidence \"booked\"} {:item-id \"01-002\", :verdict \"fail\", :evidence \"no receipt\"}], :checklist-digest \"sha256:60af296503d24b05ea78dbf99d91d99f19c74d2e3f91c92dbb309aa87c0a1ab0\"}; OK: judge score events [[\"checklist/01-001\" 1.0 \"booked\"] [\"checklist/01-002\" 0.0 \"no receipt\"]]; OK: each score in a grade.v1 tick; OK: each in a tick of its own; OK: each tick a child of the run's cycle.v1 tick; OK: judge names carry item ids; OK: passed"
+}, {
+  "id" : "06-065",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: requests: researcher 01-001 1, 01-002 1, judge 01-001 1, 01-002 1; OK: no request for 01-002 holds E-ONE; OK: judge of 01-001 holds E-ONE; OK: passed"
+}, {
+  "id" : "06-066",
+  "verdict" : "fail",
+  "evidence" : "Not all Thens held. OK: first request holds the scenario; OK: first request holds seam.md text; OK: first request holds the event model text; NOT: shell reply (not a Linux Gondolin VM?): E-01-001 shell={:exit 0, :output \\\"Darwin Mac 25.2.0 Darwin Kernel Version 25.2.0: Tue Nov 18 21:09:56 PST 2025; root:xnu-12377.61.12~1/RELEASE_ARM64_T6041 arm64\\ | PWD=/Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/066/runs/R-1/gate-1/grading/01-001\\ | .\\ | ..\\ | docs\\ | harness\\ | impl\\ | UP\\ | .\\ | ..\\ | 01-001\\ | ROOT\\ | .\\ | ..\\ | .VolumeIcon.icns\\ | .file\\ | .nofollow\\ | .resolve\\ | .vol\\ | Applications\\ | Library\\ | System\\ | Users\\ | Volumes\\ | bin\\ | cores\\ | dev\\ | etc\\ | home\\ | opt\\ | private\\ | sbin\\ | tmp\\ | usr\\ | var\\ | \\\", :folder \\\"/Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/grading/06-c13/work/s/066/runs/R-1/gate-1/grading/01-001\\\"}\"}]}"
+}, {
+  "id" : "06-067",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: file-verdicts offered [{:item-id \"01-001\", :verdict \"pass\", :evidence \"booked\"}]; OK: progress scores [{:item-id \"01-001\", :verdict \"pass\", :reason \"booked\"}]; OK: store judge scores [\"checklist/01-001\"]; OK: measurement-filed {:unreached 1, :cycle-id \"C-1\", :grader-digests [\"sha256:20a39031191095a757a7711e89d8ccecf76e543f3965450c7ca99a63bde6ed7c\"], :candidate-digest \"sha256:d19715dbac3f422f20094ba483b87b909dbe5edf73588c1c38e495d6c4b93b6d\", :type \"measurement/measurement-filed\", :selection-id \"S-1\", :superseded [], :passes 1, :total 2, :cut-id \"K-1\", :filed-at \"2026-11-14T17:22:38.294250Z\", :items [{:item-id \"01-001\", :verdict \"pass\", :evidence \"booked\"} {:item-id \"01-002\", :verdict \"fail\", :reason \"unreached\", :evidence \"\"}], :checklist-digest \"sha256:60af296503d24b05ea78dbf99d91d99f19c74d2e3f91c92dbb309aa87c0a1ab0\"}; OK: 01-002 unreached in measurement-filed"
+}, {
+  "id" : "06-068",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: halted; OK: {:effect \"grader\", :reason \"refused-before-the-cycle\", :detail \"the sealed grader's digest sha256:20a39031191095a757a7711e89d8ccecf76e543f3965450c7ca99a63bde6ed7c is not one of the run's approved grader digests sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}; OK: detail names the sealed digest sha256:20a39031191095a757a7711e89d8ccecf76e543f3965450c7ca99a63bde6ed7c; OK: no self-check/fence; OK: no builder launched"
+}, {
+  "id" : "06-069",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: file-verdicts refused zero-verdicts; OK: effects [\"stamp\" \"pin\" \"checklist\" \"self-check\" \"fence\" \"regenerate\" \"install\" \"self-check\" \"gate\" \"file-verdicts\" \"fail-score-stage\"]; OK: failed; OK: {:stage \"score\", :reason \"score-stage-failed\", :detail \"score refused\"}; OK: builder launches 1, none after file-verdicts"
+}, {
+  "id" : "06-070",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: first launch seen, killed after 5 s; builder alive after kill false; OK: R-1 passed halt ; OK: launches 2; OK: sessions [\"R-1/a604eb9f-bb4b-420d-ac46-7ec62d03d64c/1\" \"R-1/a604eb9f-bb4b-420d-ac46-7ec62d03d64c/1\"]; OK: effects [\"stamp\" \"pin\" \"checklist\" \"self-check\" \"fence\" \"regenerate\" \"install\" \"self-check\" \"gate\" \"file-verdicts\" \"file-score\"]; OK: self-check effects: first plus attempt's, one before fence; OK: first six effects clojure.lang.LazySeq@6fdcfd2b"
+}, {
+  "id" : "06-071",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: first launch instruction \"INSTRUCTION-7\"; OK: repair instruction \"INSTRUCTION-7\\n\\nThis is a repair: gate attempt 1 failed. The previous candidate is at .repair/previous-candidate and the gate's evidence of that attempt is at .repair/gate-evidence, both read-only, in your builder room.\"; OK: closing paragraph names the gate evidence (read-only, in the builder room) of the failed attempt 1; OK: closing paragraph names the previous candidate; OK: closing paragraph names attempt 1"
+}, {
+  "id" : "06-072",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: halted; OK: {:effect \"render\", :reason \"effect-could-not-run\", :detail \"the render node's model call failed\"}; OK: no regenerate effect; OK: no builder launched; OK: no fail-cycle effect; OK: no cycle in progress"
+}, {
+  "id" : "06-073",
+  "verdict" : "pass",
+  "evidence" : "All Thens observed. OK: status running; OK: tick id 58a17fae-386a-470b-a141-aeb626e75e8b; OK: last nodes [[\"self-check:0\" \"success\"] [\"fence\" \"success\"] [\"render\" \"success\"] [\"regenerate\" \"running\"]]; OK: last node {:name \"regenerate\", :status \"running\"}; OK: afterwards passed"
+} ]
