@@ -632,13 +632,14 @@ Feature: Cycle runner
 
     # context.allium, contract TheJudge, invariant TheResearcherDrivesTheSeamOnly
     # prototype proto/orc-harness R4: the researcher guessed "cut" for "cut-id" until the event model was in its input
+    # decisions.md "Spec round 20" 1: the shell's VM is observed, not named (cycle 13's shell ran on the host)
     @minimum @allium-boundary.TheResearcherDrivesTheSeamOnly
     @item-06-066
     Scenario: The researcher is given the item, the seam and the event model, and a shell in the grading room only
-      Given the stub model records every request it is sent, and as the researcher of 01-001 asks its shell for its working folder and that folder's files
+      Given the stub model records every request it is sent, and as the researcher of 01-001 asks its shell for the system it runs, its working folder, that folder's files and the folders above it
       When the operator starts run R-1 of cycle C-1 at source cut K-1
       Then the first request sent for the researcher of 01-001 holds the scenario of 01-001, and the text of slice 01's seam.md and of its event model at the cut
-      And the shell's reply named a folder in a Gondolin VM holding the clean room's files and the gated candidate's copy at its scope, and no builder room, no gate evidence and no store
+      And the shell's replies came from a Linux VM in which the item's grading room is the only folder of the host: it held the clean room's files and the gated candidate's copy at its scope, and no builder room, no gate evidence, no store and no other item's grading room
 
     # context.allium, contract TheJudge, invariant ReasonBeforeScore
     # decisions.md "Spec round 18" 4 and 12: the reason before the score

@@ -33,6 +33,8 @@
 #      RUN_BUDGET seconds the run passed with its cycle, the self-check and the builder ran, the
 #      model was called, run-progress shows the file-verdicts and file-score effects recorded and a
 #      score for the one item, 01-001. A runner that halts or fails before the score fails here.
+#      The run is handed LOYLY_GRADER_IMAGE, the real guest image (spec round 20: a run with no
+#      image halts before grading): PROBE_GRADER_IMAGE, else the checkout's builder-clojure image.
 #
 # The candidate gets its Grain store through LOYLY_GRAIN_STORE: GATE_STORE when the gate
 # (harness/v2/gate.sh) set one, so the event-store check reads what this probe caused, and a
@@ -41,9 +43,11 @@
 set -uo pipefail
 START="${1:?usage: probe-06.sh START_SCRIPT BUDGET_SECONDS}"
 BUDGET="${2:?usage: probe-06.sh START_SCRIPT BUDGET_SECONDS}"
-exec python3 - "$START" "$BUDGET" "${GATE_STORE:-}" <<'PY'
+CHECKOUT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+GRADER_IMAGE="${PROBE_GRADER_IMAGE:-${PI_HARNESS_STATE_ROOT:-$CHECKOUT/.pi/harness/.state}/assets/builder-clojure}"
+exec python3 - "$START" "$BUDGET" "${GATE_STORE:-}" "$GRADER_IMAGE" <<'PY'
 import hashlib, http.server, json, os, re, select, signal, socket, stat, subprocess, sys, tempfile, threading, time
-start, budget, gate_store = sys.argv[1], float(sys.argv[2]), sys.argv[3]
+start, budget, gate_store, grader_image = sys.argv[1], float(sys.argv[2]), sys.argv[3], sys.argv[4]
 work = tempfile.mkdtemp(prefix="probe-06.")
 began = time.monotonic()
 RUN_BUDGET = 600   # step 5, one whole run with stubs: seconds from its start-run to its answer
@@ -142,6 +146,7 @@ env = dict(os.environ,
            LOYLY_BUILDER_IMAGES=images,
            LOYLY_BUILDER_INSTRUCTION=instruction,
            LOYLY_GRADER_RUBRIC=rubric,
+           LOYLY_GRADER_IMAGE=grader_image,
            LOYLY_GATE_CMD=gate_cmd,
            LOYLY_MODEL_API_BASE=f"http://127.0.0.1:{model_server.server_address[1]}/v1",
            LOYLY_RENDER_MODEL="probe-render",

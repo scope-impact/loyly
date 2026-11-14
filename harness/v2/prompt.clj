@@ -46,11 +46,15 @@
 (defn- sha256 [s]
   (format "%064x" (BigInteger. 1 (.digest (java.security.MessageDigest/getInstance "SHA-256") (.getBytes s "UTF-8")))))
 
+;; The guest image slice 06's suite may use for the researcher's VM (spec round 20).
+(def grader-image (str (or (System/getenv "PI_HARNESS_STATE_ROOT") (str root "/.pi/harness/.state")) "/assets/builder-clojure"))
+
 (def slice-words
   "What differs between the slices, in the builder's words: :allium, what the context's Allium
   holds beyond its rules, refusals and invariants; :product, the real work it does; :inputs,
   what the candidate is handed besides its store, a sentence of the seam's; :contains, for the
   one candidate that holds the five other contexts (slice 06, spec round 18), how they are in it;
+  :machine, where the builder and the gate run when not in the VM (slice 06, spec round 20);
   :identity, what its identity probe (harness/v2/probe-NN.sh) asks. A slice with no entry has
   no probe, and no prompt. There is one event model, every context's event-model/*.edn, and no
   handoff contract (.pi/spec/decisions.md, Spec round 18)."
@@ -138,10 +142,15 @@
                       "`LOYLY_RUNS_DIR`, `LOYLY_PROJECT_REPO`, `LOYLY_HARNESS_CONFIG`, `LOYLY_SELF_CHECK_CMD`, "
                       "`LOYLY_STORE_CHECK_CMD`, `LOYLY_BUILDER_HOST`, `LOYLY_GATE_CMD`, `LOYLY_BUILDER_IMAGES`, "
                       "`LOYLY_BUILDER_INSTRUCTION`, `LOYLY_MODEL_API_BASE`, `LOYLY_RENDER_MODEL`, `LOYLY_GRADER_MODEL`, "
-                      "`LOYLY_GRADER_RUBRIC`, `LOYLY_SCORING_TOOL_PATHS` and the optional "
+                      "`LOYLY_GRADER_RUBRIC`, `LOYLY_GRADER_IMAGE`, `LOYLY_SCORING_TOOL_PATHS` and the optional "
                       "`OTEL_EXPORTER_OTLP_ENDPOINT` (`seam.md`, \"Handed in\"). `cycle-runner/start-run` responds once "
                       "the run concluded or halted, and a `cycle-runner/run-progress` sent meanwhile is answered "
                       "without waiting for it.")
+         :machine (str "You run on the host, macOS with a BSD userland, not in a VM, and so do the gate and its scripts: "
+                       "use only portable shell and tools in them (no GNU-only options such as `stat -c`, `sed -i` "
+                       "without a suffix argument, `readlink -f`, `date -d` or `timeout`). `gondolin` is on `PATH`, and "
+                       "your suite may use the guest image at `" grader-image "`, read-only, as `LOYLY_GRADER_IMAGE` to "
+                       "test the researcher's VM.")
          :identity (str "the product, handed a fixture project repository whose commit holds a one-slice plan with one "
                         "stamped scenario, a stub self-check, a stub builder host and a grader rubric, must refuse "
                         "`cycle-runner/start-run` at a hex string that is no commit of the repository (`not-a-commit`), "
@@ -159,7 +168,7 @@
   (let [{:keys [app-dir app-stack plan-dir app-probe]} (config slice)
         _ (when-not (= app-probe (str "harness/v2/probe-" slice ".sh"))
             (die "slice " slice " names no context: no " plan-dir "/" slice "-* link"))
-        {:keys [allium product inputs contains identity]} (slice-words slice)
+        {:keys [allium product inputs contains identity machine]} (slice-words slice)
         _ (when-not identity (die "slice " slice " has no identity probe yet"))
         link (.getName (io/file app-dir))
         ctx (.getName (.getCanonicalFile (io/file root plan-dir link)))
@@ -230,10 +239,12 @@
          "Grain's `grain/todo-processor-checkpoint` events: start every Grain todo processor, ORC's included, "
          "with its `:processor-name`, or Grain neither checkpoints it nor drops a redelivered event. "
          "Slow builds belong in test.sh, which is untimed, not in "
-         "start.sh. Both scripts must be executable and work from any working directory. The gate runs them "
-         "on the host, macOS with a BSD userland, not in your Linux VM: use only portable shell and tools in "
-         "them (no GNU-only options such as `stat -c`, `sed -i` without a suffix argument, `readlink -f`, "
-         "`date -d` or `timeout`).\n\n"
+         "start.sh. Both scripts must be executable and work from any working directory. "
+         (or machine
+             (str "The gate runs them on the host, macOS with a BSD userland, not in your Linux VM: use only "
+                  "portable shell and tools in them (no GNU-only options such as `stat -c`, `sed -i` without a "
+                  "suffix argument, `readlink -f`, `date -d` or `timeout`)."))
+         "\n\n"
          "## How to work\n\n"
          "For each stamped scenario, write a failing test that drives it through the public seam and names its "
          "`@item` id, make it pass with the smallest real change, and keep the whole suite green. Finish only "

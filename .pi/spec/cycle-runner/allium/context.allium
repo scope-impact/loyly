@@ -252,7 +252,12 @@ contract TheJudge {
         -- The researcher is given the item's scenario, the candidate's seam and the event
         -- model it names, and one tool, a shell in a Gondolin VM whose only mount is the
         -- grading room (the clean room's files with the gated candidate's copy at its
-        -- scope), fresh for each item. It records what it set up, sent and observed.
+        -- scope), fresh for each item. The runner starts one VM per item from the image
+        -- LOYLY_GRADER_IMAGE names, egress blocked, and stops it, its qemu included, when
+        -- the item's grading ends; the room is a folder of its own, so no other item's room
+        -- is in the VM. A VM that cannot be started halts the run before any item is graded
+        -- (seam.md, "The researcher's VM"; decisions.md, "Spec round 20"). It records what
+        -- it set up, sent and observed.
 
     @invariant ReasonBeforeScore
         -- The judge writes its reason before its score, on one binary scale, pass or fail;
@@ -288,7 +293,8 @@ enum AppSeam { http | stdio }
 -- Why a run halted: an effect that could not be performed at all, so nothing was recorded
 -- for it (a handed-in command that could not start, a gate command whose result says the gate
 -- could not be performed, a node that calls the model and failed, a gate recording the
--- context refused with no next step; decisions.md, "Spec round 12" D2, D3); or a refusal
+-- context refused with no next step, a grading VM that could not be started; decisions.md,
+-- "Spec round 12" D2, D3, "Spec round 20"); or a refusal
 -- before the cycle opened (the stamp, the pin or the checklist refused, the stamp's
 -- identities not the plan's own, or the sealed grader not approved), where there is no cycle
 -- to fail (AGENTS.md: an unstamped scenario or an empty selection stops the cycle;

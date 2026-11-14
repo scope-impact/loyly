@@ -14,7 +14,7 @@ cycle-preparation) are inside it. They are never built or launched on their own.
 |---|---|
 | `.pi/spec/cycle-runner/` (also `.pi/plan/06-cycle-runner/`) | The spec under grade: `spec.feature` (the stamped scenarios), `seam.md` (how a grader drives it), `event-model/`, `allium/`, `domain-design.md` |
 | `.pi/spec/<context>/seam.md`, `event-model/` | The seams and event models of the five contexts. Their methods are methods of the same candidate, on its one store. The one event model is every context's `event-model/` |
-| `.pi/spec/decisions.md` | The decisions record: readings of the spec. Round 18 is the last section |
+| `.pi/spec/decisions.md` | The decisions record: readings of the spec. Round 20 is the last section |
 | `checklist.txt` | The item ids, one per line, in file order: your denominator |
 | `harness-impl/06-cycle-runner/` | The gated candidate (a copy). `start.sh` boots it on its JSON-RPC stdio seam. `test.sh` runs its own suite. It carries its own copy of the event models |
 | `harness/v2/event_store_check.clj` (+ `event-store-check.sh`, `deps.edn`) | Reference only: how the gate reads a Grain SQLite store with Grain's own reader. Reuse its reading code to inspect a store |
@@ -106,7 +106,10 @@ What `seam.md` says, and what to expect:
   - 064: each item scored in its own `grade.v1` child tick; scores filed as scored; the run passes.
   - 065: no request for one item holds another item's evidence.
   - 066: the researcher's first request holds the item's scenario and the slice's seam and event
-    model; its shell sees only the grading room (clean room files and the candidate's copy).
+    model; its shell's replies come from a Linux VM whose only host folder is the item's grading
+    room (clean room files and the candidate's copy), with no other item's room beside it. Hand
+    the run `LOYLY_GRADER_IMAGE` (below) and script the researcher to ask `uname`, `pwd`, `ls`
+    and `ls ..`.
   - 067: a judge reply with no reason scores nothing: the reply carries a `level` and `feedback`
     and no `reasoning`. Look for no judge score of that item in the store and in
     `run-progress`, and an unreached fail in the measurement.
@@ -121,16 +124,25 @@ What `seam.md` says, and what to expect:
 
 ## The machine
 
-You run as root in a Gondolin VM: bash, git, curl, Java 21, the Clojure CLI and babashka (`bb`);
-no Python and no Node (if you truly need one, `apk add` it and append the command to
-`/workspace/.builder/image-additions.txt`). Network reaches only the package registries and
-GitHub. Your home directory is empty at boot, so the first start of a Clojure program fetches its
-dependencies: start `harness-impl/06-cycle-runner/start.sh` once with stdin closed
-(`</dev/null`) before you grade. The room's files belong to another user, so run
-`git config --global safe.directory '*'` once per session. If a program fails at startup, read
-its error: it is most likely your setup (a variable, a path, a fixture). Fix it and retry before
-you fail an item for it. The candidate is a JVM: run at most two scenarios in parallel, and kill
-every process a scenario started (the candidate, your stub model) before the next.
+You run on the macOS host, as your own user, with a BSD userland: no GNU-only options (`stat -c`,
+`sed -i` without a suffix, `readlink -f`, `date -d`, `timeout`). You have bash, git, curl, Java,
+the Clojure CLI, babashka (`bb`) and Python 3. `gondolin` is on `PATH`. For every run that
+reaches grading, hand the candidate `LOYLY_GRADER_IMAGE` set to the guest image
+`/Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/assets/builder-clojure`:
+the candidate starts a Gondolin VM from it for each item's researcher, and a run without it halts
+before grading. Never write into that folder.
+
+Stay in this room: write only under `work/`. One exception, for `@item-06-062`: the grading room
+sits under a `.pi` folder, so no copy inside it can have "no .pi folder above it". Make one
+temporary folder with `mktemp -d` outside the room, copy the candidate there, run it, and remove
+that folder when you are done.
+
+The first start of a Clojure program may fetch its dependencies: start
+`harness-impl/06-cycle-runner/start.sh` once with stdin closed (`</dev/null`) before you grade.
+If a program fails at startup, read its error: it is most likely your setup (a variable, a path,
+a fixture). Fix it and retry before you fail an item for it. The candidate is a JVM: run at most
+two scenarios in parallel, and kill every process a scenario started (the candidate, your stub
+model, any `gondolin` VM left running; `gondolin list` shows them) before the next.
 
 ## Output
 

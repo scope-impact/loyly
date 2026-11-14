@@ -28,7 +28,9 @@ Build, gate and grade run their shell and files in a Gondolin VM made from one i
   `gondolin:vm` keeps the operator on the host. Inside the VM anything goes (product owner,
   2026-11-13): a call that is exactly the mod's wrap for the live VM needs no approval.
 - In `cycle.v1` (ADR 0001) the build and repair leaves run pi-durable sessions in the VM, and the
-  grading researcher's `vm_bash` tool reaches it through `:tool-caller-fn`.
+  grading researcher's `vm_bash` tool reaches it through `:tool-caller-fn`. The researcher's VM is
+  one per item, from the image `LOYLY_GRADER_IMAGE` names (`../../decisions.md`, "Spec round 20";
+  `../../cycle-runner/seam.md`, "The researcher's VM").
 
 ## Consequences
 

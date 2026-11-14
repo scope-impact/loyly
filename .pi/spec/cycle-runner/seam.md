@@ -92,14 +92,14 @@ before the first. In order:
 | E2 | `self-check` | `LOYLY_SELF_CHECK_CMD` run in the project repository: exit 0 passed, any other failed; the last line it printed is the failing check; each line whose first word, after any leading whitespace, is `SKIP` a skipped check, the check named by the rest of the line after `SKIP` and its whitespace, trimmed (`../decisions.md`, "Spec round 13" D2) (legacy `check.sh` prints `SKIP  the oracle cannot judge this tree: …`; `../decisions.md`, "Spec round 7d") | `regeneration-cycle/record-harness-self-check` (before the fence: attempt 0, the run's budget; before the gate: the attempt) |
 | E3 | `fence` | legacy `fence.sh` as-is, its one argument the clean room's path, which must not exist yet: a `file://` clone of depth 1 at the commit, `FENCED_PATHS` split on whitespace, each entry found (present in the clone's tree) or listed as matching nothing, removed, committed, squashed to one root commit, origin removed, reflog expired and pruned; then probed: root commits (exactly 1), commits (exactly 1), paths left in the tree, paths reachable in the object graph (a path of `git rev-list --objects --all` equal to the entry, its trailing `/` dropped, or beneath it) | `regeneration-cycle/prove-clean-room` |
 | E3, E4 | `fail-cycle` | after a refused fence (`fence-refused`, the refusal as detail), a builder that left nothing (`candidate-not-regenerated`) or outlived the regenerate timeout (`budget`), or a gate command that outlived the gate stage's timeout (`budget`, stage `gate`; `../decisions.md`, "Spec round 12" D2), or any other program a leaf runs that outlived what was left of its stage's timeout (`budget`, that stage; "The tree", every wait has a bound) | `regeneration-cycle/fail-cycle` |
-| E4 | `regenerate` | a fresh builder room (the clean room, an empty candidate scope `APP_DIR`), the builder instruction the render node wrote put into an instruction file in the run's directory, and one builder session run by the provided builder host, `LOYLY_BUILDER_HOST <builder-room> <instruction-file>`, with a third argument, the builder image's path, when the configuration names one (`BUILDER_IMAGE`, "Handed in"), and `LOYLY_BUILDER_SESSION_ID` in its environment, the session identity ("The builder session", below); waited for within the regenerate timeout; the candidate digest below; the detail names the session identity, the instruction's digest, and the builder image and its digest, when there is one (`../decisions.md`, "Spec round 9" D1) | `regeneration-cycle/record-regenerated-candidate` (attempt 1, `fresh-generation`, no evidence) |
+| E4 | `regenerate` | a fresh builder room (the clean room, an empty candidate scope `APP_DIR`; the configuration it holds is the configuration file the commit holds, at its path in the clean room unless fenced, and the runner copies no file handed in, `LOYLY_HARNESS_CONFIG` among them, into it; `../decisions.md`, "Spec round 20"), the builder instruction the render node wrote put into an instruction file in the run's directory, and one builder session run by the provided builder host, `LOYLY_BUILDER_HOST <builder-room> <instruction-file>`, with a third argument, the builder image's path, when the configuration names one (`BUILDER_IMAGE`, "Handed in"), and `LOYLY_BUILDER_SESSION_ID` in its environment, the session identity ("The builder session", below); waited for within the regenerate timeout; the candidate digest below; the detail names the session identity, the instruction's digest, and the builder image and its digest, when there is one (`../decisions.md`, "Spec round 9" D1) | `regeneration-cycle/record-regenerated-candidate` (attempt 1, `fresh-generation`, no evidence) |
 | E5 | `install` | a copy of the candidate in a fresh gate room under the run's directory, taken when the builder ended; the gate room is the gate's and out of the builder's reach, and writable by the candidate's own `test.sh` and `start.sh`, as legacy `verify.sh` runs the candidate in a writable tree; the candidate digest recorded is the digest of the copy as taken, before the gate runs, so what the candidate's own run writes does not change it (`../decisions.md`, "Spec round 7d"). For either seam the gate room is a copy of the gated tree, as legacy `verify.sh` gates the tree it sits in: the clean room's files (not its history) plus the candidate's copy at `APP_DIR`, so the candidate reads the spec beside it in the gate room as it did in the builder room, and the gate room is the gate's `ROOT` (`verify.sh` line 23, `ROOT` the tree's root); the candidate digest is still the candidate scope's alone (`../decisions.md`, "Spec round 8" and "Spec round 11"). When a gate command is handed in (`LOYLY_GATE_CMD`, "Handed in"), the gate room is instead the cut's tree: every file of the commit, with no history (`git archive` of the commit), the fenced paths included and nothing at `APP_DIR`; and the candidate's copy, taken as above, is a folder of its own beside the gate room, never inside it. The gate is the judge and out of the builder's reach, so it may hold what the fence hid from the builder, such as an identity probe and the files it reads; the command mounts the candidate at `APP_DIR` itself. The candidate digest is the copy's as taken, as above (`../decisions.md`, "Spec round 12" D2) | `regeneration-cycle/install-candidate-in-gate-room` |
 | E5 | `self-check` | as E2, before the gate, once per attempt (a gate again after a refusal does not self-check again) | `regeneration-cycle/record-harness-self-check` (`before-gate`) |
 | E5 | `gate` (`http`) | for the `http` seam (`APP_SEAM` absent or `http`): legacy `verify.sh`'s order and arguments, on the host, in the gate room (its working directory), with `ROOT` the gate room (`verify.sh` line 23) and `URL` the text `http://127.0.0.1:` followed by `PORT` (`http://127.0.0.1:8901` for the benchmark): `APP_DIR/test.sh` and `APP_DIR/start.sh` executable (else `contract-missing`); the identity probe `$ROOT/$APP_PROBE` present and executable, `-x "$ROOT/$APP_PROBE"` (`verify.sh` line 36), the gate room's copy, which is the cut's (the fence removes only `FENCED_PATHS`); nothing answering on `PORT` (else the seam answered before boot); `APP_DIR/test.sh` run with no argument, exit 0 (else `suite-red`); `APP_DIR/start.sh` run in the background with one argument, `PORT`, its output discarded, and `URL` answering an HTTP GET with a status below 400 (`curl -sf`) within 20 polls at half a second (10 seconds; else `boot-budget-exhausted`), polled in `verify.sh`'s order (lines 117 to 121), a poll first and then the wait: poll 1 at once after `start.sh` is launched, with no wait before it, and each later poll half a second after the previous one, so poll n at (n − 1) × 0.5 seconds after the launch and poll 20 at 9.5 seconds; a pass records `boot-budget-seconds` 10, `boot-polls` 20 and `answered-on-poll` the number of the first poll that answered (`../decisions.md`, "Spec round 15"); the page at `URL` carrying `APP_MARKER`, ignoring case (`grep -qi`), and then the probe run as `"$ROOT/$APP_PROBE" "$URL"` (`verify.sh` line 154), with no change of directory and nothing else added, one argument, the URL and never the bare port, exiting 0 (else `identity-probe-failed`; the line it printed is its reason); no configuration value is put in the environment of `test.sh`, `start.sh` or the probe (legacy sources `config.sh`, it does not export it); its output is the gate evidence | `regeneration-cycle/record-gate-attempt` |
 | E5 | `gate` (`stdio`) | for the `stdio` seam (`APP_SEAM=stdio`): `harness/v2/gate.sh`'s order and arguments, that is `harness/verify.sh` and then the event-store check, on the host, the gate room the working directory of the suite and the probe: 1. `APP_DIR/test.sh` and `APP_DIR/start.sh` executable (else `contract-missing`); 2. the identity probe `APP_PROBE` present and executable in the tree at the cut (git mode `100755`), taken from the cut into the run's directory outside the gate room, never from a room (else the gate refuses, `identity-probe-missing`); 3. the instrument checked: the self-check before the gate (the row above) is the `harness/check.sh --local` that `harness/verify.sh` runs here; 4. no port: the seam is the candidate's own stdin and stdout, on which nothing can respond before boot, so `seam-answered-before-boot` is false and `PORT` is not read; 5. `APP_DIR/test.sh` run with no argument, exit 0 (else `suite-red`); 6. the probe run as `APP_PROBE <gate-room>/APP_DIR/start.sh 30`, two arguments, the absolute path of the launch entrypoint in the gate room and the boot budget in seconds, with `GATE_STORE` in its environment naming the attempt's gate store, a path `events.sqlite` not yet existing in the attempt's gate evidence directory, outside the gate room; the probe launches `start.sh` itself, handing it that store as `LOYLY_GRAIN_STORE`, and exits 0 (else `identity-probe-failed`, the probe's output the detail); 7. the event-store check, `LOYLY_STORE_CHECK_CMD` run in the project repository as the self-check is, with one argument appended, the gate store's path, exiting 0 (else `identity-probe-failed`, the store check's output the detail: it reads only what the probe caused, so it is the rest of the identity check); 8. a pass records `boot-budget-seconds` 30, `boot-polls` 1 and `answered-on-poll` 1 (the probe holds the budget; its one run is the one poll) and the probe's output as `identity-probe-result`. The environment of `test.sh`, the probe and the store check is the runner's own with every variable whose name starts `LOYLY_` removed (the runner's own store is its `LOYLY_GRAIN_STORE`; `harness/v2/gate.sh` unsets it before the suite) and any `GATE_STORE` the runner itself inherited removed too (a runner gated inside `harness/v2/gate.sh` inherits that gate's store; `../decisions.md`, "Spec round 8b"), then the attempt's own `GATE_STORE` added for the probe only, and no configuration value put in. The probe's and the store check's output are the gate evidence. A store check that cannot be started (`LOYLY_STORE_CHECK_CMD` unset or empty, or its program absent or not executable) halts the run at the gate effect, `effect-could-not-run`, and nothing is recorded for the gate | `regeneration-cycle/record-gate-attempt` |
 | E5 | `gate` (`command`) | when `LOYLY_GATE_CMD` is handed in, non-empty, for either seam, in place of the two rows above (`../decisions.md`, "Spec round 12" D2); the runner then reads none of `APP_SEAM`, `PORT` and `APP_MARKER` for the gate, nor `LOYLY_STORE_CHECK_CMD`, and starts no program of the candidate itself: 1. the identity probe `APP_PROBE` present and executable in the tree at the cut (git mode `100755`), else the gate refuses, `identity-probe-missing` ("A gate stopped by a refusal guard", below), and the command is not launched; 2. the command run as `LOYLY_GATE_CMD <gate-room> <candidate> <evidence-dir>`, in the project repository as the self-check is, with the runner's own environment, and waited for within what is left of the gate stage's timeout: `<gate-room>` the cut's tree and `<candidate>` the candidate's copy (the install row), `<evidence-dir>` the attempt's gate evidence directory, created empty in the run's directory outside both, which is the attempt's `evidence-root`; 3. its exit status and its standard output read as "The gate command's result" (below) says: exit 0 a pass, any other exit a failed attempt, a refusal to grade or a halt, by its last line; `identity-probe-present` true and `identity-probe-digest` the SHA-256 of `APP_PROBE` at the cut, as for the other seams; `seam-answered-before-boot` true only when its last line names it; 4. a command that outlives the gate stage's timeout is stopped, nothing is recorded for the gate, and the cycle is failed at the gate for `budget` (the `fail-cycle` row); a command whose program is absent or not executable halts the run at the gate effect, `effect-could-not-run`, and nothing is recorded for the gate. What the command does inside (a VM, a world, the candidate's own `test.sh` and `start.sh`, its readiness check, the probe) is the command's, provided and never regenerated, as the builder host is ("Handed in") | `regeneration-cycle/record-gate-attempt` |
 | E5 | `gate-refusal` | after `record-gate-attempt` was refused for infrastructure, that is with one of the three codes `record-gate-refusal` takes (`seam-answered-before-boot`, `identity-probe-missing`, `identity-probe-not-the-instruments`), that code its `refusal` and the gate's output its `detail` ("A gate stopped by a refusal guard", below; `../decisions.md`, "Spec round 12" D3); the tree then gates the same attempt again. The attempt's self-check stands: the runner does not self-check again, as Regeneration cycle records one self-check per attempt and refuses a second (`self-check-already-recorded`; `../decisions.md`, "Spec round 8b") | `regeneration-cycle/record-gate-refusal` |
-| E6 | `repair` | after a failed attempt with the cycle still running, as the last leaf of that attempt's subtree: a fresh builder room with the clean room, the previous candidate and this attempt's gate evidence, read-only, and the repair instruction (the rendered instruction and a closing paragraph naming the previous candidate and the gate evidence, read-only, in the builder room); the builder session run as for E4, in the same builder image, with a session identity of its own; its detail names the gate evidence directory it mounted, the failed attempt's `evidence-root` as its `gate-attempt-failed` carries it, then the session identity, and then the builder image and its digest, so the mount is read through `run-progress` (`../decisions.md`, "Spec round 16b" D2) | `regeneration-cycle/record-regenerated-candidate` (`verification-repair`, the gate evidence root mounted) |
+| E6 | `repair` | after a failed attempt with the cycle still running, as the last leaf of that attempt's subtree: a fresh builder room with the clean room, the previous candidate and this attempt's gate evidence, read-only, and the repair instruction (the rendered instruction and a closing paragraph naming the previous candidate and the gate evidence by their read-only paths in the builder room); the builder session run as for E4, in the same builder image, with a session identity of its own; its detail names the gate evidence directory it mounted, the failed attempt's `evidence-root` as its `gate-attempt-failed` carries it, then the session identity, and then the builder image and its digest, so the mount is read through `run-progress` (`../decisions.md`, "Spec round 16b" D2) | `regeneration-cycle/record-regenerated-candidate` (`verification-repair`, the gate evidence root mounted) |
 | E7 | `file-verdicts` | after every item was graded ("Grading", below): the judge's scores offered as the verdicts of the gated candidate, each scored item's `item-id`, its `verdict` `pass` or `fail` and its `evidence` the judge's reason, in checklist order, an item with no score left out, at the sealed grader's digest and the run's approved grader digests | `measurement/file-item-verdicts` |
 | E7 | `file-score` | | `measurement/file-score` |
 | E7 | `fail-score-stage` | after a refused `file-item-verdicts` or `file-score`, the refusal as heard | `measurement/fail-score-stage` |
@@ -150,7 +150,9 @@ before the first. In order:
   of its bytes>` LF, by path. The goldens digest is `../regeneration-cycle/seam.md`'s formula over
   `grader-lifecycle/instrument-goldens`. The identity-probe digest is the SHA-256 of `APP_PROBE` at
   the cut; the harness digest is the SHA-256 of the configuration file, the self-check command
-  and the identity probe, in that order (`../decisions.md`, "Spec round 7b" 4), and for the
+  and the identity probe, in that order (`../decisions.md`, "Spec round 7b" 4); the self-check
+  command is `LOYLY_SELF_CHECK_CMD` as handed in, its text, never the bytes of the program it
+  names, as the store-check and gate commands below (`../decisions.md`, "Spec round 20"); and for the
   `stdio` seam of those three and then the store-check command, `LOYLY_STORE_CHECK_CMD` as
   handed in, so a store check changed between the self-check and the gate is a different harness
   (`../decisions.md`, "Spec round 8"). When a gate command is handed in, the harness digest is
@@ -193,7 +195,7 @@ workflow `cycle-runner/grade.v1`, as a child tick of its own:
   grading room: a fresh copy of the passed attempt's gate room, the clean room's files with the
   gated candidate's copy at `APP_DIR`, never a builder room, gate evidence or a store.
   It drives the candidate over its seam from fresh state and writes what it set up, sent and
-  observed as the item's evidence.
+  observed as the item's evidence ("The researcher's VM", below).
 - **`judge`** (`code`) scores the item on that evidence on one binary scale, pass or fail, the
   reason first and then the score, with the rubric handed in (`LOYLY_GRADER_RUBRIC`). A reply with
   no reason, or a score that is not pass or fail, scores nothing. ORC's own banded-output check
@@ -202,6 +204,35 @@ workflow `cycle-runner/grade.v1`, as a child tick of its own:
   judge score event, its judge name `checklist/<item-id>`, so each item keeps its own score.
 - The researcher and the judge call the model at `LOYLY_MODEL_API_BASE` as `LOYLY_GRADER_MODEL`,
   another model than the one the builder session runs on.
+
+**The researcher's VM** (`@item-06-066`; `../decisions.md`, "Spec round 20"). Each item has a VM
+of its own, made from the guest image `LOYLY_GRADER_IMAGE` names, with the `gondolin` CLI found on
+`PATH`. The runner starts it when the item's `drive-seam` begins, keeps it for every call of that
+item's researcher, and stops it when the item's grading ends, scored or not, before the next
+item's begins. One VM per item, not one per call: a researcher makes several calls, and what one
+call starts in the background (the candidate, a stub) must still run in the next.
+- The item's grading room is a folder of its own in the run's directory, made fresh for the item.
+  It is mounted at its own host path and is the VM's only folder of the host: its siblings (the
+  other items' grading rooms, the builder rooms, the gate rooms and evidence, the store) and every
+  other folder of the host are absent in the VM.
+- The VM is started as `gondolin bash --image <LOYLY_GRADER_IMAGE> --mount-hostfs <room>:<room>
+  --allow-host egress-blocked.invalid -- sleep <seconds>`, in the background with an empty
+  standard input, `<seconds>` the grading delegate's bound ("Every wait has a bound"), so a VM the
+  runner lost ends by itself. Egress is blocked by allowing one host that cannot exist, because the
+  CLI leaves egress open when no host is allowed (ADR 0002). Its session is the row of `gondolin
+  list` whose PID is the CLI's.
+- Each shell call is `gondolin exec --sock <session-id> -- sh -c 'cd <room> && <command>'`: the
+  grading room is its working folder, and its exit status, standard output and standard error are
+  the tool's reply.
+- To stop it, the runner kills the CLI and every program the CLI started, its qemu among them:
+  killing the CLI alone orphans its qemu (ADR 0002).
+- A VM that cannot be started halts the run before any item is graded. After a passed gate, the
+  leaf `grading-vm` starts one VM as above, with no mount, runs `true` in it and stops it, and
+  writes `run` `gate-passed` again when it ran. No folder
+  at `LOYLY_GRADER_IMAGE`, no `gondolin` on `PATH`, or a VM that does not run `true` is an effect
+  that could not be performed: `halting`, effect `drive-seam`, `effect-could-not-run`, the detail
+  naming what failed, and no verdict is filed. An item whose own VM then fails to start leaves its
+  researcher failed, so the item has no score.
 
 An item whose child tick did not end with a score (a researcher or a judge that failed, a reply
 that scored nothing) has no score. The `grader` leaf, before the self-check, holds the run to the
@@ -247,7 +278,7 @@ comes from the world (the project repository, the run's directory, the one store
 exit, the model's reply), and everything a leaf hands on is a key it writes: a leaf's `:reads` and
 `:writes` are its whole contract with the tree, and its function computes from its inputs and the
 world only. The runner keeps no run state beside the blackboard; only live handles (a builder
-session, a gate's program, the grading VM) are kept outside it, by the runner, under the run's id.
+session, a gate's program, an item's grading VM) are kept outside it, by the runner, under the run's id.
 The keys, as `blackboard` declares them (Malli; ORC takes no unconstrained schema, so a value with
 no shape of its own travels as text):
 
@@ -310,6 +341,7 @@ node's contract:
 | `gate` | `params`, `handed-in`, `config`, `run-dir`, `attempt`, `candidate`, `gate-room` | `evidence-root`, `gate-refusal`, `cycle`, `run`, `failure`, `halt` |
 | `gate-refusal` | `params`, `attempt`, `gate-refusal` | `cycle`, `run`, `halt` |
 | `repair` | `params`, `handed-in`, `config`, `run-dir`, `attempt`, `candidate`, `evidence-root`, `builder-instruction` | `builder-room`, `attempt`, `run`, `failure`, `halt` |
+| `grading-vm` | `handed-in` | `run`, `halt` |
 | `clear-evidence` | | `evidence` |
 | `drive-seam` (`repl-researcher`) | `item`, `gate-room`, `handed-in` | `evidence` |
 | `judge` | `item`, `evidence`, `grader` | `score` |
@@ -324,11 +356,16 @@ A delegate maps the same keys in and out: `gate-attempt:N` reads `params`, `hand
 `halt`; a grading delegate reads `item`, `gate-room`, `grader` and `handed-in`, and writes `score`,
 the `map-each` collecting each item's into `scores`.
 
+A leaf writes every key it declares, since ORC fails a leaf that leaves one out. A key its outcome
+does not set is written blank: an empty text, an empty vector, or its map with every text empty.
+A blank key is no fact: `failure`, `halt`, `gate-refusal` and `refusal` are read only when `run`
+is `failing`, `halting`, `gate-refused` or `refused` (`../decisions.md`, "Spec round 20").
+
 **Leaf names.** A leaf is named for its effect (E1 to E7: `stamp`, `pin`, `checklist`,
 `self-check`, `fence`, `fail-cycle`, `regenerate`, `install`, `gate`, `gate-refusal`, `repair`,
 `file-verdicts`, `file-score`, `fail-score-stage`) or its command (`start` for `start-run`,
 `conclude` for `conclude-run`, `halt` for `halt-run`); `stamped`, `grader`, `render-failed`,
-`clear-evidence` and `judge` record no effect. A name is unique in its workflow, so a leaf that
+`grading-vm`, `clear-evidence` and `judge` record no effect. A name is unique in its workflow, so a leaf that
 stands more than once in one workflow carries a qualifier after a `:`: the first self-check
 (`self-check:0`), a gate's try within its attempt (`gate:2`, `gate-refusal:2`), a conclusion's
 branch (`conclude:passed`). The attempt is never part of a leaf's name: it is `attempt` on the
@@ -363,7 +400,8 @@ child tick it delegated (`EachEffectInItsOwnLeaf`).
 - An effect that could not be performed at all records nothing for it and writes `halting`,
   `effect-could-not-run`: a handed-in command that could not be started, a gate command whose
   result says the gate could not be performed ("The gate command's result", above), a `render`
-  that failed (`render-failed`, the effect `render`).
+  that failed (`render-failed`, the effect `render`), a grading VM that could not be started
+  (`grading-vm`, the effect `drive-seam`; "The researcher's VM", above).
 - After each recording that may conclude the cycle (the self-check, the fence, `fail-cycle`, a
   gate, a gate refusal, the score), the leaf reads the Regeneration cycle's `cycle-progress` of the
   run's cycle into `cycle` and writes `cycle-passed` or `cycle-failed` when its `status` says so;
@@ -377,7 +415,8 @@ bound of what it waits for, and each delegate and each tick is bounded by the st
 spends (the run's `budget`, its `stage-timeouts-seconds`):
 - a program a leaf runs: what is left of the timeout of the stage it runs in (the builder in
   `regenerate`, a repair's in `regenerate` too; legacy `fence.sh` in `fence`; the self-check
-  before the gate, the gate's own programs or the gate command in `gate`); the first self-check
+  before the gate, the gate's own programs or the gate command in `gate`; `grading-vm`'s VM in
+  `score`); the first self-check
   runs before the cycle has a stage, and only its tick bounds it;
 - one model reply: `model_reply_seconds`, 600 (`context.allium`, config), held by the provider
   ORC calls;
@@ -420,6 +459,7 @@ cycle-runner/cycle.v1                fallback
 │  ├─ fallback: not running?, gate-attempt:2
 │  ├─ fallback: not running?, gate-attempt:3
 │  ├─ gate-passed?
+│  ├─ grading-vm, gate-passed?
 │  ├─ map-each items as item into scores, in checklist order:
 │  │     fallback: delegate cycle-runner/grade.v1, (no score)
 │  ├─ file-verdicts, ok?, file-score, cycle-passed?
@@ -564,6 +604,11 @@ Read when `start-run` runs, never only at boot, so a grader changes them between
   bands, pass and fail. Its digest, with the judge workflow's version, is the grader digest
   ("Digests the runner computes"); GEPA improves it on calibration only, and a new one is used only
   once the operator approves its digest.
+- `LOYLY_GRADER_IMAGE`: the folder of a Gondolin guest image (live: the builder image
+  `.pi/harness/.state/assets/builder-clojure`, built by `harness/Makefile`), outside the project
+  repository. Each item's researcher runs its shell in a VM made from it ("The researcher's VM",
+  above). The `gondolin` CLI is found on `PATH`, provided like the builder host and never
+  regenerated (`../decisions.md`, "Spec round 20").
 - `LOYLY_SCORING_TOOL_PATHS`: read by the Regeneration cycle (its `seam.md`).
 - `OTEL_EXPORTER_OTLP_ENDPOINT`: optional. Set, the runner exports ORC's events of every run as
   OpenTelemetry spans over OTLP/HTTP JSON to it: one trace per run, a span per tick and per node,
@@ -610,7 +655,11 @@ Everything the runner acts on is a fixture a grader states, so no item waits for
 - a `LOYLY_GATE_CMD` stub that records its arguments, its working directory and what it found at
   each (the files of `<gate-room>`, the candidate's digest), writes a file into `<evidence-dir>`,
   prints the `BOOT` and `ANSWERED` lines and a last line as the grader scripts it, and exits 0 or
-  1, or sleeps past the gate timeout; so no item of the gate command needs a VM or a world.
+  1, or sleeps past the gate timeout; so no item of the gate command needs a VM or a world;
+- `LOYLY_GRADER_IMAGE` a real Gondolin guest image and `gondolin` on `PATH`, for every run that
+  reaches grading: the one fixture that is not a stub, since `grading-vm` starts a VM and
+  `@item-06-066` observes what the researcher's shell sees in it (the system it runs, its working
+  folder, the folders of the host it can list).
 
 The grader observes through `run-progress` and the five contexts' queries on the same candidate.
 There are two exceptions, each the grader's own. The one store (`LOYLY_GRAIN_STORE`): after the

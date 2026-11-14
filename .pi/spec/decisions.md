@@ -2018,7 +2018,7 @@ stays at 61 items and the checklist at 210.
 4. **Claude Code builds the new harness, on the host** (harness only; product owner, 2026-11-14).
    From cycle 13 the legacy harness's builder for slice 06 is a fresh Claude Code subagent of the
    operating session (Opus), not pi, and it runs on the host, not in the Gondolin image. It is
-   given the rendered instruction (`harness/v2/prompt.clj`) and the fenced room only, and writes
+   given the rendered builder instruction and the fenced room only, and writes
    only the candidate scope. A repair is a new subagent given the candidate and the gate's
    evidence. The black-box grader is a subagent on another model (Sonnet), so the grader's model
    still differs from the builder's (ADR 0003). The reason: the candidate itself launches pi and
@@ -2026,3 +2026,90 @@ stays at 61 items and the checklist at 210.
    grading unimplemented). Nothing but the fence and the instruction keeps a host builder in its
    room. `cycle.v1`'s own behaviour is unchanged: it still runs pi in Gondolin for its build and
    grading sessions (ADR 0002). Builds of the Löyly app are unchanged.
+
+## Spec round 20 (2026-11-14)
+
+Cycle 13 of slice 06 (`06-c13`, spec 2a85cda) was built by a Claude Code subagent on the host
+(round 19, 4). The gate passed on attempt 1. A Sonnet black-box grader scored 60/61. The one fail
+was `@item-06-066`: the researcher's shell ran on the host (Darwin) in a host folder, not in a
+Gondolin VM, and `ls ..` showed the other items' grading rooms. There was no Gondolin CLI on the
+host then. It is installed now (`gondolin` 0.14.0 on `PATH`), and it boots a VM from the builder
+image in about two seconds. This round writes the researcher's VM into the seam and records the
+readings the grader and the builder needed. It adds no item: slice 06 stays at 61 items and the
+checklist at 210, with the same stamps.
+
+1. **The researcher's shell is a Gondolin VM the runner starts** (`@item-06-066`;
+   `cycle-runner/seam.md`, "The researcher's VM").
+   - A new handed-in variable, `LOYLY_GRADER_IMAGE`: the folder of a Gondolin guest image (live,
+     `.pi/harness/.state/assets/builder-clojure`). The `gondolin` CLI is found on `PATH`.
+   - One VM per item, not one per call. A researcher makes several calls, and what one call
+     starts in the background (the candidate's JVM, a stub) must still run in the next. A VM per
+     call would lose them. The runner starts the VM when the item's `drive-seam` begins and stops
+     it when the item's grading ends, scored or not.
+   - Started as `gondolin bash --image <image> --mount-hostfs <room>:<room> --allow-host
+     egress-blocked.invalid -- sleep <seconds>`, in the background, its session the `gondolin
+     list` row with the CLI's PID; each call `gondolin exec --sock <session-id> -- sh -c 'cd
+     <room> && <command>'`. Its only host mount is the item's grading room, at its own host path.
+     Egress is blocked by allowing a host that cannot exist, because the CLI leaves egress open
+     when no host is allowed. The `sleep` is the grading delegate's bound, so a lost VM ends by
+     itself. A stop kills the CLI and its children: killing the CLI alone orphans its qemu
+     (ADR 0002's evidence, seen again in this round's check).
+   - Each item's grading room is a folder of its own. Its siblings are not in the VM: only the
+     mount is. In this round's check, the mount's parent folder in the VM held the room alone, and
+     the host's home folders were absent.
+   - A VM that cannot be started halts the run, as other effects that cannot run do. A new leaf,
+     `grading-vm`, after a passed gate and before the first item, starts one VM with no mount,
+     runs `true` in it and stops it. No image folder, no `gondolin`, or a VM that does not run
+     `true`: `halting`, effect `drive-seam`, `effect-could-not-run`, and no verdict is filed. It
+     records no effect, like `grader` and `render-failed`. So an instrument that cannot grade
+     never files every item as an unreached fail. An item whose own VM fails later has no score.
+   - `@item-06-066`'s Given and last Then are replaced. The old Then named "a folder in a Gondolin
+     VM", which a reply cannot show. The new one asks for what a shell can show: "And the shell's
+     replies came from a Linux VM in which the item's grading room is the only folder of the
+     host: it held the clean room's files and the gated candidate's copy at its scope, and no
+     builder room, no gate evidence, no store and no other item's grading room". The Given now
+     asks the shell for the system it runs and the folders above its working folder. The stamp
+     stays. Replaced wording is a reason to replace the grader (AGENTS.md, "The instrument").
+   - Also updated: the seam's grading section, "Handed in", the blackboard's leaf contracts, the
+     tree, "How a grader drives it" (a real image and `gondolin` on `PATH` for every run that
+     reaches grading), the allium `TheResearcherDrivesTheSeamOnly` and `HaltReason` comments,
+     `domain-design.md`, and one line in ADR 0002. `architecture/README.md` needs none.
+2. **The harness digest's self-check command is the command as handed in**: the text of
+   `LOYLY_SELF_CHECK_CMD`, like the store-check and gate commands, never the bytes of the program
+   it names (`cycle-runner/seam.md`, "Digests the runner computes"). Cycle 13's build hashed the
+   program's bytes. No item changes: `@item-06-057` compares digests across self-checks and passes
+   either way.
+3. **Readings the grader needed.**
+   - `@item-06-013`, "the configuration": the builder room is the clean room, so the
+     configuration the builder sees is the configuration file the commit holds, at its path in
+     the cut. The runner copies no handed-in file, `LOYLY_HARNESS_CONFIG` among them, into the
+     room. Written in the E4 row. The item's wording stands.
+   - `@item-06-071`: the repair's closing paragraph names the previous candidate and the gate
+     evidence by their read-only paths in the builder room. A clause in the E6 row.
+4. **Choices the builder made where the seam is silent.**
+   - (a) A code leaf writes blank values for declared writes its outcome did not set, since ORC
+     fails a leaf that leaves a declared write out. This is consistent with "the blackboard is the
+     run's state", so the seam now says it: a blank key is no fact, and `failure`, `halt`,
+     `gate-refusal` and `refusal` are read only under the `run` that sets them.
+   - (b) Open, for the inbox: an extra `scored` leaf after the grading delegate, so `map-each`
+     collects each item's `score`. The seam's tree runs a `fallback` over the delegate in its
+     `map-each`, while ORC's principles (AGENTS.md) say a `map-each` runs one primitive leaf with
+     explicit `:writes`. Which node the `map-each` runs, and what writes "(no score)", is to be
+     decided.
+   - (c) Open, for the inbox: the researcher is given `scenario`, `seam` and `event-model` as text
+     inputs, beyond its `:reads` in the leaf contract table (`item`, `gate-room`, `handed-in`).
+     The seam says the researcher is given them, but no leaf writes them as blackboard keys. Under
+     "the blackboard is the run's state" they would be keys a leaf of `grade.v1` writes. To be
+     decided.
+5. **Harness edits** (harness only).
+   - The instruction renderer in `harness/v2/`: slice 06's instruction says the builder runs on the macOS host, not
+     in a VM, keeps the BSD-portability rule, and says `gondolin` is on `PATH` and the suite may
+     use the guest image, read-only, to test the researcher's VM. Slices 01 to 05 render as
+     before.
+   - `.pi/harness/grader-instruction-06.md`: round 20 is the last section; "The machine" is the
+     host's (BSD userland, `gondolin` on `PATH`, the guest image for `LOYLY_GRADER_IMAGE`). For
+     `@item-06-062` the grader may make one `mktemp -d` folder outside the grading room, because
+     the room sits under a `.pi` folder, and it removes that folder when done.
+   - `harness/v2/probe-06.sh`: step 5 hands the run `LOYLY_GRADER_IMAGE`, the repository's
+     `builder-clojure` image (or `PROBE_GRADER_IMAGE`), since a run with no image now halts
+     before grading.

@@ -38,7 +38,9 @@ over stdio, as `harness/v2/gate.sh` does (`APP_SEAM=stdio`).
   with its score filed.
 - **The runner itself judges no item.** For each item the sealed grader, the versioned judge
   workflow `cycle-runner/grade.v1`, drives the gated candidate over its seam with a researcher and
-  scores it with the judge, the reason before the score. The score leaf files the
+  scores it with the judge, the reason before the score. The researcher's shell runs in a Gondolin
+  VM of its own per item, made from `LOYLY_GRADER_IMAGE`, its one host folder the item's grading
+  room (`seam.md`, "The researcher's VM"). The score leaf files the
   judge's scores as scored; an item with no score is Measurement's to file as an unreached fail.
   The grader's digest must be one the run approved, or the run halts before the cycle.
 - **One builder per run at a time**: a pi-durable session in a Gondolin VM, run by a code leaf
