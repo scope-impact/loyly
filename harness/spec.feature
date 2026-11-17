@@ -900,6 +900,217 @@ Feature: The harness: stamp, derive, score, report
       # it then says everything was added and everything was dropped.
 
   # -------------------------------------------------------------------------------
+  # Decided 2026-11-17, by a regeneration
+  # -------------------------------------------------------------------------------
+  # The five tools were regenerated from this file alone, in a fenced room with the oracle
+  # and its goldens hidden, and the result passed the oracle. Run side by side with the
+  # tools in service it still differed in 29 of 491 cases, and in every one of them this
+  # file had been silent: the behaviour lived only in the code, and a regeneration was
+  # free to choose differently. Each rule below is one of those silences, decided. Where
+  # the decision changed what the tools in service did, harness/README.md says so in its
+  # log, because that is a change to the instrument and not to its wording.
+
+  Rule: The JSON the tools read is JSON and nothing looser
+
+    @harness-071
+    Scenario Outline: A document that is only nearly JSON is not read
+      Given a verdicts file holding <text>
+      When score runs
+      Then stderr is exactly, with <PATH> the --verdicts argument as it was typed:
+        """
+        score: <PATH> is not valid JSON (<DETAIL>). A measurement that cannot be read is not a measurement: nothing was written.
+        """
+      And the exit code is 1
+      And no scores.json is written
+
+      Examples:
+        | text                                  | what is wrong with it                  |
+        | [{"id": "01-001", "verdict": "pass"},] | a trailing comma in a list             |
+        | {"a": 1,}                             | a trailing comma in an object          |
+        | [+5]                                  | a plus sign                            |
+        | [.5]                                  | no digit before the point              |
+        | [5.]                                  | no digit after the point               |
+        | [007]                                 | a leading zero                         |
+        | [1e400]                               | a number no double can hold            |
+        | U+00A0 then []                        | whitespace that JSON does not allow    |
+        | U+FEFF then []                        | a byte order mark                      |
+      # Between tokens only space, tab, line feed and carriage return are whitespace, and a
+      # string may not hold a raw control character (below U+0020) or a "\u" escape with
+      # anything but four hex digits. Until
+      # 2026-11-17 the Babashka-era reader accepted every one of these, by accident rather
+      # than by design: a trailing comma read as nothing, "+5" as 5.0, U+00A0 as a space.
+      # A grader that writes nearly-JSON should be told so, not quietly understood.
+
+    @harness-072
+    Scenario: A number is written back in the form it was read
+      Given a verdicts file whose entry for "01-001" has "evidence": [12345678901234567890, 1.0, 1e10, 2.5e-7, 5e-324]
+      When score runs
+      Then that evidence in scores.json reads [12345678901234567890, 1.0, 1.0E10, 2.5E-7, 4.9E-324], one value per line
+      # An integer, of any size, is kept exactly. A number with a fraction or an exponent
+      # is a double and prints as Java's Double.toString prints it, which is the form the
+      # records already hold: plainly between 10^-3 and 10^7, "d.dE<n>" outside it, and
+      # the shortest digits that read back as the same double, with two-digit ones weighed
+      # when the shortest has one (4.9E-324, not 5.0E-324).
+
+  Rule: Score trusts nothing it has not checked, and says what it checked
+
+    @harness-073
+    Scenario Outline: A checklist that is not a checklist stops the run
+      Given "harness/cycles/01/checklist.json" holding <text>
+      And a verdicts file carrying a verdict for "01-001"
+      When score runs for cycle "01"
+      Then stderr is exactly:
+        """
+        score: harness/cycles/01/checklist.json is not a checklist: it should hold an "items" list of objects, each with a string "id". Regenerate it:
+          node harness/gen_checklist.ts --out harness/cycles/01/checklist.json
+        """
+      And the exit code is 1
+
+      Examples:
+        | text                                 |
+        | {}                                   |
+        | []                                   |
+        | {"items": null}                      |
+        | {"items": [{"name": "no id"}]}       |
+        | {"items": [{"id": 7}]}               |
+        | {"items": [                          |
+      # Until 2026-11-17 such a checklist was read as an empty one, so the run went on and
+      # reported every verdict as an unknown id: a true sentence about the wrong problem.
+      # A checklist with an "items" list that is empty IS a checklist, and the verdicts
+      # against it are unknown ids, which is the true sentence for that case.
+
+    @harness-074
+    Scenario: No file where the verdicts should be
+      Given no file at "nope.json"
+      When score runs with --verdicts nope.json
+      Then stderr is exactly:
+        """
+        score: no verdicts at nope.json. A measurement that is not there is not a measurement: nothing was written.
+        """
+      And the exit code is 1
+
+    @harness-075
+    Scenario Outline: Score is told what to score, or it says how to ask
+      When score runs with <arguments>
+      Then stderr is exactly <message>
+      And the exit code is 1
+
+      Examples:
+        | arguments        | message                                          |
+        | nothing          | "score: usage: score <cycle> --verdicts <file>"  |
+        | 01               | "score: --verdicts <file> is required"           |
+        | 01 --verdicts    | "score: --verdicts <file> is required"           |
+      # Unlike scoreboard's (@harness-044), these words are contract: they were the same in
+      # every implementation so far, and a regeneration that changed them changed what an
+      # operator reads for no gain.
+
+  Rule: A verdict is an object, and a message prints an id the way the file wrote it
+
+    @harness-076
+    Scenario: A verdict that is not an object stops the run
+      Given a verdicts file holding [{"id": "01-001", "verdict": "pass"}, "01-002"]
+      When score runs
+      Then stderr is exactly, with <PATH> the --verdicts argument as it was typed:
+        """
+        score: <PATH> should hold a list of verdicts, found a list holding str. Nothing was written.
+        """
+      And the exit code is 1
+      # The first entry that is not an object is named, with @harness-035's type names.
+      # This check runs after the empty-list check (@harness-032) and before the unknown
+      # ids (@harness-038), so a file with both faults reports this one.
+
+    @harness-077
+    Scenario: An id that is not a string is printed as JSON
+      Given a verdicts file whose ids are "zz", 7, null, a missing id, 1.5 and ["a", 1, {"k": "v"}], each with "verdict": "pass"
+      When score runs
+      Then stderr is exactly:
+        """
+        score: verdicts for items not on the checklist (the spec is the only author of the item list): zz, 7, null, null, 1.5, ["a", 1, {"k": "v"}]
+        """
+      And the exit code is 1
+      # A string is printed as it is; anything else as one line of JSON, with ", " between
+      # elements and ": " after a key. A missing id is null. Until 2026-11-17 a null id
+      # printed as nothing and a list in the Clojure reader's own notation.
+
+  Rule: The scoreboard counts ids, and nothing recorded is nothing recorded
+
+    @harness-078
+    Scenario: A record that names an id twice counts it once
+      Given "harness/cycles/01/scores.json" holding "a" as pass, then "a" as fail, then "b" as pass
+      When scoreboard runs for cycle "01"
+      Then stdout begins "cycle 01: 1/2 checklist items pass"
+      # The last entry for an id wins, in the headline and in the comparison alike, so the
+      # two can never disagree about how many items there were. score never writes such a
+      # record; a hand-edited one is the only way in.
+
+    @harness-079
+    Scenario: A previous cycle that recorded nothing is no previous cycle
+      Given "harness/cycles/01/scores.json" holding {"items": []}
+      And "harness/cycles/02/scores.json" holding one item, passing
+      When scoreboard runs for cycle "02"
+      Then stdout is exactly:
+        """
+        cycle 02: 1/1 checklist items pass
+
+          no previous cycle to diff against: baseline cycle.
+        """
+      # @harness-043, applied to the predecessor: a record of nothing and no record are the
+      # same amount of measurement. Until 2026-11-17 this printed a comparison over zero
+      # shared items, which is @harness-048's case wearing the wrong clothes.
+
+    @harness-080
+    Scenario: A rate is rounded from the exact fraction
+      Given a comparison over 2000 shared items of which 1 passes in one cycle
+      When scoreboard runs
+      Then that rate renders as " 1/2000 =   0.0%"
+      # The percentage is 1000 x passes / total in tenths, computed exactly and rounded half
+      # to even: 1/2000 is 0.05% exactly, a tie, and the even neighbour is 0.0. Until
+      # 2026-11-17 the double nearest to 0.05 was rounded instead, and that double is a hair
+      # above 0.05, so it printed 0.1%. Both ways agree for every total up to 400 and on
+      # @harness-046's 1/16; above that there is now one answer, and it is the exact one.
+
+  Rule: A slice that cannot carry item ids, and a title that cannot be read, are said out loud
+
+    @harness-081
+    Scenario Outline: A slice directory whose number is not all digits stops the tools
+      Given a directory "docs/plan/1a-booking" holding a spec.feature
+      When <tool> runs
+      Then stderr is exactly:
+        """
+        <tool>: docs/plan/1a-booking looks like a slice, but its number "1a" is not all digits, so its scenarios could never carry ids the checklist recognises. Rename it.
+        """
+      And the exit code is 1
+
+      Examples:
+        | tool           |
+        | stamp_item_ids |
+        | gen_checklist  |
+      # A directory is a slice when its name starts with a digit (@harness-001). Before
+      # 2026-11-17 such a one was stamped @item-1a-001, a tag nothing recognises, so every
+      # run stamped it again and the checklist then refused it as unstamped: the stamper's
+      # idempotence (@harness-008) broken by a directory name. Refusing is loud; skipping
+      # would have shrunk the denominator without a word.
+
+    @harness-082
+    Scenario: A title may hold any character but a line break
+      Given a stamped scenario whose title contains U+2028 and U+0085
+      When gen_checklist runs
+      Then the item's name carries both characters
+      # Only "\n" ends a line, and a "\r" before it is not part of the title. Until
+      # 2026-11-17 the tools matched titles with Java's ".", which also stops at U+0085,
+      # U+2028 and U+2029, so such a scenario was not a scenario at all and its tag moved
+      # silently to the next one: a third wart next to @harness-021 and @harness-049, and
+      # one nobody had chosen.
+
+    @harness-083
+    Scenario: A tag the stamper adds ends its line the way its scenario does
+      Given a spec whose lines end in "\r\n" and one untagged scenario
+      When stamp_item_ids runs
+      Then the tag line it inserts ends in "\r\n" too
+      # Every other byte of the file is left as it was. Until 2026-11-17 the inserted line
+      # ended in a bare "\n" inside a "\r\n" file.
+
+  # -------------------------------------------------------------------------------
   # modules.sh, the adoption check
   # -------------------------------------------------------------------------------
   # Added 2026-09-07, when the three copies of this harness stopped being hand-kept and

@@ -15,7 +15,7 @@ import * as Effect from "effect/Effect";
 import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
 
-import { arrayMap, blank, get, isFile, isMap, type JMap, type JValue, keyOf, out, readJson, refuse, run, seq, slurp, spit, str, typeName, write } from "./hjson.ts";
+import { arrayMap, blank, get, isFile, isMap, type JMap, type JValue, keyOf, out, readJson, refuse, run, slurp, spit, str, typeName, write } from "./hjson.ts";
 
 // The command the missing-checklist refusal tells an operator to run. It must name the
 // generator as it is actually invoked here, not the one being replaced (@harness-040).
@@ -33,6 +33,12 @@ const flagValue = (args: string[], flag: string) =>
 		A.dropWhile((a) => a !== flag),
 		A.get(1),
 	);
+
+/** A checklist: an "items" list of objects, each with a string "id". An empty list is one (@harness-073). */
+const checklistItems = (doc: JValue): JMap[] | undefined => {
+	const items = get(doc, "items");
+	return Array.isArray(items) && items.every((i) => isMap(i) && typeof i.get("id") === "string") ? (items as JMap[]) : undefined;
+};
 
 /** The checklist item with the verdict filed against it, or the fail an unreached item is. */
 const scoreItem =
@@ -60,7 +66,12 @@ run(import.meta.url, (root) =>
 		if (!(yield* isFile(checklistFile))) {
 			return yield* refuse(`score: no ${checklistRel}: generate it first:\n  ${genCmd} --out ${checklistRel}`);
 		}
-		const items = seq(get(yield* readJson(yield* slurp(checklistFile)), "items"));
+		const notAChecklist = refuse(
+			`score: ${checklistRel} is not a checklist: it should hold an "items" list of objects, each with a string "id". Regenerate it:\n  ${genCmd} --out ${checklistRel}`,
+		);
+		const checklist = yield* readJson(yield* slurp(checklistFile)).pipe(Effect.catchTag("JsonError", () => notAChecklist));
+		const items = checklistItems(checklist);
+		if (items === undefined) return yield* notAChecklist;
 
 		if (!(yield* isFile(verdictsPath))) {
 			return yield* refuse(`score: no verdicts at ${verdictsPath}. A measurement that is not there is not a measurement: nothing was written.`);
@@ -78,6 +89,11 @@ run(import.meta.url, (root) =>
 		);
 		if (!Array.isArray(verdicts)) return yield* refuse(`score: ${verdictsPath} should hold a list of verdicts, found ${typeName(verdicts)}. Nothing was written.`);
 		if (A.isReadonlyArrayEmpty(verdicts)) return yield* refuse(nothingScored);
+		// A verdict is an object; the first entry that is not one is named (@harness-076).
+		const stranger = verdicts.find((v) => !isMap(v));
+		if (stranger !== undefined) {
+			return yield* refuse(`score: ${verdictsPath} should hold a list of verdicts, found a list holding ${typeName(stranger)}. Nothing was written.`);
+		}
 
 		// The two checks run in this order, so a verdicts file with both faults reports the
 		// unknown ids and stops there (@harness-039).

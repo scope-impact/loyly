@@ -80,7 +80,7 @@ run(import.meta.url, (root) =>
 		// to shrink a denominator by demoting a slice (@harness-027). The skip lines go to
 		// stderr, so stdout stays the checklist alone and `gen_checklist | jq` works on a
 		// repository with a planned slice (@harness-028; they went to stdout until 2026-09-03).
-		const files = yield* Effect.filter(yield* specFiles(root), (f) =>
+		const files = yield* Effect.filter(yield* specFiles(root, "gen_checklist"), (f) =>
 			Effect.gen(function* () {
 				const dir = path.dirname(f);
 				const status = yield* sliceStatus(dir);

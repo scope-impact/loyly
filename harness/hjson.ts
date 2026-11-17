@@ -114,14 +114,15 @@ export const blank = (s: string): boolean => Array.from({ length: s.length }, (_
 
 /**
  * Pieces of java.util.regex, for the patterns the tools were specified in. Java's \s is
- * ASCII whitespace only; JavaScript's is Unicode-wide. Java's `.` stops at more line
- * terminators than JavaScript's, and its `$` also matches before one final terminator.
+ * ASCII whitespace only; JavaScript's is Unicode-wide.
  */
 export const RX = {
 	ws: "[ \\t\\n\\x0B\\f\\r]",
 	nonWs: "[^ \\t\\n\\x0B\\f\\r]",
-	dot: "[^\\n\\r\\u0085\\u2028\\u2029]",
-	end: "(?=(?:\\r\\n|[\\n\\r\\u0085\\u2028\\u2029])?$)",
+	// A title may hold any character but a line break, and a "\r" before the "\n" is not
+	// part of it (@harness-082). Java's "." also stopped at U+0085, U+2028 and U+2029.
+	dot: "[^\\n]",
+	end: "(?=\\r?$)",
 	lineStart: "(?<=^|[\\n\\r\\u0085\\u2028\\u2029])",
 };
 
@@ -157,35 +158,19 @@ export const javaDouble = (x: number): string => {
 	return `${sign}${digits[0]}.${digits.slice(1) || "0"}E${exp}`;
 };
 
-/** `(str v)`: nil is empty, a float prints as Java prints it, anything else readably. */
-export const str = (v: JValue | undefined): string =>
-	v == null
-		? ""
-		: typeof v === "string"
-			? v
-			: typeof v === "boolean" || typeof v === "number" || typeof v === "bigint"
-				? String(v)
-				: v instanceof JFloat
-					? javaDouble(v.value)
-					: pr(v);
+/**
+ * A value as a message prints it (@harness-077): a string as it is, anything else as one
+ * line of JSON with ", " between elements and ": " after a key. A missing value is null.
+ */
+export const str = (v: JValue | undefined): string => (typeof v === "string" ? v : inline(v ?? null));
 
-const stringEscapes: Record<string, string> = { '"': '\\"', "\\": "\\\\", "\n": "\\n", "\t": "\\t", "\r": "\\r", "\f": "\\f", "\b": "\\b" };
-const charNames: Record<string, string> = { "\n": "newline", "\t": "tab", " ": "space", "\b": "backspace", "\f": "formfeed", "\r": "return" };
-
-/** `(pr-str v)`, for the few values a message prints readably. */
-export const pr = (v: JValue | undefined): string =>
-	v == null
-		? "nil"
-		: typeof v === "string"
-			? `"${[...v].map((c) => stringEscapes[c] ?? c).join("")}"`
-			: Array.isArray(v)
-				? `[${v.map(pr).join(" ")}]`
-				: isMap(v)
-					? `{${[...v].map(([k, x]) => `${pr(k)} ${pr(x)}`).join(", ")}}`
-					: str(v);
-
-/** `(pr-str c)` of a single character, as the reader's "invalid escape" message shows it. */
-const prChar = (c: string | undefined) => (c === undefined ? "nil" : `\\${charNames[c] ?? c}`);
+/** One line of JSON. */
+export const inline = (v: JValue): string =>
+	isMap(v)
+		? `{${[...v].map(([k, x]) => `${writeString(k)}: ${inline(x)}`).join(", ")}}`
+		: Array.isArray(v)
+			? `[${v.map(inline).join(", ")}]`
+			: write(v);
 
 // ---------------------------------------------------------------- writing
 
@@ -232,20 +217,14 @@ const fail = (i: number, msg: string): never => {
 
 type Read<T> = (s: string, i: number) => [T, number];
 
+/** Between tokens, JSON's four whitespace characters and no others (@harness-071). */
 const skipWs = (s: string, i: number): number => {
-	while (i < s.length && wsAt(s, i)) i++;
+	while (i < s.length && (s[i] === " " || s[i] === "\t" || s[i] === "\n" || s[i] === "\r")) i++;
 	return i;
 };
 
 const simpleEscapes: Record<string, string> = { '"': '"', "\\": "\\", "/": "/", b: "\b", f: "\f", n: "\n", r: "\r", t: "\t" };
 
-/** Integer.parseInt(hex, 16): a sign is allowed, and a negative value is no character. */
-const hexChar = (hex: string): string => {
-	if (!/^[+-]?[0-9a-fA-F]+$/.test(hex)) throw new Malformed(`For input string: "${hex}" under radix 16`);
-	const code = Number.parseInt(hex, 16);
-	if (code < 0) throw new Malformed(`Value out of range for char: ${code}`);
-	return String.fromCharCode(code);
-};
 
 const readStringLit: Read<string> = (s, start) => {
 	let acc = "";
@@ -254,38 +233,39 @@ const readStringLit: Read<string> = (s, start) => {
 		const c = s[i];
 		const e = s[i + 1];
 		if (c === '"') return [acc, i + 1];
+		if (c.charCodeAt(0) < 0x20) fail(i, "a raw control character in a string");
 		if (c !== "\\") {
 			acc += c;
 			i += 1;
 		} else if (e !== undefined && e in simpleEscapes) {
 			acc += simpleEscapes[e];
 			i += 2;
-		} else if (e === "u") {
-			if (!(i + 5 < s.length)) fail(i, "truncated \\u escape");
-			acc += hexChar(s.slice(i + 2, i + 6));
+		} else if (e === "u" && /^[0-9a-fA-F]{4}$/.test(s.slice(i + 2, i + 6))) {
+			acc += String.fromCharCode(Number.parseInt(s.slice(i + 2, i + 6), 16));
 			i += 6;
 		} else {
-			fail(i, `invalid escape ${prChar(e)}`);
+			fail(i, `invalid escape \\${e ?? ""}`);
 		}
 	}
 };
 
-const LONG = { min: -(2n ** 63n), max: 2n ** 63n - 1n };
-/** What Double.parseDouble accepts of the characters readNumber collects. */
-const JAVA_DOUBLE = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
+/** JSON's number, exactly: no sign but "-", no leading zero, digits on both sides of a point. */
+const NUMBER = /-?(?:0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?/y;
 
+/** An integer is kept exactly, at any size; anything else is a double (@harness-072). */
 const readNumber: Read<JValue> = (s, i) => {
-	let end = i;
-	while (end < s.length && /[-+0-9.eE]/.test(s[end])) end++;
-	const text = s.slice(i, end);
-	if (i === end) fail(i, `unexpected character '${s[i]}'`);
-	if (/^-?\d+$/.test(text)) {
+	NUMBER.lastIndex = i;
+	const m = NUMBER.exec(s);
+	if (!m) fail(i, `unexpected character '${s[i]}'`);
+	const [text, fraction, exponent] = m!;
+	const end = i + text.length;
+	if (fraction === undefined && exponent === undefined) {
 		const n = BigInt(text);
-		if (n < LONG.min || n > LONG.max) throw new Malformed(`For input string: "${text}"`); // Long.parseLong
 		return [Number.isSafeInteger(Number(n)) ? Number(n) : n, end];
 	}
-	if (!JAVA_DOUBLE.test(text)) fail(i, `invalid number ${pr(text)}`);
-	return [new JFloat(Number(text)), end];
+	const x = Number(text);
+	if (!Number.isFinite(x)) fail(i, `a number no double can hold, ${text}`);
+	return [new JFloat(x), end];
 };
 
 /** The shared body of array and object reading: `close` ends it, `element` reads one. */
@@ -293,9 +273,11 @@ const readSeq =
 	<T>(close: string, element: Read<T>): Read<T[]> =>
 	(s, start) => {
 		const acc: T[] = [];
-		for (let i = skipWs(s, start + 1); ; ) {
+		const first = skipWs(s, start + 1);
+		if (s[first] === close) return [acc, first + 1];
+		// After a comma comes an element, never the close: a trailing comma is not JSON (@harness-071).
+		for (let i = first; ; ) {
 			if (i >= s.length) fail(i, "unexpected end of input");
-			if (s[i] === close) return [acc, i + 1];
 			const [x, after] = element(s, i);
 			acc.push(x);
 			i = skipWs(s, after);
@@ -418,8 +400,12 @@ const filterE = <X, E, R>(xs: readonly X[], pred: (x: X) => Effect.Effect<boolea
 		A.getSomes,
 	);
 
-/** Every docs/plan/[0-9]*\/spec.feature under `root`, sorted by path as text. */
-export const specFiles = (root: string) =>
+/**
+ * Every docs/plan/[0-9]*\/spec.feature under `root`, sorted by path as text. A slice whose
+ * number, the name up to its first "-", is not all digits stops `tool` (@harness-081):
+ * its scenarios could never carry ids the checklist recognises.
+ */
+export const specFiles = (root: string, tool: string) =>
 	Effect.gen(function* () {
 		const io = yield* Io;
 		const plan = planDir(root);
@@ -435,7 +421,17 @@ export const specFiles = (root: string) =>
 			A.map(dirs, (d) => path.join(d, "spec.feature")),
 			io.isFile,
 		);
-		return A.sort(files, Order.mapInput(Order.String, (f: string) => rel(root, f)));
+		const sorted = A.sort(files, Order.mapInput(Order.String, (f: string) => rel(root, f)));
+		for (const f of sorted) {
+			const dir = path.dirname(f);
+			const number = path.basename(dir).split("-")[0];
+			if (!/^\d+$/.test(number)) {
+				return yield* refuse(
+					`${tool}: ${rel(root, dir)} looks like a slice, but its number "${number}" is not all digits, so its scenarios could never carry ids the checklist recognises. Rename it.`,
+				);
+			}
+		}
+		return sorted;
 	});
 
 export const ralign = (s: unknown, w: number): string => String(s).padStart(w, " ");

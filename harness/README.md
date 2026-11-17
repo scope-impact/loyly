@@ -313,6 +313,26 @@ Three events look alike in a diff and must never be confused:
   #   must print the old "total" line and nothing else
   ```
 
+**2026-11-17, later: thirteen silences decided, and the instrument's behaviour changed with
+them.** The five tools were regenerated from `harness/spec.feature` alone, by a fresh agent
+in a fenced room that hid the tools, `oracle.sh` and the goldens (and, on that machine, every
+other copy of the code). The result passed the oracle, 114 ok, and still differed from the
+tools in service in 29 of 491 side-by-side cases, every one of them a place this spec had
+been silent. They are decided in `@harness-071` to `@harness-083`, each with the old
+behaviour named in its comment, and the oracle's CHECK 10 holds the tools to them. This is
+the serious kind of change, made on purpose: verdicts files that are only nearly JSON are
+refused now (a trailing comma, `+5`, `007`, a no-break space, `1e400`); an integer of any
+size is kept exactly; a checklist that is not one stops `score` instead of reading as
+empty; a verdict that is not an object is named; a non-string id prints as JSON; a
+predecessor that recorded nothing is a baseline; a rate rounds the exact fraction, so
+1/2000 is 0.0% where it was 0.1%; a slice directory whose number is not all digits stops
+both stamp and checklist; a title may hold U+2028 and U+0085; and a stamped tag line keeps
+its file's CRLF. No golden moved. Two plain errors the same regeneration found, `@harness-012`
+naming the wrong key separator and this file misplacing the rounding, were fixed the same
+day. CHECK 10 costs about forty more tool runs: `check.sh --local` now takes 15 seconds in
+löyly, still inside the range above, and the first thing to trim if that range is ever
+left.
+
 **2026-11-17: the tools moved from Babashka to TypeScript, in löyly first.** The five
 `.clj` files were replaced by `.ts` files that node runs directly, with no build step, so
 the harness needs node and nothing else (`bb` is no longer required anywhere). The same

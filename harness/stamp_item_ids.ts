@@ -48,12 +48,19 @@ const isStamped = (lines: string[], i: number): boolean =>
 		A.some((line) => re("@item-\\d+-\\d+").test(line)),
 	);
 
+/**
+ * The tag line for a scenario: its indentation, the id, and the scenario line's own line
+ * ending, so a "\r\n" file stays one (@harness-083).
+ */
+const tagFor = (line: string, slice: string, n: bigint) =>
+	`${leadingWs.exec(line)![0].replace(/\r$/, "")}@item-${slice}-${String(n).padStart(3, "0")}${line.endsWith("\r") ? "\r" : ""}`;
+
 /** The file's new text and how many tags it gained. */
 const stampText = (text: string, slice: string): [string, number] => {
 	const lines = text.split("\n");
 	const [, added, stamped] = A.reduce(lines, [nextNumber(lines), 0, [] as string[]] as const, ([n, added, acc], line, i) =>
 		scenarioLine.test(line) && !isStamped(lines, i)
-			? ([n + 1n, added + 1, [...acc, `${leadingWs.exec(line)![0]}@item-${slice}-${String(n).padStart(3, "0")}`, line]] as const)
+			? ([n + 1n, added + 1, [...acc, tagFor(line, slice, n), line]] as const)
 			: ([n, added, [...acc, line]] as const),
 	);
 	return [stamped.join("\n"), added];
@@ -61,7 +68,7 @@ const stampText = (text: string, slice: string): [string, number] => {
 
 run(import.meta.url, (root) =>
 	Effect.gen(function* () {
-		const files = yield* specFiles(root);
+		const files = yield* specFiles(root, "stamp_item_ids");
 		if (A.isReadonlyArrayEmpty(files)) {
 			// Exit 0, not 1: an absent spec is a legitimate state early in a project, and the
 			// refusal for it lives at checklist time instead (@harness-011).

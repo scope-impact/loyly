@@ -934,6 +934,151 @@ has_line "the uncompared files are skips" "  SKIP  harness/verify.sh present her
 has_line "the closing line does not claim no fork" "no sibling was named, so the shared module files were compared with nothing."
 
 # =================================================================================
+# CHECK 10  decided 2026-11-17, by a regeneration (@harness-071 to @harness-083)
+# =================================================================================
+head1 "CHECK 10  the rules a regeneration found the spec silent on, decided"
+
+# A fixture with a three-item checklist for cycle 01, and the verdicts file given here.
+score_fixture() {  # score_fixture NAME VERDICTS-TEXT -> prints the fixture path
+  local fx; fx="$(new_fixture "$1")"
+  mkdir -p "$fx/harness/cycles/01"
+  "${PY[@]}" - "$fx" "$2" <<'PYEOF'
+import json, sys
+root, text = sys.argv[1], sys.argv[2]
+items = [{"id": f"01-00{i}", "name": f"n{i}", "rule": None, "source": f"x:{i}"} for i in (1, 2, 3)]
+open(f"{root}/harness/cycles/01/checklist.json", "w", encoding="utf-8").write(
+    json.dumps({"items": items, "counts": {"total": 3}}, indent=1) + "\n")
+open(f"{root}/v.json", "w", encoding="utf-8").write(text)
+PYEOF
+  printf '%s\n' "$fx"
+}
+not_json_line='score: v.json is not valid JSON (<DETAIL>). A measurement that cannot be read is not a measurement: nothing was written.'
+
+# @harness-071  nearly JSON is not JSON
+n=0
+for text in '[{"id": "01-001", "verdict": "pass"},]' '{"a": 1,}' '[+5]' '[.5]' '[5.]' '[007]' '[1e400]' \
+            "$(printf '\xc2\xa0[]')" "$(printf '\xef\xbb\xbf[]')" "$(printf '["a\tb"]')" '["\u12g4"]'; do
+  n=$((n + 1))
+  FX="$(score_fixture "strict-$n" "$text")"
+  run "$FX" "${SCORE[@]}" 01 --verdicts v.json
+  mask_json_detail "$WORK/err"
+  printf '%s\n' "$not_json_line" >"$WORK/want"
+  expect_text "@harness-071 not JSON: $(printf '%s' "$text" | head -c 40 | tr -d '\000-\037')" "$WORK/want" "$WORK/err"
+  [ ! -e "$FX/harness/cycles/01/scores.json" ] || bad "@harness-071 a scores.json was written for $text"
+done
+
+# @harness-072  a number is written back in the form it was read
+FX="$(score_fixture numbers '[{"id": "01-001", "verdict": "pass", "evidence": [12345678901234567890, 1.0, 1e10, 2.5e-7, 5e-324]}]')"
+run "$FX" "${SCORE[@]}" 01 --verdicts v.json
+expect_rc "@harness-072 exits 0" 0 "$RC"
+if tr -d ' \n' <"$FX/harness/cycles/01/scores.json" | grep -Fq '"evidence":[12345678901234567890,1.0,1.0E10,2.5E-7,4.9E-324]'; then
+  ok "@harness-072 integers exact, doubles as Double.toString writes them"
+else
+  bad "@harness-072 integers exact, doubles as Double.toString writes them"; sed 's/^/        /' "$FX/harness/cycles/01/scores.json" | head -20
+fi
+
+# @harness-073  a checklist that is not a checklist
+n=0
+for text in '{}' '[]' '{"items": null}' '{"items": [{"name": "no id"}]}' '{"items": [{"id": 7}]}' '{"items": ['; do
+  n=$((n + 1))
+  FX="$(score_fixture "notchk-$n" '[{"id": "01-001", "verdict": "pass"}]')"
+  printf '%s' "$text" >"$FX/harness/cycles/01/checklist.json"
+  run "$FX" "${SCORE[@]}" 01 --verdicts v.json
+  { printf 'score: harness/cycles/01/checklist.json is not a checklist: it should hold an "items" list of objects, each with a string "id". Regenerate it:\n'
+    printf '  %s --out harness/cycles/01/checklist.json\n' "$GEN_CMD"; } >"$WORK/want"
+  expect_text "@harness-073 not a checklist: $text" "$WORK/want" "$WORK/err"
+  expect_rc "@harness-073 exit 1: $text" 1 "$RC"
+done
+FX="$(score_fixture emptychk '[{"id": "01-001", "verdict": "pass"}]')"
+printf '{"items": []}' >"$FX/harness/cycles/01/checklist.json"
+run "$FX" "${SCORE[@]}" 01 --verdicts v.json
+printf 'score: verdicts for items not on the checklist (the spec is the only author of the item list): 01-001\n' >"$WORK/want"
+expect_text "@harness-073 an empty items list is a checklist, and its verdicts are unknown" "$WORK/want" "$WORK/err"
+
+# @harness-074 and @harness-075  the words that tell an operator what is missing
+FX="$(score_fixture words '[]')"
+run "$FX" "${SCORE[@]}" 01 --verdicts nope.json
+printf 'score: no verdicts at nope.json. A measurement that is not there is not a measurement: nothing was written.\n' >"$WORK/want"
+expect_text "@harness-074 no verdicts file" "$WORK/want" "$WORK/err"
+run "$FX" "${SCORE[@]}"
+printf 'score: usage: score <cycle> --verdicts <file>\n' >"$WORK/want"
+expect_text "@harness-075 no arguments" "$WORK/want" "$WORK/err"
+expect_rc "@harness-075 no arguments: exit 1" 1 "$RC"
+printf 'score: --verdicts <file> is required\n' >"$WORK/want"
+run "$FX" "${SCORE[@]}" 01
+expect_text "@harness-075 no --verdicts" "$WORK/want" "$WORK/err"
+run "$FX" "${SCORE[@]}" 01 --verdicts
+expect_text "@harness-075 --verdicts with no path" "$WORK/want" "$WORK/err"
+
+# @harness-076  a verdict is an object
+FX="$(score_fixture notobj '[{"id": "01-001", "verdict": "pass"}, "01-002"]')"
+run "$FX" "${SCORE[@]}" 01 --verdicts v.json
+printf 'score: v.json should hold a list of verdicts, found a list holding str. Nothing was written.\n' >"$WORK/want"
+expect_text "@harness-076 the first entry that is not an object is named" "$WORK/want" "$WORK/err"
+
+# @harness-077  an id that is not a string is printed as JSON
+FX="$(score_fixture ids '[{"id": "zz", "verdict": "pass"}, {"id": 7, "verdict": "pass"}, {"id": null, "verdict": "pass"}, {"verdict": "pass"}, {"id": 1.5, "verdict": "pass"}, {"id": ["a", 1, {"k": "v"}], "verdict": "pass"}]')"
+run "$FX" "${SCORE[@]}" 01 --verdicts v.json
+printf '%s\n' 'score: verdicts for items not on the checklist (the spec is the only author of the item list): zz, 7, null, null, 1.5, ["a", 1, {"k": "v"}]' >"$WORK/want"
+expect_text "@harness-077 ids as JSON" "$WORK/want" "$WORK/err"
+
+# @harness-078 and @harness-079  the scoreboard counts ids, and nothing recorded is nothing
+FX="$(new_fixture board-dup)"
+mkdir -p "$FX/harness/cycles/01"
+printf '{"items": [{"id": "a", "verdict": "pass"}, {"id": "a", "verdict": "fail"}, {"id": "b", "verdict": "pass"}]}' >"$FX/harness/cycles/01/scores.json"
+run "$FX" "${BOARD[@]}" 01
+if head -1 "$WORK/out" | grep -Fxq "cycle 01: 1/2 checklist items pass"; then ok "@harness-078 an id named twice counts once, the last entry winning"
+else bad "@harness-078 an id named twice counts once, the last entry winning"; sed 's/^/        /' "$WORK/out"; fi
+FX="$(new_fixture board-empty-prev)"
+mkdir -p "$FX/harness/cycles/01" "$FX/harness/cycles/02"
+printf '{"items": []}' >"$FX/harness/cycles/01/scores.json"
+printf '{"items": [{"id": "a", "verdict": "pass"}]}' >"$FX/harness/cycles/02/scores.json"
+run "$FX" "${BOARD[@]}" 02
+printf 'cycle 02: 1/1 checklist items pass\n\n  no previous cycle to diff against: baseline cycle.\n' >"$WORK/want"
+expect_text "@harness-079 a predecessor that recorded nothing is a baseline" "$WORK/want" "$WORK/out"
+
+# @harness-080  the exact fraction, rounded half to even
+FX="$(new_fixture board-exact)"
+mkdir -p "$FX/harness/cycles/00" "$FX/harness/cycles/01"
+"${PY[@]}" - "$FX" <<'PYEOF'
+import json, sys
+root = sys.argv[1]
+for c, passing in (("00", 1), ("01", 2)):
+    items = [{"id": f"i{k}", "verdict": "pass" if k < passing else "fail"} for k in range(2000)]
+    open(f"{root}/harness/cycles/{c}/scores.json", "w").write(json.dumps({"items": items}))
+PYEOF
+run "$FX" "${BOARD[@]}" 01
+if grep -Fxq "    cycle 00   1/2000 =   0.0%" "$WORK/out"; then ok "@harness-080 1/2000 is 0.05% exactly, and the even neighbour is 0.0"
+else bad "@harness-080 1/2000 is 0.05% exactly, and the even neighbour is 0.0"; sed 's/^/        /' "$WORK/out"; fi
+
+# @harness-081  a slice whose number is not all digits stops both tools
+for tool in stamp_item_ids gen_checklist; do
+  FX="$(new_fixture "slice-$tool")"
+  mkdir -p "$FX/docs/plan/1a-booking"
+  printf 'Feature: F\n  Scenario: s\n' >"$FX/docs/plan/1a-booking/spec.feature"
+  [ "$tool" = stamp_item_ids ] && run "$FX" "${STAMP[@]}" || run "$FX" "${GEN[@]}"
+  printf '%s: docs/plan/1a-booking looks like a slice, but its number "1a" is not all digits, so its scenarios could never carry ids the checklist recognises. Rename it.\n' "$tool" >"$WORK/want"
+  expect_text "@harness-081 $tool refuses the slice" "$WORK/want" "$WORK/err"
+  expect_rc "@harness-081 $tool exit 1" 1 "$RC"
+done
+
+# @harness-082  a title may hold any character but a line break
+FX="$(new_fixture title-chars)"
+mkdir -p "$FX/docs/plan/01-a"
+printf '  @item-01-001\n  Scenario: one\xe2\x80\xa8two\xc2\x85three\n' >"$FX/docs/plan/01-a/spec.feature"
+run "$FX" "${GEN[@]}"
+if grep -Fq "$(printf '"name": "one\xe2\x80\xa8two\xc2\x85three"')" "$WORK/out"; then ok "@harness-082 U+2028 and U+0085 are part of the title"
+else bad "@harness-082 U+2028 and U+0085 are part of the title"; sed 's/^/        /' "$WORK/out" "$WORK/err" | head; fi
+
+# @harness-083  a stamped tag ends its line the way its scenario does
+FX="$(new_fixture crlf)"
+mkdir -p "$FX/docs/plan/01-a"
+printf 'Feature: F\r\n  Scenario: one\r\n' >"$FX/docs/plan/01-a/spec.feature"
+run "$FX" "${STAMP[@]}"
+printf 'Feature: F\r\n  @item-01-001\r\n  Scenario: one\r\n' >"$WORK/want"
+expect_text "@harness-083 the inserted tag line ends in CRLF" "$WORK/want" "$FX/docs/plan/01-a/spec.feature"
+
+# =================================================================================
 head1 "$PASSED ok, $FAILED failed, $SKIPPED skipped"
 if [ "$FAILED" -gt 0 ]; then
   echo "the candidate is NOT identical to the instrument in service."
