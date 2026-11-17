@@ -1,0 +1,92 @@
+{
+ "items": [
+  {
+   "id": "01-001",
+   "name": "The weekly schedule shows each dressing room's own sauna days",
+   "rule": "Availability is per dressing room, per weekday",
+   "source": "docs/plan/01-booking-core/spec.feature:13",
+   "verdict": "pass",
+   "evidence": "Grid read from the running app: Tuesday 17:00 shows 'free' under pukuhuone 8; pukuhuone 9's Tuesday cell is empty, and its Thursday, Friday and Saturday 17:00 cells show 'free'."
+  },
+  {
+   "id": "01-002",
+   "name": "A standing slot cannot be requested on a closed day",
+   "rule": "Availability is per dressing room, per weekday",
+   "source": "docs/plan/01-booking-core/spec.feature:21",
+   "verdict": "pass",
+   "evidence": "Requested Tuesday 17:00 in pukuhuone 9 through the request form: 'pukuhuone 9 has no sauna day on Tuesday. pukuhuone 9 opens Thursday at 17:00, Friday at 17:00 and Saturday at 17:00.'"
+  },
+  {
+   "id": "01-003",
+   "name": "A requested slot on an open day is confirmed",
+   "rule": "A slot is confirmed against availability and held by one household",
+   "source": "docs/plan/01-booking-core/spec.feature:30",
+   "verdict": "pass",
+   "evidence": "Requested Tuesday 17:00 in pukuhuone 8 for apartment 12: 'Standing slot confirmed: pukuhuone 8, every Tuesday from 17:00 to 18:30, held by apartment 12.' The schedule then shows 'held by apartment 12'."
+  },
+  {
+   "id": "01-004",
+   "name": "A held slot cannot be confirmed for another household",
+   "rule": "A slot is confirmed against availability and held by one household",
+   "source": "docs/plan/01-booking-core/spec.feature:37",
+   "verdict": "pass",
+   "evidence": "With apartment 12 holding it, apartment 3 requested Tuesday 17:00 in pukuhuone 8: 'Tuesday at 17:00 in pukuhuone 8 is held: it cannot be confirmed for you.' The schedule still shows apartment 12."
+  },
+  {
+   "id": "01-005",
+   "name": "A second standing slot is granted while there is room",
+   "rule": "A household may hold a second standing slot when there is room",
+   "source": "docs/plan/01-booking-core/spec.feature:46",
+   "verdict": "pass",
+   "evidence": "Apartment 12 holding Tuesday in pukuhuone 8 requested Thursday 17:00 in pukuhuone 9: confirmed; the schedule shows apartment 12 in both cells."
+  },
+  {
+   "id": "01-006",
+   "name": "A second standing slot is refused when the schedule is full",
+   "rule": "A household may hold a second standing slot when there is room",
+   "source": "docs/plan/01-booking-core/spec.feature:54",
+   "verdict": "pass",
+   "evidence": "Apartment 12 holding Tuesday, apartments 4, 5 and 6 holding Thursday to Saturday, apartment 12 requested Thursday: 'There is no room: every standing slot in sauna F's weekly schedule is held'. Apartment 12 still holds exactly one."
+  },
+  {
+   "id": "01-007",
+   "name": "Confirming a booking updates all three derived views together",
+   "rule": "One booking is the single source of truth for the list, the timer and the billing",
+   "source": "docs/plan/01-booking-core/spec.feature:64",
+   "verdict": "pass",
+   "evidence": "After confirming Tuesday 17:00 in pukuhuone 8 for apartment 12: posted slot list 'pukuhuone 8, Tuesday 17:00–18:30: apartment 12'; heater schedule 'sauna F, pukuhuone 8: Tuesday 17:00–18:30'; invoicing signal 'charge starts: apartment 12 ... (standing-slot fee)'."
+  },
+  {
+   "id": "01-008",
+   "name": "Giving up a slot leaves no derived view still claiming it",
+   "rule": "One booking is the single source of truth for the list, the timer and the billing",
+   "source": "docs/plan/01-booking-core/spec.feature:72",
+   "verdict": "pass",
+   "evidence": "After apartment 12 gave the slot up: the posted slot list and heater schedule are empty, the invoicing signal records 'charge ends' and no running charge remains, and the schedule shows the slot free. No view disagrees."
+  },
+  {
+   "id": "01-009",
+   "name": "Two households request the same free slot with neither request answered",
+   "rule": "Two households requesting one free slot leave exactly one holder",
+   "source": "docs/plan/01-booking-core/spec.feature:108",
+   "verdict": "pass",
+   "evidence": "Two raw HTTP requests, both sent before either body, so neither was answered before the other was made: one 'Standing slot confirmed', one 'is held: it cannot be confirmed for you'. One holder in the schedule and in all three views."
+  },
+  {
+   "id": "01-010",
+   "name": "The race is run one hundred times and never confirms twice",
+   "rule": "Two households requesting one free slot leave exactly one holder",
+   "source": "docs/plan/01-booking-core/spec.feature:125",
+   "verdict": "pass",
+   "evidence": "The same race, 100 times, each on a freshly started app: 100 runs confirmed exactly one household, 0 confirmed both, 0 refused both."
+  },
+  {
+   "id": "01-011",
+   "name": "The refusal for a closed day is judged usable",
+   "rule": "A refusal is judged by whether a resident can act on it without asking again",
+   "source": "docs/plan/01-booking-core/spec.feature:156",
+   "verdict": "pass",
+   "evidence": "The refusal, alone: 'pukuhuone 9 has no sauna day on Tuesday. pukuhuone 9 opens Thursday at 17:00, Friday at 17:00 and Saturday at 17:00. Tuesday at 17:00 in pukuhuone 8 is free: you can request that instead.' A request that would be accepted can be named from it. Graded by an agent that had read the configuration, so the item's condition (a person who has not) is approximated, not met."
+  }
+ ]
+}
