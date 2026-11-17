@@ -53,6 +53,7 @@ function calls(fx) {
 				prompt: flag("-p"),
 				system: flag("--append-system-prompt"),
 				allow: JSON.parse(flag("--settings")).permissions.allow,
+				deny: JSON.parse(flag("--settings")).permissions.deny,
 				mode: flag("--permission-mode"),
 				session: flag("--session-id"),
 				resume: flag("--resume"),
@@ -87,8 +88,11 @@ test("Claude Code as the worker: scoped permissions, a session per round, TDD me
 	assert.equal(k.length, 4);
 	assert.ok(k.every((x) => x.mode === "dontAsk" && x.model === "opus" && x.session && !x.resume));
 	assert.equal(new Set(k.map((x) => x.session)).size, 4, "every round is a new session: the orient step");
-	assert.ok(k[0].allow.includes("Edit(./docs/plan/**)") && !k[0].allow.some((a) => a.includes("impl")));
-	assert.ok(k[1].allow.includes("Edit(./impl/**)") && !k[1].allow.some((a) => a.includes("docs")));
+	// The plan round may write docs/plan only: everything beside it, at every level, is denied.
+	assert.ok(k[0].allow.includes("Edit") && k[0].deny.includes("Edit(./impl/**)") && k[0].deny.includes("Write(./harness/**)"));
+	assert.ok(k[0].deny.includes("Edit(./.gitignore)") && !k[0].deny.some((d) => d.includes("docs/plan")) && !k[0].deny.includes("Edit(./docs/**)"));
+	// A build round may write impl only.
+	assert.ok(k[1].deny.includes("Edit(./docs/**)") && k[1].deny.includes("Write(./harness/**)") && !k[1].deny.some((d) => d.includes("impl")));
 	assert.match(k[1].system, /TDD state GREEN/);
 	assert.match(k[2].system, /TDD state RED/);
 	assert.match(k[1].prompt, /CLAIM_DONE:/);

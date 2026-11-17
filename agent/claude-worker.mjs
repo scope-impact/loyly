@@ -7,10 +7,10 @@
 // a Claude Code session the loop is started from, so no model API key is needed.
 //
 // The guardrails carry over, each to its nearest Claude Code equivalent:
-//   - spec-lock and scope fence: permission rules. `--permission-mode dontAsk` refuses
-//     every tool call that no allow rule covers, and Edit/Write are allowed only inside the
-//     round's scope. Refusals come back in `permission_denials` and are recorded. Bash is
-//     allowed, so its side effects are still reverted by the loop after the round.
+//   - spec-lock and scope fence: permission rules. Edit/Write are denied on everything
+//     beside the round's scope (see permissionsFor for why it is deny rules and not allow
+//     rules). Refusals come back in `permission_denials` and are recorded. Bash is allowed,
+//     so its side effects are still reverted by the loop after the round.
 //   - orient step: every round is a new Claude Code session, so nothing is remembered.
 //   - ratified DONE: Claude cannot call the loop's claim_done tool, so it ends its answer
 //     with a `CLAIM_DONE:` line and the loop runs the gate itself. The claimant still
@@ -20,17 +20,48 @@
 //     interrupted, instead of starting the round over.
 
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 
 export const CLAIM = /^\s*CLAIM_DONE:\s*(.+)$/m;
 
-/** Claude Code permission rules for a round whose edits are limited to `scope`. */
-export function permissionsFor(scope) {
+/**
+ * Claude Code permission rules for a round whose edits are limited to `scope`.
+ *
+ * Edit and Write are allowed in general and denied on every sibling of the scope, at every
+ * level of its path: for impl/ that is every other top-level entry; for docs/plan it is
+ * every top-level entry but docs/, and every entry of docs/ but plan/. A round with no scope
+ * (a review) gets no Edit or Write at all.
+ *
+ * Until 2026-11-17 it was the other way round, Edit and Write allowed only under the scope
+ * and everything else left to dontAsk's default refusal. In the first real cycle that
+ * default refused edits inside impl/ from round 5 on, while the same rules had allowed them
+ * in round 1, and the builder (rightly) would not route around a refusal through Bash, so
+ * the cycle stalled. The cause did not reproduce outside the loop. A deny rule that
+ * misfires refuses something that should be refused anyway; and either way the scope fence
+ * after the round, not these rules, is what enforces the scope.
+ */
+export function permissionsFor(scope, root) {
 	const allow = ["Read", "Glob", "Grep", "Bash"];
-	for (const dir of scope) allow.push(`Edit(./${dir}/**)`, `Write(./${dir}/**)`);
-	return { permissions: { allow, deny: ["WebFetch", "WebSearch"] } };
+	const deny = ["WebFetch", "WebSearch"];
+	if (scope.length === 0) return { permissions: { allow, deny } };
+	allow.push("Edit", "Write");
+	const keep = new Set();
+	for (const dir of scope) {
+		const parts = dir.split("/");
+		parts.forEach((_, i) => keep.add(parts.slice(0, i + 1).join("/")));
+	}
+	const walk = (rel) => {
+		for (const entry of readdirSync(path.join(root, rel), { withFileTypes: true })) {
+			const p = rel ? `${rel}/${entry.name}` : entry.name;
+			if (p === ".git" || entry.name === "node_modules") continue;
+			if (!keep.has(p)) deny.push(`Edit(./${p}${entry.isDirectory() ? "/**" : ""})`, `Write(./${p}${entry.isDirectory() ? "/**" : ""})`);
+			else if (entry.isDirectory() && !scope.includes(p)) walk(p);
+		}
+	};
+	walk("");
+	return { permissions: { allow, deny } };
 }
 
 /** Where Claude Code keeps a session's transcript; its absence means the session never started. */
@@ -54,7 +85,7 @@ export async function runClaudeRound(options) {
 }
 
 async function attempt({ root, sessionId, prompt, system, scope, model, bin, timeoutMs, log }, continuing) {
-	const settings = JSON.stringify(permissionsFor(scope));
+	const settings = JSON.stringify(permissionsFor(scope, root));
 	const args = [
 		"-p",
 		continuing
