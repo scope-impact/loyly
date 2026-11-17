@@ -71,7 +71,7 @@ It fails closed (exit 1) unless every gate passes, and prints the gate lines the
 
 Needs `allium` (3.6), `jq`, `python3`, the Clojure CLI and a JVM.
 
-`deps.edn` points Grain at `/Users/sathish.narayanan/Documents/git/loyly/grain`
+`deps.edn` points Grain at this checkout's pinned `grain` submodule
 (`:local/root`), because the spec-v2 worktree has no submodules. In a checkout with the
 `grain` submodule initialised, `../../../grain/projects/...` works the same.
 

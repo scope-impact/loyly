@@ -1,0 +1,10 @@
+[
+  {
+    "id": "profile",
+    "note": "The supplied Grain reader initially used Java\u2019s default temporary directory for copied SQLite snapshots before removing them. An empty harness/v2/work/tmp was also accidentally created and removed; subsequent Java temporary files are directed under work/."
+  },
+  {
+    "id": "grading-fixtures",
+    "note": "In many gate-focused fixtures the default model stub returned a fixed researcher evidence string and a pass without driving the fixture candidate over its seam; cycle and gate effects remain directly observed, but these runs do not independently verify that researcher evidence was grounded in candidate responses. Dedicated score and isolation cases used their stated branching and observed score/store behavior."
+  }
+]

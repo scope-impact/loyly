@@ -1,0 +1,307 @@
+[
+  {
+    "id": "06-001",
+    "verdict": "pass",
+    "evidence": "A green HTTP candidate and numeric pass judge produced a passed cycle and the eleven specified recorded effects in order, including gate-attempt-passed."
+  },
+  {
+    "id": "06-002",
+    "verdict": "pass",
+    "evidence": "After R-1 failed at fence, a second start for R-1 and C-2 returned run-already-started; the full run list contained R-1 once for C-1."
+  },
+  {
+    "id": "06-003",
+    "verdict": "pass",
+    "evidence": "While R-1\u2019s builder slept, starting R-2 returned run-in-progress, R-2 progress was null, and R-1 progress was still running."
+  },
+  {
+    "id": "06-004",
+    "verdict": "pass",
+    "evidence": "After R-1 passed, starting R-2 for C-1 returned cycle-already-run, and R-2 progress was null."
+  },
+  {
+    "id": "06-005",
+    "verdict": "pass",
+    "evidence": "Started against a fresh Git repository with the nonexistent deadbeef commit; start-run returned not-a-commit and run-progress returned null. No builder host was configured or launched."
+  },
+  {
+    "id": "06-008",
+    "verdict": "pass",
+    "evidence": "With a committed plan containing no scenario, start-run halted at checklist; run-progress showed Measurement\u2019s empty-checklist refusal and no self-check or fence effects."
+  },
+  {
+    "id": "06-009",
+    "verdict": "pass",
+    "evidence": "A committed plan with a second unstamped scenario produced a recorded stamp and halted at stamp because identities differed; no pin or checklist followed."
+  },
+  {
+    "id": "06-010",
+    "verdict": "pass",
+    "evidence": "A self-check exiting 1 with golden checklist differs produced a failed cycle at fence for harness-self-check-failed with that detail; self-check was the last effect."
+  },
+  {
+    "id": "06-011",
+    "verdict": "pass",
+    "evidence": "The self-check printed SKIP bb-tools and exited 0; its recorded passed event lists bb-tools in skipped-checks."
+  },
+  {
+    "id": "06-012",
+    "verdict": "pass",
+    "evidence": "Fencing impl and nonexistent harness/cycles produced fenced-path-matched-nothing, followed by fail-cycle and failure at fence; no builder launched."
+  },
+  {
+    "id": "06-013",
+    "verdict": "pass",
+    "evidence": "The builder recorded the plan and harness in its clean room, an empty candidate scope, one commit, and an object listing containing neither impl nor harness/cycles."
+  },
+  {
+    "id": "06-014",
+    "verdict": "pass",
+    "evidence": "A red first suite and green repair produced two builder launches with distinct session identities; the recorded first end preceded the second start, and the cycle passed."
+  },
+  {
+    "id": "06-015",
+    "verdict": "pass",
+    "evidence": "The builder copied the green HTTP candidate and exited 1; regenerate recorded its digest, the candidate was gated, and the cycle passed."
+  },
+  {
+    "id": "06-016",
+    "verdict": "pass",
+    "evidence": "The builder exited 0 leaving its scope empty; progress showed no regenerate effect, a recorded fail-cycle, and failure at regenerate for candidate-not-regenerated."
+  },
+  {
+    "id": "06-017",
+    "verdict": "pass",
+    "evidence": "A builder sleeping 30 seconds under a two-second budget appeared in the live process sample and was absent after the run; the cycle failed at regenerate for budget."
+  },
+  {
+    "id": "06-018",
+    "verdict": "pass",
+    "evidence": "An already-answering port caused three seam-answered-before-boot refusals, each followed by gate-refusal, then infrastructure failure; the candidate launch log remained absent."
+  },
+  {
+    "id": "06-019",
+    "verdict": "pass",
+    "evidence": "With a red suite and one attempt, gate recorded suite-red, the launch entrypoint did not run, and the cycle failed for gate-attempts-exhausted."
+  },
+  {
+    "id": "06-020",
+    "verdict": "pass",
+    "evidence": "With executable test.sh and no start.sh, the gate recorded gate-attempt-failed for contract-missing."
+  },
+  {
+    "id": "06-021",
+    "verdict": "pass",
+    "evidence": "A green candidate served water instead of sauna; gate recorded identity-probe-failed with marker absent."
+  },
+  {
+    "id": "06-022",
+    "verdict": "pass",
+    "evidence": "The builder\u2019s delayed writer changed its suite after exit, while the gate passed its copied candidate; install and regenerate recorded equal digests."
+  },
+  {
+    "id": "06-023",
+    "verdict": "pass",
+    "evidence": "After the red first suite, repair recorded verification-repair and named the failed gate\u2019s evidence root; the second builder saw clean-room files, previous-candidate and gate-evidence, and write attempts to both latter directories failed."
+  },
+  {
+    "id": "06-024",
+    "verdict": "pass",
+    "evidence": "With every suite red and three attempts allowed, the builder launched three times, the cycle failed for gate-attempts-exhausted, and no grading or file-verdicts occurred."
+  },
+  {
+    "id": "06-026",
+    "verdict": "pass",
+    "evidence": "The same researcher code branched on item identity and failed for 01-002; only 01-001 was filed, and Measurement recorded 01-002 unreached with 1 of 2 passing and a passed cycle."
+  },
+  {
+    "id": "06-034",
+    "verdict": "pass",
+    "evidence": "R-1 failed at fence and R-2 halted at checklist; progress queries five seconds later returned the same respective statuses and effect results as the initial readings."
+  },
+  {
+    "id": "06-035",
+    "verdict": "pass",
+    "evidence": "Two progress queries after the successful run returned identical run objects, both passed."
+  },
+  {
+    "id": "06-036",
+    "verdict": "pass",
+    "evidence": "A probe that accepted only the configured URL and checked its marker passed; the HTTP gate and cycle passed."
+  },
+  {
+    "id": "06-037",
+    "verdict": "pass",
+    "evidence": "A suite that created and removed a temporary directory inside its candidate tree passed the gate; install and regenerate recorded the same digest."
+  },
+  {
+    "id": "06-038",
+    "verdict": "pass",
+    "evidence": "The self-check printed the legacy SKIP line and exited 0; its passed event lists the entire text after SKIP as the skipped check."
+  },
+  {
+    "id": "06-039",
+    "verdict": "pass",
+    "evidence": "The stdio suite, probe and store check passed; gate recorded budget 30, one poll, answer 1 and answered as the context, and the cycle passed without a gate refusal."
+  },
+  {
+    "id": "06-040",
+    "verdict": "pass",
+    "evidence": "The stdio probe recorded the absolute gate-room start.sh path and 30, with GATE_STORE outside that room and no LOYLY_ variables; the store-check argument matched that store."
+  },
+  {
+    "id": "06-041",
+    "verdict": "pass",
+    "evidence": "A red stdio suite recorded suite-red; its saved environment contained neither GATE_STORE nor LOYLY_ variables, and neither probe nor store check ran."
+  },
+  {
+    "id": "06-042",
+    "verdict": "pass",
+    "evidence": "The stdio probe exited 1 with the specified boot-budget message; gate recorded identity-probe-failed with that detail, and the store check did not run."
+  },
+  {
+    "id": "06-043",
+    "verdict": "pass",
+    "evidence": "The store check failed with the specified event message; gate recorded identity-probe-failed with that detail and the cycle failed for gate-attempts-exhausted."
+  },
+  {
+    "id": "06-044",
+    "verdict": "pass",
+    "evidence": "A stdio suite that required plan/01-a/spec.feature in its working directory passed the gate; the install and regenerate events carried the same candidate digest."
+  },
+  {
+    "id": "06-045",
+    "verdict": "pass",
+    "evidence": "With a passing stdio probe and no store-check command, progress showed a gate halt for effect-could-not-run and no gate effect result."
+  },
+  {
+    "id": "06-046",
+    "verdict": "pass",
+    "evidence": "Two stdio runs differed only in the store-check command argument one versus two; both first self-checks passed and their harness digests differed."
+  },
+  {
+    "id": "06-047",
+    "verdict": "pass",
+    "evidence": "A committed 01-a symlink to ../spec/a stamped both scenarios; the checklist named 01-001 and 01-002 under 01-a, and the run passed."
+  },
+  {
+    "id": "06-048",
+    "verdict": "pass",
+    "evidence": "With PLAN_SLICES=02 and two committed slices, the only stamp was for 02 and the checklist contained 02-001 alone."
+  },
+  {
+    "id": "06-049",
+    "verdict": "pass",
+    "evidence": "Both builder launches received the configured image path as their third argument, and regenerate and repair details each named builder-clojure and its digest."
+  },
+  {
+    "id": "06-050",
+    "verdict": "pass",
+    "evidence": "With builder-clojure configured and absent from the images directory, start-run returned builder-image-missing and run-progress returned null; no builder launched."
+  },
+  {
+    "id": "06-051",
+    "verdict": "pass",
+    "evidence": "Two successful runs shared one store; the second stamp produced no new identity, and C-2\u2019s scoreboard named C-1 as its previous cycle."
+  },
+  {
+    "id": "06-052",
+    "verdict": "pass",
+    "evidence": "The cut\u2019s probe sourced harness/config.sh relative to its own path and checked the served marker; the gate passed and install and regenerate had the same digest."
+  },
+  {
+    "id": "06-053",
+    "verdict": "pass",
+    "evidence": "The command ran once in the project repository with the cut tree, separate candidate copy and empty evidence directory; its candidate digest matched install, the entrypoint did not run, and gate recorded 20 polls, 10 seconds, poll 3 and the printed probe line."
+  },
+  {
+    "id": "06-054",
+    "verdict": "pass",
+    "evidence": "The first gate command recorded suite-red with detail 3 of 65 tests failed; the repair room contained its evidence file without write permission, and the second gate attempt passed."
+  },
+  {
+    "id": "06-055",
+    "verdict": "pass",
+    "evidence": "The gate command returned seam-answered-before-boot; progress showed three refused gate effects each followed by gate-refusal, then cycle failure for infrastructure."
+  },
+  {
+    "id": "06-056",
+    "verdict": "pass",
+    "evidence": "A gate command ending infrastructure the world did not come up halted at gate for effect-could-not-run with that detail; progress contained no gate result, fail-cycle, or cycle conclusion."
+  },
+  {
+    "id": "06-057",
+    "verdict": "pass",
+    "evidence": "Three passing runs used no gate command, gate-2, and gate-3; their harness digests differed, and the first matched SHA-256 of the configuration bytes, self-check command text and probe bytes in order."
+  },
+  {
+    "id": "06-059",
+    "verdict": "pass",
+    "evidence": "The run passed with eleven effect results; the Grain event-store check confirmed each context event and effect result lies in its named leaf of the cycle tick or a delegated child."
+  },
+  {
+    "id": "06-060",
+    "verdict": "pass",
+    "evidence": "The HTTP server returned 503 for its first three requests; gate recorded a pass at poll 5 of 20 with a 10-second budget, and attempt progress showed margin 15."
+  },
+  {
+    "id": "06-061",
+    "verdict": "pass",
+    "evidence": "The passed second attempt followed a red first suite; Grain showed install, self-check and gate inside distinct gate-attempt.v1 child ticks, with repair inside the first child tick."
+  },
+  {
+    "id": "06-062",
+    "verdict": "pass",
+    "evidence": "A candidate copy in a temporary folder outside any .pi ancestor ran a green HTTP cycle and recorded gate-attempt-passed; the temporary folder was removed afterward."
+  },
+  {
+    "id": "06-064",
+    "verdict": "pass",
+    "evidence": "The numeric pass/fail judge replies produced separate checklist/01-001 and checklist/01-002 score events in distinct grade.v1 child ticks; Measurement filed booked and no receipt, 1 of 2 passing, and the cycle passed."
+  },
+  {
+    "id": "06-065",
+    "verdict": "pass",
+    "evidence": "The first researcher produced E-ONE, and its judge request contained E-ONE; neither the next researcher request nor the 01-002 judge request contained it."
+  },
+  {
+    "id": "06-066",
+    "verdict": "pass",
+    "evidence": "The first researcher request contained the scenario, seam and event model. Its shell returned Linux and a grading-room path whose files were harness, impl and plan; listing the parent showed only that item\u2019s grading room."
+  },
+  {
+    "id": "06-067",
+    "verdict": "pass",
+    "evidence": "The judge returned a pass level without reasoning for 01-002; progress and Grain showed only 01-001 scored, and Measurement filed 01-002 as unreached with 1 of 2 passing."
+  },
+  {
+    "id": "06-068",
+    "verdict": "pass",
+    "evidence": "With only r-1 approved and the fixture rubric digest different, run-progress showed a grader halt for refused-before-the-cycle naming that digest; no self-check, fence, or builder launch occurred."
+  },
+  {
+    "id": "06-069",
+    "verdict": "pass",
+    "evidence": "The model returned HTTP 400 for all researcher calls; file-verdicts was refused zero-verdicts, fail-score-stage was recorded, the cycle failed at score, and the builder launched only before scoring."
+  },
+  {
+    "id": "06-070",
+    "verdict": "pass",
+    "evidence": "The runner and its sleeping builder were stopped after five seconds and restarted on the same store; R-1 passed, the two builder launches had the same session identity, and each pre-builder effect and regenerate appeared once."
+  },
+  {
+    "id": "06-071",
+    "verdict": "pass",
+    "evidence": "The first instruction file was exactly INSTRUCTION-7; the repair file was that text plus one closing paragraph naming the previous candidate and gate evidence paths."
+  },
+  {
+    "id": "06-072",
+    "verdict": "pass",
+    "evidence": "A stub model returned HTTP 400 to render requests; the run halted at render for effect-could-not-run, with no regenerate, fail-cycle, cycle conclusion, or builder launch."
+  },
+  {
+    "id": "06-073",
+    "verdict": "pass",
+    "evidence": "During the sleeping builder, progress showed R-1 running with its tick ID, completed fence and render nodes, and regenerate last with status running."
+  }
+]

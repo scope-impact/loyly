@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted (2026-11-13). Replaced by `cycle.v1` (ADR 0001) once its shadow comparison passes.
+Accepted (2026-11-13) as the bootstrap path for rebuilding slice 06. The cycle-23 `cycle.v1`
+build was accepted on 2026-11-17 after its same-cut shadow matched legacy; that runner drives
+product cycles, while the legacy shell remains the reference and builds replacements for 06.
 Lifts "Self-hosting stopped" (`../../decisions.md`) for this one regeneration.
 
 ## Context

@@ -1,0 +1,5 @@
+verdicts: sha256:cb0b22b40ce350e0a6ecb2946f2da68ea86b43adc0ecbdae0a34e10f4f33b647 verdicts.json
+by: codex subagent gpt-6.1-terra, grader-instruction-06
+profile.traces.otlp.json: sha256:ba41f57352937f15608f7d665106c0b17c46ae78d94ed19010c6c02f8c21610c
+profile.metrics.otlp.json: sha256:13a9f083c084cf5cc6bb4b85787163f04320dce71b7278b514eea6a6b02537c5
+profile: sha256:d8aeef8709caa5489df07fcb0ae4a4d00611530eb1ad614f3d8d8857b69a8167 profile.json

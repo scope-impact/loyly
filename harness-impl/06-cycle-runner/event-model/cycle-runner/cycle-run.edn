@@ -1,0 +1,149 @@
+;; .pi/spec/cycle-runner/event-model/cycle-run.edn: aggregate CycleRun, on the one store (one
+;; per run). Slice 06 (decisions.md, "Slice 06 (draft)", "Spec round 7b"; rewritten as the one
+;; tree cycle-runner/cycle.v1 in "Spec round 18"). A run performs one cycle's effects in
+;; the real world and records each effect's result into the context that owns it, by that
+;; context's command on the one store; its own facts are which effect it performed and what the
+;; context answered, and how the run ended. The judge's scores are ORC's own events
+;; (:judge/score-emitted), filed with Measurement by the score leaf. It owns no rule of the five
+;; contexts.
+;; Legacy: the operator's hands between fence.sh, a builder session, verify.sh, a grading
+;; subagent's verdicts file, score.clj and scoreboard.clj.
+;; Allium: ../allium/cycle-run.allium.
+{:cycle-runner
+ {:commands
+  {:cycle-runner/start-run
+   {:description "Start a run of one cycle: the cut's commit, the selection, the budget and the approved grader digests. The run is one tick of cycle-runner/cycle.v1 on the one store, and it performs every effect of the cycle, the grading and the score included, before the method responds. Issued by: operator."
+    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "StartRun"}]
+    :schema [:map
+             [:run-id :string]
+             [:cycle-id :string]
+             [:cut-id :string]
+             [:commit [:re "^[0-9a-f]{40,64}$"]]
+             [:selection-id :string]
+             [:budget [:map
+                       [:gate-attempt-limit [:int {:min 1 :max 3}]]
+                       [:max-outer-cycles pos-int?]
+                       [:max-continuations [:int {:min 0 :max 3}]]
+                       [:stage-timeouts-seconds [:map [:fence pos-int?] [:regenerate pos-int?] [:gate pos-int?] [:score pos-int?]]]]]
+             [:grader-digests [:vector {:min 1} :string]]]
+    :reads #{:cycle-runner/runs}
+    :produces #{:cycle-runner/run-started}}
+   :cycle-runner/record-effect
+   {:description "Record one effect's result: the effect a leaf performed, the context command it was recorded through, and what the context replied (recorded, with the events it replied, verbatim, or refused, with its refusal code as heard). Issued by: the leaf of cycle.v1, or of a workflow it delegates to, named for the effect, after it performed the effect (seam.md, \"The tree\")."
+    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "RecordEffect"}]
+    :schema [:map
+             [:run-id :string]
+             [:effect [:enum "stamp" "pin" "checklist" "self-check" "fence" "fail-cycle" "regenerate" "install"
+                       "gate" "gate-refusal" "repair" "file-verdicts" "file-score" "fail-score-stage"]]
+             [:attempt [:int {:min 0 :max 3}]]
+             [:context [:enum "specification" "cycle-preparation" "grader-lifecycle" "regeneration-cycle" "measurement"]]
+             [:method :string]
+             [:outcome [:enum "recorded" "refused"]]
+             [:refusal {:optional true} :string]
+             [:events [:vector :map]]
+             [:detail :string]]
+    :reads #{:cycle-runner/runs}
+    :produces #{:cycle-runner/effect-recorded}}
+   :cycle-runner/conclude-run
+   {:description "Conclude the run as its cycle concluded in the Regeneration cycle: passed or failed, with the cycle's progress as read. Issued by: a conclude leaf of cycle.v1, when the cycle's progress shows it concluded."
+    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "ConcludeRunPassed"}
+                   {:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "ConcludeRunFailed"}]
+    :schema [:map
+             [:run-id :string]
+             [:cycle-status [:enum "passed" "failed"]]
+             [:cycle :map]]
+    :reads #{:cycle-runner/runs}
+    :produces #{:cycle-runner/run-concluded}}
+   :cycle-runner/halt-run
+   {:description "Halt the run: an effect could not be performed at all (a handed-in command could not be started, a node that calls the model failed), so nothing was recorded for it; or the stamp, the pin or the checklist was refused before the cycle opened, the stamp handed out identities that are not the plan's own, or the sealed grader is not approved, so there is no cycle to fail. A halt is the runner's fact, never the cycle's conclusion. Issued by: the halt leaf of cycle.v1."
+    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "HaltRun"}]
+    :schema [:map
+             [:run-id :string]
+             [:effect :string]
+             [:reason [:enum "effect-could-not-run" "refused-before-the-cycle"]]
+             [:detail :string]]
+    :reads #{:cycle-runner/runs}
+    :produces #{:cycle-runner/run-halted}}}
+  :events
+  {:cycle-runner/run-started
+   {:description "A run of one cycle started: its cut, commit, selection, budget and approved grader digests."
+    :schema [:map
+             [:run-id :string]
+             [:cycle-id :string]
+             [:cut-id :string]
+             [:commit :string]
+             [:selection-id :string]
+             [:budget [:map
+                       [:gate-attempt-limit [:int {:min 1 :max 3}]]
+                       [:max-outer-cycles pos-int?]
+                       [:max-continuations [:int {:min 0 :max 3}]]
+                       [:stage-timeouts-seconds [:map [:fence pos-int?] [:regenerate pos-int?] [:gate pos-int?] [:score pos-int?]]]]]
+             [:grader-digests [:vector :string]]
+             [:started-at inst?]]}
+   :cycle-runner/effect-recorded
+   {:description "An effect was performed and its result recorded into a context: the command, and the context's reply as heard."
+    :schema [:map
+             [:run-id :string]
+             [:position pos-int?]
+             [:effect :string]
+             [:attempt :int]
+             [:context :string]
+             [:method :string]
+             [:outcome [:enum "recorded" "refused"]]
+             [:refusal {:optional true} :string]
+             [:events [:vector [:map {:closed false}]]]
+             [:detail :string]
+             [:performed-at inst?]]}
+   :cycle-runner/run-concluded
+   {:description "The run concluded as its cycle did: passed, or failed at the cycle's stage for the cycle's reason. cycle is the Regeneration cycle's progress of the cycle as read at the conclusion, verbatim."
+    :schema [:map
+             [:run-id :string]
+             [:cycle-id :string]
+             [:cycle-status [:enum "passed" "failed"]]
+             [:cycle [:map {:closed false}]]
+             [:concluded-at inst?]]}
+   :cycle-runner/run-halted
+   {:description "The run halted: an effect could not be performed, so nothing was recorded for it, or a refusal came before the cycle opened. Loud, and never the cycle's conclusion."
+    :schema [:map
+             [:run-id :string]
+             [:effect :string]
+             [:reason [:enum "effect-could-not-run" "refused-before-the-cycle"]]
+             [:detail :string]
+             [:halted-at inst?]]}}
+  :read-models
+  {:cycle-runner/runs
+   {:description "Each run: its cycle, cut and commit, its status (running, passed, failed, halted), the effects recorded, the candidates regenerated, and how it ended."
+    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :entity :name "CycleRun"}]
+    :consumes #{:cycle-runner/run-started :cycle-runner/effect-recorded
+                :cycle-runner/run-concluded :cycle-runner/run-halted}
+    :schema [:map
+             [:run-id :string]
+             [:cycle-id :string]
+             [:cut-id :string]
+             [:commit :string]
+             [:status [:enum "running" "passed" "failed" "halted"]]
+             [:effects :int]
+             [:attempts :int]
+             [:candidate-digest {:optional true} :string]
+             [:cycle {:optional true} :map]
+             [:halt {:optional true} [:map [:effect :string] [:reason :string] [:detail :string]]]]}
+   :cycle-runner/effect-results
+   {:description "Each run's effect results, in the order performed: effect, attempt, context, method, outcome, refusal, events, detail."
+    :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :entity :name "EffectResult"}]
+    :consumes #{:cycle-runner/effect-recorded}
+    :schema [:map
+             [:run-id :string]
+             [:position :int]
+             [:effect :string]
+             [:attempt :int]
+             [:context :string]
+             [:method :string]
+             [:outcome :string]
+             [:refusal {:optional true} :string]
+             [:events [:vector :map]]
+             [:detail :string]]}}
+  :queries
+  {:cycle-runner/run-progress
+   {:description "One run's status and effect results, with its tick as ORC's tick events show it and the judge's scores of its items, or every run's. A view, never an authority."
+    :schema [:map [:run-id {:optional true} :string]]
+    :reads #{:cycle-runner/runs :cycle-runner/effect-results}}}}}

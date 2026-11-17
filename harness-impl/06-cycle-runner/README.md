@@ -1,25 +1,15 @@
-# Cycle runner — slice 06
+# Cycle runner
 
-Clojure CLI application using the pinned ORC and Grain git dependencies in `deps.edn`.
+Clojure JSON-RPC over stdio, backed by one Grain SQLite store and ORC workflows. Run `./test.sh` for the full seam suite; run `./start.sh` with `LOYLY_GRAIN_STORE` and the handed-in environment described by the specification.
 
-```sh
-./test.sh       # builds the AOT classes and runs every test
-./start.sh      # JSON-RPC 2.0, one request/response per line
-```
+The build copies all six contexts' event-model fragments unchanged, registers commands, queries, projections, events and processors, and invokes Grain's strict boot guard. The cycle uses separate effect leaves, a slice map, delegated gate attempts, and one delegated grading tick per item. The grading shell runs in a Gondolin Linux VM with only that item's grading room mounted. The fixture model, repositories, builders and candidates live only in tests.
 
-Both entrypoints select their own working directory. `test.sh` prepares the local JVM classpath for fast AOT startup; without it, `start.sh` uses Clojure CLI directly. Configuration and context launch entrypoints are handed in through the `LOYLY_*` variables specified by the seam. Diagnostics use stderr.
+Tests use one JVM with a fresh store/runtime per fixture. Recovery closes and reopens that runtime on the same store while preserving the original tick and builder session. The suite audits domain event schemas, effect leaf placement, terminal/trace uniqueness, and todo checkpoints. `loyly.identity` is a separate manual stdin/stdout exercise of `start.sh` on a fresh store.
 
-The event model is read directly from `../../.pi/spec/cycle-runner/event-model/`. Grain's boot guard reconciles its commands, events, projections, queries and processor before the store starts. Every command runs in its named ORC workflow on the runner's SQLite store and tenant. ORC uses its legacy routing mode so terminal ticks and traces occur once; the synchronous boundary waits for the trace to become durable. Queries project Grain read models and start no workflow.
+Scope limits: the blackboard still serializes several structured values as JSON text; process timeouts are implemented, but not every auxiliary filesystem/git operation spends a shared remaining-stage deadline. The five included contexts implement the cycle's needed rules, but their complete standalone scenario suites have not been carried. The exact external copy fixture is listed in UNCARRIED.md. These are limitations, not claims that the final gate or score must accept this build.
 
-Repository, subprocess, fence, candidate-copy, gate and verdict-file adapters perform the effects. Context replies are recorded unchanged; handoffs are read from producer stores and transported to consumers. No five-context domain rule or grading implementation is included in the product.
+Repair: the researcher now enables ORC RLM mode, which provides the specified `get-input` function. Shell calls accept ORC action identities and retain completion receipts outside the guest mount; an incomplete prior call is refused rather than replayed. Each item keeps one live VM across its researcher iterations. Checklist items now remain structured values across the checklist, map-each and grading delegate. The researcher's `(get-input :item)` therefore exposes `:item-id` as the seam specifies. A new public-seam regression reproduced a failed score stage with zero scores before the repair and passes afterward. The independent stdin exercise now uses one checklist item and a researcher that reads that structured input before invoking the candidate's shell seam.
 
-The suite names all 57 stamped items. Its fixture programs expose the contracted stdio seams, backed by a separate Clojure peer worker that appends actual Grain handoffs with their contracted schemas. Private file mailboxes transport fixture bytes between those test-only components; the runner sees only stdio and the producer Grain stores. The suite's instrument, repository, builders, candidates and gates are fixtures, not product code. SQLite peer access is isolated from the test driver's JVM to keep startup resource use bounded.
+The fixture checks scenario, seam, and event-model contents after the researcher loads the item and reports evidence to the judge; the initial researcher request carries the item shape. Both evidence isolation and VM continuity are exercised through the public seam.
 
-For the gate identity sequence and a direct store audit after building:
-
-```sh
-bb test/manual-identity.bb
-clojure -M:test test/audit_manual.clj
-```
-
-The manual check uses a new repository and store, changes `LOYLY_CONTEXTS` between starts, and verifies the invalid cut, five exited peers, and Specification exiting at stamp. It checks that neither the self-check nor builder ran. The audit reads that store directly and checks exact model fields, successful enclosing workflows, one terminal event and trace per tick, and Grain checkpoints.
+Final repair verification: `test.sh` exited 0, with 45 tests / 400 assertions, zero failures or errors, in 153.20 seconds. The fresh-store `start.sh` stdin exercise refused an invalid commit and missing image, halted the unapproved rubric after stamp/pin/checklist, and passed the approved one-item cycle with all required effect records and one score. Preliminary checks completed in 7.67 seconds; the complete identity exercise took 10.99 seconds. Direct SQLite inspection found six tick starts, six terminals, six execution traces, one filed measurement, fourteen recorded effects and 505 todo checkpoints. All 17 event-model fragments remain byte-identical to the room's sources. Sixty of 61 accepted items have tests; the exact outside-.pi copy fixture remains in UNCARRIED.md.

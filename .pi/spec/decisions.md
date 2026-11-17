@@ -2113,3 +2113,190 @@ checklist at 210, with the same stamps.
    - `harness/v2/probe-06.sh`: step 5 hands the run `LOYLY_GRADER_IMAGE`, the repository's
      `builder-clojure` image (or `PROBE_GRADER_IMAGE`), since a run with no image now halts
      before grading.
+
+## Spec round 21 (2026-11-14)
+
+Cycle 14 of slice 06 (`06-c14`, spec 69ea324 plus the checklist-source correction 81d9f83)
+passed its gate on attempt 1 and scored 59/61. Against cycle 13, `06-066` newly passed;
+`06-026` and `06-070` newly failed. The grader's `surprises.json` was empty. This round
+clarifies two existing items and adds none, so slice 06 remains at 61 and the checklist at
+210.
+
+1. **A resumed run has its model provider before its tick resumes** (`@item-06-070`). A
+   black-box replay stopped the runner and builder five seconds into a session, then started
+   the runner on the same store. The builder reopened with the same session identity and the
+   earlier effects appeared once, but both grading child ticks failed `drive-seam` with ORC's
+   `provider-not-configured`; scoring saw zero verdicts and failed. Cycle 14 registered the
+   provider only inside `start-run`, while startup called `resume-in-progress!` without a
+   new `start-run`. The seam's Resume paragraph now requires recreating the live provider from
+   the pending run's captured `handed-in` endpoint and model names before resuming that tick.
+   This is provider setup, not a new run effect. Item 070's wording stands.
+2. **The unscored researcher's failure is scripted inside its code** (`@item-06-026`). The
+   first researcher request exposes the item's shape, not its value; the grader cannot make a
+   model stub reject every request for 01-002 while accepting the identical first request
+   for 01-001. The old Given was therefore untestable as written. Its replacement has the
+   stub return code that reads `(get-input :item)` and fails for 01-002, while 01-001 reaches
+   a judge score. The Thens and stamp are unchanged. The slice-06 grader instruction records
+   this setup. Replaced wording is a recorded reason to update the grader, never to turn a
+   measured failure green without observation.
+3. **The ORC submodule pin must be reachable in a fresh repository copy.** The repository gitlink
+   `4f8ec152` is no longer served by `ObneyAI/orc`; a fresh `git submodule update --init`
+   failed. Cycle 14's instruction renderer used upstream `4966c8e3` from the failed repository copy, and
+   its gate passed. The gitlink is advanced to that reachable commit so subsequent copies render
+   and build from the same declared ORC revision.
+
+## Spec round 22 (draft, 2026-11-15)
+
+Cycle 15 of slice 06 (`06-c15`, spec `7bc2610`) passed its gate on attempt 1 and scored
+57/61. `06-026` newly passed; `06-010`, `06-054` and `06-056` newly failed; `06-070`
+remained failed. The grader's `surprises.json` was empty. This round clarifies one existing
+item and adds none: slice 06 remains at 61 and the full checklist at 210.
+
+1. **An abandoned builder must resume before its stage expires** (`@item-06-070`). In the
+   cycle 15 black-box replay, the first builder was stopped five seconds into its session.
+   The restarted runner reopened the same session identity, but only when ORC's previous
+   leaf lease expired. ORC's default lease is 90 seconds, equal to the fixture's regenerate
+   stage timeout. Grain recorded `regeneration-cycle/cycle-failed` for `budget` at
+   `21:58:45.215Z`; the resumed builder leaf then tried to record its candidate and was
+   refused `cycle-concluded`. The original tick failed, and run progress stayed `running`.
+   The seam now requires a lease duration that permits abandonment recovery and completion
+   inside the original stage budget, while preserving single ownership, the tick and the
+   builder session identity. Item 070's Given and Thens stand.
+2. **The other three failures already have exact readings.** `@item-06-010` says the
+   self-check is the last effect after its failure. `@item-06-054` says the failed gate's
+   detail is `3 of 65 tests failed`, and `@item-06-056` says the halt detail is
+   `infrastructure the world did not come up`. Cycle 15 recorded an extra effect for 010
+   and whole command outputs for 054 and 056. The spec and grader stay unchanged.
+
+## Spec round 23 (proposed, 2026-11-15)
+
+Cycle 18 of slice 06 (`06-c18`, spec `0e3f5e6`) passed its independent gate on attempt 1 and
+scored 61/61, with no newly passing or newly failing item against cycle 17. Its profile failed:
+54 after captures saw the grader's still-running JSON-RPC runner, and none of the 31 stores
+with a `grade.v1` trace had a live QEMU sample. The score and failed profile stay filed. A full
+shadow against legacy on the same Löyly candidate agreed on the 11 checklist identities,
+gate, per-item verdicts and baseline score, but its fenced tree differed: cycle 18 omitted the
+non-fenced `grain` and `orc` gitlinks (mode `160000`) that legacy kept. The build is not
+accepted or promoted (`harness/v2/shadow/06/18/comparison.md`).
+
+1. **The fence keeps non-fenced gitlinks.** E3 already says legacy `fence.sh` as-is, whose
+   fence retains gitlinks in the tree. The cycle 18 candidate used an archive
+   route that dropped them. E3 now names their mode and unchanged target commit id explicitly.
+   `@item-06-013`'s Given and Then now include a non-fenced gitlink so its clean-room observation
+   observes this part of the legacy behavior. This replaces wording of the same item, with
+   no new or removed item: slice 06 stays at 61 and the full checklist at 210.
+2. **The grading profile observes the normal shutdown and the live VM.** The revised
+   `profile.py` watches the candidate's descendants during grading and fails a profile whose
+   Grain store records `grade.v1` with no observed QEMU. The grader instruction
+   closes stdin and waits for the normal runner exit before the after capture, which still
+   precedes any manual cleanup of orphaned children. This is a recorded instrument-behavior
+   change, not a revision of the cycle 18 score. The grader instruction also adds the
+   gitlink fixture for 013 because its wording was replaced. Its new digest needs exact
+   operator approval before cycle 19 uses it.
+
+## Spec round 24 (proposed, 2026-11-15)
+
+Cycle 19 of slice 06 (`06-c19`, spec `73e70a7`) passed its independent gate on attempt 1
+and scored 59/61. Against cycle 18, no item newly passed and `06-010` and `06-060` newly
+failed. The profile was clean, and its full instrument shadow matched legacy on the shared
+candidate, including the gitlinks. The build is not accepted. The exploratory diagnosis is
+filed in `harness/v2/cycles/06/19/diagnosis.md`.
+
+1. **The two failures are candidate regressions, not new readings.** Item 010 already
+   requires the failed self-check's last line as the cycle detail and the self-check as the
+   last runner effect. The candidate passed raw stdout with a newline into the failure and
+   recorded a separate `fail-cycle` effect. Item 060 already requires the passed gate's boot
+   margin; the candidate recorded 20 boot polls and a response on poll 5 but its generic
+   read-model reducer did not derive or expose 15. Neither spec item nor its grader scenario
+   changes. Slice 06 remains 61 items, and the full checklist remains 210.
+2. **The next grading profile must include a live JVM diagnostic.** Cycle 19 observed Java
+   in active samples but filed no `jcmd`/`jstat` diagnostic. A separate live scratch probe
+   succeeded on the same candidate. The profile report now fails if live candidate Java was
+   observed yet no matching JVM diagnostic was filed across the cycle. The grader instruction
+   requires one successful capture while the JVM is alive. This changes instrument behavior,
+   not item scoring, and the new grader digest needs exact operator approval before cycle 20.
+
+## Spec round 25 (proposed, 2026-11-16)
+
+Cycle 20 passed its independent gate on attempt 3 and its black-box grade scored 61/61. Its
+instrument shadow with the legacy harness on the same HTTP candidate differed at scoring:
+the cycle 20 runner filed no verdict when the model returned integer level 2, while a scratch
+replay using level 1 filed a pass. The candidate's judge instruction had assigned level 1 to
+pass and level 0 to fail. The shadow's scratch rubric contained only `shadow rubric`; the
+earlier comparison report incorrectly said that rubric assigned numeric bands. This round
+corrects that report and settles the numeric contract from the pinned ORC source.
+
+1. **The binary judge scale has levels 1 and 2.** ORC's `discrete-scale` requires a
+   description for each integer level, and `level->unit-score` maps `(level - min) / (max -
+   min)`. A direct isolated check at pinned ORC `4966c8e3` returned 1 → 0.0 and 2 → 1.0;
+   it rejected 0 and 3. Thus the cycle runner's fail band is 1 and pass band is 2. The
+   rubric supplies the item's criterion, while the scale supplies the two band anchors.
+   The cycle-runner seam and Allium state the mapping; `@item-06-064` now observes both
+   verdicts and both ORC score values, and `@item-06-067` names level 2 for its unreasoned
+   reply. The stamped count stays 61 and the full checklist stays 210.
+2. **The gate and grader use the same levels.** The slice-06 identity probe now sends level 2
+   and requires a pass verdict. Its fixture rubric names both bands. The grader instruction
+   names the numeric levels for 064 and 067, so it must be sealed under a new digest and
+   approved before the next cycle. No cycle 20 score or candidate has been changed.
+
+## Spec round 26 (draft, 2026-11-17)
+
+Cycle 23 passed its independent gate on attempt 2 and scored 59/61 with a clean profile. Its
+instrument shadow matched legacy on the shared HTTP candidate. Item 047 failed because the
+candidate recorded source paths under a symlink target rather than the plan link; the seam and
+scenario already require the plan link's path, so this is a candidate defect, not a spec change.
+
+**The researcher's first request carries contract text, while its structured item value stays
+behind `get-input`** (`@item-06-066`, `@item-06-026`). Cycle 23's grader observed that the first
+request contained only the item's key names. Item 066 requires the scenario, seam and event-model
+text in that request. The seam now states that those texts from the cut are request context; the
+structured `item` blackboard value is represented by shape and read by the researcher's code
+through `(get-input :item)`. This supersedes round 21's assertion that the first requests for
+01-001 and 01-002 are identical: their scenario context may differ, while the grader's scripted
+response can still serve both and branch inside the code. Item 066's Then and all stamps stand.
+The sealed grader instruction receives the same reading. Its revised digest requires approval
+before use. Slice 06 remains 61 items and the full checklist remains 210.
+
+## Acceptance of cycle 23 runner (2026-11-17)
+
+The operator chose to promote the complete cycle-23 attempt-2 candidate as the running
+cycle-runner context. Its independent gate passed, its score was 59/61 with a clean profile,
+and its same-cut instrument shadow matched the legacy harness on the shared HTTP fixture.
+The accepted source is copied unchanged into `harness-impl/06-cycle-runner/`; its provenance
+records the candidate digest and evidence. Items 06-047 and 06-066 remain failed and open.
+Round 26's 066 clarification was committed after this candidate was graded, so the old
+verdict has not been rewritten. Cycle 24 remains unaccepted after its 31/61 score and
+instrument regressions. ADR 0007 proposes a bounded repair slice from this accepted base.
+
+## Cycle-25 repair selection (2026-11-17)
+
+The operator approved a repair slice for the two failed behaviors, 06-047 and 06-066, against
+the accepted cycle-23 source. The exact selected IDs, 39-file base digest, 61-item checklist
+digest, current spec.feature digest and unchanged sealed grader-instruction digest are pinned
+in `harness/v2/REPAIR-06.md`. The operator's "Do it" followed that concrete contract. ADR
+0007 is accepted for this repair, permitting exactly the pinned prior source in the builder's
+room; prior verdicts and transcripts remain fenced. The independent gate and grader still
+judge all 61, and the instrument shadow is required before the complete replacement is
+accepted. Preflight `harness/v2/preflight/06/25.md` compares the exception to legacy and
+proves that the strengthened identity probe passes cycle 23 and rejects cycle 24's missing
+built-in gate. No spec item or grader scenario changed in this decision.
+
+## Acceptance of cycle 25 repaired runner (2026-11-17)
+
+The bounded repair from accepted cycle 23 changed two source files and one test file, plus a
+repair note; the pinned base remained unchanged. Its independent gate passed the 45-test,
+406-assertion suite, the strengthened stdio identity probe (including the built-in HTTP
+gate), and the Grain store check. The independent black-box grader filed 61/61, with 047
+and 066 newly passing against the accepted base and no newly failing item. The same-cut
+instrument shadow matched the legacy harness at the clean tree, app bytes, gate and ordered
+11 verdicts.
+
+The filed profile is still `failed`: its sole problem is eight separately named fresh
+retries outside the checklist. The raw captures were audited individually for ordered
+boundaries, model and store evidence, no owned process after shutdown, and live QEMU samples
+where grading ran (`harness/v2/cycles/06/25/profile-retry-audit.md`). Every canonical case
+was clean and a live JVM diagnostic exists. The operator explicitly chose "Accept audited
+exception" for this finding. This acceptance preserves the failed report and raw evidence;
+it does not change the 61 verdicts or make a claim that the profile reporter itself passed.
+The complete cycle-25 artifact is the running build at `harness-impl/06-cycle-runner/`, with
+its provenance and source digest. The five other accepted contexts are retained.

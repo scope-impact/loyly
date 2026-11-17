@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cycle runner · accepted repair | Löyly</title>
+<meta name="description" content="Cycle 25 repaired two behaviors in the accepted Löyly cycle runner, with a full score, legacy shadow and audited profile exception.">
+<style>
+:root{color-scheme:light dark;font-family:system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.5;--bg:#f7f5f0;--card:#fff;--ink:#22211e;--muted:#625e55;--rule:#d7d2c8;--green:#216335;--amber:#805d17}
+@media(prefers-color-scheme:dark){:root{--bg:#171713;--card:#23231e;--ink:#eeece5;--muted:#bbb5a8;--rule:#49463e;--green:#9cdbab;--amber:#e2bd70}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink)}main{max-width:900px;margin:auto;padding:28px 22px 72px}a{color:inherit;text-underline-offset:3px}nav{font-size:.9rem;color:var(--muted)}nav a{margin-right:18px}h1{font-size:clamp(2rem,5vw,3.3rem);line-height:1.1;letter-spacing:-.04em;margin:48px 0 12px}h2{margin:42px 0 12px;font-size:1.3rem}p{max-width:75ch}.lede{font-size:1.15rem;color:var(--muted)}.eyebrow{text-transform:uppercase;letter-spacing:.12em;font-weight:700;font-size:.75rem;color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:28px 0}.card{background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:18px}.card strong{display:block;font-size:1.35rem}.card span{display:block;color:var(--muted);font-size:.85rem;margin-top:4px}.good{color:var(--green)}.warn{color:var(--amber)}table{width:100%;border-collapse:collapse}th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--rule);padding:11px 8px}th{font-size:.82rem;color:var(--muted)}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.91em}ul{padding-left:1.3rem}li{margin:.5rem 0}.note{border-left:4px solid var(--amber);background:var(--card);padding:12px 18px;margin:24px 0}.small{color:var(--muted);font-size:.86rem}@media(max-width:650px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}table{font-size:.88rem}}
+</style>
+</head>
+<body><main>
+<nav><a href="../index.html">Event model</a><a href="loyly.html">Original harness evaluation</a><a href="../replay/loyly-run-03.html">Löyly run replay</a></nav>
+<div class="eyebrow" style="margin-top:48px">Spec v2 · slice 06 · 17 November 2026</div>
+<h1>Cycle runner: accepted repair</h1>
+<p class="lede">Cycle 25 started from the accepted cycle-23 runner and changed the two behaviors that had failed. The complete replacement passed its gate and all 61 black-box behavior checks, then matched the legacy harness on the same Löyly app.</p>
+<div class="grid">
+  <div class="card"><strong class="good">61 / 61</strong><span>behavior items passed</span></div>
+  <div class="card"><strong class="good">Gate passed</strong><span>suite, identity, Grain store</span></div>
+  <div class="card"><strong class="good">Legacy matched</strong><span>same cut, app and 11 verdicts</span></div>
+  <div class="card"><strong class="warn">Exception</strong><span>profile retry labels audited</span></div>
+</div>
+<h2>What changed</h2>
+<table><thead><tr><th>Item</th><th>Behavior now observed</th></tr></thead><tbody>
+<tr><td><code>06-047</code></td><td>A linked plan slice is read at its target, while checklist sources name the plan link. The independent grader observed both fixture items under <code>01-a</code>.</td></tr>
+<tr><td><code>06-066</code></td><td>The researcher’s first request includes the scenario, seam and event model from the cut. Its shell runs in an isolated Linux grading VM. The grader observed both parts on a fresh retry.</td></tr>
+</tbody></table>
+<p>The builder changed two source files and one test file from the pinned accepted base. The gate then ran the whole suite and identity probe; a different-model grader tested all 61 items. Against cycle 23, the two items above newly passed and none newly failed.</p>
+<h2>Cycle history</h2>
+<table><thead><tr><th>Cycle</th><th>Score</th><th>Result</th></tr></thead><tbody>
+<tr><td>23</td><td>59/61</td><td>Accepted as the base; 047 and 066 open; clean profile and matching legacy shadow.</td></tr>
+<tr><td>24</td><td>31/61</td><td>Not accepted; built-in gate and Git-link regressions in the legacy shadow.</td></tr>
+<tr><td>25</td><td>61/61</td><td>Accepted with the recorded profile exception after the retry audit and matching shadow.</td></tr>
+</tbody></table>
+<div class="note"><strong>Profile exception, kept visible.</strong> The filed profile status is <code>failed</code>. Its only problem is eight separately captured retry names outside the checklist. Each retry has ordered before/after captures, accounted model and store evidence, and no owned runner or VM left after shutdown; graded retries also have live VM samples. The raw events and failed report were retained. The operator explicitly accepted this audited exception; the reporter still needs an explicit retry-attempt model.</div>
+<h2>Evidence</h2>
+<ul>
+<li><a href="https://github.com/ragavsathish/loyly/blob/spec-v2/harness-impl/06-cycle-runner/PROVENANCE.md">Accepted build provenance</a> and source digest</li>
+<li><a href="https://github.com/ragavsathish/loyly/tree/spec-v2/harness/v2/cycles/06/25">Cycle 25 score, verdicts, profile and surprises</a></li>
+<li><a href="https://github.com/ragavsathish/loyly/blob/spec-v2/harness/v2/cycles/06/25/profile-retry-audit.md">Profile retry audit</a> and <a href="https://github.com/ragavsathish/loyly/blob/spec-v2/harness/v2/shadow/06/25/comparison.md">legacy comparison</a></li>
+<li><a href="https://github.com/ragavsathish/loyly/blob/spec-v2/harness/v2/REPAIR-06.md">Repair contract</a>: focused build, full acceptance checks</li>
+</ul>
+<p class="small">This page reports cycle-25 evidence. The original five-run Löyly harness evaluation remains available as a separate historical report.</p>
+</main></body></html>

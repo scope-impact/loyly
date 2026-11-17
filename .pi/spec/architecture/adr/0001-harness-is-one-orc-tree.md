@@ -2,8 +2,10 @@
 
 ## Status
 
-Proposed (2026-11-13). Prototype rounds 1 and 2 on `proto/orc-harness` support it; accepted with
-slice 06's rewrite.
+Accepted for the cycle-runner context (2026-11-17). Cycle 23 first passed its gate, scored
+59/61, and matched the legacy instrument on one same-cut HTTP fixture. Cycle 25 repaired
+its two open items, scored 61/61, and matched legacy; its profile exception is recorded in
+`harness-impl/06-cycle-runner/PROVENANCE.md`.
 
 ## Context
 
@@ -75,3 +77,5 @@ handoff contract between contexts.
   - One tree on one SQLite ORC store, one trace of 19 spans; slice 05 graded 4/4.
 - No single build of all five contexts has been tried; separately they reached 01 15/15,
   02 40/43, 03 11/11, 04 76/76, 05 4/4 (ADR 0006).
+- Cycle 23 built the one-tree runner from all six event-model fragments; its independent
+  gate and instrument shadow passed (`harness/v2/shadow/06/23/comparison.md`).

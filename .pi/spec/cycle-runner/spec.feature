@@ -125,11 +125,12 @@ Feature: Cycle runner
     @minimum @allium-boundary.TheBuilderSeesOnlyItsMounts
     @item-06-013
     Scenario: The fresh builder sees the clean room of one commit with no fenced path
-      Given the configuration fences "impl harness/cycles" and the commit holds both
-      And the stub builder records the paths and the commits its builder room holds
+      Given the configuration fences "impl harness/cycles" and the commit holds both and a non-fenced gitlink at "provided-runtime"
+      And the stub builder records the paths, commits and tree entries its builder room holds
       When the operator starts run R-1 of cycle C-1 at source cut K-1
       Then the stub builder saw the plan, the configuration and an empty candidate scope
       And it saw one commit, and no path under impl or harness/cycles in the tree or the history
+      And it saw "provided-runtime" still as a gitlink (mode 160000) with the same target commit id as in the cut's tree
 
   Rule: A regenerate runs one fresh builder session and records what it left in its candidate scope
 
@@ -255,7 +256,7 @@ Feature: Cycle runner
     @balance @allium-guarantee.TheRunnerJudgesNoItem
     @item-06-026
     Scenario: An item the judge did not score is Measurement's to record as unreached
-      Given the stub model fails every request of the researcher of 01-002
+      Given the stub model returns researcher code that reads (get-input :item) and fails for 01-002, while 01-001 reaches a judge score
       When the operator starts run R-1 of cycle C-1 at source cut K-1
       Then the file-verdicts effect of run R-1 offered a verdict for 01-001 alone
       And the file-score effect's measurement/measurement-filed event shows 01-002 failed with the reason "unreached"
@@ -613,11 +614,11 @@ Feature: Cycle runner
     @minimum @allium-rule-success.ConcludeRunPassed @allium-invariant.PassedOnlyWithAScore @allium-guarantee.EachItemGradedInItsOwnTick
     @item-06-064
     Scenario: The judge scores each item in a child tick of its own, the scores are filed as scored, and the run passes as its cycle passes
-      Given the stub model, as the judge, scores 01-001 pass with the reason "booked" and 01-002 fail with the reason "no receipt"
+      Given the stub model, as the judge, replies with integer level 2 and the reason "booked" for 01-001, and integer level 1 and the reason "no receipt" for 01-002
       When the operator starts run R-1 of cycle C-1 at source cut K-1
       Then the file-verdicts and file-score effects of run R-1 were recorded
       And the file-score effect's measurement/measurement-filed event shows 1 of 2 passing, 01-001 pass with the evidence "booked" and 01-002 fail with the evidence "no receipt"
-      And in the one store, each item's judge score lies in a child tick of its own of the ORC workflow "cycle-runner/grade.v1", its judge name carrying the item's identity, and each such tick is a child tick of the run's tick
+      And in the one store, 01-001 has judge score 1.0 and 01-002 has judge score 0.0, each in a child tick of its own of the ORC workflow "cycle-runner/grade.v1", its judge name carrying the item's identity, and each such tick is a child tick of the run's tick
       And run R-1 passed with its cycle
 
     # context.allium, contract TheJudge, invariant EachItemStartsClear
@@ -648,7 +649,7 @@ Feature: Cycle runner
     @item-06-067
     Scenario: A judge reply with the level of a pass and no reasoning scores nothing, and the item is filed unreached
       Given the stub model, as the judge, scores 01-001 pass with the reason "booked"
-      And as the judge of 01-002 replies with the level of a pass and its feedback, and no reasoning
+      And as the judge of 01-002 replies with integer level 2 and its feedback, and no reasoning
       When the operator starts run R-1 of cycle C-1 at source cut K-1
       Then the file-verdicts effect of run R-1 offered a verdict for 01-001 alone
       And the progress of run R-1 shows a score for 01-001 alone, and the one store holds no judge score of 01-002

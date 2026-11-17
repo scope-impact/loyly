@@ -1,0 +1,34 @@
+;; .pi/spec/cycle-preparation/event-model/source-cut.edn: aggregate SourceCut, in the
+;; harness's event store (one per cut). Immutable once pinned: everything later binds to its
+;; commit and tree content. Legacy: the spec is "cut (tagged, frozen)" before a cycle.
+;; Allium: ../allium/source-cut.allium (rule PinSourceCut, entity SourceCut).
+{:cycle-preparation
+ {:commands
+  {:cycle-preparation/pin-source-cut
+   {:description "Pin an immutable source cut: one commit and its tree content. Issued by: operator."
+    :grain/allium [{:spec ".pi/spec/cycle-preparation/allium/source-cut.allium" :kind :rule :name "PinSourceCut"}]
+    :schema [:map
+             [:cut-id :string]
+             [:commit [:re "^[0-9a-f]{40,64}$"]]
+             [:tree-digest :string]]
+    :reads #{:cycle-preparation/source-cuts}
+    :produces #{:cycle-preparation/source-cut-pinned}}}
+  :events
+  {:cycle-preparation/source-cut-pinned
+   {:description "A source cut was pinned: one commit and its tree content, immutable from now on."
+    :schema [:map
+             [:cut-id :string]
+             [:commit [:re "^[0-9a-f]{40,64}$"]]
+             [:tree-digest :string]
+             [:pinned-at inst?]]}}
+  :read-models
+  {:cycle-preparation/source-cuts
+   {:description "Every pinned cut, with its commit and tree digest."
+    :grain/allium [{:spec ".pi/spec/cycle-preparation/allium/source-cut.allium" :kind :entity :name "SourceCut"}]
+    :consumes #{:cycle-preparation/source-cut-pinned}
+    :schema [:map [:cut-id :string] [:commit :string] [:tree-digest :string] [:pinned-at inst?]]}}
+  :queries
+  {:cycle-preparation/source-cuts
+   {:description "The pinned cuts, newest first."
+    :schema [:map]
+    :reads #{:cycle-preparation/source-cuts}}}}}

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "profile",
+    "note": "The report failed only because separately profiled fresh retries use case names ending in -retry, which the reporter treats as unknown checklist cases. Their original case profiles and retry evidence are preserved; the report found no checklist-case boundary, store, model-count, VM or JVM diagnostic gaps."
+  },
+  {
+    "id": "06-066",
+    "note": "The first shell fixture used keyword arguments and received invalid-arguments; the fresh retry used the string-keyed tool contract and observed the Linux VM."
+  },
+  {
+    "id": "06-017",
+    "note": "The original fixture did not identify the builder process; the fresh retry recorded its PID and sampled it before and after timeout."
+  }
+]

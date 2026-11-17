@@ -1,0 +1,22 @@
+;; .pi/spec/cycle-preparation/event-model/area.edn
+;; Cycle preparation (operator control), R1 part only: pinning the source cut. Selection,
+;; approval, submission and the receipt arrive in a later round and add blocks here without
+;; renaming these (the cycle identity is minted at submission; domain-design.md, H8).
+;; Allium: ../allium/ (source-cut.allium: surface Preparation).
+{:cycle-preparation
+ {:description "Cycle preparation (operator control): what a cycle is built from. R1 holds the source cut only; selection, approval and submission come later."
+  :screens
+  {:cycle-preparation/preparation
+   {:description "The operator's preparation view: pin a source cut, see the pinned cuts."
+    :grain/allium [{:spec ".pi/spec/cycle-preparation/allium/source-cut.allium" :kind :surface :name "Preparation"}]
+    :queries #{:cycle-preparation/source-cuts}
+    :commands #{:cycle-preparation/pin-source-cut}}}
+  :flows
+  {:cycle-preparation/cut-to-fence
+   {:description "A pinned cut is what the checklist is derived from and what the fence builds a clean room of; the harness self-check of a cycle names its cut. Measurement and the Regeneration cycle fold source-cut-pinned into their own pinned-cuts, from the one store (decisions.md, \"Spec round 18\")."
+    :grain/allium [{:spec ".pi/spec/cycle-preparation/allium/source-cut.allium" :kind :rule :name "PinSourceCut"}]
+    :steps [{:from [:screen :cycle-preparation/preparation] :to [:command :cycle-preparation/pin-source-cut]}
+            {:from [:command :cycle-preparation/pin-source-cut] :to [:event :cycle-preparation/source-cut-pinned]}
+            {:from [:event :cycle-preparation/source-cut-pinned] :to [:read-model :cycle-preparation/source-cuts]}
+            {:from [:read-model :cycle-preparation/source-cuts] :to [:query :cycle-preparation/source-cuts]}
+            {:from [:query :cycle-preparation/source-cuts] :to [:screen :cycle-preparation/preparation]}]}}}}

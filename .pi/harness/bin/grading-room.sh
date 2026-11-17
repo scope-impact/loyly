@@ -33,6 +33,15 @@ for d in $(git -C "$REPO" ls-tree -d --name-only "$COMMIT" .pi/spec/); do
   git -C "$REPO" cat-file -e "$COMMIT:.pi/spec/$c/seam.md" 2>/dev/null && others+=(".pi/spec/$c/seam.md")
   git -C "$REPO" cat-file -e "$COMMIT:.pi/spec/$c/event-model" 2>/dev/null && others+=(".pi/spec/$c/event-model")
 done
+instruction=".pi/harness/grader-instruction-$NN.md"
+if git -C "$REPO" cat-file -e "$COMMIT:$instruction" 2>/dev/null; then
+  others+=("$instruction")
+fi
+for profile_tool in harness/v2/profile.py harness/v2/profile_store.clj; do
+  if git -C "$REPO" cat-file -e "$COMMIT:$profile_tool" 2>/dev/null; then
+    others+=("$profile_tool")
+  fi
+done
 git -C "$REPO" archive "$COMMIT" ".pi/spec/$ctx" .pi/spec/decisions.md "${others[@]}" \
   harness/v2/event_store_check.clj harness/v2/event-store-check.sh harness/v2/deps.edn | tar -x -C "$OUT"
 mkdir -p "$OUT/.pi/plan"; ln -s "../spec/$ctx" "$OUT/$plan"

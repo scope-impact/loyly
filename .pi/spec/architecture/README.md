@@ -7,10 +7,10 @@ The decisions behind it are in `adr/`. The domain events and their flows are in 
 **What is settled and what is not.** The domain is accepted as is: the five contexts 01 to 05
 (their scenarios, event models and Allium rules) and the method (fence, clean room, gate as
 judge, at most three gate attempts, an honest score). How the cycle is driven (slice 06, the
-cycle runner) is written into the spec as the tree below in spec round 18; ADR 0001 stays
-proposed until a build of that tree runs a cycle, and the rules marked proposed below wait on
-their ADRs. It is settled by the throwaway prototype on the branch `proto/orc-harness` and by the
-product owner's decisions.
+cycle runner) is written into the spec as the tree below in spec round 18. The accepted
+cycle-23 build ran that tree and matched legacy on one shared HTTP fixture; ADR 0001 is
+accepted for this context. Other proposed rules retain their own ADR status. The prototype
+on branch `proto/orc-harness` and the product owner's decisions remain design evidence.
 
 ## The cycle is one ORC tree
 
@@ -48,8 +48,8 @@ self-improving loop        between cycles: GEPA on the builder and grader instru
 The stamp, the pin, the checklist and the grader come before the self-check: a refusal there
 comes before the cycle opens, so the run halts with no cycle to fail. Slice 06's spec carries this
 tree since spec round 18 (`../cycle-runner/seam.md`, "The tree"; `../decisions.md`, "Spec round
-18"). Until the tree runs, the legacy shell harness drives cycles, and it builds this one tree from
-all six contexts' specs in one cycle (ADR 0006).
+18"). The legacy shell harness remains the reference and builds replacements for slice 06
+from all six contexts' specs (ADR 0006). The accepted runner drives product cycles.
 
 ## The spec against ORC's features
 
@@ -96,18 +96,19 @@ as the tree; a row it settled says so.
 | telemetry: `watch.sh` over the builder's output | OpenTelemetry from ORC, pi and Claude Code | proposed (ADR 0005) |
 | fence, clean room, gate as judge, at most three attempts, "not in the spec, it dies" | unchanged; ORC runs them | accepted |
 | a Grain store per context, handoffs relayed | one Grain store, no relay, hand-in methods or handoff contracts | accepted (spec round 18) |
-| the shell runbook drives cycles | the legacy shell harness drives cycles and builds `cycle.v1` | accepted (ADR 0006) |
+| the shell runbook drives cycles | the accepted runner drives product cycles; legacy builds replacements for 06 | accepted (ADR 0006) |
 
 ## Decisions
 
 | ADR | Title | Status |
 |---|---|---|
-| [0001](adr/0001-harness-is-one-orc-tree.md) | The harness is one ORC tree on one store | proposed |
+| [0001](adr/0001-harness-is-one-orc-tree.md) | The harness is one ORC tree on one store | accepted for cycle runner |
 | [0002](adr/0002-gondolin-for-build-gate-grade.md) | Gondolin for build, gate and grade | proposed |
 | [0003](adr/0003-judge-scores-checklist-items.md) | The judge scores checklist items | accepted |
 | [0004](adr/0004-self-improving-loop-scope.md) | GEPA improves the builder and the grader, per project context | accepted |
 | [0005](adr/0005-opentelemetry.md) | OpenTelemetry | proposed |
 | [0006](adr/0006-legacy-shell-harness.md) | The legacy shell harness drives cycles and builds the new harness | accepted |
+| [0007](adr/0007-repair-slices.md) | Repair a bounded selection on an accepted build | accepted for cycle 25 |
 
 An ADR is one page: Status, Context, Decision, Consequences, Evidence. A proposed ADR gains
 evidence as prototypes and cycles report, and is accepted in a spec round (`../decisions.md`). A

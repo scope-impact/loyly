@@ -260,8 +260,9 @@ contract TheJudge {
         -- it set up, sent and observed.
 
     @invariant ReasonBeforeScore
-        -- The judge writes its reason before its score, on one binary scale, pass or fail;
-        -- a reply with a score and no reason scores nothing, a level with no reasoning among
+        -- The judge writes its reason before its score, on ORC's binary discrete scale:
+        -- level 1 is fail (score 0.0), level 2 is pass (score 1.0), and level 0 is outside
+        -- the scale. A reply with a score and no reason scores nothing, a level with no reasoning among
         -- them (ORC's banded-output check reads the level only). Each score is recorded as ORC's
         -- judge score event, its judge name carrying the item identity, so each item keeps
         -- its own score.

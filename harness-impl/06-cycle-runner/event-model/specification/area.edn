@@ -1,0 +1,26 @@
+;; .pi/spec/specification/event-model/area.edn
+;; The Specification context: the published language every other context conforms to
+;; (item identity, stamped scenario). Its screen and its flow. The aggregate's blocks are in
+;; slice.edn, scenario-stamped among them. The loader merges every context's fragments into
+;; the one Grain :event-model and refuses a block defined twice (spec round 18).
+;;
+;; Commands produce only what happened. A refusal is the command's reply, written as a
+;; `requires` in R2's Allium, and is not an event (domain-design.md).
+;; Allium: ../allium/ (slice.allium: surface SpecAuthoring).
+{:specification
+ {:description "Specification: the Gherkin scenarios and the item identity stamped on each. Upstream of every cycle; owns the published language (item identity, stamped scenario)."
+  :screens
+  {:specification/spec-authoring
+   {:description "Where the operator (spec author) edits a slice's spec and runs the stamper; shows each slice's stamped items and the next free number of its ledger."
+    :grain/allium [{:spec ".pi/spec/specification/allium/slice.allium" :kind :surface :name "SpecAuthoring"}]
+    :queries #{:specification/stamped-items}
+    :commands #{:specification/stamp-slice}}}
+  :flows
+  {:specification/stamping
+   {:description "A scenario is stamped once; its item identity is what a checklist may count. What Measurement does with a stamped scenario is its own flow (measurement/stamping-to-checklist), on the one store."
+    :grain/allium [{:spec ".pi/spec/specification/allium/slice.allium" :kind :rule :name "StampSlice"}]
+    :steps [{:from [:screen :specification/spec-authoring] :to [:command :specification/stamp-slice]}
+            {:from [:command :specification/stamp-slice] :to [:event :specification/scenario-stamped]}
+            {:from [:event :specification/scenario-stamped] :to [:read-model :specification/stamped-items]}
+            {:from [:read-model :specification/stamped-items] :to [:query :specification/stamped-items]}
+            {:from [:query :specification/stamped-items] :to [:screen :specification/spec-authoring]}]}}}}

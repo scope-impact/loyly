@@ -462,3 +462,14 @@ replaced"), to a judge reply with a level and no reasoning; the golden was re-re
 diff is that item's name and the `source` line numbers of the slice-06 items after it. The slice-06 grader instruction
 (`.pi/harness/grader-instruction-06.md`) was re-authored for the round; no approved grader's
 scenarios changed (`graders.approved.json` covers no spec-v2 item).
+
+**2026-11-14: slice 06's source lines moved in spec round 20.** The added comment above
+`@item-06-066` moved the `source` line numbers for `06-066` to `06-073` forward by one.
+No item, name, rule, order, or count changed. The checklist golden was re-recorded with
+`harness/oracle.sh record`; its diff consists only of those eight source line numbers.
+
+**2026-11-15: slice 06's source lines moved in spec round 23.** The approved gitlink
+observation added one line inside `@item-06-013`, shifting the `source` lines for
+`06-014` through `06-073` forward by one. No item, name, rule, order, or count changed.
+The checklist golden was re-recorded with `harness/oracle.sh record`; its diff consists
+only of those source line numbers.

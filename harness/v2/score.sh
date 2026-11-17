@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# harness/v2/score.sh NN ROOM --verdicts FILE [--by "who/how graded"]: the score and the
+# harness/v2/score.sh NN ROOM --verdicts FILE [--profile FILE] [--by "who/how graded"]: the score and the
 # scoreboard of one spec-v2 context's cycle (.pi/spec/decisions.md, "First light"), run from
 # THIS checkout against the candidate a builder left in ROOM, after harness/v2/gate.sh passed.
 # The instrument: it reports to a person and never into the build loop. In order:
@@ -35,12 +35,13 @@
 #
 set -uo pipefail
 die() { echo "score.sh: $*" >&2; exit 1; }
-usage='usage: harness/v2/score.sh NN ROOM --verdicts FILE [--by "who/how graded"]'
-SLICE="${1:-}"; ROOM="${2:-}"; VERDICTS=""; BY="unspecified"
+usage='usage: harness/v2/score.sh NN ROOM --verdicts FILE [--profile FILE] [--by "who/how graded"]'
+SLICE="${1:-}"; ROOM="${2:-}"; VERDICTS=""; PROFILE=""; BY="unspecified"
 shift 2 2>/dev/null || die "$usage"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --verdicts) [[ $# -ge 2 ]] || die "$usage"; VERDICTS="$2"; shift 2 ;;
+    --profile)  [[ $# -ge 2 ]] || die "$usage"; PROFILE="$2"; shift 2 ;;
     --by)       [[ $# -ge 2 ]] || die "$usage"; BY="$2"; shift 2 ;;
     *)          die "$usage" ;;
   esac
@@ -54,6 +55,7 @@ CONTEXT="$(basename "$link")"
 
 # ---- 1. the verdicts FILE, its digest and who graded recorded, never judged here
 [[ -f "$VERDICTS" && -r "$VERDICTS" ]] || die "score refused: no readable verdicts file at $VERDICTS"
+[[ -z "$PROFILE" || ( -f "$PROFILE" && -r "$PROFILE" ) ]] || die "score refused: no readable profile at $PROFILE"
 graders="verdicts: sha256:$(shasum -a 256 "$VERDICTS" | cut -d' ' -f1) $(basename "$VERDICTS")
 by: $BY"
 if [[ -n "${SCORE_WHICH:-}" ]]; then echo "slice $SLICE ($CONTEXT):"; echo "$graders"; exit 0; fi
@@ -87,6 +89,37 @@ bb "$scratch/harness/gen_checklist.clj" --out "$CYC/checklist.json" 2>"$CYC/chec
 echo "$graders" >"$CYC/graders.txt"
 echo "filing $(head -1 "$CYC/graders.txt") (by: $BY)" >&2
 cp "$VERDICTS" "$CYC/verdicts.json" || die "score refused: $VERDICTS could not be copied"
+if [[ -n "$PROFILE" ]]; then
+  cp "$PROFILE" "$CYC/profile.json" || die "score refused: $PROFILE could not be copied"
+  PROFILE_DIR="$(dirname "$PROFILE")"
+  for artifact in profile.traces.otlp.json profile.metrics.otlp.json; do
+    [[ -f "$PROFILE_DIR/$artifact" ]] || die "score refused: no $artifact beside $PROFILE"
+    cp "$PROFILE_DIR/$artifact" "$CYC/$artifact" || die "score refused: cannot copy $artifact"
+    echo "$artifact: sha256:$(shasum -a 256 "$CYC/$artifact" | cut -d' ' -f1)" >> "$CYC/graders.txt"
+  done
+  echo "profile: sha256:$(shasum -a 256 "$PROFILE" | cut -d' ' -f1) profile.json" >> "$CYC/graders.txt"
+  python3 - "$CYC/profile.json" "$CYC/verdicts.json" "$CYC/checklist.json" "$ROOT" <<'PY' || die "profile does not match the filed checklist and verdicts"
+import hashlib, json, os, sys
+p, v, c, root = sys.argv[1:]
+profile = json.load(open(p))
+ids = [item['id'] for item in json.load(open(c))['items']]
+assert profile['version'] == 1
+assert profile['status'] in ('clean', 'failed')
+assert profile['checklist_items'] == len(ids)
+assert [item['id'] for item in profile['cases']] == ids
+assert profile['verdicts_sha256'] == hashlib.sha256(open(v, 'rb').read()).hexdigest()
+instruction = os.path.join(root, '.pi/harness/grader-instruction-' + ids[0][:2] + '.md')
+assert profile['grader_instruction_sha256'] == hashlib.sha256(open(instruction, 'rb').read()).hexdigest()
+for kind in ('traces', 'metrics'):
+    path = os.path.join(os.path.dirname(p), 'profile.' + kind + '.otlp.json')
+    assert profile['otlp_' + kind + '_sha256'] == hashlib.sha256(open(path, 'rb').read()).hexdigest()
+trace_payload = json.load(open(os.path.join(os.path.dirname(p), 'profile.traces.otlp.json')))
+spans = trace_payload['resourceSpans'][0]['scopeSpans'][0]['spans']
+assert len(spans) == len(ids) + 1
+assert spans[0]['traceId'] == profile['otel_trace_id']
+print('profile status:', profile['status'], 'cases:', len(ids), 'problems:', len(profile['problems']))
+PY
+fi
 
 # ---- 5. file and report, with the legacy tools
 bb "$scratch/harness/score.clj" "$CYCLE" --verdicts "$CYC/verdicts.json" || die "score refused by harness/score.clj (above)"

@@ -90,7 +90,7 @@ before the first. In order:
 | E1 | `pin` | the commit's tree digest read with `git rev-parse <commit>^{tree}` | `cycle-preparation/pin-source-cut` |
 | E1 | `checklist` | the stamped scenarios of the cut's selected slices read with legacy `gen_checklist`'s reading (item identity from the ledger, scenario digest below, Rule, `source:line`, title; planned and backlog slices skipped), each slice's spec file read as the stamp reads it and its source the slice's own path, `PLAN_DIR/<slice>/spec.feature`, as legacy `gen_checklist` reads it on disk | `measurement/derive-checklist` |
 | E2 | `self-check` | `LOYLY_SELF_CHECK_CMD` run in the project repository: exit 0 passed, any other failed; the last line it printed is the failing check; each line whose first word, after any leading whitespace, is `SKIP` a skipped check, the check named by the rest of the line after `SKIP` and its whitespace, trimmed (`../decisions.md`, "Spec round 13" D2) (legacy `check.sh` prints `SKIP  the oracle cannot judge this tree: …`; `../decisions.md`, "Spec round 7d") | `regeneration-cycle/record-harness-self-check` (before the fence: attempt 0, the run's budget; before the gate: the attempt) |
-| E3 | `fence` | legacy `fence.sh` as-is, its one argument the clean room's path, which must not exist yet: a `file://` clone of depth 1 at the commit, `FENCED_PATHS` split on whitespace, each entry found (present in the clone's tree) or listed as matching nothing, removed, committed, squashed to one root commit, origin removed, reflog expired and pruned; then probed: root commits (exactly 1), commits (exactly 1), paths left in the tree, paths reachable in the object graph (a path of `git rev-list --objects --all` equal to the entry, its trailing `/` dropped, or beneath it) | `regeneration-cycle/prove-clean-room` |
+| E3 | `fence` | legacy `fence.sh` as-is, its one argument the clean room's path, which must not exist yet: a `file://` clone of depth 1 at the commit, `FENCED_PATHS` split on whitespace, each entry found (present in the clone's tree) or listed as matching nothing, removed, committed, squashed to one root commit, origin removed, reflog expired and pruned; every non-fenced gitlink (mode `160000`) remains in the clean room's tree with the same target commit id as in the cut's tree, as the clone keeps it; then probed: root commits (exactly 1), commits (exactly 1), paths left in the tree, paths reachable in the object graph (a path of `git rev-list --objects --all` equal to the entry, its trailing `/` dropped, or beneath it) | `regeneration-cycle/prove-clean-room` |
 | E3, E4 | `fail-cycle` | after a refused fence (`fence-refused`, the refusal as detail), a builder that left nothing (`candidate-not-regenerated`) or outlived the regenerate timeout (`budget`), or a gate command that outlived the gate stage's timeout (`budget`, stage `gate`; `../decisions.md`, "Spec round 12" D2), or any other program a leaf runs that outlived what was left of its stage's timeout (`budget`, that stage; "The tree", every wait has a bound) | `regeneration-cycle/fail-cycle` |
 | E4 | `regenerate` | a fresh builder room (the clean room, an empty candidate scope `APP_DIR`; the configuration it holds is the configuration file the commit holds, at its path in the clean room unless fenced, and the runner copies no file handed in, `LOYLY_HARNESS_CONFIG` among them, into it; `../decisions.md`, "Spec round 20"), the builder instruction the render node wrote put into an instruction file in the run's directory, and one builder session run by the provided builder host, `LOYLY_BUILDER_HOST <builder-room> <instruction-file>`, with a third argument, the builder image's path, when the configuration names one (`BUILDER_IMAGE`, "Handed in"), and `LOYLY_BUILDER_SESSION_ID` in its environment, the session identity ("The builder session", below); waited for within the regenerate timeout; the candidate digest below; the detail names the session identity, the instruction's digest, and the builder image and its digest, when there is one (`../decisions.md`, "Spec round 9" D1) | `regeneration-cycle/record-regenerated-candidate` (attempt 1, `fresh-generation`, no evidence) |
 | E5 | `install` | a copy of the candidate in a fresh gate room under the run's directory, taken when the builder ended; the gate room is the gate's and out of the builder's reach, and writable by the candidate's own `test.sh` and `start.sh`, as legacy `verify.sh` runs the candidate in a writable tree; the candidate digest recorded is the digest of the copy as taken, before the gate runs, so what the candidate's own run writes does not change it (`../decisions.md`, "Spec round 7d"). For either seam the gate room is a copy of the gated tree, as legacy `verify.sh` gates the tree it sits in: the clean room's files (not its history) plus the candidate's copy at `APP_DIR`, so the candidate reads the spec beside it in the gate room as it did in the builder room, and the gate room is the gate's `ROOT` (`verify.sh` line 23, `ROOT` the tree's root); the candidate digest is still the candidate scope's alone (`../decisions.md`, "Spec round 8" and "Spec round 11"). When a gate command is handed in (`LOYLY_GATE_CMD`, "Handed in"), the gate room is instead the cut's tree: every file of the commit, with no history (`git archive` of the commit), the fenced paths included and nothing at `APP_DIR`; and the candidate's copy, taken as above, is a folder of its own beside the gate room, never inside it. The gate is the judge and out of the builder's reach, so it may hold what the fence hid from the builder, such as an identity probe and the files it reads; the command mounts the candidate at `APP_DIR` itself. The candidate digest is the copy's as taken, as above (`../decisions.md`, "Spec round 12" D2) | `regeneration-cycle/install-candidate-in-gate-room` |
@@ -191,14 +191,20 @@ workflow `cycle-runner/grade.v1`, as a child tick of its own:
 - **`clear-evidence`** (`code`) writes the item's evidence empty, so no item sees another's.
 - **`drive-seam`** (`repl-researcher`) is given the item (its identity and scenario), and the
   seam it drives: the `seam.md` and `event-model/*.edn` beside the item's spec file in the cut,
-  when there are any. Its one tool is a shell in a Gondolin VM whose only mount is the item's
+  when there are any. Its first model request contains the scenario text and the seam and event
+  model text from that cut as request context. The structured `item` blackboard value stays behind
+  `(get-input :item)`: the request describes that input's shape rather than serializing its value.
+  Its one tool is a shell in a Gondolin VM whose only mount is the item's
   grading room: a fresh copy of the passed attempt's gate room, the clean room's files with the
   gated candidate's copy at `APP_DIR`, never a builder room, gate evidence or a store.
   It drives the candidate over its seam from fresh state and writes what it set up, sent and
   observed as the item's evidence ("The researcher's VM", below).
-- **`judge`** (`code`) scores the item on that evidence on one binary scale, pass or fail, the
-  reason first and then the score, with the rubric handed in (`LOYLY_GRADER_RUBRIC`). A reply with
-  no reason, or a score that is not pass or fail, scores nothing. ORC's own banded-output check
+- **`judge`** (`code`) scores the item on that evidence on one ORC binary `discrete-scale`:
+  integer level `1` means fail and maps to judge score `0.0`; integer level `2` means pass and
+  maps to judge score `1.0`. The scale has explicit descriptions for both bands. The judge gives
+  its reason first and then its level, using the rubric handed in (`LOYLY_GRADER_RUBRIC`) as the
+  item's criterion. A reply with no reason, or a level outside `1` and `2`, scores nothing;
+  level `0` is not a fail band. ORC's own banded-output check
   reads only the `level` field, so the judge checks the `reasoning` field itself: a reply with a
   `level` and no `reasoning`, or an empty one, scores nothing (`@item-06-067`). The score is recorded as ORC's
   judge score event, its judge name `checklist/<item-id>`, so each item keeps its own score.
@@ -507,6 +513,19 @@ again to recover it. At ORC's pin a `repl-researcher` in flight is not resumed (
 `runtime.clj` resumes leaves only); a run stopped while grading is a known gap, until ORC resumes
 researcher nodes.
 
+Before resuming a pending run, the runner recreates ORC's live model provider from that run's
+`handed-in` model endpoint and names on the blackboard. The resumed tick can reach `render`,
+`drive-seam` or `judge` without another `start-run`, and each must have its provider. Provider
+registration is provider setup, not a new run effect or a new reading of the host's
+current `LOYLY_*` variables.
+
+The runner configures ORC's execution lease so an abandoned builder leaf can be reclaimed,
+reopened and completed within the original regenerate stage's remaining budget. A restart does
+not reset that stage clock. The lease must still protect a live builder from a second invocation:
+only an abandoned leaf is resumed, with its original tick and session identity. ORC's default
+90-second lease is too long for a run whose regenerate stage is also 90 seconds; recovery at the
+lease expiry races the stage clock and cannot satisfy `@item-06-070`.
+
 ## Handed in
 
 Read when `start-run` runs, never only at boot, so a grader changes them between runs.
@@ -631,9 +650,10 @@ Everything the runner acts on is a fixture a grader states, so no item waits for
   item as scripted (a score with a reason, a score with none, a failure), and records every request
   it is sent. It replies in ORC's marker format (`[[ ## <field> ## ]]` per field, then
   `[[ ## completed ## ]]`), since the provider is registered under a name other than `:openai`
-  ("Handed in"). A request sent for the researcher shows the item's shape, never its value, so a
-  scripted researcher's code reads `(get-input :item)` and branches on it. Requests carry tick ids
-  and timestamps, and ORC may retry a request, so a stub matches a request on stable substrings
+  ("Handed in"). The first researcher request contains the item's scenario text and its slice's
+  seam and event-model text from the cut. It shows the structured `item` input's shape, not that
+  blackboard value; a scripted researcher's code reads `(get-input :item)` and branches on it.
+  Requests carry tick ids and timestamps, and ORC may retry a request, so a stub matches a request on stable substrings
   (the node's output contract, the item's text, the reply fragments that matter), never on the
   whole text, a hash or a count;
 - `LOYLY_GRADER_RUBRIC` a fixture rubric whose digest the grader computes and names, or not, in the

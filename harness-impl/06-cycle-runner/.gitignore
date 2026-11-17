@@ -1,6 +1,0 @@
-/target/
-/.cpcache/
-/state/
-*.log
-*.out
-*.err

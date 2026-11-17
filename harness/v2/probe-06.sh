@@ -28,13 +28,16 @@
 #      the builder ran
 #   5. cycle-runner/start-run of R-full at the commit, its approved grader digests naming the
 #      rubric's, with LOYLY_GATE_CMD a stub gate command that passes and LOYLY_MODEL_API_BASE a
-#      stub model (ORC's marker format: it answers every output field a request names, `level` 1,
+#      stub model (ORC's marker format: it answers every output field a request names, `level` 2,
 #      a researcher's code a bare `(final! ...)` with the keys the request asks for): within
 #      RUN_BUDGET seconds the run passed with its cycle, the self-check and the builder ran, the
 #      model was called, run-progress shows the file-verdicts and file-score effects recorded and a
-#      score for the one item, 01-001. A runner that halts or fails before the score fails here.
+#      pass score for the one item, 01-001. A runner that halts or fails before the score fails here.
 #      The run is handed LOYLY_GRADER_IMAGE, the real guest image (spec round 20: a run with no
 #      image halts before grading): PROBE_GRADER_IMAGE, else the checkout's builder-clojure image.
+#   6. a fresh process and store run R-built-in with no LOYLY_GATE_CMD. Its stub builder
+#      writes a tiny HTTP app; the runner must execute its built-in suite, boot and marker
+#      gate, then grade and score. This catches a runner that only implements handed-in gates.
 #
 # The candidate gets its Grain store through LOYLY_GRAIN_STORE: GATE_STORE when the gate
 # (harness/v2/gate.sh) set one, so the event-store check reads what this probe caused, and a
@@ -70,7 +73,7 @@ write(os.path.join(repo, "plan/01-probe/spec.feature"),
       "Feature: Probe\n\n  Rule: One rule\n\n    @item-01-001\n    Scenario: The probe's scenario\n"
       "      Given a probe\n      When it runs\n      Then it is heard\n")
 write(os.path.join(repo, "config.sh"), config)
-write(os.path.join(repo, "probe.sh"), "#!/bin/sh\nexit 0\n", executable=True)
+write(os.path.join(repo, "probe.sh"), "#!/bin/sh\necho probe identity\nexit 0\n", executable=True)
 write(os.path.join(repo, "secret/README.md"), "fenced\n")
 genv = dict(os.environ, GIT_AUTHOR_NAME="probe", GIT_AUTHOR_EMAIL="probe@example.invalid",
             GIT_COMMITTER_NAME="probe", GIT_COMMITTER_EMAIL="probe@example.invalid")
@@ -104,7 +107,7 @@ def stub_reply(text):
         if f == "code":
             v = "(final! {" + " ".join(f'{k} "stub: the scenario was observed over the seam"' for k in keys) + "})"
         elif f == "level":
-            v = "1"
+            v = "2"
         else:
             v = f"stub {f}: the scenario holds, as observed over the seam."
         out.append(f"[[ ## {f} ## ]]\n{v}")
@@ -129,7 +132,7 @@ class StubModel(http.server.BaseHTTPRequestHandler):
 model_server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), StubModel)
 threading.Thread(target=model_server.serve_forever, daemon=True).start()
 instruction = write(os.path.join(work, "instruction.md"), "Build the probe's product.\n")
-rubric = write(os.path.join(work, "rubric.md"), "Pass when the item's behaviour is observed over the seam; else fail.\n")
+rubric = write(os.path.join(work, "rubric.md"), "Pass when the item's behaviour is observed over the seam; else fail. Binary bands: 1 = fail, 2 = pass.\n")
 with open(rubric, "rb") as f:
     grader_digest = "sha256:" + hashlib.sha256(b"cycle-runner/grade.v1\n" + f.read()).hexdigest()
 images = os.path.join(work, "images")
@@ -256,17 +259,48 @@ if r.get("status") != "passed":
          f"effects {sorted(done)}; want passed with its cycle")
 missing = [e for e in ("self-check", "fence", "regenerate", "file-verdicts", "file-score")
            if done.get(e) != "recorded"]
-if missing or scored != ["01-001"]:
+if missing or scored != ["01-001"] or (r.get("scores") or [{}])[0].get("verdict") != "pass":
     fail(f"R-full passed, but its effect results {json.dumps(done)[:300]} lack {missing} recorded, or its "
-         f"scores are {scored}, not one score for 01-001")
+         f"scores are {json.dumps(r.get('scores'))[:300]}, not one pass for 01-001")
 ran = [m for m in ("self-check", "builder", "gate") if not os.path.exists(os.path.join(marks, m))]
 if ran or not model_calls:
     fail(f"R-full passed, but " + (f"the {' and the '.join(ran)} never ran" if ran else "the model was never called"))
+stop()
+
+# 6. Run the same public seam through the runner's built-in HTTP gate. This is a fresh
+# process and store, so the absence of LOYLY_GATE_CMD is observable to the candidate.
+os.remove(os.path.join(marks, "gate"))
+write(builder, f'''#!/bin/sh
+touch '{marks}/builder-built-in'
+mkdir -p "$1/app"
+printf '#!/bin/sh\\nexit 0\\n' > "$1/app/test.sh"
+printf '#!/bin/sh\\ncd "$(dirname "$0")"\\nexec python3 -m http.server "$1" --bind 127.0.0.1\\n' > "$1/app/start.sh"
+printf 'probe built-in gate\\n' > "$1/app/index.html"
+chmod +x "$1/app/test.sh" "$1/app/start.sh"
+''', executable=True)
+env2 = dict(env, LOYLY_GRAIN_STORE=os.path.join(work, "built-in-store.sqlite"),
+            LOYLY_RUNS_DIR=os.path.join(work, "built-in-runs"))
+env2.pop("LOYLY_GATE_CMD", None)
+proc = subprocess.Popen([start], stdin=subprocess.PIPE, stdout=subprocess.PIPE, cwd=work, env=env2,
+                        stderr=subprocess.DEVNULL, start_new_session=True, text=True)
+t6 = time.monotonic()
+built_in = dict(full, **{"run-id": "R-built-in", "cycle-id": "C-built-in", "cut-id": "K-built-in"})
+events = (call(8, "cycle-runner/start-run", built_in, deadline=t6 + RUN_BUDGET) or {}).get("events")
+if not isinstance(events, list) or not any(e.get("type") == "cycle-runner/run-started" for e in events):
+    fail(f"cycle-runner/start-run of R-built-in answered {json.dumps(events)[:300]}, no run-started")
+r = (call(9, "cycle-runner/run-progress", {"run-id": "R-built-in"}, deadline=t6 + RUN_BUDGET) or {}).get("run") or {}
+done = {x.get("effect"): x.get("outcome") for x in (r.get("effect-results") or []) if isinstance(x, dict)}
+if (r.get("status") != "passed" or done.get("gate") != "recorded"
+        or [s.get("item-id") for s in (r.get("scores") or [])] != ["01-001"]
+        or os.path.exists(os.path.join(marks, "gate"))):
+    fail(f"R-built-in did not pass through the built-in gate and score: status {r.get('status')!r}, "
+         f"halt {json.dumps(r.get('halt'))[:200]}, effects {sorted(done)}")
 stop()
 model_server.shutdown()
 print(f"refused a start at no commit and one whose builder image is missing, stamped, pinned and derived "
       f"the checklist of R-probe and halted it at the unapproved grader {grader_digest}, ran no self-check "
       f"and no builder, in {elapsed:.1f}s of the {budget:g}s budget; then ran R-full through build, gate, "
-      f"grading ({len(model_calls)} model calls) and score to passed, in {time.monotonic() - t5:.1f}s: "
+      f"grading ({len(model_calls)} model calls) and score to passed, then R-built-in passed "
+      f"without LOYLY_GATE_CMD in {time.monotonic() - t6:.1f}s: "
       f"a cycle runner over its seam")
 PY

@@ -1,0 +1,64 @@
+;; .pi/spec/measurement/event-model/area.edn
+;; Measurement (instrument: score and scoreboard): its screen and its flows. Each aggregate's
+;; blocks are in its own fragment (checklist.edn, cycle-measurement.edn, scoreboard.edn).
+;; The instrument reports to a person, once a cycle, and never into the build
+;; loop: no block here produces a command of the Regeneration cycle.
+;;
+;; Other contexts' events it folds, from the one store (spec round 18):
+;; specification/scenario-stamped, cycle-preparation/source-cut-pinned,
+;; regeneration-cycle/gate-attempt-passed. Its measurement-filed, score-stage-failed and
+;; scoreboard-reported only conclude the cycle, in the Regeneration cycle.
+;; Allium: ../allium/ (surfaces InstrumentDesk, MeasurementReceipt, ScoreboardReport).
+{:measurement
+ {:description "Measurement (instrument: score and scoreboard): the checklist that sets the denominator, one filed measurement per cycle with unreached items failed and counted, and the scoreboard to a person."
+  :screens
+  {:measurement/instrument-desk
+   {:description "The operator's instrument view: derive a cut's checklist; read a cycle's measurement and its scoreboard (newly passing and newly failing on the shared items, new items as the holdout, a moved item set restated, never a net)."
+    :grain/allium [{:spec ".pi/spec/measurement/allium/checklist.allium" :kind :surface :name "InstrumentDesk"}
+                   {:spec ".pi/spec/measurement/allium/cycle-measurement.allium" :kind :surface :name "MeasurementReceipt"}
+                   {:spec ".pi/spec/measurement/allium/scoreboard.allium" :kind :surface :name "ScoreboardReport"}]
+    :queries #{:measurement/checklist :measurement/cycle-measurement :measurement/scoreboard}
+    :commands #{:measurement/derive-checklist}}}
+  :flows
+  {:measurement/stamping-to-checklist
+   {:description "A stamped scenario (Specification's event, from the one store) becomes an item identity; the operator derives the checklist of a pinned cut (legacy: gen_checklist), refused if any scenario is unstamped or the checklist would be empty. Moved here from Specification's flow, which ends at its own screen."
+    :grain/allium [{:spec ".pi/spec/measurement/allium/checklist.allium" :kind :rule :name "NoteItemIdentity"}
+                   {:spec ".pi/spec/measurement/allium/checklist.allium" :kind :rule :name "DeriveChecklist"}]
+    :steps [{:from [:event :specification/scenario-stamped] :to [:read-model :measurement/item-identities]}
+            {:from [:read-model :measurement/item-identities] :to [:command :measurement/derive-checklist]}
+            {:from [:command :measurement/derive-checklist] :to [:event :measurement/checklist-derived]}
+            {:from [:event :measurement/checklist-derived] :to [:read-model :measurement/checklists]}
+            {:from [:read-model :measurement/checklists] :to [:query :measurement/checklist]}
+            {:from [:query :measurement/checklist] :to [:screen :measurement/instrument-desk]}]}
+   :measurement/scoring
+   {:description "A cycle the gate ratified (the Regeneration cycle's event, from the one store) opens its measurement; the approved sealed grader files its item verdicts for the gated candidate, and ORC runtime files the one measurement, or records the score stage failed when the score was refused. The Regeneration cycle's own flow shows the same steps from its side; in a run, each command is a leaf of cycle-runner/cycle.v1 on the one store (decisions.md, \"Spec round 18\")."
+    :grain/allium [{:spec ".pi/spec/measurement/allium/cycle-measurement.allium" :kind :rule :name "OpenMeasurement"}
+                   {:spec ".pi/spec/measurement/allium/cycle-measurement.allium" :kind :rule :name "FileItemVerdicts"}
+                   {:spec ".pi/spec/measurement/allium/cycle-measurement.allium" :kind :rule :name "FileScore"}
+                   {:spec ".pi/spec/measurement/allium/cycle-measurement.allium" :kind :rule :name "FailScoreStage"}]
+    :steps [{:from [:event :regeneration-cycle/gate-attempt-passed] :to [:read-model :measurement/gated-cycles]}
+            {:from [:read-model :measurement/gated-cycles] :to [:command :measurement/file-item-verdicts]}
+            {:from [:command :measurement/file-item-verdicts] :to [:event :measurement/item-verdicts-filed]}
+            {:from [:event :measurement/item-verdicts-filed] :to [:read-model :measurement/item-verdicts]}
+            {:from [:read-model :measurement/item-verdicts] :to [:command :measurement/file-score]}
+            {:from [:command :measurement/file-score] :to [:event :measurement/measurement-filed]}
+            {:from [:event :measurement/measurement-filed] :to [:read-model :measurement/cycle-measurements]}
+            {:from [:read-model :measurement/cycle-measurements] :to [:command :measurement/fail-score-stage]}
+            {:from [:command :measurement/fail-score-stage] :to [:event :measurement/score-stage-failed]}
+            {:from [:event :measurement/score-stage-failed] :to [:read-model :measurement/cycle-measurements]}
+            {:from [:read-model :measurement/cycle-measurements] :to [:query :measurement/cycle-measurement]}
+            {:from [:query :measurement/cycle-measurement] :to [:screen :measurement/instrument-desk]}]}
+   :measurement/scoreboard-restates-moved-item-set
+   {:description "A filed measurement is reported once against the previous measured cycle; when the item set moved, the comparison is restated on the shared items."
+    :grain/allium [{:spec ".pi/spec/measurement/allium/scoreboard.allium" :kind :rule :name "ReportScoreboardOnce"}
+                   {:spec ".pi/spec/measurement/allium/scoreboard.allium" :kind :rule :name "ReportScoreboard"}]
+    :steps [{:from [:event :measurement/measurement-filed] :to [:read-model :measurement/measurements-to-report]}
+            {:from [:read-model :measurement/measurements-to-report] :to [:query :measurement/measurements-to-report]}
+            {:from [:query :measurement/measurements-to-report] :to [:todo-processor :measurement/report-scoreboard-once]}
+            {:from [:todo-processor :measurement/report-scoreboard-once] :to [:command :measurement/report-scoreboard]}
+            {:from [:command :measurement/report-scoreboard] :to [:event :measurement/moved-item-set-restated]}
+            {:from [:command :measurement/report-scoreboard] :to [:event :measurement/scoreboard-reported]}
+            {:from [:event :measurement/moved-item-set-restated] :to [:read-model :measurement/scoreboards]}
+            {:from [:event :measurement/scoreboard-reported] :to [:read-model :measurement/scoreboards]}
+            {:from [:read-model :measurement/scoreboards] :to [:query :measurement/scoreboard]}
+            {:from [:query :measurement/scoreboard] :to [:screen :measurement/instrument-desk]}]}}}}

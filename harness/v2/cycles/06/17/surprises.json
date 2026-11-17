@@ -1,0 +1,14 @@
+[
+  {
+    "id": "06-069",
+    "note": "After recording fail-score-stage, the runner also attempted fail-cycle, which Regeneration cycle refused cycle-concluded."
+  },
+  {
+    "id": "profile",
+    "note": "Active captures used the start.sh launcher PID immediately after launch, so later JVM and guest resource peaks may be missed. A JVM attach attempted for 06-003 used the launcher PID and failed; no JVM profile was obtained for that case."
+  },
+  {
+    "id": "profile",
+    "note": "The profile report failed because an extra 06-073 active capture was taken after the case\u2019s after boundary; the report and its finding are preserved."
+  }
+]

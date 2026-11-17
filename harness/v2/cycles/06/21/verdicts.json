@@ -1,0 +1,307 @@
+[
+  {
+    "id": "06-001",
+    "verdict": "fail",
+    "evidence": "The fixture reached the built-in HTTP gate, which halted with effect-could-not-run and detail Only the handed gate command is currently carried; the required gate pass and subsequent effects were not observed. The fixture launch script also used the wrong working-directory-relative path for its server, so the given serving candidate was not independently established."
+  },
+  {
+    "id": "06-002",
+    "verdict": "pass",
+    "evidence": "After R-1 failed at the fence, starting R-1 for C-2 returned run-already-started; the run list contained R-1 once for C-1."
+  },
+  {
+    "id": "06-003",
+    "verdict": "fail",
+    "evidence": "While R-1 builder slept, R-2 returned run-in-progress and R-1 progress showed running; the fixture did not query R-2, so its required absence was not observed."
+  },
+  {
+    "id": "06-004",
+    "verdict": "pass",
+    "evidence": "After R-1 passed, a second start for C-1 returned cycle-already-run and run-progress for R-2 returned null."
+  },
+  {
+    "id": "06-005",
+    "verdict": "pass",
+    "evidence": "With a fresh Git repository, start-run naming the nonexistent deadbeef commit returned refusal not-a-commit; run-progress returned null and no builder was configured or launched."
+  },
+  {
+    "id": "06-008",
+    "verdict": "pass",
+    "evidence": "An empty fixture spec yielded a refused checklist with empty-checklist, followed by a checklist halt and no self-check or fence."
+  },
+  {
+    "id": "06-009",
+    "verdict": "pass",
+    "evidence": "An extra unstamped scenario produced three stamp events, then halted at stamp for mismatched identities, with no pin or checklist."
+  },
+  {
+    "id": "06-010",
+    "verdict": "pass",
+    "evidence": "The failing self-check printed golden checklist differs; progress showed the cycle failed at fence for harness-self-check-failed with that detail, and no fence or regenerate effect."
+  },
+  {
+    "id": "06-011",
+    "verdict": "pass",
+    "evidence": "A passing self-check printing SKIP bb-tools recorded harness-self-check-passed, with bb-tools in skipped-checks and detail."
+  },
+  {
+    "id": "06-012",
+    "verdict": "pass",
+    "evidence": "Fencing impl and absent harness/cycles returned fenced-path-matched-nothing; fail-cycle was recorded and the run failed at fence for fence-refused, before any builder."
+  },
+  {
+    "id": "06-013",
+    "verdict": "pass",
+    "evidence": "The builder recorded the plan, config, and empty impl scope, one commit and no fenced paths in reachable objects. Its provided-runtime gitlink was mode 160000 and matched the cut tree object id 6d78ffdb54dcdbc1645a0b7f944cb67b517e2284."
+  },
+  {
+    "id": "06-014",
+    "verdict": "fail",
+    "evidence": "The run halted at the first gate and recorded only one builder launch; the fixture did not record session identities or completion times. The halt detail was \"Only the handed gate command is currently carried\"."
+  },
+  {
+    "id": "06-015",
+    "verdict": "fail",
+    "evidence": "The fixture reached the built-in HTTP gate, which halted with effect-could-not-run and detail Only the handed gate command is currently carried; the required gate pass and subsequent effects were not observed. The fixture launch script also used the wrong working-directory-relative path for its server, so the given serving candidate was not independently established."
+  },
+  {
+    "id": "06-016",
+    "verdict": "pass",
+    "evidence": "The builder exited successfully without leaving a candidate; progress recorded fail-cycle and failed at regenerate for candidate-not-regenerated without a regenerate effect."
+  },
+  {
+    "id": "06-017",
+    "verdict": "fail",
+    "evidence": "A builder sleeping 30 seconds exceeded the two-second regenerate budget; progress failed at regenerate for budget. The fixture did not independently record the builder process termination, so that required observation is missing."
+  },
+  {
+    "id": "06-018",
+    "verdict": "fail",
+    "evidence": "The configured port answered HTTP 200, but the run halted before recording any gate refusal or infrastructure failure. The halt detail was \"Only the handed gate command is currently carried\"."
+  },
+  {
+    "id": "06-019",
+    "verdict": "fail",
+    "evidence": "A red-suite candidate with one attempt halted at gate with effect-could-not-run and detail Only the handed gate command is currently carried; no suite-red attempt or failed cycle was recorded."
+  },
+  {
+    "id": "06-020",
+    "verdict": "fail",
+    "evidence": "A candidate without start.sh halted at gate with effect-could-not-run, rather than recording contract-missing."
+  },
+  {
+    "id": "06-021",
+    "verdict": "fail",
+    "evidence": "The candidate served a different marker, but the run halted without an identity-probe-failed event; the fixture also left the attempt limit at three instead of one. The halt detail was \"Only the handed gate command is currently carried\"."
+  },
+  {
+    "id": "06-022",
+    "verdict": "fail",
+    "evidence": "The builder left a green candidate and scheduled a later red-suite rewrite; progress halted at the built-in gate with \"Only the handed gate command is currently carried\", so the required gate pass was not observed."
+  },
+  {
+    "id": "06-023",
+    "verdict": "fail",
+    "evidence": "The run halted at the first gate, so no repair effect or second builder room was observed; the fixture did not record read-only mount tests. The halt detail was \"Only the handed gate command is currently carried\"."
+  },
+  {
+    "id": "06-024",
+    "verdict": "fail",
+    "evidence": "A red-suite candidate halted at the first gate because the built-in gate was not carried; the three failed attempts and exhausted cycle did not occur."
+  },
+  {
+    "id": "06-026",
+    "verdict": "pass",
+    "evidence": "The researcher branched on the item and failed for 01-002 while 01-001 reached its judge; file-verdicts contained 01-001 alone, and measurement filed 01-002 unreached with one of two passing and the cycle passed."
+  },
+  {
+    "id": "06-034",
+    "verdict": "pass",
+    "evidence": "R-1 failed at fence and R-2 halted at checklist on a second cut; progress read five seconds later was identical to each immediate reading, including their effect results."
+  },
+  {
+    "id": "06-035",
+    "verdict": "pass",
+    "evidence": "Two consecutive run-progress queries after R-1 passed returned identical results, with status passed."
+  },
+  {
+    "id": "06-036",
+    "verdict": "fail",
+    "evidence": "The run halted before a gate pass or cycle pass; the fixture probe did not enforce the requested URL check. The halt detail was \"Only the handed gate command is currently carried\"."
+  },
+  {
+    "id": "06-037",
+    "verdict": "fail",
+    "evidence": "The candidate suite was set up to create and remove a directory, but no gate pass was recorded. The halt detail was \"Only the handed gate command is currently carried\"."
+  },
+  {
+    "id": "06-038",
+    "verdict": "pass",
+    "evidence": "The passing self-check printed the legacy SKIP line; harness-self-check-passed carried its entire trailing sentence in detail and skipped-checks."
+  },
+  {
+    "id": "06-039",
+    "verdict": "fail",
+    "evidence": "With the stdio fixture, run-progress halted at gate with effect-could-not-run, detail \"Only the handed gate command is currently carried\"; no gate-attempt-passed or cycle pass."
+  },
+  {
+    "id": "06-040",
+    "verdict": "fail",
+    "evidence": "With the stdio fixture, run-progress halted at gate with effect-could-not-run, detail \"Only the handed gate command is currently carried\"; neither probe arguments/environment nor store-check arguments were recorded."
+  },
+  {
+    "id": "06-041",
+    "verdict": "fail",
+    "evidence": "With the stdio fixture, run-progress halted at gate with effect-could-not-run, detail \"Only the handed gate command is currently carried\"; no suite-red gate event or suite environment was recorded."
+  },
+  {
+    "id": "06-042",
+    "verdict": "fail",
+    "evidence": "With the stdio fixture, run-progress halted at gate with effect-could-not-run, detail \"Only the handed gate command is currently carried\"; no identity-probe-failed event or probe detail was recorded."
+  },
+  {
+    "id": "06-043",
+    "verdict": "fail",
+    "evidence": "With the stdio fixture, run-progress halted at gate with effect-could-not-run, detail \"Only the handed gate command is currently carried\"; no identity-probe-failed event, store-check detail, or exhausted cycle was recorded."
+  },
+  {
+    "id": "06-044",
+    "verdict": "fail",
+    "evidence": "With the stdio fixture, run-progress halted at gate with effect-could-not-run, detail \"Only the handed gate command is currently carried\"; no gate-attempt-passed event was recorded."
+  },
+  {
+    "id": "06-045",
+    "verdict": "fail",
+    "evidence": "With the stdio fixture, run-progress halted at gate with effect-could-not-run, detail \"Only the handed gate command is currently carried\"; the halt cited lack of a handed gate command rather than the missing store-check program."
+  },
+  {
+    "id": "06-046",
+    "verdict": "fail",
+    "evidence": "Two stdio runs with store-check commands ending in one and two recorded different self-check digests. The fixture probe exited 0 rather than the required 1, so the stated setup was not reproduced."
+  },
+  {
+    "id": "06-047",
+    "verdict": "pass",
+    "evidence": "The committed 01-a link pointed to ../spec/a; stamp recorded both items and checklist sources used plan/01-a/spec.feature. The run continued beyond checklist without a halt."
+  },
+  {
+    "id": "06-048",
+    "verdict": "pass",
+    "evidence": "With PLAN_SLICES=02, the only stamp was 02-other and the checklist contained only 02-001."
+  },
+  {
+    "id": "06-049",
+    "verdict": "fail",
+    "evidence": "The first builder received the configured image path as its third argument, but regenerate detail omitted the image name and digest. The run failed after its first gate attempt, so no repair launch or repair detail was observed."
+  },
+  {
+    "id": "06-050",
+    "verdict": "pass",
+    "evidence": "A config naming builder-clojure with no matching image folder returned builder-image-missing; run-progress was null and no builder was launched."
+  },
+  {
+    "id": "06-051",
+    "verdict": "fail",
+    "evidence": "Two runs on one store completed and R-2 recorded an empty stamp event, but measurement/scoreboard for C-2 returned -32601 Method not found, so the prior cycle could not be read."
+  },
+  {
+    "id": "06-052",
+    "verdict": "fail",
+    "evidence": "The run halted before a gate pass; the fixture did not place the requested relative-file-reading probe at harness/probe.sh. The halt detail was \"Only the handed gate command is currently carried\"."
+  },
+  {
+    "id": "06-053",
+    "verdict": "fail",
+    "evidence": "The command gate recorded a pass with BOOT 20 10, poll 3, the probe line, and the matching install digest; its arguments identified the cut tree, candidate copy and empty evidence directory. The fixture did not independently recompute the candidate digest or record whether its entrypoint ran, so those required observations are missing."
+  },
+  {
+    "id": "06-054",
+    "verdict": "fail",
+    "evidence": "The first command gate recorded suite-red with detail 3 of 65 tests failed, but the run failed gate-attempts-exhausted after attempt 1 despite a limit of three; no repair or passing second attempt occurred."
+  },
+  {
+    "id": "06-055",
+    "verdict": "fail",
+    "evidence": "A gate command returned seam-answered-before-boot; the first gate was refused, but start-run returned an internal cycle-tree failure and progress remained running without gate-refusal or the required three refusals."
+  },
+  {
+    "id": "06-056",
+    "verdict": "pass",
+    "evidence": "A gate command exited 2 with infrastructure world failed; progress halted at gate with effect-could-not-run and that detail, with no gate result, fail-cycle, or cycle."
+  },
+  {
+    "id": "06-057",
+    "verdict": "fail",
+    "evidence": "The first self-check digest matched SHA-256 over config bytes, the self-check command text, and probe bytes; all three command variants had different digests. The first run halted at the unsupported built-in gate, and its candidate suite was not the specified green suite, so the complete setup was not met."
+  },
+  {
+    "id": "06-059",
+    "verdict": "fail",
+    "evidence": "The fixture reached the built-in HTTP gate, which halted with effect-could-not-run and detail Only the handed gate command is currently carried; the required gate pass and subsequent effects were not observed. The fixture launch script also used the wrong working-directory-relative path for its server, so the given serving candidate was not independently established."
+  },
+  {
+    "id": "06-060",
+    "verdict": "fail",
+    "evidence": "The fixture reached the built-in HTTP gate, which halted with effect-could-not-run and detail Only the handed gate command is currently carried; the required gate pass and subsequent effects were not observed. The fixture launch script also used the wrong working-directory-relative path for its server, so the given serving candidate was not independently established."
+  },
+  {
+    "id": "06-061",
+    "verdict": "fail",
+    "evidence": "The run halted at the first gate, so there was no second attempt or repair subtree; the fixture also did not prepare a distinct green second candidate. The halt detail was \"Only the handed gate command is currently carried\"."
+  },
+  {
+    "id": "06-062",
+    "verdict": "fail",
+    "evidence": "A candidate copy launched from a temporary folder with no .pi ancestor and reached the gate, showing its event model could load. The run then halted at the built-in gate with \"Only the handed gate command is currently carried\", so the required gate and cycle pass did not occur."
+  },
+  {
+    "id": "06-064",
+    "verdict": "pass",
+    "evidence": "The two separate grade.v1 child ticks emitted judge scores 1.0 for checklist/01-001 and 0.0 for checklist/01-002. Measurement filed booked and no receipt, one of two passing, and the cycle passed."
+  },
+  {
+    "id": "06-065",
+    "verdict": "pass",
+    "evidence": "The first researcher returned E-ONE; the first judge request contained it, while neither the second researcher request nor the second judge request contained it."
+  },
+  {
+    "id": "06-066",
+    "verdict": "fail",
+    "evidence": "The researcher shell returned Linux and listed only its item room under the parent, with plan and impl present. Its first model request omitted the fixture scenario, seam text and event model, so the required input context was not supplied."
+  },
+  {
+    "id": "06-067",
+    "verdict": "pass",
+    "evidence": "With a level 2 reply and feedback but no reasoning for 01-002, the store held only the 01-001 judge score and progress showed that score alone. Measurement filed only 01-001 as scored and marked 01-002 unreached."
+  },
+  {
+    "id": "06-068",
+    "verdict": "pass",
+    "evidence": "With only r-1 approved, the different actual rubric digest halted at grader with refused-before-the-cycle and the digest in detail; no self-check, fence, or builder occurred."
+  },
+  {
+    "id": "06-069",
+    "verdict": "fail",
+    "evidence": "With every researcher request rejected by the model, file-verdicts was refused zero-verdicts and fail-score-stage was recorded; the run failed at score for score-stage-failed. The fixture did not record builder launches, so the required absence of a later builder was not independently observed."
+  },
+  {
+    "id": "06-070",
+    "verdict": "fail",
+    "evidence": "After killing the runner and builder five seconds into the first session, restarting on the same store left R-1 running throughout 40 seconds of progress queries. The builder log contained only one launch, so the required resumed launch, matching session identity and passed cycle were not observed."
+  },
+  {
+    "id": "06-071",
+    "verdict": "fail",
+    "evidence": "The run halted before repair, and the fixture did not record the instruction files, so the required comparison was not observed. The halt detail was \"Only the handed gate command is currently carried\"."
+  },
+  {
+    "id": "06-072",
+    "verdict": "pass",
+    "evidence": "The model returned HTTP 400 to render; progress halted at render for effect-could-not-run with no regenerate, fail-cycle, or cycle result, and no builder launched."
+  },
+  {
+    "id": "06-073",
+    "verdict": "fail",
+    "evidence": "While the builder slept, run-progress showed R-1 running and completed fence effect, but omitted the required tick identity and node list including the running regenerate leaf."
+  }
+]

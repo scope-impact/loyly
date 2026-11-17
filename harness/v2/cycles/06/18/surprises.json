@@ -1,0 +1,18 @@
+[
+  {
+    "id": "profile",
+    "note": "The report records 54 after-boundary failures: the runner JVM was still live at capture and was stopped immediately afterward. Several grading VMs were not caught in a live process snapshot, and earlier live JVMs were not sampled with jcmd/jstat."
+  },
+  {
+    "id": "06-005",
+    "note": "No live Java PID was captured: the active snapshot preceded the interactive runner launch, and the after capture omitted its PID. No JVM sample is claimed for this case."
+  },
+  {
+    "id": "06-062",
+    "note": "The live active capture observed the launcher but no Java PID, so no JVM sample is claimed; the temporary fixture was removed after its outputs were copied into work."
+  },
+  {
+    "id": "06-057",
+    "note": "A bounded JFR was attempted against the last observed Java PID, but attach failed because the process exited before the handshake; no JFR sample is claimed."
+  }
+]
