@@ -57,3 +57,19 @@ if `/Users/` or `/private/` survives anywhere in the page.
 
 Published so far: [Löyly run-03](https://scope-impact.github.io/loyly/replay/loyly-run-03.html).
 The spec page's menu (<https://scope-impact.github.io/loyly/>) lists every published replay.
+
+## Cycle 25 grading playback
+
+`build_grading.py` builds `cycle-25-grading.html` from the filed cycle-25 OTLP trace,
+score and profile under `harness/v2/cycles/06/25/`. It shows the independent grader's
+61 item timelines and selected diagnostics (3,023 recorded trace events). This is a
+grading playback, distinct from the run-03 cycle-runner replay above. The filed failed
+profile and its audited retry-name exception remain visible. The generator selects
+specific diagnostic fields and omits raw identifiers, paths and prompts.
+
+```bash
+python3 tools/spec/replay/build_grading.py
+```
+
+The Pages publisher includes the generated HTML at
+`replay/cycle-25-grading.html` and the event-model menu links to it.
