@@ -54,6 +54,52 @@ the store is git-ignored, so one cycle's transcripts never reach the next cycle'
 regeneration that can read last cycle's conversation is copying, the same failure
 `FENCED_PATHS` exists to prevent.
 
+## Claude Code as the worker
+
+Who does a round's work is a choice; the loop around the round stays the same either way.
+
+- **`--worker pi`** (the default): a pi-ai model run inside pi-durable. It needs a
+  provider key such as `ANTHROPIC_API_KEY`, and every model turn and tool call is a
+  pi-durable record.
+- **`--worker claude-code`**: headless Claude Code (`claude -p`) does each round, with its
+  own tools, on whatever credentials Claude Code has. That includes a Claude Code session
+  the loop is started from, so it runs inside a Claude Code session with no API key.
+
+```bash
+node agent/run.mjs --worker claude-code                  # Claude Code's default model
+node agent/run.mjs --worker claude-code --model opus     # --model goes to claude as is
+LOYLY_AGENT_WORKER=claude-code node agent/run.mjs --approve
+```
+
+pi-durable still holds the cycle: its position, the round in flight, the history, the
+Slack outbox and listener. Claude Code holds what happens inside a round. The guardrails
+carry over as follows:
+
+| guardrail | with Claude Code |
+|---|---|
+| spec-lock and scope fence | Claude Code permission rules: `--permission-mode dontAsk`, with `Edit` and `Write` allowed only inside the round's scope (`docs/plan/` for the plan round, `impl/` for build rounds, nowhere for review rounds). Refused edits come back in `permission_denials` and are recorded as `refused`. `Bash` is allowed, so the loop still reverts its side effects after the round. Web tools are denied |
+| orient step | every round is a new Claude Code session, so nothing is remembered from the previous round |
+| RED/GREEN | unchanged: the loop measures `impl/test.sh` after the round. The state's instruction goes to Claude through `--append-system-prompt` |
+| ratified DONE | Claude cannot call `claim_done`, so it ends its answer with `CLAIM_DONE: <summary>` and the loop runs `harness/verify.sh` itself. A refused claim sends the gate's output to the next round as a finding |
+| durability | the Claude session id is committed to the store before `claude` starts. A loop killed mid-round resumes that same session (`--resume`) on restart and tells Claude it was interrupted. If Claude Code has no such session (the loop died before Claude wrote anything), the round starts fresh |
+
+Each round's history entry records `worker` and `costUsd` (from Claude Code's result).
+
+What doesn't carry over:
+
+- **Steering is between rounds only.** A Slack steer can't join a `claude -p` that is
+  already running, so it becomes a note for the next round, acknowledged as one.
+- **Partial work survives, the conversation doesn't always.** A crash in the middle of a
+  Claude turn loses that turn's unfinished reasoning, though Claude Code keeps the
+  finished turns of the session. The files it wrote stay in the working tree, and the
+  resumed session is told to look at them first.
+
+Tested with a fake `claude` (`test/fake-claude.mjs`), which covers the arguments, the
+permissions per round, a refused edit, a refused claim, and a kill followed by
+`--resume`. It was also run against the real Claude Code on a one-scenario fixture: plan,
+then RED, then GREEN with a claim ratified by the gate, in about 50 seconds for about
+$0.25.
+
 ## Slack: the cycle reports to a thread
 
 `slack.mjs` lets a cycle that nobody is watching tell somebody what it is doing. When the
@@ -149,7 +195,7 @@ ignores replies it already acted on, and acts on the ones that arrived while it 
 | two-phase prompting | `loop.mjs`, `drive` | a plan conversation (it may edit only `docs/plan/`) runs once, then a separate build conversation runs. The plan's answer goes to every build round as input |
 | RED/GREEN discipline | `measureTdd`, section `loyly-tdd` | the state is the verdict of `impl/test.sh`, measured by the loop after every round and never reported by the agent. The state's instruction goes into the system prompt from the stored document |
 | orient step | `playRound` | each round starts by resetting the conversation's context, then tells the agent to read in the README's order |
-| spec-lock and scope fence | `guardExtension`, `revertOutside` | `write` and `edit` outside the round's scope are blocked before they run. Whatever `bash` changed outside it is put back to `HEAD` after the round and listed in the history as `reverted` |
+| spec-lock and scope fence | `guardExtension`, `revertOutside` | `write` and `edit` outside the round's scope are blocked before they run. Whatever `bash` changed outside it is put back after the round and listed in the history as `reverted`. "Back" means the round's baseline: the git index when the round opened (`git write-tree`, committed with the round). It is not `HEAD`, because the plan round's edits are staged when it closes and the build rounds after it must keep them, while a build round that `git add`s an edit outside its scope must not |
 | ratified DONE | `claim_done` tool | runs `harness/verify.sh`. Only exit 0 counts, and that verdict is committed to the store by the tool itself |
 | adversarial review | `kindOf`, `promptFor` | every Nth round gets only `read` and `bash` and has no scope, so any edit is reverted. Its findings go to the build rounds that follow |
 

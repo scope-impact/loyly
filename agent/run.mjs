@@ -2,7 +2,7 @@
 // Drive one build cycle of docs/wow/harness.md, durably. Kill it at any point and run the
 // same command again: it continues the round it was in. See agent/README.md.
 //
-//   node agent/run.mjs [--model provider/modelId] [--rounds N] [--review-every N]
+//   node agent/run.mjs [--worker pi|claude-code] [--model M] [--rounds N] [--review-every N]
 //                      [--max-turns N] [--store FILE]
 //   node agent/run.mjs status [--store FILE]
 //   node agent/run.mjs reset  [--store FILE]     forget the cycle; the next run starts anew
@@ -27,7 +27,8 @@ const root = path.resolve(here, "..");
 const { values, positionals } = parseArgs({
 	allowPositionals: true,
 	options: {
-		model: { type: "string", default: process.env.LOYLY_AGENT_MODEL ?? "anthropic/claude-opus-5-5" },
+		model: { type: "string" },
+		worker: { type: "string", default: process.env.LOYLY_AGENT_WORKER ?? "pi" },
 		rounds: { type: "string", default: "20" },
 		"review-every": { type: "string", default: "4" },
 		"max-turns": { type: "string", default: "40" },
@@ -40,7 +41,7 @@ const { values, positionals } = parseArgs({
 
 if (values.help) {
 	console.log(
-		"usage: node agent/run.mjs [status|reset] [--model provider/modelId] [--rounds N] [--review-every N] [--max-turns N] [--store FILE] [--no-slack] [--approve]",
+		"usage: node agent/run.mjs [status|reset] [--model provider/modelId] [--rounds N] [--review-every N] [--max-turns N] [--store FILE] [--no-slack] [--approve] [--worker pi|claude-code]",
 	);
 	process.exit(0);
 }
@@ -59,15 +60,27 @@ if (command === "status" && !existsSync(store)) {
 	process.exit(0);
 }
 
-const slash = values.model.indexOf("/");
-if (slash < 1) {
-	console.error(`--model must be provider/modelId, got "${values.model}"`);
+if (!["pi", "claude-code"].includes(values.worker)) {
+	console.error(`--worker must be pi or claude-code, got "${values.worker}"`);
 	process.exit(2);
 }
-const model = { provider: values.model.slice(0, slash), modelId: values.model.slice(slash + 1) };
+const claudeCode = values.worker === "claude-code";
+// The pi worker calls a model through pi-ai and needs provider/modelId plus that provider's
+// key. The Claude Code worker runs `claude -p` on Claude Code's own credentials; --model is
+// handed to it as is ("opus", "claude-opus-5-5"), and left out it uses Claude Code's default.
+const modelArg = values.model ?? (claudeCode ? undefined : (process.env.LOYLY_AGENT_MODEL ?? "anthropic/claude-opus-5-5"));
+let model;
+if (!claudeCode) {
+	const slash = modelArg.indexOf("/");
+	if (slash < 1) {
+		console.error(`--model must be provider/modelId, got "${modelArg}"`);
+		process.exit(2);
+	}
+	model = { provider: modelArg.slice(0, slash), modelId: modelArg.slice(slash + 1) };
+}
 
 const models = createModels();
-if (command !== "status") {
+if (command !== "status" && !claudeCode) {
 	let providerModule;
 	try {
 		providerModule = await import(`@earendil-works/pi-ai/providers/${model.provider}`);
@@ -88,6 +101,8 @@ const loop = await openLoop({
 	store,
 	models,
 	model,
+	worker: values.worker,
+	claudeModel: claudeCode ? modelArg : undefined,
 	maxRounds: Number(values.rounds),
 	reviewEvery: Number(values["review-every"]),
 	maxTurns: Number(values["max-turns"]),

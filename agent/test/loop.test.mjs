@@ -97,6 +97,26 @@ test("spec-lock and scope fence: a blocked write, and a bash side effect reverte
 	assert.equal(r.cycle.phase, "exhausted");
 });
 
+test("the plan round's edits survive the build rounds; a build round's staged edit outside scope does not", () => {
+	const fx = fixture();
+	const r = drive(
+		fx,
+		[
+			{ tools: [write("docs/plan/slice.md", "the slice, sharpened by planning\n")] },
+			{ text: "plan done" },
+			{ tools: [bash("echo sneaky > docs/plan/slice.md && git add docs/plan/slice.md && echo x > impl/x.txt")] },
+			{ text: "round 1" },
+		],
+		{ reviewEvery: 0, maxRounds: 1 },
+	);
+	assert.equal(r.status, 0, r.stderr + r.stdout);
+	assert.equal(readFileSync(path.join(fx.root, "docs/plan/slice.md"), "utf8"), "the slice, sharpened by planning\n");
+	const staged = execFileSync("git", ["show", ":docs/plan/slice.md"], { cwd: fx.root, encoding: "utf8" });
+	assert.equal(staged, "the slice, sharpened by planning\n");
+	assert.deepEqual(r.cycle.history[1].reverted, ["docs/plan/slice.md"]);
+	assert.equal(readFileSync(path.join(fx.root, "impl/x.txt"), "utf8"), "x\n");
+});
+
 test("a claim of done that the gate refuses is not done", () => {
 	const fx = fixture();
 	const r = drive(

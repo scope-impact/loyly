@@ -19,11 +19,13 @@
 // never carries one cycle's transcripts into the next cycle's clean room.
 
 import { execFile } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
+import { createModels } from "@earendil-works/pi-ai";
 import {
 	AssistantEntry,
 	createRegistry,
@@ -39,6 +41,7 @@ import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite
 import { CodingTools } from "@earendil-works/pi-durable/tools";
 import { obj, str } from "@earendil-works/pi-schema";
 
+import { runClaudeRound } from "./claude-worker.mjs";
 import { Cycle, initialCycle } from "./cycle.mjs";
 import { enqueue, ensureListener, Inbox, Outbox, say, SlackExtension, slackFromEnv, slackInbound } from "./slack.mjs";
 
@@ -93,26 +96,33 @@ function guardExtension(config, scopeRef) {
 }
 
 /** The round's standing instructions, rendered from the committed cycle document. */
+const METHOD = [
+	"You are building Löyly by the method in docs/wow/. The docs are the source of truth; the code is a build product.",
+	"Read order before any work: README.md, docs/wow/, docs/wiki/ (from index.md), docs/plan/ (the current slice). raw/ is background: read it to check a trace, never edit it.",
+	"Every round starts from those documents, not from memory: this context was reset on purpose.",
+].join("\n");
+
+function tddInstruction(cycle) {
+	if (!cycle || cycle.phase !== "implement") return undefined;
+	return cycle.tdd === "GREEN"
+		? "TDD state GREEN: write the next failing test from the slice's spec.feature. Do not implement features. Do not look ahead. This overrides everything else about what to do next."
+		: "TDD state RED: write the minimum implementation that makes the failing test pass. Do not write new tests. This overrides everything else about what to do next.";
+}
+
 function stateExtension() {
 	return defineExtension({
 		name: "loyly-state",
 		sections: [
-			section("loyly-method", () =>
-				[
-					"You are building Löyly by the method in docs/wow/. The docs are the source of truth; the code is a build product.",
-					"Read order before any work: README.md, docs/wow/, docs/wiki/ (from index.md), docs/plan/ (the current slice). raw/ is background: read it to check a trace, never edit it.",
-					"Every round starts from those documents, not from memory: this context was reset on purpose.",
-				].join("\n"),
-			),
-			section("loyly-tdd", async (input, ctx) => {
-				const cycle = await input.read.snapshot(Cycle, ctx);
-				if (!cycle || cycle.phase !== "implement") return undefined;
-				return cycle.tdd === "GREEN"
-					? "TDD state GREEN: write the next failing test from the slice's spec.feature. Do not implement features. Do not look ahead. This overrides everything else about what to do next."
-					: "TDD state RED: write the minimum implementation that makes the failing test pass. Do not write new tests. This overrides everything else about what to do next.";
-			}),
+			section("loyly-method", () => METHOD),
+			section("loyly-tdd", async (input, ctx) => tddInstruction(await input.read.snapshot(Cycle, ctx))),
 		],
 	});
+}
+
+/** Run the gate. Shared by the claim_done tool (pi worker) and the loop (Claude Code worker). */
+async function ratify(config) {
+	const result = await runCommand(config.verify, [], config.root, config.verifyTimeoutMs);
+	return { ratified: result.code === 0, code: result.code, output: tail(result.output, 4000) };
 }
 
 /**
@@ -128,12 +138,12 @@ function claimDoneTool(config) {
 		parameters: obj({ summary: str() }),
 		replay: "safe", // the gate is idempotent: running it again after a crash is the correct recovery
 		execute: async (args, api, ctx) => {
-			const result = await runCommand(config.verify, [], config.root, config.verifyTimeoutMs);
-			const ratified = result.code === 0;
+			const result = await ratify(config);
+			const ratified = result.ratified;
 			if (ratified) {
 				await api.commit(async (tx) => {
 					const cycle = await tx.doc(Cycle);
-					cycle.ratified = { at: new Date().toISOString(), summary: args.summary, output: tail(result.output, 4000) };
+					cycle.ratified = { at: new Date().toISOString(), summary: args.summary, output: result.output };
 				}, ctx);
 			}
 			return {
@@ -141,8 +151,8 @@ function claimDoneTool(config) {
 					{
 						type: "text",
 						text: ratified
-							? `RATIFIED. The gate passed.\n${tail(result.output, 4000)}`
-							: `NOT RATIFIED. The gate exited ${result.code}; "done" is a claim and this one did not hold.\n${tail(result.output, 4000)}`,
+							? `RATIFIED. The gate passed.\n${result.output}`
+							: `NOT RATIFIED. The gate exited ${result.code}; "done" is a claim and this one did not hold.\n${result.output}`,
 					},
 				],
 				control: ratified ? { terminate: true } : undefined,
@@ -186,15 +196,44 @@ export async function changedPaths(root) {
 }
 
 /**
- * The scope fence, after the round: whatever changed outside the round's scope is put back
- * to HEAD, new files outside it are removed. Returns what it reverted, which is a finding.
+ * The state a round starts from: the index, written as a tree. It is committed with the
+ * round, so the scope fence puts things back to where this round found them, not to HEAD.
+ * A plan round's staged edits are part of it, so the build rounds after it keep the plan;
+ * and a build round that `git add`s a change outside its scope does not get to keep it.
  */
-export async function revertOutside(root, scope) {
+export async function baselineTree(root) {
+	const { stdout } = await run("git", ["write-tree"], { cwd: root });
+	return stdout.trim();
+}
+
+async function pathsChangedSince(root, tree) {
+	const names = async (...args) => (await run("git", args, { cwd: root, maxBuffer: 16 * 1024 * 1024 })).stdout.split("\0").filter(Boolean);
+	const tracked = await names("diff", "--name-only", "-z", "--no-renames", tree);
+	const staged = await names("diff", "--cached", "--name-only", "-z", "--no-renames", tree);
+	const untracked = await names("ls-files", "--others", "--exclude-standard", "-z");
+	return [...new Set([...tracked, ...staged, ...untracked])].sort();
+}
+
+/**
+ * The scope fence, after the round: whatever changed outside the round's scope since
+ * `tree` is put back to `tree`, in the index and the working tree; files that did not
+ * exist there are removed. Returns what it reverted, which is a finding.
+ */
+export async function revertOutside(root, scope, tree) {
+	const base = tree ?? (await run("git", ["rev-parse", "HEAD^{tree}"], { cwd: root })).stdout.trim();
 	const reverted = [];
-	for (const { status, file } of await changedPaths(root)) {
+	for (const file of await pathsChangedSince(root, base)) {
 		if (inside(file, scope)) continue;
-		if (status === "??") await rm(path.join(root, file), { force: true });
-		else await run("git", ["restore", "--source=HEAD", "--staged", "--worktree", "--", file], { cwd: root });
+		const existed = await run("git", ["cat-file", "-e", `${base}:${file}`], { cwd: root }).then(
+			() => true,
+			() => false,
+		);
+		if (existed) {
+			await run("git", ["restore", `--source=${base}`, "--staged", "--worktree", "--", file], { cwd: root });
+		} else {
+			await run("git", ["rm", "-q", "--cached", "--ignore-unmatch", "--", file], { cwd: root });
+			await rm(path.join(root, file), { force: true });
+		}
 		reverted.push(file);
 	}
 	return reverted;
@@ -223,6 +262,9 @@ async function measureTdd(config) {
  * @param {number} [options.maxTurns]     tool rounds one round may take
  * @param {boolean} [options.slack]      report to Slack (agent/slack.mjs); default: when the environment configures it
  * @param {boolean} [options.approval]   a ratified DONE also waits for a person's "approve" in the Slack thread
+ * @param {"pi" | "claude-code"} [options.worker]  who does a round's work: a pi-ai model run inside pi-durable (default), or headless Claude Code
+ * @param {string} [options.claudeModel] the Claude Code worker's --model (an alias such as "opus", or a model id); default Claude Code's own
+ * @param {string} [options.claudeBin]   the Claude Code executable, default "claude"
  * @param {boolean} [options.readOnly]   open to look, never to run: recovers nothing, counts no restart
  * @param {(line: string) => void} [options.log]
  */
@@ -238,7 +280,11 @@ export async function openLoop(options) {
 		maxTurns: options.maxTurns ?? 40,
 		testTimeoutMs: options.testTimeoutMs ?? 300_000,
 		verifyTimeoutMs: options.verifyTimeoutMs ?? 600_000,
+		worker: options.worker ?? "pi",
+		claudeBin: options.claudeBin ?? process.env.LOYLY_CLAUDE_BIN ?? "claude",
+		claudeTimeoutMs: options.claudeTimeoutMs ?? 3_600_000,
 	};
+	if (!["pi", "claude-code"].includes(config.worker)) throw new Error(`unknown worker "${config.worker}": pi or claude-code`);
 	const log = options.log ?? (() => {});
 	const notify = options.slack ?? Boolean(slackFromEnv());
 	const listen = notify && Boolean(slackInbound());
@@ -257,7 +303,7 @@ export async function openLoop(options) {
 	const harness = await Harness.open(
 		await openNodeSqliteStorage(config.store),
 		{
-			models: options.models,
+			models: options.models ?? createModels(), // the Claude Code worker never calls it
 			registry,
 			env: ({ cwd }) => new NodeExecutionEnv({ cwd: cwd ?? config.root }),
 			settings: { afterFailedRun: "withdraw" },
@@ -292,7 +338,9 @@ export async function openLoop(options) {
 
 	async function conversations() {
 		let cycle = await read();
-		const agent = { model: options.model, cwd: config.root, maxTurns: config.maxTurns };
+		// With the Claude Code worker these conversations never run a model; they stay as the
+		// address a Slack steer is tried against, which then becomes a note (nothing is running).
+		const agent = { ...(options.model && config.worker === "pi" ? { model: options.model } : {}), cwd: config.root, maxTurns: config.maxTurns };
 		if (!cycle.planConversation) {
 			const plan = await harness.createConversation({ ownership: { kind: "ownerless" }, agent }, context);
 			await write((c) => void (c.planConversation = plan.id));
@@ -335,7 +383,9 @@ export async function openLoop(options) {
 		return [
 			`ROUND ${round}: IMPLEMENT, one ticket at a time, in ${config.appDir}/ only; edits anywhere else are refused or reverted.`,
 			`The gate's contract: ${config.appDir}/test.sh runs the suite, ${config.appDir}/start.sh PORT serves the app.`,
-			"Follow the TDD state in your instructions. End the round when this step is done; when the whole slice is built, call claim_done.",
+			config.worker === "claude-code"
+				? "Follow the TDD state in your instructions. End the round when this step is done. When the whole slice is built, end your answer with one line: CLAIM_DONE: <one-sentence summary>. The loop then runs the gate; the claim counts only if it passes."
+				: "Follow the TDD state in your instructions. End the round when this step is done; when the whole slice is built, call claim_done.",
 			plan,
 			findings,
 			notes,
@@ -359,45 +409,45 @@ export async function openLoop(options) {
 		let cycle = await read();
 		const requestId = `${kind}-${round}`;
 		if (!cycle.pending || cycle.pending.requestId !== requestId) {
+			const baseTree = await baselineTree(config.root);
 			// The notes move into the round in the same commit that opens it, so a restart rebuilds
 			// the same prompt and a note is never handed to two rounds or to none.
 			await write((c) => {
-				c.pending = { round, kind, stage: "opened", requestId, notes: c.humanNotes ?? [] };
+				c.pending = { round, kind, stage: "opened", requestId, notes: c.humanNotes ?? [], baseTree };
 				c.humanNotes = [];
 			});
 			cycle = await read();
 		} else {
 			log(`resuming ${requestId} at stage ${cycle.pending.stage}`);
 		}
-		scopeRef.current = scopeOf(kind, config);
-		const tools = kind === ROUND_KINDS.review ? readOnlyTools : null;
-		await conversation.configure({ tools }, context);
-
-		if (cycle.pending.stage === "opened") {
-			await conversation.reset(undefined, context); // the orient step: no memory carried in
-			await write((c) => void (c.pending.stage = "reset"));
-		}
 		const tddBefore = cycle.tdd;
-		const submission = await conversation.submit({ type: "input", content: promptFor(kind, round, cycle), requestId }, context);
-		await write((c) => void (c.pending.stage = "submitted"));
-		log(`${requestId}: running`);
-		const settled = await submission.wait(context);
-		const answer = settled.status === "done" ? await answerText(conversation, settled.answer) : "";
+		const work = config.worker === "claude-code" ? await workInClaude(kind, round, cycle) : await workInPi(conversation, kind, round, cycle);
+		const { answer } = work;
 
-		const reverted = await revertOutside(config.root, scopeOf(kind, config));
+		const reverted = await revertOutside(config.root, scopeOf(kind, config), cycle.pending.baseTree);
+		// A plan round's edits are the spec changing on purpose: staged, so the rounds after it
+		// start from them (their baseline is the index) without anything being committed.
+		if (kind === ROUND_KINDS.plan) await run("git", ["add", "-A", "--", config.planDir], { cwd: config.root });
 		const measured = kind === ROUND_KINDS.plan ? { tdd: cycle.tdd } : await measureTdd(config);
 		const after = await read();
 		const entry = {
 			round,
 			kind,
 			at: new Date().toISOString(),
-			outcome: settled.status === "done" ? "answered" : `unanswered: ${settled.reason ?? "unknown"}`,
+			outcome: work.outcome,
+			worker: config.worker,
 			tddBefore,
 			tddAfter: measured.tdd,
 			reverted,
 			ratified: Boolean(after.ratified),
 			notes: [],
 		};
+		if (work.costUsd != null) entry.costUsd = work.costUsd;
+		if (work.refused?.length) {
+			entry.refused = work.refused;
+			entry.notes.push(`spec-lock refused ${work.refused.length} edit(s)`);
+		}
+		if (work.claim && !after.ratified) entry.notes.push(`claimed done ("${work.claim}") and the gate refused it`);
 		if (reverted.length) entry.notes.push(`scope fence reverted ${reverted.length} path(s)`);
 		if (kind === ROUND_KINDS.build && tddBefore === "GREEN" && measured.tdd === "GREEN" && !after.ratified)
 			entry.notes.push("GREEN round ended GREEN: no failing test was written this round");
@@ -414,11 +464,72 @@ export async function openLoop(options) {
 			} else {
 				c.round = round;
 				if (kind === ROUND_KINDS.review) c.findings = answer ? [answer] : [];
+				if (work.gateRefusal) c.findings = [work.gateRefusal];
 			}
 			if (c.ratified) c.phase = approval ? "awaiting-approval" : "done";
 		}, (c) => [say.round(entry, c), c.ratified ? say.ratified(c.ratified, round, approval) : null]);
 		log(`${requestId}: ${entry.outcome}, TDD ${entry.tddBefore} -> ${entry.tddAfter}${entry.notes.length ? `; ${entry.notes.join("; ")}` : ""}`);
 		return entry;
+	}
+
+	/** A round's work as a pi-ai model run inside pi-durable: the conversation is reset, then given the prompt. */
+	async function workInPi(conversation, kind, round, cycle) {
+		const requestId = cycle.pending.requestId;
+		scopeRef.current = scopeOf(kind, config);
+		const tools = kind === ROUND_KINDS.review ? readOnlyTools : null;
+		await conversation.configure({ tools }, context);
+		if (cycle.pending.stage === "opened") {
+			await conversation.reset(undefined, context); // the orient step: no memory carried in
+			await write((c) => void (c.pending.stage = "reset"));
+		}
+		const submission = await conversation.submit({ type: "input", content: promptFor(kind, round, cycle), requestId }, context);
+		await write((c) => void (c.pending.stage = "submitted"));
+		log(`${requestId}: running`);
+		const settled = await submission.wait(context);
+		return {
+			outcome: settled.status === "done" ? "answered" : `unanswered: ${settled.reason ?? "unknown"}`,
+			answer: settled.status === "done" ? await answerText(conversation, settled.answer) : "",
+		};
+	}
+
+	/**
+	 * A round's work in headless Claude Code. The session id is committed before Claude
+	 * starts, so a loop that dies mid-round resumes that session instead of starting over.
+	 * A CLAIM_DONE line is ratified here, by the gate, and the verdict committed at once.
+	 */
+	async function workInClaude(kind, round, cycle) {
+		const requestId = cycle.pending.requestId;
+		const resume = cycle.pending.stage === "submitted" && Boolean(cycle.pending.claudeSession);
+		const sessionId = cycle.pending.claudeSession ?? randomUUID();
+		if (!resume) await write((c) => void Object.assign(c.pending, { stage: "submitted", claudeSession: sessionId }));
+		log(`${requestId}: running in Claude Code`);
+		const system = [METHOD, tddInstruction(cycle)].filter(Boolean).join("\n");
+		const result = await runClaudeRound({
+			root: config.root,
+			sessionId,
+			prompt: promptFor(kind, round, cycle),
+			system,
+			scope: scopeOf(kind, config),
+			resume,
+			model: options.claudeModel,
+			bin: config.claudeBin,
+			timeoutMs: config.claudeTimeoutMs,
+			log,
+		});
+		let gateRefusal = null;
+		if (result.claim && kind === ROUND_KINDS.build) {
+			const gate = await ratify(config);
+			if (gate.ratified) await write((c) => void (c.ratified = { at: new Date().toISOString(), summary: result.claim, output: gate.output }));
+			else gateRefusal = `You claimed done and the gate refused it (exit ${gate.code}):\n${gate.output}`;
+		}
+		return {
+			outcome: result.ok ? "answered" : `unanswered: ${result.error}`,
+			answer: result.answer.replace(/^\s*CLAIM_DONE:.*$/m, "").trim(),
+			claim: result.claim,
+			refused: result.denials,
+			costUsd: result.costUsd,
+			gateRefusal,
+		};
 	}
 
 	/** Run the cycle from wherever the store says it is, until DONE, exhaustion, or `until`. */
