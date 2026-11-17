@@ -45,8 +45,10 @@ const scoreItem =
 	(byId: Map<string, JValue>) =>
 	(item: JValue): JMap => {
 		const v = byId.get(keyOf(get(item, "id")));
+		// The item's own keys in checklist order, then the verdict and the evidence, always
+		// last, whatever the checklist carried under those names (@harness-086).
 		return new Map([
-			...(isMap(item) ? item : []),
+			...[...(isMap(item) ? item : [])].filter(([k]) => k !== "verdict" && k !== "evidence"),
 			["verdict", v === undefined ? "fail" : get(v, "verdict")],
 			["evidence", v === undefined ? unreachedEvidence : get(v, "evidence", "")],
 		]);

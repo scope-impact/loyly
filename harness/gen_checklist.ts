@@ -27,14 +27,14 @@ const stamper = "harness/stamp_item_ids.ts";
 const scenarioLine = re(`^${RX.ws}*Scenario(?: Outline)?:${RX.ws}*(${RX.dot}+?)${RX.ws}*${RX.end}`);
 const ruleLine = re(`^${RX.ws}*Rule:${RX.ws}*(${RX.dot}*?)${RX.ws}*${RX.end}`);
 const itemTag = re("@item-(\\d+-\\d+)", "g");
-const statusLine = re(`${RX.lineStart}status:${RX.ws}*(${RX.nonWs}+)`);
+const statusLine = re(`${RX.lineStart}status:${RX.inlineWs}*(${RX.nonWs}+)`);
 
 const skippedStatuses = new Set(["planned", "backlog"]);
 
 /**
  * The first line of the slice's plan.md beginning with "status:", and the non-whitespace
- * run after it. Front matter works, and so does a bare line anywhere in the file
- * (@harness-027).
+ * run after it on that same line. Front matter works, and so does a bare line anywhere in
+ * the file (@harness-027, @harness-084).
  */
 const sliceStatus = (dir: string) =>
 	Effect.gen(function* () {

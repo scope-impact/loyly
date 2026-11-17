@@ -313,6 +313,17 @@ Three events look alike in a diff and must never be confused:
   #   must print the old "total" line and nothing else
   ```
 
+**2026-11-17, later still: a second regeneration, and three more.** Rebuilt from the spec
+with `@harness-071` to `@harness-083` in it, a fresh builder passed all 156 checks of the
+oracle, CHECK 10 included, and the side-by-side differences fell from 29 to 5: the spec now
+carried what the first round had to guess. The five were three new silences, decided as
+`@harness-084` (a status counts only when its value is on its own line, and a line begins
+only after "\n"), `@harness-085` (a scores record that is not one stops the scoreboard,
+the predecessor's included) and `@harness-086` (a scored item ends with its verdict and
+evidence). The same builder found three inconsistencies written that morning, fixed with
+them: `@harness-081`'s stamper prefix is `stamp:`, as everywhere else; `@harness-035` names
+`list`; and the entry below no longer claims the reader uses the JVM's whitespace.
+
 **2026-11-17, later: thirteen silences decided, and the instrument's behaviour changed with
 them.** The five tools were regenerated from `harness/spec.feature` alone, by a fresh agent
 in a fenced room that hid the tools, `oracle.sh` and the goldens (and, on that machine, every
@@ -354,9 +365,10 @@ whitespace in specs, every slice status shape, and the rounding of every rate up
 items) and agreed on every exit code, every byte of stdout and stderr, and every file
 written, both before the Effect rewrite and after it. The places where the JVM's behaviour reached the output are reproduced on
 purpose and each is commented where it lives, in `hjson.ts` except the rounding, which is
-in `scoreboard.ts` because `hjson.ts` holds no scoring rule: what `trim` and the reader count as
+in `scoreboard.ts` because `hjson.ts` holds no scoring rule: what `trim` counts as
 whitespace, Java's ASCII-only `\s`, how a double prints, `BigDecimal`'s exact
-half-even rounding, and an unpaired surrogate written as `?`.
+half-even rounding, and an unpaired surrogate written as `?`. (The reader's own idea of
+whitespace, and the rounding, were changed later the same day: see the next entry up.)
 
 Two refusal messages name a command and so changed their words on purpose
 (`@harness-023`, `@harness-040`): they now say `harness/stamp_item_ids.ts` and

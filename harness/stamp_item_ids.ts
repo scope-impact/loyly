@@ -68,7 +68,7 @@ const stampText = (text: string, slice: string): [string, number] => {
 
 run(import.meta.url, (root) =>
 	Effect.gen(function* () {
-		const files = yield* specFiles(root, "stamp_item_ids");
+		const files = yield* specFiles(root, "stamp");
 		if (A.isReadonlyArrayEmpty(files)) {
 			// Exit 0, not 1: an absent spec is a legitimate state early in a project, and the
 			// refusal for it lives at checklist time instead (@harness-011).

@@ -934,9 +934,9 @@ has_line "the uncompared files are skips" "  SKIP  harness/verify.sh present her
 has_line "the closing line does not claim no fork" "no sibling was named, so the shared module files were compared with nothing."
 
 # =================================================================================
-# CHECK 10  decided 2026-11-17, by a regeneration (@harness-071 to @harness-083)
+# CHECK 10  decided 2026-11-17, by two regenerations (@harness-071 to @harness-086)
 # =================================================================================
-head1 "CHECK 10  the rules a regeneration found the spec silent on, decided"
+head1 "CHECK 10  the rules two regenerations found the spec silent on, decided"
 
 # A fixture with a three-item checklist for cycle 01, and the verdicts file given here.
 score_fixture() {  # score_fixture NAME VERDICTS-TEXT -> prints the fixture path
@@ -1057,7 +1057,8 @@ for tool in stamp_item_ids gen_checklist; do
   mkdir -p "$FX/docs/plan/1a-booking"
   printf 'Feature: F\n  Scenario: s\n' >"$FX/docs/plan/1a-booking/spec.feature"
   [ "$tool" = stamp_item_ids ] && run "$FX" "${STAMP[@]}" || run "$FX" "${GEN[@]}"
-  printf '%s: docs/plan/1a-booking looks like a slice, but its number "1a" is not all digits, so its scenarios could never carry ids the checklist recognises. Rename it.\n' "$tool" >"$WORK/want"
+  prefix="$tool"; [ "$tool" = stamp_item_ids ] && prefix=stamp
+  printf '%s: docs/plan/1a-booking looks like a slice, but its number "1a" is not all digits, so its scenarios could never carry ids the checklist recognises. Rename it.\n' "$prefix" >"$WORK/want"
   expect_text "@harness-081 $tool refuses the slice" "$WORK/want" "$WORK/err"
   expect_rc "@harness-081 $tool exit 1" 1 "$RC"
 done
@@ -1077,6 +1078,42 @@ printf 'Feature: F\r\n  Scenario: one\r\n' >"$FX/docs/plan/01-a/spec.feature"
 run "$FX" "${STAMP[@]}"
 printf 'Feature: F\r\n  @item-01-001\r\n  Scenario: one\r\n' >"$WORK/want"
 expect_text "@harness-083 the inserted tag line ends in CRLF" "$WORK/want" "$FX/docs/plan/01-a/spec.feature"
+
+# @harness-084  a status counts only when its value is on the status line itself
+n=0
+for text in 'status: planned' "$(printf 'status:\n  planned')" "$(printf 'a\xc2\x85status: planned')" "$(printf 'a\rstatus: planned')"; do
+  n=$((n + 1))
+  FX="$(new_fixture "status-$n")"
+  mkdir -p "$FX/docs/plan/01-a"
+  printf '%s\n' "$text" >"$FX/docs/plan/01-a/plan.md"
+  printf '  @item-01-001\n  Scenario: a\n' >"$FX/docs/plan/01-a/spec.feature"
+  run "$FX" "${GEN[@]}"
+  if [ "$n" = 1 ]; then
+    expect_rc "@harness-084 an explicit status skips the slice, and the empty spec is refused" 1 "$RC"
+  elif grep -Fq '"id": "01-001"' "$WORK/out"; then ok "@harness-084 no status on the status line: the slice counts ($n)"
+  else bad "@harness-084 no status on the status line: the slice counts ($n)"; sed 's/^/        /' "$WORK/err"; fi
+done
+
+# @harness-085  a scores record that is not one stops the scoreboard
+for case in '02|{}' '02|{"items": [{"id": 7, "verdict": "pass"}]}' '02|{"items": [' '01|{"items": null}'; do
+  bad_cycle="${case%%|*}"; text="${case#*|}"
+  FX="$(new_fixture "record-$bad_cycle-$RANDOM")"
+  mkdir -p "$FX/harness/cycles/01" "$FX/harness/cycles/02"
+  for c in 01 02; do printf '{"items": [{"id": "a", "verdict": "pass"}]}' >"$FX/harness/cycles/$c/scores.json"; done
+  printf '%s' "$text" >"$FX/harness/cycles/$bad_cycle/scores.json"
+  run "$FX" "${BOARD[@]}" 02
+  printf 'scoreboard: harness/cycles/%s/scores.json is not a record: it should hold an "items" list of objects, each with a string "id".\n' "$bad_cycle" >"$WORK/want"
+  expect_text "@harness-085 not a record ($bad_cycle): $text" "$WORK/want" "$WORK/err"
+  expect_rc "@harness-085 exit 1 ($bad_cycle)" 1 "$RC"
+done
+
+# @harness-086  a scored item ends with its verdict and its evidence
+FX="$(score_fixture keyorder '[{"id": "01-001", "verdict": "pass", "evidence": "now"}]')"
+printf '{"items": [{"id": "01-001", "verdict": "old", "evidence": "old", "x": 1.0}]}' >"$FX/harness/cycles/01/checklist.json"
+run "$FX" "${SCORE[@]}" 01 --verdicts v.json
+if tr -d ' \n' <"$FX/harness/cycles/01/scores.json" | grep -Fq '{"id":"01-001","x":1.0,"verdict":"pass","evidence":"now"}'; then
+  ok "@harness-086 verdict and evidence come last"
+else bad "@harness-086 verdict and evidence come last"; sed 's/^/        /' "$FX/harness/cycles/01/scores.json"; fi
 
 # =================================================================================
 head1 "$PASSED ok, $FAILED failed, $SKIPPED skipped"

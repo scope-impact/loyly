@@ -123,7 +123,9 @@ export const RX = {
 	// part of it (@harness-082). Java's "." also stopped at U+0085, U+2028 and U+2029.
 	dot: "[^\\n]",
 	end: "(?=\\r?$)",
-	lineStart: "(?<=^|[\\n\\r\\u0085\\u2028\\u2029])",
+	// A line begins at the start of the text or after "\n", and nowhere else (@harness-084).
+	lineStart: "(?<=^|\\n)",
+	inlineWs: "[ \\t]",
 };
 
 /** `(re-pattern ...)` over a Java pattern assembled from RX, matching code points as Java does. */

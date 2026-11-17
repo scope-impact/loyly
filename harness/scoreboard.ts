@@ -14,7 +14,7 @@ import * as A from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { get, isFile, type JValue, keyOf, out, ralign, readJson, refuse, run, seq, slurp } from "./hjson.ts";
+import { get, isFile, isMap, type JValue, keyOf, out, ralign, readJson, refuse, run, slurp } from "./hjson.ts";
 
 /**
  * One decimal, ties rounded to EVEN. 1/16 is 6.25 exactly and must render as 6.2: the
@@ -41,13 +41,20 @@ const pct = (n: number, d: number): string => {
 const rate = (n: number, d: number) => ralign(`${n}/${d}`, 7) + (d === 0 ? " =   n/a" : ` = ${ralign(pct(n, d), 5)}%`);
 
 /**
- * id -> verdict, or none when there is no record at all. Ids are compared as JSON values
- * (1 and 1.0 apart), and an id named twice counts once, its last entry winning (@harness-078).
+ * id -> verdict, or none when there is no record at all. An id named twice counts once, its
+ * last entry winning (@harness-078).
  */
-const verdictsOf = (f: string) =>
+const verdictsOf = (root: string, scoresRel: string) =>
 	Effect.gen(function* () {
+		const f = path.join(root, scoresRel);
 		if (!(yield* isFile(f))) return Option.none<Map<string, JValue>>();
-		const items = seq(get(yield* readJson(yield* slurp(f)), "items"));
+		// A record is an "items" list of objects, each with a string id, as score writes it;
+		// anything else is not read as far as it can be, it is refused (@harness-085).
+		const notARecord = refuse(
+			`scoreboard: ${scoresRel} is not a record: it should hold an "items" list of objects, each with a string "id".`,
+		);
+		const items = get(yield* readJson(yield* slurp(f)).pipe(Effect.catchTag("JsonError", () => notARecord)), "items");
+		if (!Array.isArray(items) || !items.every((i) => isMap(i) && typeof i.get("id") === "string")) return yield* notARecord;
 		return Option.some(new Map(items.map((i) => [keyOf(get(i, "id")), get(i, "verdict")] as const)));
 	});
 
@@ -102,7 +109,7 @@ run(import.meta.url, (root) =>
 		if (cycle === undefined) return yield* refuse("scoreboard: usage: scoreboard <cycle>");
 		const scoresRel = `harness/cycles/${cycle}/scores.json`;
 		// A record of nothing and no record are the same amount of measurement (@harness-043).
-		const current = Option.getOrUndefined(yield* verdictsOf(path.join(root, scoresRel)));
+		const current = Option.getOrUndefined(yield* verdictsOf(root, scoresRel));
 		if (current === undefined || current.size === 0) return yield* refuse(`scoreboard: nothing recorded at ${scoresRel}`);
 		const passes = A.countBy([...current.values()], (v) => v === "pass");
 		// The predecessor is the argument read as an integer minus one, formatted back to the
@@ -111,7 +118,7 @@ run(import.meta.url, (root) =>
 		// A predecessor that recorded nothing is no predecessor: @harness-043, applied to the
 		// cycle before (@harness-079).
 		const prev = Option.isSome(prevCycle)
-			? Option.filter(yield* verdictsOf(path.join(root, `harness/cycles/${prevCycle.value}/scores.json`)), (m) => m.size > 0)
+			? Option.filter(yield* verdictsOf(root, `harness/cycles/${prevCycle.value}/scores.json`), (m) => m.size > 0)
 			: Option.none();
 		const body = Option.isSome(prev) && Option.isSome(prevCycle)
 			? diffLines(cycle, prevCycle.value, prev.value, current)

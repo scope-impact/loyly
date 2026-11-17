@@ -513,8 +513,8 @@ Feature: The harness: stamp, derive, score, report
       # The skipped statuses are exactly "planned" and "backlog". Any other status, and
       # a slice with no plan.md, and a plan.md with no status line, are all INCLUDED.
       # The status is read as the first match in plan.md of a line beginning with
-      # "status:", taking the following non-whitespace run, so front matter works and so
-      # does a bare line anywhere in the file.
+      # "status:", taking the following non-whitespace run on that same line
+      # (@harness-084), so front matter works and so does a bare line anywhere in the file.
       # The skip is loud on purpose. This filter could obviously be abused to shrink a
       # denominator by demoting a slice, so every skip prints, and status lives in a
       # plan.md a human wrote and review reads.
@@ -666,7 +666,8 @@ Feature: The harness: stamp, derive, score, report
         """
       And the exit code is 1
       # <FOUND> for a JSON object is "dict", for a string "str", for a number "int",
-      # for true or false "bool", for null "NoneType". These are the Python type names
+      # for true or false "bool", for null "NoneType", and, for an entry found inside the
+      # list (@harness-076), "list" for a list. These are the Python type names
       # and they are the contract, ugly as they are: they are what an operator has read
       # in this message before, and renaming them changes the instrument's voice for no
       # gain. A reimplementation maps the JSON kinds onto exactly those five words.
@@ -1077,14 +1078,16 @@ Feature: The harness: stamp, derive, score, report
       When <tool> runs
       Then stderr is exactly:
         """
-        <tool>: docs/plan/1a-booking looks like a slice, but its number "1a" is not all digits, so its scenarios could never carry ids the checklist recognises. Rename it.
+        <prefix>: docs/plan/1a-booking looks like a slice, but its number "1a" is not all digits, so its scenarios could never carry ids the checklist recognises. Rename it.
         """
       And the exit code is 1
 
       Examples:
-        | tool           |
-        | stamp_item_ids |
-        | gen_checklist  |
+        | tool           | prefix        |
+        | stamp_item_ids | stamp         |
+        | gen_checklist  | gen_checklist |
+      # Each tool's messages carry its own prefix: "stamp:" for the stamper, as in
+      # @harness-011 (this scenario said "stamp_item_ids:" for an hour on 2026-11-17).
       # A directory is a slice when its name starts with a digit (@harness-001). Before
       # 2026-11-17 such a one was stamped @item-1a-001, a tag nothing recognises, so every
       # run stamped it again and the checklist then refused it as unstamped: the stamper's
@@ -1109,6 +1112,58 @@ Feature: The harness: stamp, derive, score, report
       Then the tag line it inserts ends in "\r\n" too
       # Every other byte of the file is left as it was. Until 2026-11-17 the inserted line
       # ended in a bare "\n" inside a "\r\n" file.
+
+  Rule: Round two of the regeneration: three more silences, decided
+
+    @harness-084
+    Scenario Outline: A status counts only when its value is on the status line itself
+      Given "docs/plan/01-a/plan.md" holding <text>
+      And "docs/plan/01-a/spec.feature" carrying one stamped scenario
+      When gen_checklist runs
+      Then the checklist <includes> 01-a's item
+
+      Examples:
+        | text                                  | includes            |
+        | "status: planned"                     | does not include    |
+        | "status:" then a line "  planned"     | includes            |
+        | "a" then U+0085 then "status: planned" | includes            |
+        | "a\rstatus: planned"                  | includes            |
+      # A line begins at the start of the file or after "\n", and nowhere else; the value is
+      # the non-whitespace run after "status:" and any spaces or tabs on that same line. A
+      # skip shrinks the denominator, so it takes an explicit word on an explicit line.
+      # Until 2026-11-17 the value could be read off the next line, and a line could also
+      # begin after a lone "\r" or U+0085, so all three of the last rows were skipped.
+
+    @harness-085
+    Scenario Outline: A scores record that is not one stops the scoreboard
+      Given "harness/cycles/<cycle>/scores.json" holding <text>
+      And the other of cycles 01 and 02 holding one item, passing
+      When scoreboard runs for cycle "02"
+      Then stderr is exactly:
+        """
+        scoreboard: harness/cycles/<cycle>/scores.json is not a record: it should hold an "items" list of objects, each with a string "id".
+        """
+      And the exit code is 1
+
+      Examples:
+        | cycle | text                                  |
+        | 02    | {}                                    |
+        | 02    | {"items": [{"id": 7, "verdict": "pass"}]} |
+        | 02    | {"items": [                           |
+        | 01    | {"items": null}                       |
+      # The same shape @harness-073 asks of a checklist, because score writes nothing else.
+      # {"items": []} IS a record, of nothing, and @harness-043 and @harness-079 say what
+      # that means. The predecessor is held to it too: a broken previous record is not a
+      # baseline. Until 2026-11-17 a misshapen record was read as far as it could be.
+
+    @harness-086
+    Scenario: A scored item ends with its verdict and its evidence
+      Given a checklist item that already carries "verdict" and "evidence" keys
+      When score runs
+      Then that item in scores.json carries its other keys in their checklist order, then
+      "verdict", then "evidence", as filed now
+      # Until 2026-11-17 the old keys kept their position and only their values changed.
+      # gen_checklist never writes such keys, so a hand-edited checklist is the only way in.
 
   # -------------------------------------------------------------------------------
   # modules.sh, the adoption check
