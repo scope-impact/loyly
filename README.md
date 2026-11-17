@@ -55,7 +55,8 @@ from what precedes it.
 | 3 | `docs/wow/` | the method itself: the way of working, five invariants each with a named enforcement point, and the agent harness |
 | 4 | `docs/plan/01-booking-core/` | one slice of work: a plan, an executable Gherkin spec, tickets, and recorded decisions |
 | 5 | `harness/` | the instrument: the fence, the gate, the derived checklist, the scorer, the scoreboard. Start at its `README.md` |
-| 6 | `impl/` | the build product. Intentionally empty: you generate it |
+| 6 | `agent/` | the build loop of `docs/wow/harness.md` as code, durable: kill it mid-round and it continues that round. Start at its `README.md` |
+| 7 | `impl/` | the build product. Intentionally empty: you generate it |
 
 Two conventions you will notice everywhere:
 
@@ -70,7 +71,9 @@ Two conventions you will notice everywhere:
 
 This is the flow the repo exists to demonstrate. You can walk it with an AI agent doing
 the building (point it at the read order above; `docs/wow/harness.md` says how) or by
-hand. Either way the machinery treats you identically, which is rather the point.
+hand. Either way the machinery treats you identically, which is rather the point. The
+agent route has a driver, `node agent/run.mjs`, which runs the plan and build rounds with
+every guardrail enforced and survives being killed; `agent/README.md` says how.
 
 ### 1. Build from the docs
 

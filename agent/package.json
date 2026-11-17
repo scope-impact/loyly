@@ -1,0 +1,18 @@
+{
+ "name": "loyly-agent",
+ "private": true,
+ "version": "0.1.0",
+ "description": "The agent harness of docs/wow/harness.md as a durable build loop on pi-durable",
+ "type": "module",
+ "engines": { "node": ">=22.5" },
+ "scripts": {
+  "start": "node run.mjs",
+  "test": "node --test --test-concurrency=1 test/loop.test.mjs"
+ },
+ "dependencies": {
+  "@earendil-works/chord": "1.5.2",
+  "@earendil-works/pi-ai": "1.5.2",
+  "@earendil-works/pi-durable": "1.5.2",
+  "@earendil-works/pi-schema": "1.5.2"
+ }
+}

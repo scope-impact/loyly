@@ -77,3 +77,30 @@ Then state the task and the phase (plan or implement). If the agent
 proposes code and no slice covers it, the correct move is a planning phase
 that writes the slice, never "just this once". `raw/` is background: the
 agent may read it to check a trace, and must never edit it.
+
+## 5. Durability: a round outlives the process running it
+
+Every rule above is a rule about rounds, and a loop that holds its position only in
+memory loses that position when it dies. Restarted by hand, it can run the interrupted
+round a second time on top of the first attempt's half-finished edits, skip the round
+without the history ever saying so, or carry on without resetting the context, and then
+the orient step has quietly stopped happening. None of these failures makes a sound. A
+build loop that runs unattended is going to die mid-round sooner or later, so its
+position is a record, written down at every stage of a round before acting on that stage:
+
+- **Where the cycle is**: the phase, the round, the TDD state, and the stage the
+  round in flight had reached (opened, context reset, input submitted). A restart
+  continues from that stage. It never repeats an earlier stage, and never repeats the
+  context reset in particular, because a second reset would throw away the work the
+  crash interrupted.
+- **What the agent did**: every model turn and every tool call, recorded before
+  anything is shown or acted on. An action that was cut off is reported back to the
+  agent as interrupted, and is never silently run again. The exception is an action
+  that is safe to repeat, such as running the gate.
+- **A ratified DONE**: written down by whatever ran the gate, as soon as the gate
+  passes, so that a crash between the gate passing and the loop noticing it loses nothing.
+
+The record belongs to one cycle and must not cross the fence. A regeneration that can
+read the previous cycle's transcripts can copy the previous cycle's answer. This repository
+keeps that record where the fence's clone never reaches it. The loop that keeps it lives
+in `agent/`, and its README names the stack it is built on, so that this document does not.
