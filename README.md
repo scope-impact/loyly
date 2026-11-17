@@ -96,10 +96,10 @@ you built nothing yet, it says so and fails, which is correct behaviour for a ga
 ### 3. Measure
 
 ```bash
-bb harness/gen_checklist.clj --out harness/cycles/01/checklist.json
+node harness/gen_checklist.ts --out harness/cycles/01/checklist.json
 # grade each item against the running app, however you grade, then:
-bb harness/score.clj 01 --verdicts your-verdicts.json
-bb harness/scoreboard.clj 01
+node harness/score.ts 01 --verdicts your-verdicts.json
+node harness/scoreboard.ts 01
 ```
 
 The checklist is derived from the spec (never hand-kept), one item per stamped scenario.

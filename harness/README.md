@@ -31,13 +31,13 @@ thing a harness would hide that.
 
 | file | role | the rule it embodies |
 |---|---|---|
-| `stamp_item_ids.clj` | stamps `@item-NN-SSS` on every spec scenario | ids are handed out once and are never computed from wording, so rewording a rule cannot break the cycle-to-cycle comparison |
-| `gen_checklist.clj` | derives the scoring checklist from the spec | the checklist is derived, never written; a hand-kept list goes stale silently |
+| `stamp_item_ids.ts` | stamps `@item-NN-SSS` on every spec scenario | ids are handed out once and are never computed from wording, so rewording a rule cannot break the cycle-to-cycle comparison |
+| `gen_checklist.ts` | derives the scoring checklist from the spec | the checklist is derived, never written; a hand-kept list goes stale silently |
 | `fence.sh` | builds the clean-room clone and PROVES it | the fence is physical; a generation that can read last week's answer is not regenerating anything |
 | `verify.sh` | the ratifying gate | a "done" claim is ratified by a script the claimant does not control, inside a boot budget that is named and whose margin is reported |
-| `score.clj` | files verdicts against the checklist | zero verdicts means the grading did not happen, not that everything failed; an unreached item is recorded as `fail`, so a gap can never quietly shrink the denominator |
-| `scoreboard.clj` | the pass rate, cycle over cycle | both directions on the shared items, never the net; a moved denominator is restated out loud, and new items are counted separately because they are the one holdout nobody has tuned |
-| `hjson.clj` | the JSON dialect and the plumbing the four tools share | one copy of the byte contract (one-space indent, key order preserved), because four copies drift into four instruments; it holds no scoring rule, which is why the fence leaves it in the room |
+| `score.ts` | files verdicts against the checklist | zero verdicts means the grading did not happen, not that everything failed; an unreached item is recorded as `fail`, so a gap can never quietly shrink the denominator |
+| `scoreboard.ts` | the pass rate, cycle over cycle | both directions on the shared items, never the net; a moved denominator is restated out loud, and new items are counted separately because they are the one holdout nobody has tuned |
+| `hjson.ts` | the JSON dialect and the plumbing the four tools share | one copy of the byte contract (one-space indent, key order preserved), because four copies drift into four instruments; it holds no scoring rule, which is why the fence leaves it in the room |
 | `config.sh` | everything this repository knows about itself | a difference that lives in the code instead of in the configuration is a fork nobody declared |
 | `probe.sh` | proves the thing answering is THIS application | a name is not evidence; only domain behaviour is, and domain behaviour is code rather than a value |
 | `modules.sh` | proves the shared files are one text and the configuration is complete | three hand-kept copies drift silently, and a drifted instrument reports a difference that was never in the thing measured |
@@ -59,7 +59,7 @@ all three.
 
 | module | what it owns | files |
 |---|---|---|
-| 1, measure | stamp, derive, score, report, and the spec and oracle that judge them | `stamp_item_ids.clj`, `gen_checklist.clj`, `score.clj`, `scoreboard.clj`, `hjson.clj`, `spec.feature`, `oracle.sh` |
+| 1, measure | stamp, derive, score, report, and the spec and oracle that judge them | `stamp_item_ids.ts`, `gen_checklist.ts`, `score.ts`, `scoreboard.ts`, `hjson.ts`, `spec.feature`, `oracle.sh` |
 | 2, cleanroom | the fence: what is removed, how, and the probe that proves it | `fence.sh` |
 | 3, gate | ratifying "done" through the two-entry-point contract | `verify.sh` |
 | the check itself | that the three above have not forked | `modules.sh` |
@@ -89,7 +89,7 @@ Run it from any of the three, naming the others:
 It fails on a forked or missing shared file, on a per-repository file that is absent, on a
 recorded golden that is missing where the oracle needs it, on a configuration variable one
 repository has and another does not, on an empty value in anything but `APP_MARKER`, and on
-`PLAN_DIR` disagreeing with the path the Babashka tools resolve for themselves. It only
+`PLAN_DIR` disagreeing with the path the tools resolve for themselves. It only
 reports the configuration values that differ, because that is what configuration is for.
 
 Two things changed on 2026-09-08, both because a green was cheaper than it looked. The
@@ -118,7 +118,7 @@ the better answer, and it was left alone because renaming it touches kalibra's o
 documentation and is somebody's decision rather than a tidy-up.
 
 One difference it reports today is open rather than settled: saunavuoro fences its scoring
-tools (`score.clj`, `scoreboard.clj`) and löyly and kalibra do not. The siblings do not
+tools (`score.ts`, `scoreboard.ts`) and löyly and kalibra do not. The siblings do not
 agree, the surface can express either, and nobody has decided which is right.
 
 ## What makes the checks run
@@ -155,8 +155,10 @@ about twenty times over fixture repositories; the rest is `modules.sh` twice mor
 here and once across the siblings. The number is written down because it is the number
 that decides whether a hook survives: eight seconds is worth paying and thirty would not
 be, and if this figure climbs, the fix is fewer fixture runs rather than a hook nobody
-keeps installed. `bb` is deliberately kept off the PATH for the CHECK 9 runs that are not
-about `PLAN_DIR`, which alone took the oracle from twelve seconds back to seven.
+keeps installed. The tools' runtime is deliberately kept off the PATH for the CHECK 9 runs
+that are not about `PLAN_DIR`, which under Babashka alone took the oracle from twelve
+seconds back to seven. Re-measured after the move to TypeScript (2026-11-17, a Linux
+container, no Babashka installed): 7.5 seconds for `check.sh --local` in löyly.
 
 The hook is not a committed file, which is why it is not the only caller. `.git/hooks`
 lives outside the tree, a fresh clone has none until `--install-hook` is run there, and
@@ -219,10 +221,10 @@ PORT). Both names, and the port, are in `harness/config.sh`.
 
 ```bash
 # 1. stamp the spec (idempotent; only untagged scenarios change)
-bb harness/stamp_item_ids.clj
+node harness/stamp_item_ids.ts
 
 # 2. derive the checklist for cycle 01
-bb harness/gen_checklist.clj --out harness/cycles/01/checklist.json
+node harness/gen_checklist.ts --out harness/cycles/01/checklist.json
 
 # 3. build a fenced clean room (what a regeneration agent would be pointed at)
 ./harness/fence.sh /tmp/clean-room
@@ -232,10 +234,10 @@ bb harness/gen_checklist.clj --out harness/cycles/01/checklist.json
 
 # 5. grade each checklist item against the running app, however you grade
 #    (an agent driving the app, or a person with the spec in one hand), then file:
-bb harness/score.clj 01 --verdicts my-verdicts.json
+node harness/score.ts 01 --verdicts my-verdicts.json
 
 # 6. read the measurement
-bb harness/scoreboard.clj 01
+node harness/scoreboard.ts 01
 ```
 
 No cycle has been scored yet: producing the first `my-verdicts.json` honestly, by
@@ -267,7 +269,7 @@ Each rule above exists because its absence produced a specific, silent lie:
   already held (`verify.sh` [0]).
 - A scoring run whose every batch failed on a network outage once committed "scored" over
   an empty record. The instrument now dies loudly instead: an unrecorded measurement is
-  recoverable, a false record is not (`score.clj`).
+  recoverable, a false record is not (`score.ts`).
 - A weaker fence probe once passed while the previous implementation was still reachable
   from an older commit. The probe now checks the object graph, not the working tree
   (`fence.sh`).
@@ -303,6 +305,33 @@ Three events look alike in a diff and must never be confused:
   git diff -- harness/oracle/checklist.golden.json | grep '^-' | grep -v '^---'
   #   must print the old "total" line and nothing else
   ```
+
+**2026-11-17: the tools moved from Babashka to TypeScript, in löyly first.** The five
+`.clj` files were replaced by `.ts` files that node runs directly, with no dependencies
+and no build step, so the harness needs node and nothing else (`bb` is no longer
+required anywhere). It was accepted the way the Babashka was accepted in place of the
+Python: `harness/oracle.sh ts` passed with the same counts as `harness/oracle.sh bb`
+(114 ok, 2 skipped, and the skips are the scored-cycle checks löyly cannot make), and
+**no golden was re-recorded**: `checklist.golden.json` came back byte identical from the new
+generator. Because löyly has no scored cycle, the scorer and the scoreboard were also run
+side by side with the Babashka over 491 generated cases (malformed and edge-case JSON,
+floats at the edges of `Double.toString`, unpaired surrogates, CRLF and Unicode
+whitespace in specs, every slice status shape, and the rounding of every rate up to 400
+items) and agreed on every exit code, every byte of stdout and stderr, and every file
+written. The places where the JVM's behaviour reached the output are reproduced on
+purpose and each is commented in `hjson.ts`: what `trim` and the reader count as
+whitespace, Java's ASCII-only `\s`, how a double prints, `BigDecimal`'s exact
+half-even rounding, and an unpaired surrogate written as `?`.
+
+Two refusal messages name a command and so changed their words on purpose
+(`@harness-023`, `@harness-040`): they now say `harness/stamp_item_ids.ts` and
+`node harness/gen_checklist.ts`, and `harness/spec.feature` moved with them.
+
+**This forks the ring until the siblings take the same change.** The shared files are
+one text across löyly, saunavuoro, kalibra and chartroom, and in löyly that text is now
+TypeScript. Run across the siblings, `modules.sh` will report every tool as missing or
+forked until the same commit lands in each of them, on the same day as far as that is
+possible. The oracle and the per-commit check are repository local and are green here.
 
 **2026-09-08: the spec grew, in all three repositories.** Scenarios were added under
 `docs/plan/`, so the derived checklist gained items and the golden moved with it. The

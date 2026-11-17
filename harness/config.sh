@@ -2,14 +2,14 @@
 # know by heart.
 #
 # WHY THIS FILE EXISTS. harness/fence.sh, harness/verify.sh, harness/modules.sh and the
-# five Babashka tools are one text, byte for byte, in every repository that carries this
+# five TypeScript tools are one text, byte for byte, in every repository that carries this
 # harness. Three hand-kept copies drift into three instruments, and a drifted instrument
 # reports a difference that was never in the thing measured. So the files are identical
 # and the differences live here, where they are declared, documented and few.
 # harness/modules.sh proves both halves of that sentence.
 #
 # FORMAT. Every line is KEY=value, one line each, no arrays, no command substitution and
-# no reference to another variable. Shell reads it by sourcing it; a Babashka tool can
+# no reference to another variable. Shell reads it by sourcing it; a TypeScript tool can
 # read it with a regular expression and no dependency. Keep it that way.
 #
 # ADDING A VARIABLE. Add it in all three repositories on the same day, with its own
@@ -31,8 +31,8 @@ APP_DIR=impl
 PORT=8901
 
 # PLAN_DIR: where the product spec lives, relative to the repository root.
-# Read by nobody at runtime today. The Babashka tools resolve it themselves
-# (harness/hjson.clj, plan-dir), so this line is a declaration that has to agree with
+# Read by nobody at runtime today. The tools resolve it themselves
+# (harness/hjson.ts, planDir), so this line is a declaration that has to agree with
 # them, and harness/modules.sh checks that it does.
 # Wrong value: harness/modules.sh fails, which is the point. Moving the plan tree means
 # changing both, and the check makes sure nobody changes only one.
@@ -66,7 +66,7 @@ APP_PROBE=harness/probe.sh
 #   harness/cycles  every mark the answer has ever been given. An agent that can read last
 #                   cycle's scores can aim at the checklist instead of at the spec, which
 #                   is the same cheating by a slower route.
-# The scoring tools (harness/score.clj, harness/scoreboard.clj) are NOT fenced here, and
+# The scoring tools (harness/score.ts, harness/scoreboard.ts) are NOT fenced here, and
 # saunavuoro does fence them. That difference is open and known: see harness/README.md,
 # "The three modules, and the check that they have not forked".
 FENCED_PATHS="impl harness/cycles"

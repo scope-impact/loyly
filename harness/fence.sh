@@ -35,12 +35,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 #
 # What deliberately STAYS, so the fence does not break the thing it protects: the clean
 # room must be able to REBUILD, only not to COPY. The spec, the domain wiki, the sources
-# and the way of working ARE the input. stamp_item_ids.clj and gen_checklist.clj read the
+# and the way of working ARE the input. stamp_item_ids.ts and gen_checklist.ts read the
 # spec the room already has and verify.sh is the gate the rebuild has to pass, so removing
-# those would be a worse defect than the one the list fixes. hjson.clj stays for the same
+# those would be a worse defect than the one the list fixes. hjson.ts stays for the same
 # reason: it is the JSON reader and writer plus generic path and formatting helpers, it
-# holds no scoring rule (no verdict, no rate, no rounding), and all four Babashka tools
-# require it, so fencing it would take the two that must stay down with it.
+# holds no scoring rule (no verdict, no rate, no rounding), and all four tools import
+# it, so fencing it would take the two that must stay down with it.
 read -r -a FENCED <<<"${FENCED_PATHS:-}"
 (( ${#FENCED[@]} )) || {
   echo "FATAL: FENCED_PATHS is empty in harness/config.sh. A fence that hides nothing is"

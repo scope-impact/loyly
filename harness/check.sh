@@ -54,7 +54,7 @@
 #
 # EXIT 2 FROM THE ORACLE IS A SKIP, NOT A FAILURE. It means a tool it judges is absent, and
 # a fenced clean room is the case that produces it on purpose: saunavuoro fences
-# harness/score.clj and harness/scoreboard.clj, so the gate running inside its clean room
+# harness/score.ts and harness/scoreboard.ts, so the gate running inside its clean room
 # has fewer tools to judge than the repository it was cloned from. The skip is printed
 # loudly and is not a pass.
 #
@@ -136,7 +136,7 @@ if [[ "$MODE" == "--hook" ]]; then
 fi
 
 # ---- 1. the oracle ---------------------------------------------------------------
-step "the oracle: harness/oracle.sh bb" "$ROOT/harness/oracle.sh" bb
+step "the oracle: harness/oracle.sh ts" "$ROOT/harness/oracle.sh" ts
 case "$RC" in
   0) say "the oracle is green." ;;
   2) ORACLE_SKIPPED=yes

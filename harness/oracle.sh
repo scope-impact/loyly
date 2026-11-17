@@ -2,15 +2,17 @@
 # The harness oracle: proof that the four harness tools still behave, byte for byte, as
 # the instrument whose output the goldens recorded.
 #
-#   ./harness/oracle.sh bb       exercise the Babashka implementation (harness/*.clj)
+#   ./harness/oracle.sh ts       exercise the TypeScript implementation (harness/*.ts, run
+#                                by node with no dependencies)
 #   ./harness/oracle.sh record   (re)record this repository's golden files from the
-#                                Babashka implementation
+#                                TypeScript implementation
 #
-# The goldens were first recorded from the Python implementation, and the Babashka one
-# was accepted as its replacement on 2026-09-03 only because this oracle found no byte of
-# difference between them; the Python was deleted the same day. So the reference is now
-# the Babashka, and what `record` captures is whatever it does today, which is why
-# recording is almost never the right response to a red run (see below).
+# The goldens were first recorded from the Python implementation. The Babashka one was
+# accepted as its replacement on 2026-09-03, and the TypeScript one as the Babashka's on
+# 2026-11-17, each only because this oracle found no byte of difference between them; the
+# one replaced was deleted the same day each time. So the reference is now the TypeScript,
+# and what `record` captures is whatever it does today, which is why recording is almost
+# never the right response to a red run (see below).
 #
 # It is written to run unchanged in any repository that carries this harness. Everything
 # repository-specific is either read from the repository (the committed cycle 01
@@ -60,8 +62,8 @@ cd "$ROOT" || exit 2
 
 MODE="${1:-}"
 case "$MODE" in
-  bb|record) ;;
-  *) echo "usage: harness/oracle.sh bb|record" >&2; exit 2 ;;
+  ts|record) ;;
+  *) echo "usage: harness/oracle.sh ts|record" >&2; exit 2 ;;
 esac
 
 GOLD="harness/oracle"
@@ -82,11 +84,11 @@ head1(){ printf '\n%s\n' "$1"; }
 # which implementation
 # ---------------------------------------------------------------------------------
 PY=(python3)   # the interpreter alone, used to write fixtures inline; no harness tool is Python
-EXT="clj"
-STAMP=(bb harness/stamp_item_ids.clj)
-GEN=(bb harness/gen_checklist.clj)
-SCORE=(bb harness/score.clj)
-BOARD=(bb harness/scoreboard.clj)
+EXT="ts"; RUN=(node)
+STAMP=("${RUN[@]}" harness/stamp_item_ids.$EXT)
+GEN=("${RUN[@]}" harness/gen_checklist.$EXT)
+SCORE=("${RUN[@]}" harness/score.$EXT)
+BOARD=("${RUN[@]}" harness/scoreboard.$EXT)
 STAMP_FILE="harness/stamp_item_ids.$EXT"
 GEN_CMD="${GEN[*]}"
 
@@ -435,12 +437,12 @@ else
   rm -rf "harness/cycles/$TMPCYCLE"
   mkdir -p "harness/cycles/$TMPCYCLE"
   cp harness/cycles/01/checklist.json "harness/cycles/$TMPCYCLE/checklist.json"
-  bb -e '
-    (require (quote [cheshire.core :as j]))
-    (let [d (j/parse-string (slurp (first *command-line-args*)) true)]
-      (spit (second *command-line-args*)
-            (j/generate-string (map #(select-keys % [:id :verdict :evidence]) (:items d)))))
-  ' harness/cycles/01/scores.json "$WORK/verdicts.json" 2>"$WORK/err"
+  "${PY[@]}" - harness/cycles/01/scores.json "$WORK/verdicts.json" 2>"$WORK/err" <<'PYEOF'
+import json, sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+keep = ("id", "verdict", "evidence")
+json.dump([{k: i[k] for k in keep if k in i} for i in d["items"]], open(sys.argv[2], "w", encoding="utf-8"))
+PYEOF
   if [ ! -s "$WORK/verdicts.json" ]; then
     bad "could not derive a verdicts file from harness/cycles/01/scores.json"
     sed 's/^/        /' "$WORK/err"
@@ -708,12 +710,12 @@ head1 "CHECK 9  the adoption check, against fixture repositories"
 new_mod_fixture() {
   local d="$WORK/mod-$1"
   rm -rf "$d"; mkdir -p "$d/harness/oracle" "$d/docs/plan"
-  cp "$ROOT"/harness/*.clj "$ROOT"/harness/*.sh "$ROOT/harness/spec.feature" "$d/harness/" 2>/dev/null
+  cp "$ROOT"/harness/*.ts "$ROOT"/harness/*.sh "$ROOT/harness/spec.feature" "$d/harness/" 2>/dev/null
   printf '# the fixture harness README\n' >"$d/harness/README.md"
   # The copied config.sh is whichever repository this oracle is running in, and three of
   # its values differ between them. Normalise the three so that every assertion below
   # means the same thing everywhere: without this, "an absence nobody declared" passed in
-  # loyly and failed in saunavuoro, whose FENCED_PATHS already names harness/score.clj.
+  # loyly and failed in saunavuoro, whose FENCED_PATHS already names harness/score.ts.
   sed -e 's#^APP_DIR=.*#APP_DIR=impl#' \
       -e 's#^APP_MARKER=.*#APP_MARKER=fixture#' \
       -e 's#^FENCED_PATHS=.*#FENCED_PATHS="impl harness/cycles"#' \
@@ -728,14 +730,16 @@ new_mod_fixture() {
   ( cd "$d" && pwd -P )
 }
 
-# Asking Babashka where the plan tree is costs about a quarter of a second per repository,
-# and this section runs modules.sh some twenty times over two or three of them. Paid on
-# every call it turns a two second oracle into a twelve second one, and this oracle now
-# runs on every commit, so it would be paid at every commit by everyone. So bb is hidden
-# from the PATH for every call except the one that is ABOUT that question: modules.sh then
-# prints its own "bb is not on PATH here, this is not a pass" line and carries on, and the
-# sections these checks assert on do not involve it. @harness-054 below sets MOD_PATH back
-# to the real one, because there the resolution is the thing under test.
+# Asking the tools where the plan tree is costs a process start per repository (a quarter
+# of a second under Babashka, about a tenth under node), and this section runs modules.sh
+# some twenty times over two or three of them. This oracle runs on every commit, so that
+# cost would be paid at every commit by everyone. So node is hidden from the PATH for every
+# call except the one that is ABOUT that question: modules.sh then prints its own "node is
+# not on PATH here, this is not a pass" line and carries on, and the sections these checks
+# assert on do not involve it. @harness-054 below sets MOD_PATH back to the real one,
+# because there the resolution is the thing under test. Where node is installed in
+# /usr/bin it is not hidden, and the only cost is those seconds: no assertion here depends
+# on the line being skipped.
 MOD_PATH="/usr/bin:/bin"
 
 mod_run() {  # mod_run DIR [ARG...] -> RC, stdout and stderr together in $WORK/out
@@ -835,8 +839,8 @@ has_line "@harness-053 the gate cannot run it, and the check says which reposito
 # 9.7  @harness-054  PLAN_DIR against what the tools resolve
 MB="$(new_mod_fixture b)"
 sed 's#^PLAN_DIR=.*#PLAN_DIR=docs/specs#' "$MB/harness/config.sh" >"$MB/harness/config.tmp" && mv "$MB/harness/config.tmp" "$MB/harness/config.sh"
-if ! command -v bb >/dev/null 2>&1; then
-  skip "@harness-054 PLAN_DIR: bb is not on PATH, so the tools cannot be asked"
+if ! command -v node >/dev/null 2>&1; then
+  skip "@harness-054 PLAN_DIR: node is not on PATH, so the tools cannot be asked"
 else
   MOD_PATH="$PATH" mod_run "$MA" --siblings "$MB"
   expect_rc "@harness-054 PLAN_DIR disagreeing with the tools: exit 1" 1 "$RC"
@@ -896,17 +900,17 @@ has_line "a declared local file passes the completeness check" "  ok    mod-b: e
 # fences two of the shared tools. Without this the gate would refuse inside the very room
 # it exists to grade, reporting a deliberate absence as a fork.
 MB="$(new_mod_fixture b)"
-sed 's#^FENCED_PATHS=.*#FENCED_PATHS="impl harness/cycles harness/score.clj"#' "$MB/harness/config.sh" >"$MB/harness/config.tmp" && mv "$MB/harness/config.tmp" "$MB/harness/config.sh"
-rm -f "$MB/harness/score.clj"
+sed 's#^FENCED_PATHS=.*#FENCED_PATHS="impl harness/cycles harness/score.ts"#' "$MB/harness/config.sh" >"$MB/harness/config.tmp" && mv "$MB/harness/config.tmp" "$MB/harness/config.sh"
+rm -f "$MB/harness/score.ts"
 mod_run "$MA" --siblings "$MB"
 expect_rc "a fenced shared file absent in a sibling: exit 0" 0 "$RC"
 has_line "the absence is reported as a fenced one, not as a fork" \
-  "  note  harness/score.clj is fenced and absent in: mod-b, and identical everywhere it is present"
+  "  note  harness/score.ts is fenced and absent in: mod-b, and identical everywhere it is present"
 MB="$(new_mod_fixture b)"
-rm -f "$MB/harness/score.clj"
+rm -f "$MB/harness/score.ts"
 mod_run "$MA" --siblings "$MB"
 expect_rc "an unfenced shared file absent in a sibling is still a failure: exit 1" 1 "$RC"
-has_line "an absence nobody declared is still missing" "  FAIL  harness/score.clj is missing in: mod-b"
+has_line "an absence nobody declared is still missing" "  FAIL  harness/score.ts is missing in: mod-b"
 
 # 9.12  the vacuous green: no sibling named
 # Until 2026-09-08 this printed "identical in 1 repository" for every shared file, which is

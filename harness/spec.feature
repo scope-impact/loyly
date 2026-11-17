@@ -41,10 +41,10 @@
 #
 # FILE NAMES AND INVOCATION. Four scripts, one per tool: harness/stamp_item_ids,
 # harness/gen_checklist, harness/score, harness/scoreboard, with the extension of the
-# language they are written in (today .clj, run by bb; the Python originals were replaced
-# 2026-09-03). They are invoked from the repository root as
-# "<runner> harness/<name>.<ext> <args>", for example
-# "bb harness/gen_checklist.clj --out harness/cycles/01/checklist.json". Two messages name
+# language they are written in (today .ts, run by node with no dependencies; the Python
+# originals were replaced 2026-09-03 and the Babashka ones 2026-11-17). They are invoked
+# from the repository root as "<runner> harness/<name>.<ext> <args>", for example
+# "node harness/gen_checklist.ts --out harness/cycles/01/checklist.json". Two messages name
 # a sibling tool as a command for the operator to run, and those two must name the
 # implementation's own files (@harness-023, @harness-040); everywhere else the words are
 # fixed. The fifth script, harness/modules.sh, is bash and is invoked directly as
@@ -441,7 +441,7 @@ Feature: The harness: stamp, derive, score, report
       When gen_checklist runs
       Then stderr is exactly:
         """
-        gen_checklist: some scenarios carry no item id. A checklist built now would quietly score fewer items than the spec contains, so stamp them first with harness/stamp_item_ids.clj:
+        gen_checklist: some scenarios carry no item id. A checklist built now would quietly score fewer items than the spec contains, so stamp them first with harness/stamp_item_ids.ts:
           docs/plan/01-x/spec.feature:5: UNSTAMPED: unstamped one
         """
       And the exit code is 1
@@ -671,7 +671,7 @@ Feature: The harness: stamp, derive, score, report
 
   # GUARD. Incident: the same one. An item the grader never reached is a gap in the
   # measurement, and dropping it from the record shrinks the denominator so that the pass
-  # rate rises for the wrong reason (harness/README.md, the table row for score.clj).
+  # rate rises for the wrong reason (harness/README.md, the table row for score.ts).
   Rule: An item nobody reached is recorded as a failure, never dropped
 
     @harness-036
@@ -744,7 +744,7 @@ Feature: The harness: stamp, derive, score, report
       Then stderr is exactly:
         """
         score: no harness/cycles/01/checklist.json: generate it first:
-          bb harness/gen_checklist.clj --out harness/cycles/01/checklist.json
+          node harness/gen_checklist.ts --out harness/cycles/01/checklist.json
         """
       And the exit code is 1
       # The checklist path is printed relative to the repository root, twice.
@@ -819,7 +819,7 @@ Feature: The harness: stamp, derive, score, report
   # and when the spec grows between cycles those two rates have different denominators, so
   # the rate falls with no regression behind it. Both directions are shown separately
   # because a net movement hides a regression behind an unrelated repair
-  # (harness/README.md, the table row for scoreboard.clj).
+  # (harness/README.md, the table row for scoreboard.ts).
   Rule: The comparison shows both directions on the shared items, and never a net
 
     @harness-045
@@ -964,7 +964,7 @@ Feature: The harness: stamp, derive, score, report
     @harness-054
     Scenario: PLAN_DIR must agree with the path the tools resolve for themselves
       Given "harness/config.sh" declares PLAN_DIR as "docs/specs"
-      And harness/hjson.clj resolves the plan tree as "docs/plan"
+      And harness/hjson.ts resolves the plan tree as "docs/plan"
       When modules.sh runs
       Then the PLAN_DIR line reads FAIL and shows both values
       And the exit code is 1
@@ -1034,16 +1034,16 @@ Feature: The harness: stamp, derive, score, report
 
     @harness-068
     Scenario: A shared module file a repository fences is absent on purpose
-      Given a repository whose FENCED_PATHS names "harness/score.clj"
+      Given a repository whose FENCED_PATHS names "harness/score.ts"
       And that file is absent, as it is inside a clean room
       When modules.sh runs
-      Then the line for "harness/score.clj" reads as a note saying fenced, not forked
+      Then the line for "harness/score.ts" reads as a note saying fenced, not forked
       And the exit code is 0
       # GUARD, and the incident is a loop this harness built for itself. harness/verify.sh
       # runs inside the room harness/fence.sh builds, and since 2026-09-08 it calls
       # harness/check.sh before it grades anything. Without this exemption the gate refuses
-      # inside the one room it exists to grade: saunavuoro fences harness/score.clj and
-      # harness/scoreboard.clj, so its room has fewer tools than the repository it was
+      # inside the one room it exists to grade: saunavuoro fences harness/score.ts and
+      # harness/scoreboard.ts, so its room has fewer tools than the repository it was
       # cloned from, and every one of them read as forked. The exemption is exactly as wide
       # as the list the repository wrote down in FENCED_PATHS. An absence nobody declared is
       # still a failure, which is @harness-050 with nothing taken out of it.
@@ -1205,13 +1205,13 @@ Feature: The harness: stamp, derive, score, report
 
     @harness-066
     Scenario: A tool the oracle cannot find is a skip, and the run is not failed
-      Given a tree with no "harness/score.clj"
+      Given a tree with no "harness/score.ts"
       When check.sh runs
       Then the oracle's exit code is 2
       And the run reports a SKIP
       And the run is not failed
-      # A fenced clean room produces this on purpose: saunavuoro fences harness/score.clj
-      # and harness/scoreboard.clj, so the gate running inside its clean room has fewer
+      # A fenced clean room produces this on purpose: saunavuoro fences harness/score.ts
+      # and harness/scoreboard.ts, so the gate running inside its clean room has fewer
       # tools to judge than the repository it was cloned from. The skip is printed loudly,
       # because a skip nobody sees is a pass.
 

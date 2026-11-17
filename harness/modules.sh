@@ -20,7 +20,7 @@
 #   - a recorded golden that is missing where the oracle needs it
 #   - a configuration variable declared in one repository and absent in another
 #   - a variable other than APP_MARKER left with an empty value
-#   - PLAN_DIR disagreeing with the path the Babashka tools resolve for themselves
+#   - PLAN_DIR disagreeing with the path the tools resolve for themselves
 #
 # WHAT IT ONLY REPORTS: configuration values that differ. That is what configuration is
 # for, and the report is there so a difference nobody intended is at least read out loud.
@@ -65,8 +65,8 @@ esac
 # module 3, gate: the ratifying gate
 # and the entry point that runs them, and this file, which judges all three
 SHARED=(
-  harness/stamp_item_ids.clj harness/gen_checklist.clj harness/score.clj
-  harness/scoreboard.clj harness/hjson.clj harness/spec.feature harness/oracle.sh
+  harness/stamp_item_ids.ts harness/gen_checklist.ts harness/score.ts
+  harness/scoreboard.ts harness/hjson.ts harness/spec.feature harness/oracle.sh
   harness/fence.sh
   harness/verify.sh
   harness/check.sh
@@ -118,8 +118,8 @@ name() { basename "$1"; }
 echo "repositories: $(for r in "${REPOS[@]}"; do printf '%s ' "$(name "$r")"; done)"
 
 # A shared file that a repository FENCES is absent from a clean room on purpose, and a
-# clean room is where harness/verify.sh runs. saunavuoro fences harness/score.clj and
-# harness/scoreboard.clj, so without this the gate would refuse inside the very room it
+# clean room is where harness/verify.sh runs. saunavuoro fences harness/score.ts and
+# harness/scoreboard.ts, so without this the gate would refuse inside the very room it
 # exists to grade, reporting a missing module file as a fork. Being fenced is read from
 # that repository's own FENCED_PATHS, so the exemption is exactly as wide as the list the
 # repository wrote down, and it says which room it thinks it is in rather than passing
@@ -261,15 +261,15 @@ done
 
 echo
 echo "== PLAN_DIR against the path the tools resolve for themselves"
-if ! command -v bb >/dev/null 2>&1; then
-  echo "  SKIP  bb is not on PATH here, so the tools cannot be asked. This is not a pass."
+if ! command -v node >/dev/null 2>&1; then
+  echo "  SKIP  node is not on PATH here, so the tools cannot be asked. This is not a pass."
 else
   for r in "${REPOS[@]}"; do
     declared="$(value_of "$r" PLAN_DIR)"
-    resolved="$(cd "$r" && bb -e '(require (quote [babashka.classpath :as cp])) (cp/add-classpath "harness") (require (quote hjson)) (print (hjson/plan-dir "."))' 2>/dev/null)"
+    resolved="$(cd "$r" && node --input-type=module -e 'import { planDir } from "./harness/hjson.ts"; process.stdout.write(planDir("."))' 2>/dev/null)"
     resolved="${resolved#./}"
     if [[ -z "$resolved" ]]; then
-      bad "$(name "$r"): could not ask harness/hjson.clj where the plan tree is"
+      bad "$(name "$r"): could not ask harness/hjson.ts where the plan tree is"
     elif [[ "$declared" != "$resolved" ]]; then
       bad "$(name "$r"): PLAN_DIR is '$declared' and the tools resolve '$resolved'. Change both or neither."
     else
