@@ -40,6 +40,8 @@ import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite
 import { CodingTools } from "@earendil-works/pi-durable/tools";
 import { obj, str } from "@earendil-works/pi-schema";
 
+import { enqueue, Outbox, say, SlackExtension, slackFromEnv } from "./slack.mjs";
+
 const run = promisify(execFile);
 const context = BACKGROUND_CONTEXT;
 
@@ -243,6 +245,7 @@ async function measureTdd(config) {
  * @param {number} [options.maxRounds]    implementation rounds before the cycle is called exhausted
  * @param {number} [options.reviewEvery]  every Nth round reviews instead of builds; 0 never
  * @param {number} [options.maxTurns]     tool rounds one round may take
+ * @param {boolean} [options.slack]      report to Slack (agent/slack.mjs); default: when the environment configures it
  * @param {boolean} [options.readOnly]   open to look, never to run: recovers nothing, counts no restart
  * @param {(line: string) => void} [options.log]
  */
@@ -260,6 +263,7 @@ export async function openLoop(options) {
 		verifyTimeoutMs: options.verifyTimeoutMs ?? 600_000,
 	};
 	const log = options.log ?? (() => {});
+	const notify = options.slack ?? Boolean(slackFromEnv());
 	const scopeRef = { current: [] };
 
 	const registry = createRegistry();
@@ -267,6 +271,7 @@ export async function openLoop(options) {
 	registry.install(stateExtension());
 	registry.install(guardExtension(config, scopeRef));
 	registry.install(defineExtension({ name: "loyly-gate", tools: [claimDoneTool(config)] }));
+	registry.install(SlackExtension); // always: a sender queued by an earlier process must find its definition
 	const readOnlyTools = CodingTools.tools.filter((t) => t.name === "read" || t.name === "bash");
 
 	await mkdir(path.dirname(config.store), { recursive: true });
@@ -278,15 +283,33 @@ export async function openLoop(options) {
 			env: ({ cwd }) => new NodeExecutionEnv({ cwd: cwd ?? config.root }),
 			settings: { afterFailedRun: "withdraw" },
 			readOnly: Boolean(options.readOnly),
-			onReport: (report) => log(`report: ${report.kind}${report.reason ? ` (${report.reason})` : ""}`),
+			onReport: (report) => {
+				const line = `${report.kind}${report.reason ? ` (${report.reason})` : ""}${report.task ? ` in ${report.task.kind}` : ""}`;
+				log(`report: ${line}`);
+				const ours = report.task?.kind === "loyly.slack-sender";
+				if (notify && !options.readOnly && !ours && (report.kind === "task_faulted" || report.kind === "task_interrupted"))
+					void harness.commit(async (tx) => enqueue(tx, [say.failed(line)], await conversationFor(tx)), context).catch(() => {});
+			},
 		},
 		context,
 	);
 
 	const read = async () => (await harness.snapshot(Cycle, context)) ?? initialCycle();
-	const write = (change) => harness.commit(async (tx) => change(await tx.doc(Cycle)), context);
-	// A snapshot of a document nobody has written is absent; create it so every read sees it.
-	if (!options.readOnly && !(await read())) await write(() => {});
+	/**
+	 * Change the cycle document. `messages`, given the changed document, says what to tell
+	 * Slack about it; they are queued in this same commit, so a state change and its report
+	 * are stored together or not at all.
+	 */
+	const write = (change, messages) =>
+		harness.commit(async (tx) => {
+			const cycle = await tx.doc(Cycle);
+			await change(cycle);
+			if (notify && messages) await enqueue(tx, messages(cycle).filter(Boolean), cycle.buildConversation ?? cycle.planConversation);
+		}, context);
+	async function conversationFor(tx) {
+		const cycle = await tx.doc(Cycle);
+		return cycle.buildConversation ?? cycle.planConversation;
+	}
 
 	async function conversations() {
 		let cycle = await read();
@@ -404,7 +427,7 @@ export async function openLoop(options) {
 				if (kind === ROUND_KINDS.review) c.findings = answer ? [answer] : [];
 			}
 			if (c.ratified) c.phase = "done";
-		});
+		}, (c) => [say.round(entry, c), c.ratified ? say.ratified(c.ratified, round) : null]);
 		log(`${requestId}: ${entry.outcome}, TDD ${entry.tddBefore} -> ${entry.tddAfter}${entry.notes.length ? `; ${entry.notes.join("; ")}` : ""}`);
 		return entry;
 	}
@@ -418,9 +441,14 @@ export async function openLoop(options) {
 				throw new Error(
 					`refusing to start a cycle over uncommitted changes the scope fence would revert:\n  ${outside.map((c) => c.file).join("\n  ")}\ncommit or stash them first`,
 				);
-			await write((c) => void (c.phase = "plan"));
 		}
 		const { plan, build } = await conversations();
+		if (cycle.phase === "new") {
+			await write((c) => void (c.phase = "plan"), () => [say.started(config.root, `${options.model.provider}/${options.model.modelId}`)]);
+		} else if (cycle.pending) {
+			const what = `${cycle.pending.requestId} at stage ${cycle.pending.stage}`;
+			await write(() => {}, () => [say.started(config.root, null, `continuing ${what} after the last process stopped`)]);
+		}
 		for (;;) {
 			cycle = await read();
 			if (cycle.phase === "done" || cycle.phase === "exhausted") return cycle;
@@ -431,10 +459,21 @@ export async function openLoop(options) {
 			}
 			const next = cycle.pending?.round ?? cycle.round + 1;
 			if (next > config.maxRounds) {
-				await write((c) => void (c.phase = "exhausted"));
+				await write((c) => void (c.phase = "exhausted"), () => [say.exhausted(config.maxRounds)]);
 				continue;
 			}
 			await playRound(build, cycle.pending?.kind ?? kindOf(next), next);
+		}
+	}
+
+	/** Wait, at most `ms`, for the Slack outbox to drain; what is left is sent by the next process. */
+	async function flush(ms = 15_000) {
+		const deadline = Date.now() + ms;
+		for (;;) {
+			const outbox = await harness.snapshot(Outbox, context);
+			if (!outbox || outbox.queue.length === 0 || !outbox.sender) return outbox;
+			if (Date.now() > deadline) return outbox;
+			await new Promise((r) => setTimeout(r, 100));
 		}
 	}
 
@@ -443,6 +482,8 @@ export async function openLoop(options) {
 		config,
 		read,
 		drive,
+		flush,
+		outbox: () => harness.snapshot(Outbox, context),
 		close: () => harness.close(context),
 	};
 }

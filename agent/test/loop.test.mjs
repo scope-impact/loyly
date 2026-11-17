@@ -32,6 +32,8 @@ function drive(fx, script, options = {}) {
 	const result = spawnSync(process.execPath, [scripted, fx.root, fx.store, JSON.stringify(script), JSON.stringify(options)], {
 		encoding: "utf8",
 		timeout: 60_000,
+		// Never the developer's real Slack: these tests are about the loop, not the channel.
+		env: Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("SLACK_"))),
 	});
 	const line = result.stdout.split("\n").find((l) => l.startsWith("CYCLE "));
 	const calls = result.stdout.split("\n").find((l) => l.startsWith("FAUX_CALLS "));

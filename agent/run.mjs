@@ -6,6 +6,9 @@
 //                      [--max-turns N] [--store FILE]
 //   node agent/run.mjs status [--store FILE]
 //   node agent/run.mjs reset  [--store FILE]     forget the cycle; the next run starts anew
+//
+// Slack (agent/slack.mjs): set SLACK_BOT_TOKEN and SLACK_CHANNEL for a thread per cycle,
+// or SLACK_WEBHOOK_URL for plain messages; --no-slack turns it off.
 
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -27,13 +30,14 @@ const { values, positionals } = parseArgs({
 		"review-every": { type: "string", default: "4" },
 		"max-turns": { type: "string", default: "40" },
 		store: { type: "string", default: path.join(root, ".loyly-agent", "cycle.sqlite") },
+		"no-slack": { type: "boolean" },
 		help: { type: "boolean", short: "h" },
 	},
 });
 
 if (values.help) {
 	console.log(
-		"usage: node agent/run.mjs [status|reset] [--model provider/modelId] [--rounds N] [--review-every N] [--max-turns N] [--store FILE]",
+		"usage: node agent/run.mjs [status|reset] [--model provider/modelId] [--rounds N] [--review-every N] [--max-turns N] [--store FILE] [--no-slack]",
 	);
 	process.exit(0);
 }
@@ -85,6 +89,7 @@ const loop = await openLoop({
 	reviewEvery: Number(values["review-every"]),
 	maxTurns: Number(values["max-turns"]),
 	readOnly: command === "status",
+	slack: values["no-slack"] ? false : undefined,
 	log: (line) => console.log(`[loyly-agent] ${line}`),
 });
 
@@ -101,9 +106,16 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
 try {
 	if (command === "status") {
 		printStatus(await loop.read());
+		const outbox = await loop.outbox();
+		if (outbox)
+			console.log(
+				`slack: ${outbox.sent} sent, ${outbox.queue.length} queued, ${outbox.dropped} dropped${outbox.threadTs ? `, thread ${outbox.threadTs}` : ""}${outbox.lastError ? `; last error: ${outbox.lastError}` : ""}`,
+			);
 	} else if (command === "drive") {
 		const cycle = await loop.drive();
 		printStatus(cycle);
+		const outbox = await loop.flush();
+		if (outbox?.queue.length) console.log(`[loyly-agent] ${outbox.queue.length} Slack message(s) not yet delivered; the next run sends them`);
 		process.exitCode = cycle.phase === "done" ? 0 : 1;
 	} else {
 		console.error(`unknown command "${command}"`);

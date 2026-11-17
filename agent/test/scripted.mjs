@@ -27,6 +27,8 @@ const loop = await openLoop({
 	log: (line) => console.log(line),
 });
 const cycle = await loop.drive();
+const outbox = await loop.flush(20_000);
+console.log(`OUTBOX ${JSON.stringify(outbox ?? null)}`);
 console.log(`FAUX_CALLS ${faux.state.callCount}`);
 console.log(`CYCLE ${JSON.stringify(cycle)}`);
 await loop.close();

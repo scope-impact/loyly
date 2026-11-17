@@ -54,6 +54,53 @@ the store is git-ignored, so one cycle's transcripts never reach the next cycle'
 regeneration that can read last cycle's conversation is copying, the same failure
 `FENCED_PATHS` exists to prevent.
 
+## Slack: the cycle reports to a thread
+
+`slack.mjs` lets a cycle that nobody is watching tell somebody what it is doing. When the
+environment configures it, the cycle gets a single Slack thread. The thread receives a
+message when the cycle starts, after every round (its kind, the TDD transition, what the
+scope fence reverted, and a review's findings), when a process resumes the cycle after a
+crash, when a gate ratifies DONE, when the cycle runs out of rounds, and when pi-durable
+reports a task that crashed or faulted.
+
+```bash
+export SLACK_BOT_TOKEN=xoxb-...   # a bot with chat:write, invited to the channel
+export SLACK_CHANNEL=C0123456789  # one thread per cycle
+# or, without threads:
+export SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+node agent/run.mjs                # --no-slack turns it off even when configured
+node agent/run.mjs status         # also prints sent / queued / dropped and the last error
+```
+
+A notification channel is worth only as much as it can be trusted in the case it exists
+for, which is the loop dying with nobody watching. So messages get the same durability as
+the loop:
+
+- **No message is sent from the loop's code path.** A message is queued in an outbox
+  document in the same commit as the state change it reports, so the two are stored
+  together or not at all. A durable sender task then delivers the queue in order, one
+  committed checkpoint per message.
+- **Slack being down is a wait, not a loss.** HTTP 429 and 5xx responses and network
+  errors are retried with a stored backoff that doubles from 1 s up to a minute, across
+  restarts. After 8 attempts, or on a permanent error (`invalid_auth`,
+  `channel_not_found`, `not_in_channel`, and similar), the message is dropped, counted
+  in `dropped`, and its reason kept in `lastError`, which `status` prints.
+- **A crash loses nothing.** If the process dies with messages still queued, the next
+  process sends them in their original order, under the same thread, along with a
+  "cycle resumed" message.
+- **At least once, not exactly once.** `chat.postMessage` takes no idempotency key, so
+  if a crash lands after Slack accepted a message but before the queue recorded it, the
+  message is posted twice. A duplicate reply in a thread was chosen over a gap in it.
+- **The token is never stored.** Credentials come from the environment at every send.
+  The store records the cycle, and a token has no place in it; a test checks the
+  database bytes for this.
+- **Delivery waits up to 15 s at exit.** Anything still undelivered then stays queued,
+  and the next run sends it.
+
+The sender is installed in every process that opens the store, whether or not that
+process has Slack configured, so a queued sender never blocks on a missing definition. A
+process without a Slack target leaves the queue untouched.
+
 ## The guardrails, as code
 
 | guardrail (`docs/wow/harness.md`) | where | how |
@@ -94,7 +141,11 @@ cd agent && npm test
 ```
 
 The tests run the loop against a miniature repository with pi-ai's faux provider, so they
-need no API key. The crash test kills a real driver process with `kill -9` partway through
+need no API key, and they run Slack against a fake Web API on localhost: never your real
+Slack, because they remove `SLACK_*` from the environment of the processes they start.
+The Slack tests cover one thread in order, retries through 5xx errors, a dropped
+permanent error, the webhook mode, and a driver killed while Slack was not answering
+whose queued messages the next process delivers. The crash test kills a real driver process with `kill -9` partway through
 a round and starts a second process on the same store. That second process is scripted
 with exactly one model answer, so if it repeated any earlier round it would run out of
 answers and fail.
