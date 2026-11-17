@@ -345,7 +345,18 @@ Two refusal messages name a command and so changed their words on purpose
 one text across löyly, saunavuoro, kalibra and chartroom, and in löyly that text is now
 TypeScript. Run across the siblings, `modules.sh` will report every tool as missing or
 forked until the same commit lands in each of them, on the same day as far as that is
-possible. The oracle and the per-commit check are repository local and are green here.
+possible. `migrations/harness-to-typescript.sh <sibling>`, run from löyly with the sibling
+cloned beside it, does the mechanical part and stops short of committing: it refuses over a
+shared file that has drifted from löyly's pre-move text, records the Babashka oracle's
+counts, copies the shared files, renames the tools in the sibling's own files (FENCED_PATHS
+included), installs the dependency, and prints the TypeScript oracle's counts next to the
+baseline. Rehearsed on two simulated siblings rebuilt from löyly's history: one shaped like
+saunavuoro, fencing the scoring tools and carrying a cycle scored and recorded by the
+Babashka (121 ok, 0 skipped before and after, so the scorer round-trip the oracle cannot
+make in löyly passed byte for byte there), and one carrying a local `harness/oracle.py`
+like kalibra (114 ok, 2 skipped before and after). Across löyly and the two, `modules.sh`
+reported every shared file identical; the saunavuoro-shaped clean room, missing the fenced
+`score.ts` and `scoreboard.ts`, skipped loudly instead of failing, as `@harness-066` says. The oracle and the per-commit check are repository local and are green here.
 
 **2026-09-08: the spec grew, in all three repositories.** Scenarios were added under
 `docs/plan/`, so the derived checklist gained items and the golden moved with it. The
