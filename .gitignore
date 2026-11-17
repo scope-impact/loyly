@@ -4,3 +4,4 @@ server.log
 *.db
 agent/node_modules/
 .loyly-agent/
+harness/node_modules/

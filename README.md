@@ -96,6 +96,7 @@ you built nothing yet, it says so and fails, which is correct behaviour for a ga
 ### 3. Measure
 
 ```bash
+npm ci --prefix harness   # once per clone: the tools' one dependency
 node harness/gen_checklist.ts --out harness/cycles/01/checklist.json
 # grade each item against the running app, however you grade, then:
 node harness/score.ts 01 --verdicts your-verdicts.json

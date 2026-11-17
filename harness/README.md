@@ -158,7 +158,11 @@ be, and if this figure climbs, the fix is fewer fixture runs rather than a hook 
 keeps installed. The tools' runtime is deliberately kept off the PATH for the CHECK 9 runs
 that are not about `PLAN_DIR`, which under Babashka alone took the oracle from twelve
 seconds back to seven. Re-measured after the move to TypeScript (2026-11-17, a Linux
-container, no Babashka installed): 7.5 seconds for `check.sh --local` in löyly.
+container, no Babashka installed): 7.5 seconds for `check.sh --local` in löyly with
+dependency-free tools, and 10 seconds once they were rewritten on Effect, whose loading
+adds about 45 milliseconds to each of the hundred-odd tool runs the oracle makes. That is
+inside the eight-is-worth-it, thirty-is-not range above but nearer its top than before,
+and it is the first place to look if the hook starts to be skipped.
 
 The hook is not a committed file, which is why it is not the only caller. `.git/hooks`
 lives outside the tree, a fresh clone has none until `--install-hook` is run there, and
@@ -220,6 +224,9 @@ exits non-zero on any failure) and `impl/start.sh PORT` (serves the app over HTT
 PORT). Both names, and the port, are in `harness/config.sh`.
 
 ```bash
+# 0. once per clone (and once in a clean room): the tools' one dependency
+npm ci --prefix harness
+
 # 1. stamp the spec (idempotent; only untagged scenarios change)
 node harness/stamp_item_ids.ts
 
@@ -307,9 +314,16 @@ Three events look alike in a diff and must never be confused:
   ```
 
 **2026-11-17: the tools moved from Babashka to TypeScript, in löyly first.** The five
-`.clj` files were replaced by `.ts` files that node runs directly, with no dependencies
-and no build step, so the harness needs node and nothing else (`bb` is no longer
-required anywhere). It was accepted the way the Babashka was accepted in place of the
+`.clj` files were replaced by `.ts` files that node runs directly, with no build step, so
+the harness needs node and nothing else (`bb` is no longer required anywhere). The same
+day they were rewritten on [Effect](https://effect.website) (`effect` 4.1.0, pinned in
+`harness/package.json`, installed with `npm ci --prefix harness`), in a style kept close to
+the Clojure rather than translated from it: values are plain data and the functions over
+them pure, what touches the world is one `Io` service, a refusal and an unreadable document
+are typed failures (`Refusal`, `JsonError`), and `run` in `hjson.ts` is the one place
+either becomes an exit code. `package.json` and `package-lock.json` are shared module files
+now, declared in `modules.sh`. A missing `harness/node_modules` fails the oracle outright
+rather than skipping it, because a tool that cannot load is not a tool that is absent. It was accepted the way the Babashka was accepted in place of the
 Python: `harness/oracle.sh ts` passed with the same counts as `harness/oracle.sh bb`
 (114 ok, 2 skipped, and the skips are the scored-cycle checks löyly cannot make), and
 **no golden was re-recorded**: `checklist.golden.json` came back byte identical from the new
@@ -318,7 +332,7 @@ side by side with the Babashka over 491 generated cases (malformed and edge-case
 floats at the edges of `Double.toString`, unpaired surrogates, CRLF and Unicode
 whitespace in specs, every slice status shape, and the rounding of every rate up to 400
 items) and agreed on every exit code, every byte of stdout and stderr, and every file
-written. The places where the JVM's behaviour reached the output are reproduced on
+written, both before the Effect rewrite and after it. The places where the JVM's behaviour reached the output are reproduced on
 purpose and each is commented in `hjson.ts`: what `trim` and the reader count as
 whitespace, Java's ASCII-only `\s`, how a double prints, `BigDecimal`'s exact
 half-even rounding, and an unpaired surrogate written as `?`.

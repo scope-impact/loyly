@@ -92,6 +92,15 @@ BOARD=("${RUN[@]}" harness/scoreboard.$EXT)
 STAMP_FILE="harness/stamp_item_ids.$EXT"
 GEN_CMD="${GEN[*]}"
 
+# The tools' one dependency. Missing, every tool would die on its first import and every
+# check below would read as a behaviour failure; worse, a caller treating a crash as "the
+# tool is absent" would skip. So it is its own failure, said once, and never a skip.
+if ! (cd harness && node --input-type=module -e 'await import("effect/Effect")') >/dev/null 2>&1; then
+  echo "oracle: the harness tools' dependency is not installed (harness/node_modules/effect)." >&2
+  echo "        npm ci --prefix harness" >&2
+  exit 1
+fi
+
 for f in stamp_item_ids gen_checklist score scoreboard; do
   if [ ! -f "harness/$f.$EXT" ]; then
     echo "oracle: no harness/$f.$EXT: there is nothing to judge." >&2
@@ -132,7 +141,8 @@ expect_empty() {  # expect_empty LABEL FILE
 new_fixture() {
   local d="$WORK/fx-$1"
   rm -rf "$d"; mkdir -p "$d/harness" "$d/docs/plan"
-  cp "$ROOT"/harness/*."$EXT" "$d/harness/" 2>/dev/null
+  cp "$ROOT"/harness/*."$EXT" "$ROOT/harness/package.json" "$d/harness/" 2>/dev/null
+  ln -s "$ROOT/harness/node_modules" "$d/harness/node_modules"
   ( cd "$d" && pwd -P )
 }
 
@@ -710,7 +720,8 @@ head1 "CHECK 9  the adoption check, against fixture repositories"
 new_mod_fixture() {
   local d="$WORK/mod-$1"
   rm -rf "$d"; mkdir -p "$d/harness/oracle" "$d/docs/plan"
-  cp "$ROOT"/harness/*.ts "$ROOT"/harness/*.sh "$ROOT/harness/spec.feature" "$d/harness/" 2>/dev/null
+  cp "$ROOT"/harness/*.ts "$ROOT"/harness/*.sh "$ROOT"/harness/package*.json "$ROOT/harness/spec.feature" "$d/harness/" 2>/dev/null
+  ln -s "$ROOT/harness/node_modules" "$d/harness/node_modules"
   printf '# the fixture harness README\n' >"$d/harness/README.md"
   # The copied config.sh is whichever repository this oracle is running in, and three of
   # its values differ between them. Normalise the three so that every assertion below

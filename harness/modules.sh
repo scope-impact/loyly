@@ -66,7 +66,8 @@ esac
 # and the entry point that runs them, and this file, which judges all three
 SHARED=(
   harness/stamp_item_ids.ts harness/gen_checklist.ts harness/score.ts
-  harness/scoreboard.ts harness/hjson.ts harness/spec.feature harness/oracle.sh
+  harness/scoreboard.ts harness/hjson.ts harness/package.json harness/package-lock.json
+  harness/spec.feature harness/oracle.sh
   harness/fence.sh
   harness/verify.sh
   harness/check.sh

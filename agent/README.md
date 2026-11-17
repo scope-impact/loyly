@@ -49,7 +49,7 @@ default 20), `--review-every N` (default 4; 0 turns review rounds off), `--max-t
 Kill it however you like (Ctrl-C, `kill -9`, a lost machine) and run the same command again.
 
 In a clean room, run it against the fenced clone: `./harness/fence.sh /tmp/clean-room`, then
-`cd /tmp/clean-room/agent && npm ci && node run.mjs`. The fence clones the repository, and
+`cd /tmp/clean-room && npm ci --prefix harness && cd agent && npm ci && node run.mjs`. The fence clones the repository, and
 the store is git-ignored, so one cycle's transcripts never reach the next cycle's room. A
 regeneration that can read last cycle's conversation is copying, the same failure
 `FENCED_PATHS` exists to prevent.

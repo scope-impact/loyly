@@ -1,0 +1,10 @@
+{
+ "name": "loyly-harness",
+ "private": true,
+ "description": "The harness tools' one dependency. Install with: npm ci --prefix harness",
+ "type": "module",
+ "engines": { "node": ">=22.18" },
+ "dependencies": {
+  "effect": "4.1.0"
+ }
+}

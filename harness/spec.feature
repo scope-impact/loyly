@@ -41,8 +41,9 @@
 #
 # FILE NAMES AND INVOCATION. Four scripts, one per tool: harness/stamp_item_ids,
 # harness/gen_checklist, harness/score, harness/scoreboard, with the extension of the
-# language they are written in (today .ts, run by node with no dependencies; the Python
-# originals were replaced 2026-09-03 and the Babashka ones 2026-11-17). They are invoked
+# language they are written in (today .ts, run by node with the one dependency in
+# harness/package.json; the Python originals were replaced 2026-09-03 and the Babashka
+# ones 2026-11-17). They are invoked
 # from the repository root as "<runner> harness/<name>.<ext> <args>", for example
 # "node harness/gen_checklist.ts --out harness/cycles/01/checklist.json". Two messages name
 # a sibling tool as a command for the operator to run, and those two must name the
