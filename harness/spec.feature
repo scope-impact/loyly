@@ -280,8 +280,10 @@ Feature: The harness: stamp, derive, score, report
         """
       # Every detail above is contract:
       #  - JSON, indent of ONE space per level, not two and not four;
-      #  - separators are ", " between a key and its value and a bare "," before the
-      #    newline, which is what a one-space-indented pretty printer produces;
+      #  - separators are ": " between a key and its value and a bare "," before the
+      #    newline, which is what a one-space-indented pretty printer produces (this line
+      #    said ", " until 2026-11-17, against its own example; a regeneration of the tools
+      #    from this file found it);
       #  - key order within an item is exactly id, name, rule, source, and it is
       #    insertion order, not alphabetical;
       #  - top level key order is items then counts;

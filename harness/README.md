@@ -333,7 +333,8 @@ floats at the edges of `Double.toString`, unpaired surrogates, CRLF and Unicode
 whitespace in specs, every slice status shape, and the rounding of every rate up to 400
 items) and agreed on every exit code, every byte of stdout and stderr, and every file
 written, both before the Effect rewrite and after it. The places where the JVM's behaviour reached the output are reproduced on
-purpose and each is commented in `hjson.ts`: what `trim` and the reader count as
+purpose and each is commented where it lives, in `hjson.ts` except the rounding, which is
+in `scoreboard.ts` because `hjson.ts` holds no scoring rule: what `trim` and the reader count as
 whitespace, Java's ASCII-only `\s`, how a double prints, `BigDecimal`'s exact
 half-even rounding, and an unpaired surrogate written as `?`.
 
