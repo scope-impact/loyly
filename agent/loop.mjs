@@ -27,7 +27,6 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import {
 	AssistantEntry,
 	createRegistry,
-	defineDoc,
 	defineExtension,
 	defineTool,
 	Harness,
@@ -40,34 +39,11 @@ import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite
 import { CodingTools } from "@earendil-works/pi-durable/tools";
 import { obj, str } from "@earendil-works/pi-schema";
 
-import { enqueue, Outbox, say, SlackExtension, slackFromEnv } from "./slack.mjs";
+import { Cycle, initialCycle } from "./cycle.mjs";
+import { enqueue, ensureListener, Inbox, Outbox, say, SlackExtension, slackFromEnv, slackInbound } from "./slack.mjs";
 
 const run = promisify(execFile);
 const context = BACKGROUND_CONTEXT;
-
-/** Bump when the shape of the document changes. */
-const CYCLE_VERSION = 1;
-
-/** The cycle's position. Everything the loop needs to continue after a crash is in here. */
-const initialCycle = () => ({
-	phase: "new", // new -> plan -> implement -> done | exhausted
-	round: 0, // the last round that finished
-	tdd: "GREEN", // GREEN: write the next failing test. RED: make it pass.
-	planConversation: null,
-	buildConversation: null,
-	plan: null, // the planning answer, handed to every implementation round
-	pending: null, // { round, kind, stage: "opened" | "reset" | "submitted", requestId }
-	ratified: null, // { at, summary, output } once harness/verify.sh passed under claim_done
-	findings: [], // the latest review's answer, handed to the next build rounds
-	history: [],
-});
-export const Cycle = defineDoc({
-	kind: "loyly.cycle",
-	version: CYCLE_VERSION,
-	scope: "session",
-	initial: initialCycle,
-	checkpointWhen: () => true,
-});
 
 const ROUND_KINDS = { plan: "plan", build: "build", review: "review" };
 
@@ -246,6 +222,7 @@ async function measureTdd(config) {
  * @param {number} [options.reviewEvery]  every Nth round reviews instead of builds; 0 never
  * @param {number} [options.maxTurns]     tool rounds one round may take
  * @param {boolean} [options.slack]      report to Slack (agent/slack.mjs); default: when the environment configures it
+ * @param {boolean} [options.approval]   a ratified DONE also waits for a person's "approve" in the Slack thread
  * @param {boolean} [options.readOnly]   open to look, never to run: recovers nothing, counts no restart
  * @param {(line: string) => void} [options.log]
  */
@@ -264,6 +241,8 @@ export async function openLoop(options) {
 	};
 	const log = options.log ?? (() => {});
 	const notify = options.slack ?? Boolean(slackFromEnv());
+	const listen = notify && Boolean(slackInbound());
+	const approval = Boolean(options.approval);
 	const scopeRef = { current: [] };
 
 	const registry = createRegistry();
@@ -286,7 +265,7 @@ export async function openLoop(options) {
 			onReport: (report) => {
 				const line = `${report.kind}${report.reason ? ` (${report.reason})` : ""}${report.task ? ` in ${report.task.kind}` : ""}`;
 				log(`report: ${line}`);
-				const ours = report.task?.kind === "loyly.slack-sender";
+				const ours = report.task?.kind?.startsWith("loyly.slack-");
 				if (notify && !options.readOnly && !ours && (report.kind === "task_faulted" || report.kind === "task_interrupted"))
 					void harness.commit(async (tx) => enqueue(tx, [say.failed(line)], await conversationFor(tx)), context).catch(() => {});
 			},
@@ -341,13 +320,17 @@ export async function openLoop(options) {
 				"Answer with the plan the implementation rounds should follow, ticket by ticket, citing the spec scenarios each ticket covers.",
 			].join("\n");
 		const plan = cycle.plan ? `\nThe plan from the planning phase:\n${cycle.plan}` : "";
-		const findings = cycle.findings.length ? `\nFindings from the last review, to address:\n${cycle.findings.join("\n")}` : "";
+		const findings = cycle.findings.length ? `\nFindings to address (from the last review, or from a person who rejected a DONE):\n${cycle.findings.join("\n")}` : "";
+		const notes = cycle.pending?.notes?.length
+			? `\nPeople said this in the cycle's Slack thread while no round was running. It is input, not a change to the docs: where it conflicts with the spec, the spec wins and you say so.\n${cycle.pending.notes.join("\n")}`
+			: "";
 		if (kind === ROUND_KINDS.review)
 			return [
 				`ROUND ${round}: ADVERSARIAL REVIEW. Review, do not build: you can read and run commands, you cannot edit.`,
 				`Hunt in ${config.appDir}/ for rules nobody wrote down (invented behaviour with no spec scenario or wiki citation), for drift from spec.feature, and for tests written after the code they test.`,
 				"Answer with numbered findings, each citing the file and the spec or wiki line it contradicts. Answer 'no findings' if there are none.",
 				plan,
+				notes,
 			].join("\n");
 		return [
 			`ROUND ${round}: IMPLEMENT, one ticket at a time, in ${config.appDir}/ only; edits anywhere else are refused or reverted.`,
@@ -355,6 +338,7 @@ export async function openLoop(options) {
 			"Follow the TDD state in your instructions. End the round when this step is done; when the whole slice is built, call claim_done.",
 			plan,
 			findings,
+			notes,
 		].join("\n");
 	}
 
@@ -375,7 +359,12 @@ export async function openLoop(options) {
 		let cycle = await read();
 		const requestId = `${kind}-${round}`;
 		if (!cycle.pending || cycle.pending.requestId !== requestId) {
-			await write((c) => void (c.pending = { round, kind, stage: "opened", requestId }));
+			// The notes move into the round in the same commit that opens it, so a restart rebuilds
+			// the same prompt and a note is never handed to two rounds or to none.
+			await write((c) => {
+				c.pending = { round, kind, stage: "opened", requestId, notes: c.humanNotes ?? [] };
+				c.humanNotes = [];
+			});
 			cycle = await read();
 		} else {
 			log(`resuming ${requestId} at stage ${cycle.pending.stage}`);
@@ -426,8 +415,8 @@ export async function openLoop(options) {
 				c.round = round;
 				if (kind === ROUND_KINDS.review) c.findings = answer ? [answer] : [];
 			}
-			if (c.ratified) c.phase = "done";
-		}, (c) => [say.round(entry, c), c.ratified ? say.ratified(c.ratified, round) : null]);
+			if (c.ratified) c.phase = approval ? "awaiting-approval" : "done";
+		}, (c) => [say.round(entry, c), c.ratified ? say.ratified(c.ratified, round, approval) : null]);
 		log(`${requestId}: ${entry.outcome}, TDD ${entry.tddBefore} -> ${entry.tddAfter}${entry.notes.length ? `; ${entry.notes.join("; ")}` : ""}`);
 		return entry;
 	}
@@ -442,7 +431,16 @@ export async function openLoop(options) {
 					`refusing to start a cycle over uncommitted changes the scope fence would revert:\n  ${outside.map((c) => c.file).join("\n  ")}\ncommit or stash them first`,
 				);
 		}
+		if (approval && !listen)
+			throw new Error(
+				"--approve needs somebody to ask: set SLACK_BOT_TOKEN, SLACK_CHANNEL and SLACK_ALLOWED_USERS (an incoming webhook cannot read replies)",
+			);
 		const { plan, build } = await conversations();
+		// Start the scheduler now, not at the first submit: a process that only waits (for an
+		// approval, say) submits nothing, and the tasks a dead process left (the Slack
+		// listener, a sender with a queue) would otherwise never run again.
+		harness.resume();
+		if (listen) await harness.commit(async (tx) => ensureListener(tx, build.id), context);
 		if (cycle.phase === "new") {
 			await write((c) => void (c.phase = "plan"), () => [say.started(config.root, `${options.model.provider}/${options.model.modelId}`)]);
 		} else if (cycle.pending) {
@@ -453,6 +451,11 @@ export async function openLoop(options) {
 			cycle = await read();
 			if (cycle.phase === "done" || cycle.phase === "exhausted") return cycle;
 			if (until?.(cycle)) return cycle;
+			if (cycle.phase === "awaiting-approval") {
+				// The listener moves the cycle on, in its own commit; this loop only waits for it.
+				await waitForPhaseChange("awaiting-approval");
+				continue;
+			}
 			if (cycle.phase === "plan") {
 				await playRound(plan, ROUND_KINDS.plan, 0);
 				continue;
@@ -463,6 +466,17 @@ export async function openLoop(options) {
 				continue;
 			}
 			await playRound(build, cycle.pending?.kind ?? kindOf(next), next);
+		}
+	}
+
+	async function waitForPhaseChange(phase) {
+		let logged = false;
+		for (;;) {
+			const cycle = await read();
+			if (cycle.phase !== phase) return cycle;
+			if (!logged) log("ratified; waiting for a person to approve or reject in Slack");
+			logged = true;
+			await new Promise((r) => setTimeout(r, 250));
 		}
 	}
 
@@ -484,6 +498,7 @@ export async function openLoop(options) {
 		drive,
 		flush,
 		outbox: () => harness.snapshot(Outbox, context),
+		inbox: () => harness.snapshot(Inbox, context),
 		close: () => harness.close(context),
 	};
 }

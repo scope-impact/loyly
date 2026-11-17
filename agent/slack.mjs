@@ -15,11 +15,18 @@
 // store: the store is a record of the cycle, and the cycle has no business holding a token.
 //
 //   SLACK_BOT_TOKEN + SLACK_CHANNEL   chat.postMessage; the cycle gets one thread
+//   SLACK_ALLOWED_USERS               comma-separated Slack user IDs whose thread replies
+//                                     steer the agent and approve or reject a DONE; unset,
+//                                     the thread is read by nobody (needs channels:history
+//                                     or groups:history on the bot)
 //   SLACK_WEBHOOK_URL                 an incoming webhook; no thread, one message per event
 //   SLACK_API_URL                     the Web API base, default https://slack.com/api
 //   LOYLY_SLACK_BACKOFF_MS            first retry delay, doubling to a minute; default 1000
+//   LOYLY_SLACK_POLL_MS               how often the thread is read for replies; default 5000
 
-import { defineDoc, defineExtension, defineTask } from "@earendil-works/pi-durable";
+import { ConversationIdle, defineDoc, defineExtension, defineTask } from "@earendil-works/pi-durable";
+
+import { Cycle } from "./cycle.mjs";
 
 const MAX_ATTEMPTS = 8;
 const MAX_TEXT = 3500;
@@ -47,6 +54,26 @@ export function slackFromEnv(env = process.env) {
 		return { mode: "api", token: env.SLACK_BOT_TOKEN, channel: env.SLACK_CHANNEL, api: env.SLACK_API_URL ?? "https://slack.com/api" };
 	if (env.SLACK_WEBHOOK_URL) return { mode: "webhook", url: env.SLACK_WEBHOOK_URL };
 	return null;
+}
+
+/**
+ * Who may talk back, or null when nobody may. Reading the thread needs the bot token, and
+ * an allowlist is required, not defaulted: a reply steers an agent that runs shell
+ * commands, so "anyone in the channel" is never the answer by accident.
+ */
+export function slackInbound(env = process.env) {
+	const target = slackFromEnv(env);
+	const users = (env.SLACK_ALLOWED_USERS ?? "").split(",").map((u) => u.trim()).filter(Boolean);
+	if (target?.mode !== "api" || users.length === 0) return null;
+	return { ...target, users };
+}
+
+/** Slack timestamps are "seconds.micros" strings; compare them exactly, never as floats. */
+export function tsCompare(a, b) {
+	const n = (ts) => BigInt(ts.replace(".", "").padEnd(16, "0"));
+	const x = n(a);
+	const y = n(b);
+	return x < y ? -1 : x > y ? 1 : 0;
 }
 
 /** Slack's mrkdwn treats these three as control characters. */
@@ -150,8 +177,179 @@ export const SlackSender = defineTask({
 		}, context),
 });
 
-/** Installed in every process that opens a store, configured or not, so a queued sender is never blocked on a missing definition. */
-export const SlackExtension = defineExtension({ name: "loyly-slack", tasks: [SlackSender] });
+// ---------------------------------------------------------------------------------------
+// Inbound: replies in the thread
+// ---------------------------------------------------------------------------------------
+
+export const Inbox = defineDoc({
+	kind: "loyly.slack-inbox",
+	version: 1,
+	scope: "session",
+	initial: () => ({
+		cursor: null, // the newest reply already acted on; replies at or before it are history
+		listener: null,
+		steered: 0,
+		noted: 0,
+		approvals: 0,
+		rejections: 0,
+		ignored: 0,
+		lastError: null,
+	}),
+	checkpointWhen: () => true,
+});
+
+/** Replies after `after` in the thread, oldest first, across pages. */
+async function repliesAfter(target, threadTs, after) {
+	const out = [];
+	let cursor;
+	do {
+		const q = new URLSearchParams({ channel: target.channel, ts: threadTs, oldest: after, inclusive: "false", limit: "200" });
+		if (cursor) q.set("cursor", cursor);
+		const res = await fetch(`${target.api}/conversations.replies?${q}`, { headers: { authorization: `Bearer ${target.token}` } });
+		if (!res.ok) throw new Error(`conversations.replies HTTP ${res.status}`);
+		const body = await res.json();
+		if (!body.ok) throw new Error(`conversations.replies: ${body.error}`);
+		out.push(...(body.messages ?? []));
+		cursor = body.response_metadata?.next_cursor || undefined;
+	} while (cursor);
+	return out.filter((m) => m.ts !== threadTs && tsCompare(m.ts, after) > 0).sort((a, b) => tsCompare(a.ts, b.ts));
+}
+
+const APPROVE = /^\s*approve\b/i;
+const REJECT = /^\s*reject\b[\s:,-]*([\s\S]*)$/i;
+
+/**
+ * The listener: reads the cycle's thread and acts on one reply per commit, and that
+ * commit also advances the cursor past it. So a reply is acted on exactly once, crash or
+ * not: either its effect and the cursor are both stored, or neither is and the next read
+ * finds it again. (Outbound is at least once; inbound, because the cursor and the effect
+ * share a commit, is exactly once.)
+ *
+ * What a reply does depends on the cycle, read in the same commit:
+ *   - awaiting approval, "approve"          the cycle is done
+ *   - awaiting approval, "reject: reason"   the ratification is withdrawn and the reason
+ *                                           becomes the next round's finding
+ *   - a round is running                    a steer: it joins the run after its current
+ *                                           tool round, and the guardrails still apply
+ *   - nothing is running                    a note for the next round's prompt
+ */
+export const SlackListener = defineTask({
+	name: "loyly.slack-listener",
+	version: 1,
+	initial: () => ({ phase: "poll", polls: 0, seen: 0, failures: 0 }),
+	phases: {
+		poll: async (task, runtime, context) => {
+			const cp = task.state.checkpoint;
+			const pollMs = Number(process.env.LOYLY_SLACK_POLL_MS ?? 5000);
+			const inbound = slackInbound();
+			const cycle = await runtime.snapshot(Cycle, context);
+			const finished = !cycle || cycle.phase === "done" || cycle.phase === "exhausted";
+			if (finished || !inbound) {
+				await runtime.commit(async (tx) => {
+					const inbox = await tx.doc(Inbox);
+					if (inbox.listener === task.id) inbox.listener = null;
+					if (!inbound && !finished) inbox.lastError = "no SLACK_ALLOWED_USERS or bot token in this process; the thread is not read";
+					return { status: "terminal", outcome: { status: "completed", result: null } };
+				}, context);
+				return;
+			}
+			const outbox = await runtime.snapshot(Outbox, context);
+			const inbox = await runtime.snapshot(Inbox, context);
+			if (!outbox?.threadTs) {
+				await runtime.sleepUntil(runtime.now() + pollMs, { ...cp, polls: cp.polls + 1 }, context);
+				return;
+			}
+			let replies;
+			try {
+				replies = await repliesAfter(inbound, outbox.threadTs, inbox?.cursor ?? outbox.threadTs);
+			} catch (error) {
+				const failures = cp.failures + 1;
+				await runtime.commit(async (tx) => {
+					(await tx.doc(Inbox)).lastError = error.message;
+					return { status: "sleeping", until: runtime.now() + Math.min(60_000, pollMs * 2 ** Math.min(failures, 6)), checkpoint: { ...cp, failures } };
+				}, context);
+				return;
+			}
+			const reply = replies[0];
+			if (!reply) {
+				await runtime.sleepUntil(runtime.now() + pollMs, { ...cp, polls: cp.polls + 1, failures: 0 }, context);
+				return;
+			}
+			// Handles are taken before the commit, as pi-durable asks of a task that submits.
+			const plan = cycle.planConversation && (await runtime.conversation(cycle.planConversation, context));
+			const build = cycle.buildConversation && (await runtime.conversation(cycle.buildConversation, context));
+			await runtime.commit(async (tx) => {
+				const c = await tx.doc(Cycle);
+				const text = (reply.text ?? "").trim();
+				const who = `<@${reply.user}>`;
+				const acks = [];
+				const human = reply.user && !reply.bot_id && !reply.subtype && text;
+				if (!human || !inbound.users.includes(reply.user)) {
+					(await tx.doc(Inbox)).ignored++;
+				} else if (c.phase === "awaiting-approval" && APPROVE.test(text)) {
+					c.approval = { by: reply.user, at: new Date().toISOString(), ts: reply.ts };
+					c.phase = "done";
+					(await tx.doc(Inbox)).approvals++;
+					acks.push(`:white_check_mark: *Approved* by ${who}. The cycle is done.`);
+				} else if (c.phase === "awaiting-approval" && REJECT.test(text)) {
+					const reason = REJECT.exec(text)[1].trim() || "no reason given";
+					c.ratified = null;
+					c.phase = "implement";
+					c.findings = [`A person rejected the ratified DONE after looking at it: ${reason}`];
+					c.history.push({ round: c.round, kind: "approval", at: new Date().toISOString(), outcome: `rejected by ${reply.user}`, tddBefore: c.tdd, tddAfter: c.tdd, reverted: [], ratified: false, notes: [reason] });
+					(await tx.doc(Inbox)).rejections++;
+					acks.push(`:x: *Rejected* by ${who}: ${escape(reason)}. The next round gets the reason as a finding.`);
+				} else {
+					const running = c.pending?.stage === "submitted" ? (c.pending.kind === "plan" ? plan : build) : null;
+					let steered = false;
+					if (running) {
+						try {
+							// Admission first: pi-durable wants it before this commit's own table writes.
+							await running.submit(tx, {
+								type: "input",
+								content: `A person steering from Slack (${reply.user}): ${text}`,
+								whenBusy: "steer",
+								whenIdle: "reject",
+								requestId: `slack-${reply.ts}`,
+							});
+							steered = true;
+						} catch (error) {
+							if (!(error instanceof ConversationIdle)) throw error;
+						}
+					}
+					const box = await tx.doc(Inbox);
+					if (steered) {
+						box.steered++;
+						acks.push(`:steering_wheel: Steered into the running ${c.pending.kind === "plan" ? "plan" : `round ${c.pending.round}`}, from ${who}.`);
+					} else {
+						(c.humanNotes ??= []).push(`${reply.user}: ${text}`);
+						box.noted++;
+						acks.push(`:memo: Noted from ${who}; the next round gets it.`);
+					}
+				}
+				(await tx.doc(Inbox)).cursor = reply.ts;
+				(await tx.doc(Inbox)).lastError = null;
+				await enqueue(tx, acks, runtime.conversationId);
+				return { status: "running", checkpoint: { ...cp, seen: cp.seen + 1, failures: 0 } };
+			}, context);
+		},
+	},
+	abort: (_task, runtime, context) =>
+		runtime.commit(async (tx) => {
+			(await tx.doc(Inbox)).listener = null;
+			return { status: "terminal", outcome: { status: "aborted" } };
+		}, context),
+});
+
+/** Start the listener inside the caller's commit, unless one is live. */
+export async function ensureListener(tx, conversationId) {
+	const inbox = await tx.doc(Inbox);
+	if (inbox.listener || !conversationId) return;
+	inbox.listener = await tx.createTask(SlackListener, {}, { ownership: { kind: "conversation" }, conversationId, background: true });
+}
+
+/** Installed in every process that opens a store, configured or not, so a queued task is never blocked on a missing definition. */
+export const SlackExtension = defineExtension({ name: "loyly-slack", tasks: [SlackSender, SlackListener] });
 
 /**
  * Queue messages inside a commit the caller is already making, and start the sender if
@@ -185,7 +383,9 @@ export const say = {
 		if (entry.kind === "review" && cycle.findings[0]) lines.push(`\`\`\`${escape(cycle.findings[0])}\`\`\``);
 		return lines.join("\n");
 	},
-	ratified: (ratified, round) => `:white_check_mark: *RATIFIED* in round ${round}: ${escape(ratified.summary)}. The gate passed.`,
+	ratified: (ratified, round, approval) =>
+		`:white_check_mark: *RATIFIED* in round ${round}: ${escape(ratified.summary)}. The gate passed.` +
+		(approval ? "\n:raised_hand: *Waiting for a person.* Look at the running product, then reply `approve`, or `reject: <what is wrong>`." : ""),
 	exhausted: (rounds) => `:hourglass: *Cycle exhausted* after ${rounds} rounds with no ratified DONE.`,
 	failed: (what) => `:rotating_light: *Loop trouble*: ${escape(what)}`,
 };

@@ -101,6 +101,47 @@ The sender is installed in every process that opens the store, whether or not th
 process has Slack configured, so a queued sender never blocks on a missing definition. A
 process without a Slack target leaves the queue untouched.
 
+## Slack, the other way: steering and approval
+
+People can also talk back. Set `SLACK_ALLOWED_USERS` to a comma-separated list of Slack
+user IDs, and the loop reads the cycle's thread. Replies from those people, and only
+them, act on the cycle. Everyone else, bots and the loop's own messages included, is
+ignored and counted. The allowlist is required, with no default, because a reply steers
+an agent that runs shell commands. Reading the thread needs the bot token (an incoming
+webhook can't read) and the `channels:history` scope (`groups:history` for a private
+channel).
+
+```bash
+export SLACK_ALLOWED_USERS=U0123ABCD,U0456EFGH
+node agent/run.mjs --approve      # a ratified DONE also waits for one of them
+```
+
+What a reply does depends on the state of the cycle, read in the same commit that acts on it:
+
+| the cycle is | the reply | what happens |
+|---|---|---|
+| running a round | anything | a **steer**. It joins the running round after the round's current tool step, labelled as coming from that person. The guardrails still apply: a steer cannot unlock a path that spec-lock refuses |
+| between rounds | anything | a **note**, which goes to the next round's prompt as input. The prompt says that where a note conflicts with the spec, the spec wins |
+| waiting for approval | `approve` | the cycle is **done**, and the approver is recorded |
+| waiting for approval | `reject: <why>` | the ratification is withdrawn. The reason becomes the next round's finding, and the history gets an `approval` entry |
+
+Each reply is acknowledged in the thread.
+
+`--approve` is the guardrail table's human-realistic check given a place in the loop. The
+gate proves the suite is green and the app answers. It cannot say whether a resident
+would find the schedule page usable, and a person who has looked can. So with
+`--approve`, a ratified DONE moves to `awaiting-approval`, the thread asks for a person,
+and the cycle ends only on an `approve` from someone on the allowlist. `--approve` refuses
+to start if no one could answer.
+
+**Replies are exactly once.** A durable listener task reads the thread (every 5 s by
+default; `LOYLY_SLACK_POLL_MS`) and acts on one reply per commit. That same commit
+advances its cursor past the reply, so either the effect and the cursor are both
+stored, or neither is and the next read finds the reply again. Outbound messages are
+at least once; inbound replies, because the cursor and the effect share a commit, are
+exactly once. A loop killed while waiting for approval still waits after a restart: it
+ignores replies it already acted on, and acts on the ones that arrived while it was down.
+
 ## The guardrails, as code
 
 | guardrail (`docs/wow/harness.md`) | where | how |
@@ -143,9 +184,20 @@ cd agent && npm test
 The tests run the loop against a miniature repository with pi-ai's faux provider, so they
 need no API key, and they run Slack against a fake Web API on localhost: never your real
 Slack, because they remove `SLACK_*` from the environment of the processes they start.
-The Slack tests cover one thread in order, retries through 5xx errors, a dropped
-permanent error, the webhook mode, and a driver killed while Slack was not answering
-whose queued messages the next process delivers. The crash test kills a real driver process with `kill -9` partway through
+The Slack tests cover:
+
+- one thread, in order;
+- retries through 5xx errors;
+- a dropped permanent error;
+- the webhook mode;
+- a driver killed while Slack was not answering, whose queued messages the next process
+  delivers;
+- a steer reaching the running round while replies from people not on the allowlist,
+  and from bots, never reach it;
+- `--approve` with a rejection whose reason, and a note made while waiting, reach the
+  next round, followed by an approval;
+- a driver killed while waiting for approval, whose next process acts on the earlier
+  note exactly once. The crash test kills a real driver process with `kill -9` partway through
 a round and starts a second process on the same store. That second process is scripted
 with exactly one model answer, so if it repeated any earlier round it would run out of
 answers and fail.
@@ -159,8 +211,9 @@ answers and fail.
 - **No commits.** "Refactor only when green, and only then commit" stays a human step.
   An automatic commit would run the pre-commit hook (`harness/check.sh`) inside every
   round, which is a choice about the hook's budget that has not been made.
-- **No perception step.** The gap that `docs/wow/harness.md` names stays open: nothing
-  here gives the agent an unjudged look at the running product.
+- **No perception step for the agent.** The gap that `docs/wow/harness.md` names stays
+  open: nothing here gives the agent an unjudged look at the running product. `--approve`
+  gives a person a place to judge it, which is a different thing.
 - **One writer per store.** pi-durable has no cross-process lock. Two drivers on one
   store at the same time is undefined behaviour, so don't do it.
 - **The driver refuses to start a new cycle** if the working tree has uncommitted changes

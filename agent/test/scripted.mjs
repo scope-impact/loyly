@@ -11,12 +11,18 @@ const faux = fauxProvider();
 const models = createModels();
 models.setProvider(faux.provider);
 const model = faux.getModel();
+// Each scripted answer first prints the user messages the model was shown, so a test can
+// check what reached the agent (a steer, a note, a rejection's reason).
 faux.setResponses(
-	JSON.parse(script).map((step) =>
-		step.tools
+	JSON.parse(script).map((step) => (context) => {
+		const users = context.messages
+			.filter((m) => m.role === "user")
+			.map((m) => (typeof m.content === "string" ? m.content : m.content.map((b) => b.text ?? "").join("")));
+		console.log(`SEEN ${JSON.stringify(users)}`);
+		return step.tools
 			? fauxAssistantMessage(step.tools.map((t) => fauxToolCall(t.name, t.args)), { stopReason: "toolUse" })
-			: fauxAssistantMessage([fauxText(step.text)]),
-	),
+			: fauxAssistantMessage([fauxText(step.text)]);
+	}),
 );
 const loop = await openLoop({
 	root,

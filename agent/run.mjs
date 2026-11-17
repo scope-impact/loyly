@@ -8,7 +8,9 @@
 //   node agent/run.mjs reset  [--store FILE]     forget the cycle; the next run starts anew
 //
 // Slack (agent/slack.mjs): set SLACK_BOT_TOKEN and SLACK_CHANNEL for a thread per cycle,
-// or SLACK_WEBHOOK_URL for plain messages; --no-slack turns it off.
+// or SLACK_WEBHOOK_URL for plain messages; --no-slack turns it off. With SLACK_ALLOWED_USERS
+// set, those people's replies in the thread steer the agent, and --approve makes a
+// ratified DONE wait for one of them to reply "approve" (or "reject: why").
 
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -31,13 +33,14 @@ const { values, positionals } = parseArgs({
 		"max-turns": { type: "string", default: "40" },
 		store: { type: "string", default: path.join(root, ".loyly-agent", "cycle.sqlite") },
 		"no-slack": { type: "boolean" },
+		approve: { type: "boolean" },
 		help: { type: "boolean", short: "h" },
 	},
 });
 
 if (values.help) {
 	console.log(
-		"usage: node agent/run.mjs [status|reset] [--model provider/modelId] [--rounds N] [--review-every N] [--max-turns N] [--store FILE] [--no-slack]",
+		"usage: node agent/run.mjs [status|reset] [--model provider/modelId] [--rounds N] [--review-every N] [--max-turns N] [--store FILE] [--no-slack] [--approve]",
 	);
 	process.exit(0);
 }
@@ -90,6 +93,7 @@ const loop = await openLoop({
 	maxTurns: Number(values["max-turns"]),
 	readOnly: command === "status",
 	slack: values["no-slack"] ? false : undefined,
+	approval: Boolean(values.approve),
 	log: (line) => console.log(`[loyly-agent] ${line}`),
 });
 
@@ -111,6 +115,11 @@ try {
 			console.log(
 				`slack: ${outbox.sent} sent, ${outbox.queue.length} queued, ${outbox.dropped} dropped${outbox.threadTs ? `, thread ${outbox.threadTs}` : ""}${outbox.lastError ? `; last error: ${outbox.lastError}` : ""}`,
 			);
+		const inbox = await loop.inbox();
+		if (inbox)
+			console.log(
+				`slack replies: ${inbox.steered} steered, ${inbox.noted} noted, ${inbox.approvals} approved, ${inbox.rejections} rejected, ${inbox.ignored} ignored${inbox.lastError ? `; last error: ${inbox.lastError}` : ""}`,
+			);
 	} else if (command === "drive") {
 		const cycle = await loop.drive();
 		printStatus(cycle);
@@ -129,6 +138,8 @@ function printStatus(cycle) {
 	console.log(`phase ${cycle.phase}, round ${cycle.round}, TDD ${cycle.tdd}`);
 	if (cycle.pending) console.log(`in flight: ${cycle.pending.requestId} (stage ${cycle.pending.stage}); run again to continue it`);
 	if (cycle.ratified) console.log(`RATIFIED at ${cycle.ratified.at}: ${cycle.ratified.summary}`);
+	if (cycle.phase === "awaiting-approval") console.log("waiting for a person to reply approve, or reject: why, in the Slack thread");
+	if (cycle.approval) console.log(`APPROVED by ${cycle.approval.by} at ${cycle.approval.at}`);
 	for (const h of cycle.history) {
 		const notes = h.notes.length ? `  [${h.notes.join("; ")}]` : "";
 		console.log(`  ${String(h.round).padStart(3)} ${h.kind.padEnd(6)} ${h.tddBefore}->${h.tddAfter} ${h.outcome}${notes}`);
