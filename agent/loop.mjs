@@ -20,7 +20,8 @@
 
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -196,43 +197,66 @@ export async function changedPaths(root) {
 }
 
 /**
- * The state a round starts from: the index, written as a tree. It is committed with the
- * round, so the scope fence puts things back to where this round found them, not to HEAD.
- * A plan round's staged edits are part of it, so the build rounds after it keep the plan;
- * and a build round that `git add`s a change outside its scope does not get to keep it.
+ * The state a round starts from, as two trees committed with the round: the index, and the
+ * whole working tree (untracked files included, ignored ones not). The scope fence puts
+ * each back to where this round found it, never to HEAD:
+ *   - a plan round's staged edits are in both, so the build rounds after it keep the plan;
+ *   - the build lives untracked in impl/, and is in the working-tree snapshot, so a review
+ *     round that may edit nothing gets impl/ back exactly as it was, and never loses it
+ *     (until 2026-11-17 the baseline was the index alone, and the first review round of
+ *     the first real cycle deleted the whole build as "new since the round began");
+ *   - a build round that `git add`s a change outside its scope is unstaged again.
  */
 export async function baselineTree(root) {
-	const { stdout } = await run("git", ["write-tree"], { cwd: root });
-	return stdout.trim();
+	const index = (await run("git", ["write-tree"], { cwd: root })).stdout.trim();
+	return { index, worktree: await worktreeTree(root) };
 }
 
-async function pathsChangedSince(root, tree) {
-	const names = async (...args) => (await run("git", args, { cwd: root, maxBuffer: 16 * 1024 * 1024 })).stdout.split("\0").filter(Boolean);
-	const tracked = await names("diff", "--name-only", "-z", "--no-renames", tree);
-	const staged = await names("diff", "--cached", "--name-only", "-z", "--no-renames", tree);
-	const untracked = await names("ls-files", "--others", "--exclude-standard", "-z");
-	return [...new Set([...tracked, ...staged, ...untracked])].sort();
+/** The whole working tree as a tree object, through a throwaway index: the real one is not touched. */
+async function worktreeTree(root) {
+	const scratch = path.join(await mkdtempIn(), "index");
+	const env = { ...process.env, GIT_INDEX_FILE: scratch };
+	try {
+		await run("git", ["add", "-A", "--", "."], { cwd: root, env });
+		return (await run("git", ["write-tree"], { cwd: root, env })).stdout.trim();
+	} finally {
+		await rm(path.dirname(scratch), { recursive: true, force: true });
+	}
 }
+
+const mkdtempIn = () => mkdtemp(path.join(tmpdir(), "loyly-fence-"));
+
+const names = async (root, ...args) =>
+	(await run("git", args, { cwd: root, maxBuffer: 16 * 1024 * 1024 })).stdout.split("\0").filter(Boolean);
+
+const inTree = (root, tree, file) =>
+	run("git", ["cat-file", "-e", `${tree}:${file}`], { cwd: root }).then(
+		() => true,
+		() => false,
+	);
 
 /**
- * The scope fence, after the round: whatever changed outside the round's scope since
- * `tree` is put back to `tree`, in the index and the working tree; files that did not
- * exist there are removed. Returns what it reverted, which is a finding.
+ * The scope fence, after the round: whatever changed outside the round's scope since `base`
+ * is put back, the working tree from its snapshot and the index from its own; what did not
+ * exist then is removed. Returns what it reverted, which is a finding. A `base` that is a
+ * single tree (a round opened before 2026-11-17) is read as both.
  */
-export async function revertOutside(root, scope, tree) {
-	const base = tree ?? (await run("git", ["rev-parse", "HEAD^{tree}"], { cwd: root })).stdout.trim();
+export async function revertOutside(root, scope, base) {
+	const head = (await run("git", ["rev-parse", "HEAD^{tree}"], { cwd: root })).stdout.trim();
+	const { index, worktree } = typeof base === "string" ? { index: base, worktree: base } : (base ?? { index: head, worktree: head });
+	const now = await worktreeTree(root);
+	const inWorktree = await names(root, "diff", "--name-only", "-z", "--no-renames", worktree, now);
+	const inIndex = await names(root, "diff", "--cached", "--name-only", "-z", "--no-renames", index);
 	const reverted = [];
-	for (const file of await pathsChangedSince(root, base)) {
+	for (const file of [...new Set([...inWorktree, ...inIndex])].sort()) {
 		if (inside(file, scope)) continue;
-		const existed = await run("git", ["cat-file", "-e", `${base}:${file}`], { cwd: root }).then(
-			() => true,
-			() => false,
-		);
-		if (existed) {
-			await run("git", ["restore", `--source=${base}`, "--staged", "--worktree", "--", file], { cwd: root });
-		} else {
-			await run("git", ["rm", "-q", "--cached", "--ignore-unmatch", "--", file], { cwd: root });
-			await rm(path.join(root, file), { force: true });
+		if (inWorktree.includes(file)) {
+			if (await inTree(root, worktree, file)) await run("git", ["restore", `--source=${worktree}`, "--worktree", "--", file], { cwd: root });
+			else await rm(path.join(root, file), { force: true });
+		}
+		if (inIndex.includes(file)) {
+			if (await inTree(root, index, file)) await run("git", ["restore", `--source=${index}`, "--staged", "--", file], { cwd: root });
+			else await run("git", ["rm", "-q", "--cached", "--ignore-unmatch", "--", file], { cwd: root });
 		}
 		reverted.push(file);
 	}

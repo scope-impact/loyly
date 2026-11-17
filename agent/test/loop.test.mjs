@@ -117,6 +117,33 @@ test("the plan round's edits survive the build rounds; a build round's staged ed
 	assert.equal(readFileSync(path.join(fx.root, "impl/x.txt"), "utf8"), "x\n");
 });
 
+test("a review round gives the untracked build back exactly as it found it", () => {
+	const fx = fixture();
+	const r = drive(
+		fx,
+		[
+			{ text: "plan" },
+			{ tools: [write("impl/test.sh", "test -f impl/app.txt\n"), write("impl/app.txt", "built\n")] },
+			{ text: "round 1 built it" },
+			// The review round may edit nothing; it tries anyway, through bash.
+			{ tools: [bash("echo tampered > impl/app.txt && echo new > impl/extra.txt && rm impl/test.sh")] },
+			{ text: "1. a finding" },
+		],
+		{ reviewEvery: 2, maxRounds: 2 },
+	);
+	assert.equal(r.status, 0, r.stderr + r.stdout);
+	assert.equal(readFileSync(path.join(fx.root, "impl/app.txt"), "utf8"), "built\n");
+	assert.equal(readFileSync(path.join(fx.root, "impl/test.sh"), "utf8"), "test -f impl/app.txt\n");
+	assert.equal(existsSync(path.join(fx.root, "impl/extra.txt")), false);
+	const review = r.cycle.history[2];
+	assert.equal(review.kind, "review");
+	assert.deepEqual(review.reverted.sort(), ["impl/app.txt", "impl/extra.txt", "impl/test.sh"]);
+	assert.equal(review.tddAfter, "GREEN");
+	// The build itself is untouched by the fence: still untracked, never staged.
+	const status = execFileSync("git", ["status", "--porcelain", "impl"], { cwd: fx.root, encoding: "utf8" });
+	assert.match(status, /^\?\? impl\//m);
+});
+
 test("a claim of done that the gate refuses is not done", () => {
 	const fx = fixture();
 	const r = drive(
