@@ -21,6 +21,7 @@
 //                                     or groups:history on the bot)
 //   SLACK_WEBHOOK_URL                 an incoming webhook; no thread, one message per event
 //   SLACK_API_URL                     the Web API base, default https://slack.com/api
+//   SLACK_THREAD_TS                   report into this existing thread instead of starting one
 //   LOYLY_SLACK_BACKOFF_MS            first retry delay, doubling to a minute; default 1000
 //   LOYLY_SLACK_POLL_MS               how often the thread is read for replies; default 5000
 
@@ -75,6 +76,13 @@ export function tsCompare(a, b) {
 	const y = n(b);
 	return x < y ? -1 : x > y ? 1 : 0;
 }
+
+/**
+ * The thread a cycle reports into when something else opened it: SLACK_THREAD_TS, set by
+ * factory/dispatcher.mjs to the message that asked for the cycle. Without it the cycle's
+ * first message starts its own thread.
+ */
+export const presetThread = () => process.env.SLACK_THREAD_TS || null;
 
 /** Slack's mrkdwn treats these three as control characters. */
 export function escape(text) {
@@ -140,7 +148,7 @@ export const SlackSender = defineTask({
 				return;
 			}
 			const outbox = await runtime.snapshot(Outbox, context);
-			const result = await send(target, head.text, target.mode === "api" ? outbox.threadTs : null);
+			const result = await send(target, head.text, target.mode === "api" ? (outbox.threadTs ?? presetThread()) : null);
 			if (result.ok || !result.retry || task.state.checkpoint.attempt + 1 >= MAX_ATTEMPTS) {
 				await runtime.commit(async (tx) => {
 					const o = await tx.doc(Outbox);
@@ -148,7 +156,7 @@ export const SlackSender = defineTask({
 					if (result.ok) {
 						o.sent++;
 						if (!o.threadTs && result.ts) {
-							o.threadTs = result.ts;
+							o.threadTs = presetThread() ?? result.ts;
 							o.channel = result.channel ?? null;
 						}
 						o.lastError = null;
@@ -255,13 +263,14 @@ export const SlackListener = defineTask({
 			}
 			const outbox = await runtime.snapshot(Outbox, context);
 			const inbox = await runtime.snapshot(Inbox, context);
-			if (!outbox?.threadTs) {
+			const threadTs = outbox?.threadTs ?? presetThread();
+			if (!threadTs) {
 				await runtime.sleepUntil(runtime.now() + pollMs, { ...cp, polls: cp.polls + 1 }, context);
 				return;
 			}
 			let replies;
 			try {
-				replies = await repliesAfter(inbound, outbox.threadTs, inbox?.cursor ?? outbox.threadTs);
+				replies = await repliesAfter(inbound, threadTs, inbox?.cursor ?? threadTs);
 			} catch (error) {
 				const failures = cp.failures + 1;
 				await runtime.commit(async (tx) => {

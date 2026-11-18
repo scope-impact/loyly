@@ -3,5 +3,5 @@
  "private": true,
  "description": "Runs whole Löyly cycles: fence, build, grade, score, record; and the Slack dispatcher that starts them",
  "type": "module",
- "scripts": { "test": "node --test --test-concurrency=1 test/" }
+ "scripts": { "test": "node --test --test-concurrency=1 test/*.test.mjs" }
 }

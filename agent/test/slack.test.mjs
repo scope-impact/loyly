@@ -41,8 +41,10 @@ async function fakeSlack(behave = () => "ok") {
 	let n = 0;
 	const server = createServer((req, res) => {
 		if (req.method === "GET" && req.url.startsWith("/api/conversations.replies")) {
+			requests.push({ url: req.url, auth: req.headers.authorization, msg: null });
 			const q = new URL(req.url, "http://x").searchParams;
 			const parent = delivered.find((m) => m.ts === q.get("ts"));
+			for (const r of replies) r.thread_ts ??= q.get("ts");
 			const after = q.get("oldest");
 			const thread = [parent, ...replies].filter(Boolean).filter((m) => q.get("inclusive") === "true" || m.ts > after);
 			res.writeHead(200, { "content-type": "application/json" });
@@ -144,7 +146,7 @@ test("a cycle reports to one Slack thread, in order, and the token never reaches
 		// One thread: the first message starts it, every later one is a reply in it.
 		assert.equal(slack.delivered[0].thread_ts, undefined);
 		for (const m of slack.delivered.slice(1)) assert.equal(m.thread_ts, slack.delivered[0].ts);
-		assert.ok(slack.requests.every((q) => q.auth === `Bearer ${TOKEN}` && q.url === "/api/chat.postMessage"));
+		assert.ok(slack.requests.filter((q) => q.msg).every((q) => q.auth === `Bearer ${TOKEN}` && q.url === "/api/chat.postMessage"));
 		assert.equal(r.outbox.queue.length, 0);
 		assert.equal(r.outbox.sent, 6);
 		for (const f of ["", "-wal"]) {
@@ -351,6 +353,29 @@ test("--approve without a way to read replies refuses to start", async () => {
 		const r = await drive(fx, slack, [{ text: "plan" }], { approval: true }, { SLACK_WEBHOOK_URL: `${slack.api}/hook` });
 		assert.notEqual(r.status, 0);
 		assert.match(r.stderr, /--approve needs somebody to ask/);
+	} finally {
+		slack.close();
+	}
+});
+
+test("a cycle started from a thread reports into that thread and is steered from it", async () => {
+	const fx = fixture();
+	const slack = await fakeSlack();
+	const thread = "1600000000.000042"; // the message that asked for the cycle, in the dispatcher's channel
+	slack.when(/\*Plan\*/, () => setTimeout(() => slack.reply("U1", "steer from the asking thread"), 1000));
+	try {
+		const r = await drive(fx, slack, [{ text: "plan" }, { tools: [{ name: "bash", args: { command: "sleep 3" } }] }, { text: "done" }], { reviewEvery: 0, maxRounds: 1 }, {
+			SLACK_BOT_TOKEN: TOKEN,
+			SLACK_CHANNEL: "C0LOYLY",
+			SLACK_API_URL: slack.api,
+			SLACK_ALLOWED_USERS: "U1",
+			SLACK_THREAD_TS: thread,
+		});
+		assert.equal(r.status, 0, r.stderr + r.stdout);
+		assert.ok(slack.delivered.length >= 3);
+		assert.ok(slack.delivered.every((m) => m.thread_ts === thread), "every message, the first included, is in the asking thread");
+		assert.ok(slack.requests.filter((q) => q.url.startsWith("/api/conversations.replies")).every((q) => q.url.includes(`ts=${thread}`)));
+		assert.match(r.seen[2], /A person steering from Slack \(U1\): steer from the asking thread/);
 	} finally {
 		slack.close();
 	}

@@ -56,7 +56,8 @@ from what precedes it.
 | 4 | `docs/plan/01-booking-core/` | one slice of work: a plan, an executable Gherkin spec, tickets, and recorded decisions |
 | 5 | `harness/` | the instrument: the fence, the gate, the derived checklist, the scorer, the scoreboard. Start at its `README.md` |
 | 6 | `agent/` | the build loop of `docs/wow/harness.md` as code, durable: kill it mid-round and it continues that round. Start at its `README.md` |
-| 7 | `impl/` | the build product. Intentionally empty: you generate it |
+| 7 | `factory/` | whole cycles on demand: one resumable command per cycle, a grader the builder never sees, and a Slack dispatcher that starts cycles from a channel. Start at its `README.md` |
+| 8 | `impl/` | the build product. Intentionally empty: you generate it |
 
 Two conventions you will notice everywhere:
 

@@ -1,0 +1,18 @@
+# Create the Slack app from this manifest: api.slack.com/apps -> Create New App -> From a manifest.
+display_information:
+  name: Löyly factory
+  description: Runs and reports Löyly build cycles
+features:
+  bot_user:
+    display_name: loyly-factory
+    always_online: true
+oauth_config:
+  scopes:
+    bot:
+      - chat:write          # reports, round by round, into the asking thread
+      - channels:history    # reads "run cycle" in the channel and replies in cycle threads
+      - groups:history      # the same, if the channel is private
+settings:
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

@@ -1,0 +1,23 @@
+# The Löyly factory: the dispatcher that turns "run cycle" in a Slack channel into a cycle.
+# Install: see factory/README.md, "Deploying". Logs: journalctl -u loyly-factory -f
+[Unit]
+Description=Löyly factory dispatcher (Slack -> durable build cycles)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Root, because the runner hands each room to the builder's own Unix user (runuser, chown)
+# and keeps this checkout, the checklists and the records out of that user's reach.
+User=root
+WorkingDirectory=/srv/loyly
+EnvironmentFile=/etc/loyly/factory.env
+ExecStart=/usr/bin/node /srv/loyly/factory/dispatcher.mjs
+# A running cycle survives a dispatcher restart: its runner is a separate process, and the
+# next dispatcher picks it up from /srv/loyly-cycles/dispatcher.json.
+KillMode=process
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
