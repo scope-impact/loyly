@@ -23,7 +23,7 @@ appendFileSync(path.join(projects, `${session}.jsonl`), "{}\n");
 
 for (const w of step.writes ?? []) {
 	mkdirSync(path.dirname(w.path), { recursive: true });
-	writeFileSync(w.path, w.content);
+	writeFileSync(w.path, w.content, w.mode ? { mode: Number.parseInt(w.mode, 8) } : undefined);
 }
 if (step.crash) {
 	process.kill(process.ppid, "SIGKILL");
