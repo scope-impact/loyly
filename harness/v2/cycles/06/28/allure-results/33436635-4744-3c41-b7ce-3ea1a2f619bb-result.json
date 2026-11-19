@@ -1,0 +1,34 @@
+{
+  "description" : "The permitted grading room contained no real Pi grader host or policy manifest, so I could not launch the required Pi session or observe its Linux shell and host mounts. With the host unset, the runner stopped progressing after checklist and produced no grading room or VM trace; the isolation Then was not observed.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-066"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "statusDetails" : {
+    "message" : "The permitted grading room contained no real Pi grader host or policy manifest, so I could not launch the required Pi session or observe its Linux shell and host mounts. With the host unset, the runner stopped progressing after checklist and produced no grading room or VM trace; the isolation Then was not observed."
+  },
+  "stage" : "finished",
+  "historyId" : "76db58c2e67e0e1856f55870c5b0755a",
+  "name" : "06-066",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "33436635-4744-3c41-b7ce-3ea1a2f619bb-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "76db58c2e67e0e1856f55870c5b0755a",
+  "status" : "failed",
+  "fullName" : "loyly.slice-06.item-06-066",
+  "uuid" : "33436635-4744-3c41-b7ce-3ea1a2f619bb"
+}

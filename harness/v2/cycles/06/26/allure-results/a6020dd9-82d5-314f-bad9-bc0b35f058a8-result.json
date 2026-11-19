@@ -1,0 +1,31 @@
+{
+  "description" : "With a green stdio suite and probe and no store-check command, progress halted at gate for effect-could-not-run, reporting the missing command. It recorded no gate effect.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-045"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "91eec5ca9a058502b6fc9eb1a5ea32c2",
+  "name" : "06-045",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "a6020dd9-82d5-314f-bad9-bc0b35f058a8-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "91eec5ca9a058502b6fc9eb1a5ea32c2",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-045",
+  "uuid" : "a6020dd9-82d5-314f-bad9-bc0b35f058a8"
+}

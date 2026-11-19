@@ -106,7 +106,7 @@ rates.
 ## Drafts (R3, 2026-11-06; trimmed in R3.1)
 
 `drafts.feature`: 45 draft scenarios (47 in R3) for the 66 must-cover obligations of this
-context (69 in R3; `tools/spec/v2/coverage.py`: each rule's success, each `requires` that is
+context (69 in R3; `tools/spec/coverage.sh --v2`: each rule's success, each `requires` that is
 behaviour, each invariant, each contract invariant, each guarantee not verified by a gate),
 every one tagged; 0 uncovered. Each draft names its rule, file and the Gherkin `Rule:` it
 goes under, cites the legacy `@harness-NNN` it preserves, and suggests a tier (32 minimum,

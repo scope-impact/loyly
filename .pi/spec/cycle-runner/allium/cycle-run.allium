@@ -2,13 +2,13 @@
 -- .pi/spec/cycle-runner/allium/cycle-run.allium
 --
 -- Aggregate CycleRun, on the one store: one per run (event-model/cycle-run.edn). A run is one
--- tick of the tree cycle-runner/cycle.v1. It performs one cycle's effects in the real world
+-- tick of the tree cycle-runner/cycle.v2. It performs one cycle's effects in the real world
 -- (a git repository read, a clean room built, a builder session run and waited for, a gate
--- run, each item graded by the judge) and records each effect's result into the context
+-- run, each item graded by a separate Pi host) and records each effect's result into the context
 -- that owns it, by that context's command on the one store. Its own facts are only that:
 -- which effect was performed and what the context answered, and how the run ended. Drafted
 -- in decisions.md "Slice 06 (draft)", accepted in "Spec round 7b", rewritten as cycle.v1 in
--- "Spec round 18".
+-- "Spec round 18" and proposed as cycle.v2 in "Spec round 28".
 --
 -- Legacy: the operator's hands between the legacy tools (archive/legacy-harness/README.md,
 -- "A cycle"): fence.sh, a builder session, verify.sh, a grading subagent's verdicts file,
@@ -23,7 +23,7 @@ use "context.allium" as ctx
 -- The person who starts a run.
 external entity OperatorAccount {}
 
--- ORC's workflow worker: runs the leaves of the tree cycle.v1 and of the workflows it
+-- ORC's workflow worker: runs the leaves of the tree cycle.v2 and of the workflows it
 -- delegates to (seam.md, "The tree").
 external entity OrcWorker {}
 
@@ -89,7 +89,7 @@ entity EffectResult {
 ------------------------------------------------------------
 
 -- Start a run of one cycle: the cut's commit, the selection, the budget and the approved
--- grader digests. The run is one tick of cycle.v1 on the one store. Issued by the operator.
+-- grader digests. The run is one tick of cycle.v2 on the one store. Issued by the operator.
 rule StartRun {
     when: StartRun(operator, run_id, cycle_id, cut_id, commit, selection_id, budget, grader_digests)
     -- 1. the run identity is taken: a second start records nothing
@@ -294,7 +294,7 @@ surface RunDesk {
         -- at acceptance until then).
 }
 
--- The leaves of cycle.v1 and of the workflows it delegates to, one per effect or command:
+-- The leaves of cycle.v2 and of the workflows it delegates to, one per effect or command:
 -- perform an effect, record its result into a context, grade an item, conclude or halt the
 -- run (seam.md, "The tree"; decisions.md, "Spec round 14" and "Spec round 18").
 surface EffectNodes {
@@ -320,10 +320,10 @@ surface EffectNodes {
         -- its cycle ends in the Regeneration cycle.
 
     @guarantee EachEffectInItsOwnLeaf
-        -- The flow is one ORC tree, cycle.v1, and each effect or command it performs is a
+        -- The flow is one ORC tree, cycle.v2, and each effect or command it performs is a
         -- leaf of its own, named for it (seam.md, "The tree"; event-model/area.edn, :leaf).
         -- Every event the runner records lies between the start and the completion of the
-        -- leaf its step names, in the run's tick of cycle.v1 or a child tick that tick
+        -- leaf its step names, in the run's tick of cycle.v2 or a child tick that tick
         -- delegated, in the one store: an effect result inside the leaf named for its
         -- effect. A flow run as one leaf around the runner's own orchestration does not
         -- hold it. The gate's store check reads it, and so does @item-06-059.
@@ -331,16 +331,16 @@ surface EffectNodes {
     @guarantee EachGateAttemptOneDelegatedTick
         -- A gate attempt (its install, its self-check, its gates and gate refusals, and the
         -- repair that follows a failed attempt the cycle allows) is one subtree, the
-        -- versioned workflow cycle-runner/gate-attempt.v1, delegated from cycle.v1 once per
+        -- versioned workflow cycle-runner/gate-attempt.v1, delegated from cycle.v2 once per
         -- attempt, so each attempt runs as one child tick of the run's tick. No attempt is
-        -- written out in cycle.v1 itself (seam.md, "The tree"; decisions.md, "Spec round
+        -- written out in cycle.v2 itself (seam.md, "The tree"; decisions.md, "Spec round
         -- 16" D3).
 
     @guarantee EachItemGradedInItsOwnTick
         -- Each checklist item is graded by the sealed grader, the versioned workflow
-        -- cycle-runner/grade.v1, delegated once per item over the checklist, so each item
-        -- runs as one child tick of the run's tick: its evidence cleared, the researcher
-        -- driving the seam, the judge scoring it.
+        -- cycle-runner/grade.v2, delegated once per item over the checklist, so each item
+        -- runs as one child tick of the run's tick: a fresh room, a Pi grader session,
+        -- then ORC's validation and score recording.
 
     @guarantee AStoppedRunResumes
         -- When the runner starts on the one store, every run in progress there resumes

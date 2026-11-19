@@ -1,0 +1,31 @@
+{
+  "description" : "Three passing runs differed only by no gate command, gate-a and gate-b. The no-command self-check digest matched SHA-256 of the configuration bytes, self-check command text and probe bytes in order; all three runs recorded distinct harness digests.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-057"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "96c371f75ed1c6e0bd9213c917366106",
+  "name" : "06-057",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "96a6f6de-07dc-3585-b326-2d378eeb83ad-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "96c371f75ed1c6e0bd9213c917366106",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-057",
+  "uuid" : "96a6f6de-07dc-3585-b326-2d378eeb83ad"
+}

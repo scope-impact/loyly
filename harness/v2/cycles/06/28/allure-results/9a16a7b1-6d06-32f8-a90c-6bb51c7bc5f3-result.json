@@ -1,0 +1,31 @@
+{
+  "description" : "While R-1’s builder slept, a concurrent R-2 start was refused run-in-progress and R-1 progress was still running; Grain held only one run-started event.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-003"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "05160f9a43e3501a68cbc360830e369f",
+  "name" : "06-003",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "9a16a7b1-6d06-32f8-a90c-6bb51c7bc5f3-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "05160f9a43e3501a68cbc360830e369f",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-003",
+  "uuid" : "9a16a7b1-6d06-32f8-a90c-6bb51c7bc5f3"
+}

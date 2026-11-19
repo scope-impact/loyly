@@ -1,0 +1,10 @@
+[
+  {
+    "id": "06-070",
+    "note": "The VM watcher was mistakenly given 40 seconds, exceeding its 30-second maximum, and did not capture QEMU. The candidate result is observed; this is a profile gap. A fresh retry in work/06-070-retry with separate work/profile-retry-070.jsonl used a 30-second watcher and observed QEMU; both runner launches recorded the same session ID and the resumed run passed. The original attempt remains preserved."
+  },
+  {
+    "id": "06-061",
+    "note": "Initial fixture accidentally allowed only one gate attempt and was not used for the verdict; the fresh retry and its separate profile log are preserved."
+  }
+]

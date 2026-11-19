@@ -1,0 +1,34 @@
+{
+  "description" : "The red first candidate failed its gate, but the builder log contained only the first launch and progress had no repair effect. The required second room and read-only evidence mounts were never produced.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-023"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "statusDetails" : {
+    "message" : "The red first candidate failed its gate, but the builder log contained only the first launch and progress had no repair effect. The required second room and read-only evidence mounts were never produced."
+  },
+  "stage" : "finished",
+  "historyId" : "b56b59d1cc43ed5ff902b8009c0013ef",
+  "name" : "06-023",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "31a3054f-b651-336b-bc9b-5fe4c78be871-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "b56b59d1cc43ed5ff902b8009c0013ef",
+  "status" : "failed",
+  "fullName" : "loyly.slice-06.item-06-023",
+  "uuid" : "31a3054f-b651-336b-bc9b-5fe4c78be871"
+}

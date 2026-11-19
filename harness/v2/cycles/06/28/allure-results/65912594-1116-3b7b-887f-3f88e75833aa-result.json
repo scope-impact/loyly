@@ -1,0 +1,31 @@
+{
+  "description" : "The host returned a booked pass and an empty-evidence pass; only 01-001 was scored or offered in file-verdicts, and Grain held only its judge score. Measurement filed 1 of 2 passing with 01-002 unreached.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-067"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "09289b68f9d021f50c4ff4c21402c38e",
+  "name" : "06-067",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "65912594-1116-3b7b-887f-3f88e75833aa-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "09289b68f9d021f50c4ff4c21402c38e",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-067",
+  "uuid" : "65912594-1116-3b7b-887f-3f88e75833aa"
+}

@@ -8,7 +8,7 @@ scoreboard. The harness feeds the build loop; the instrument reports to a person
 This glossary is the authority for the domain's words (ADR 0005). Allium and Grain identifiers,
 `.pi/architecture.md`, and the ADRs use these terms. A value the seam (`affordances.yaml`) fixes
 is the published language: the model uses it verbatim and the glossary names it. Each `_Avoid_`
-list names synonyms the model must not use for that concept; `tools/spec/glossary-lint.py`
+list names synonyms the model must not use for that concept; `tools/spec/glossary-lint.sh`
 enforces it. An avoided word that is itself a term here is a cross-reference to that term.
 Technology is bound to these terms in `.pi/architecture.md` ("Adapters"), not named by them.
 

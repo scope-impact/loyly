@@ -1,0 +1,31 @@
+{
+  "description" : "The HTTP fixture returned 503 for its first three requests, then served the marker. Gate passed with a 10-second, 20-poll budget and answered on poll 5; the attempt reported a margin of 15 polls.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-060"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "5b0ec81826fb3bc8910b36341be92a1c",
+  "name" : "06-060",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "13e60d26-6e53-356b-a731-263c3683df12-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "5b0ec81826fb3bc8910b36341be92a1c",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-060",
+  "uuid" : "13e60d26-6e53-356b-a731-263c3683df12"
+}

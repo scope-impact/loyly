@@ -23,7 +23,12 @@ START_ARGS = --commit '$(COMMIT)' \
   $(if $(strip $(INSTRUCTION)),--instruction '$(call path,$(INSTRUCTION))') \
   $(if $(strip $(HARNESS_CONFIG)),--harness-config '$(call path,$(HARNESS_CONFIG))') \
   $(if $(strip $(BUDGET_FILE)),--budget-file '$(call path,$(BUDGET_FILE))') \
+  $(if $(strip $(GRADER_RUBRIC)),--grader-rubric '$(call path,$(GRADER_RUBRIC))') \
   $(if $(strip $(GRADER_DIGEST)),--grader-digest '$(GRADER_DIGEST)') \
+  $(if $(strip $(MODEL_API_BASE)),--env 'LOYLY_MODEL_API_BASE=$(MODEL_API_BASE)') \
+  $(if $(strip $(RENDER_MODEL)),--env 'LOYLY_RENDER_MODEL=$(RENDER_MODEL)') \
+  $(if $(strip $(GRADER_MODEL)),--env 'LOYLY_GRADER_MODEL=$(GRADER_MODEL)') \
+  $(if $(strip $(GRADER_IMAGE)),--env 'LOYLY_GRADER_IMAGE=$(call path,$(GRADER_IMAGE))') \
   $(if $(strip $(CUT_ID)),--cut-id '$(CUT_ID)') \
   $(if $(strip $(SELECTION_ID)),--selection-id '$(SELECTION_ID)') \
   $(foreach e,$(RUN_ENV),--env '$(e)') \
@@ -38,12 +43,11 @@ SUMMARY = bb -e '(let [in (slurp *in*) run (get-in (cheshire.core/parse-string i
   (if run (println (cheshire.core/generate-string (merge (select-keys run ["run-id" "status" "attempts" "candidate-digest" "verdicts-digest" "halt"]) \
   (when-let [f (get-in run ["cycle" "failure"])] {"failure" f})) {:pretty true})) (print in)))'
 
-.PHONY: help start progress verdicts kill stop send check-config
+.PHONY: help start progress kill stop send check-config
 help:
-	@echo 'make start                    start a run ($(PROJECT)-<timestamp>); waits until it awaits'
-	@echo '                              verdicts or concludes (NO_WAIT=1: returns at once)'
+	@echo 'make start                    start the ORC build, gate, grade and score cycle'
+	@echo '                              (NO_WAIT=1: returns after queuing)'
 	@echo 'make progress                 the run'"'"'s status (FULL=1: the whole run-progress)'
-	@echo 'make verdicts VERDICTS=file   hand in the grading verdicts: the run passes or fails'
 	@echo 'make kill                     kill the runner, even mid-call (the run is lost)'
 	@echo 'make stop                     stop the runner while idle; it stops by itself once the run concludes'
 	@echo
@@ -63,13 +67,6 @@ start: check-config
 
 progress: check-config
 	@set -o pipefail; $(CURRENT); '$(RUN)' send cycle-runner/run-progress "{\"run-id\":\"$$id\"}" --run-id "$$id" $(if $(FULL),,| $(SUMMARY))
-
-verdicts: check-config
-	@[ -n '$(VERDICTS)' ] || { echo 'usage: make verdicts VERDICTS=verdicts.json' >&2; exit 2; }
-	@[ -f '$(abspath $(VERDICTS))' ] || { echo 'no such file: $(abspath $(VERDICTS))' >&2; exit 2; }
-	@$(CURRENT); d='$(GRADER_DIGEST)'; d=$${d:-$$id-grading-subagent}; \
-	  '$(RUN)' send cycle-runner/hand-in-verdicts \
-	  "{\"run-id\":\"$$id\",\"verdicts-path\":\"$(abspath $(VERDICTS))\",\"grader-digest\":\"$$d\"}" --run-id "$$id"
 
 kill: check-config
 	@$(CURRENT); '$(RUN)' stop --force --run-id "$$id"

@@ -1,0 +1,31 @@
+{
+  "description" : "A self-check exiting 1 with last line golden checklist differs produced harness-self-check-failed; progress showed the cycle failed at fence with that detail, and no fence or regenerate effect.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-010"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "9236e9d8db2976fb003333c7b993e3aa",
+  "name" : "06-010",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "f70c3273-7ced-35e4-b993-0f996c6357f2-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "9236e9d8db2976fb003333c7b993e3aa",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-010",
+  "uuid" : "f70c3273-7ced-35e4-b993-0f996c6357f2"
+}

@@ -1,0 +1,31 @@
+{
+  "description" : "The host returned booked/pass and no receipt/fail; the filed measurement contained 1 of 2 passing and the cycle passed. Grain held checklist/01-001 score 1.0 and checklist/01-002 score 0.0 in two distinct grade.v2 child ticks of the cycle tick.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-064"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "c5b7091b6192105ab3c34fb2805dea9f",
+  "name" : "06-064",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "fa981f80-2e9e-300f-93da-7021d14ec947-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "c5b7091b6192105ab3c34fb2805dea9f",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-064",
+  "uuid" : "fa981f80-2e9e-300f-93da-7021d14ec947"
+}

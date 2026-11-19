@@ -1,0 +1,31 @@
+{
+  "description" : "The model stub returned HTTP 400 to both render requests. Progress halted at render with effect-could-not-run, with no regenerate or fail-cycle effect and no cycle; no builder was configured or launched.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-072"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "8a0d2a48c71bf23e8818e545b4368e7f",
+  "name" : "06-072",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "a5909e36-1be8-3f7c-91e9-598236092ed0-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "8a0d2a48c71bf23e8818e545b4368e7f",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-072",
+  "uuid" : "a5909e36-1be8-3f7c-91e9-598236092ed0"
+}

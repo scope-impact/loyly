@@ -1,0 +1,34 @@
+{
+  "description" : "The command printed BOOT 20 10 then the unrecognized infrastructure line and exited 2; progress halted at gate with no gate, fail-cycle, or cycle. Its halt detail included the preceding BOOT line instead of the specified last line alone.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-056"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "statusDetails" : {
+    "message" : "The command printed BOOT 20 10 then the unrecognized infrastructure line and exited 2; progress halted at gate with no gate, fail-cycle, or cycle. Its halt detail included the preceding BOOT line instead of the specified last line alone."
+  },
+  "stage" : "finished",
+  "historyId" : "8ffc69e234be59764aeb951264676fb2",
+  "name" : "06-056",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "fe9d8d9c-2f39-3b4c-ab33-a99c9f4aead3-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "8ffc69e234be59764aeb951264676fb2",
+  "status" : "failed",
+  "fullName" : "loyly.slice-06.item-06-056",
+  "uuid" : "fe9d8d9c-2f39-3b4c-ab33-a99c9f4aead3"
+}

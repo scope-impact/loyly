@@ -3,8 +3,8 @@
 How a gate, a grader and an operator drive this context's candidate (slice 06). Derived from
 `event-model/*.edn`; where this note and the event model disagree, the event model wins and this
 note is wrong. Drafted 2026-11-07 (`../decisions.md`, "Slice 06 (draft)"), decided in spec round
-7b, and rewritten in spec round 18 as the one tree `cycle-runner/cycle.v1` on one store
-(`../decisions.md`, "Spec round 18"). The five contexts 01 to 05 are built only here, in this
+7b, and rewritten in spec round 18 as the one tree `cycle-runner/cycle.v1` on one store;
+the proposed successor is `cycle-runner/cycle.v2` (spec rounds 28–29). The five contexts 01 to 05 are built only here, in this
 slice's cycle, never on their own.
 
 ## What the candidate does, and what it is told
@@ -12,7 +12,7 @@ slice's cycle, never on their own.
 The runner is the one context that acts on the real world. It is one candidate with the five
 contexts 01 to 05, on one Grain store: their rules, event models and queries are in it, and the
 one event model is the union of every context's `event-model/*.edn`. For one cycle it runs one
-tick of the ORC tree `cycle-runner/cycle.v1`: it reads the project repository at the cut, builds
+tick of the ORC tree `cycle-runner/cycle.v2`: it reads the project repository at the cut, builds
 and probes the clean room, runs a builder session and waits for it, installs the candidate in a
 gate room and runs the gate, grades each checklist item with the sealed grader, and files the
 score. After each effect a leaf records the result into the context that owns it, by that
@@ -23,7 +23,7 @@ that folds it reads it from the one store.
 
 It owns no rule of the five contexts. A refusal it shows is the context's reply, as heard; the run
 ends as its cycle ends in the Regeneration cycle. The runner itself never judges an item: the
-judge does, in the sealed grader `cycle-runner/grade.v1`.
+grader host does, in the sealed grader `cycle-runner/grade.v2`.
 
 ## Transport
 
@@ -56,13 +56,13 @@ instants travel as ISO-8601 UTC text.
   are issued only by the leaves of the tree ("The tree", below), each after it performed its
   effect; a request naming one is `-32601`. The runner is the issuer; a grader observes what it
   did.
-- **A start runs the run before it responds.** `start-run` runs one tick of `cycle.v1` and
+- **A start runs the run before it responds.** `start-run` runs one tick of `cycle.v2` and
   responds when the tick ended: the run concluded with its cycle (passed, or failed at any stage)
   or halted. The method is synchronous by decision (`../decisions.md`, "Spec round 7b" 5).
 - **A run's progress** is the read model `:cycle-runner/runs` of that run, its fields verbatim
   (`run-id`, `cycle-id`, `cut-id`, `commit`, `status`, `effects`, `attempts`, `candidate-digest`,
   `cycle`, `halt`), plus `effect-results`: the rows of `:cycle-runner/effect-results` of that run in
-  the order performed; `tick`: the run's tick of `cycle.v1` as ORC's own tick and node events in
+  the order performed; `tick`: the run's tick of `cycle.v2` as ORC's own tick and node events in
   the one store show it, its `tick-id`, its `status`, and `nodes`, each node of the tick and of the
   child ticks it delegated, in the order completed, by its name, with the node running now last
   and marked running; and `scores`: each item's score as ORC's judge score events of the run show
@@ -74,6 +74,17 @@ instants travel as ISO-8601 UTC text.
   `reason` and `detail` of `run-halted`.
 - **Reading changes nothing.** A query records no event, performs no effect and runs no ORC
   workflow.
+- **Allure results.** After `measurement/file-score` files a score, the runner projects the
+  filed Measurement receipt into `LOYLY_RUNS_DIR/<run-id>/allure-results/`. There is exactly
+  one `<uuid>-result.json` per checklist item, including an unreached item. Each is an Allure
+  test-result object with an Allure UUID, stable history and case identities, `fullName`, `name`,
+  `status` (`passed` or `failed`), and a `labels` entry with `name` `tag` and `value`
+  `item-<item-id>`. Its description is the filed evidence or unreached reason; a failed
+  result also carries that reason in `statusDetails.message`. The projector reads the filed
+  receipt, never the judge's preliminary scores, and changes no Measurement event, verdict,
+  denominator or scoreboard. It writes no result when no score was filed. A write failure
+  halts the run as `effect-could-not-run`, preserving the already filed measurement for the
+  operator to inspect. The Allure directory is a report artifact, not a second score.
 
 ## The effects
 
@@ -86,7 +97,7 @@ before the first. In order:
 
 | Triage | Effect | What the runner does | Recorded through |
 |---|---|---|---|
-| E1 | `stamp` | per selected slice of the plan at the cut, in slice order ("The plan and its slices", below): the spec file read with `git show`; a copy with the `@item-NN-SSS` tags of its tag lines removed (a tag line left empty goes; comments and other tags stay) written to the run's directory under a folder of the slice's own name, so Specification reads the same slice; that copy's unstamped scenarios and empty-title headings read and offered. After the recording, the identities the stamp handed out (its `scenario-stamped` events' `item-id`s, in file order) must equal the original file's own item tags, in file order; else the run halts, `refused-before-the-cycle` (below). Each slice's stamp is its own: a slice is stamped whatever an earlier slice's stamp came to, and the run halts at the first, in slice order, that halts it ("The tree"). A slice whose ledger the one store already holds (an earlier run on the same store stamped it) is not restamped: the stamp offers the original spec file's own unstamped scenarios, none for a stamped plan, so Specification records nothing new, and the identities compared with the file's own item tags are the slice's in `specification/stamped-items` (`../decisions.md`, "Spec round 18") | `specification/stamp-slice` |
+| E1 | `stamp` | per selected slice of the plan at the cut, in slice order ("The plan and its slices", below): read the tagged spec file with `git show` and write an exact copy in the run directory under the slice's own folder name. Offer its complete stamped vector `{line,title,item-id}`, its unstamped vector and empty-title lines to `specification/stamp-slice`. The approved runner cut requires every scenario to carry exactly one valid identity of its slice, with no duplicate; an untagged, malformed, duplicate or cross-slice identity halts before the self-check and fence. Specification verifies the offer against the copy and imports missing identities unchanged into the fresh ledger, leaving retired gaps empty and existing identities alone. After recording, the current file's ordered identities must equal the approved selection; the ledger may additionally hold retired items. Each slice's stamp is its own and the run halts at the first refusal in slice order. No item tag is stripped and no ordinal identity is substituted. | `specification/stamp-slice` |
 | E1 | `pin` | the commit's tree digest read with `git rev-parse <commit>^{tree}` | `cycle-preparation/pin-source-cut` |
 | E1 | `checklist` | the stamped scenarios of the cut's selected slices read with legacy `gen_checklist`'s reading (item identity from the ledger, scenario digest below, Rule, `source:line`, title; planned and backlog slices skipped), each slice's spec file read as the stamp reads it and its source the slice's own path, `PLAN_DIR/<slice>/spec.feature`, as legacy `gen_checklist` reads it on disk | `measurement/derive-checklist` |
 | E2 | `self-check` | `LOYLY_SELF_CHECK_CMD` run in the project repository: exit 0 passed, any other failed; the last line it printed is the failing check; each line whose first word, after any leading whitespace, is `SKIP` a skipped check, the check named by the rest of the line after `SKIP` and its whitespace, trimmed (`../decisions.md`, "Spec round 13" D2) (legacy `check.sh` prints `SKIP  the oracle cannot judge this tree: …`; `../decisions.md`, "Spec round 7d") | `regeneration-cycle/record-harness-self-check` (before the fence: attempt 0, the run's budget; before the gate: the attempt) |
@@ -159,7 +170,7 @@ before the first. In order:
   of the configuration file, the self-check command and the identity probe and then the gate
   command, `LOYLY_GATE_CMD` as handed in (the store-check command is then not read, so it is not
   covered); with none handed in, the digest is as before, so a run without one keeps the harness
-  digest it has today (`../decisions.md`, "Spec round 12" D5). The grader digest is `"sha256:"` and the SHA-256 of the line `cycle-runner/grade.v1` LF followed by the bytes of the rubric file handed in (`LOYLY_GRADER_RUBRIC`), so a new judge version or a new rubric is a new grader. The instruction digest is the SHA-256 of the instruction file a builder was handed. The builder image digest is the candidate digest's
+  digest it has today (`../decisions.md`, "Spec round 12" D5). The grader digest is `"sha256:"` and the SHA-256 of the UTF-8 lines `cycle-runner/grade.v2`, `singleton-id-verdict-evidence-v1`, the SHA-256 hex of the rubric bytes, the SHA-256 hex of the grader host executable bytes, the SHA-256 hex of the grader host policy manifest bytes, and the selected grader model, each followed by LF. The host policy manifest is handed in as `LOYLY_GRADER_HOST_POLICY`; it lists the provider host's runtime and isolation files with their SHA-256 hashes, so a policy change changes the sealed grader. The runner checks the manifest's listed files against those hashes before the fence. The instruction digest is the SHA-256 of the instruction file a builder was handed. The builder image digest is the candidate digest's
   formula over the image's folder, each path relative to that folder (`../decisions.md`, "Spec
   round 9" D1). The scenario
   digest above is the runner's own reading, decided there too; Specification's `ScenarioReading`
@@ -170,7 +181,7 @@ before the first. In order:
 The builder is pi's own coding loop as a pi-durable session, its tools in a Gondolin VM made from
 the builder image, run by the provided builder host on the existing Codex login; the leaf that
 runs it is a `code` leaf. Its session identity is
-`<run-id>/<tick-id>/<attempt>`: the run, the run's tick of `cycle.v1` and the attempt the session
+`<run-id>/<tick-id>/<attempt>`: the run, the run's tick of `cycle.v2` and the attempt the session
 opens, never drawn at random. So the leaf that runs again in the same tick after a stopped runner
 resumed the run ("Resume", below) runs the same session again, and the builder host reopens it
 where it stopped; a new attempt is a new session. The builder host allows one writer per
@@ -184,67 +195,53 @@ The repair instruction is the rendered text and the closing paragraph of the E6 
 
 ### Grading
 
-When an attempt passed, every checklist item is graded, one at a time, in checklist order: a
-`map-each` over the checklist delegates each item to the sealed grader, the versioned judge
-workflow `cycle-runner/grade.v1`, as a child tick of its own:
+After a passed gate, `map-each` delegates every checklist item in order to
+`cycle-runner/grade.v2`, one bounded child tick per item. This is execution of an already
+approved grader, not Grader lifecycle calibration or sealing. The `grader` leaf checks the
+sealed digest before self-check or fence. A digest outside `start-run`'s approved set halts the
+run before a room or builder exists.
 
-- **`clear-evidence`** (`code`) writes the item's evidence empty, so no item sees another's.
-- **`drive-seam`** (`repl-researcher`) is given the item (its identity and scenario), and the
-  seam it drives: the `seam.md` and `event-model/*.edn` beside the item's spec file in the cut,
-  when there are any. Its first model request contains the scenario text and the seam and event
-  model text from that cut as request context. The structured `item` blackboard value stays behind
-  `(get-input :item)`: the request describes that input's shape rather than serializing its value.
-  Its one tool is a shell in a Gondolin VM whose only mount is the item's
-  grading room: a fresh copy of the passed attempt's gate room, the clean room's files with the
-  gated candidate's copy at `APP_DIR`, never a builder room, gate evidence or a store.
-  It drives the candidate over its seam from fresh state and writes what it set up, sent and
-  observed as the item's evidence ("The researcher's VM", below).
-- **`judge`** (`code`) scores the item on that evidence on one ORC binary `discrete-scale`:
-  integer level `1` means fail and maps to judge score `0.0`; integer level `2` means pass and
-  maps to judge score `1.0`. The scale has explicit descriptions for both bands. The judge gives
-  its reason first and then its level, using the rubric handed in (`LOYLY_GRADER_RUBRIC`) as the
-  item's criterion. A reply with no reason, or a level outside `1` and `2`, scores nothing;
-  level `0` is not a fail band. ORC's own banded-output check
-  reads only the `level` field, so the judge checks the `reasoning` field itself: a reply with a
-  `level` and no `reasoning`, or an empty one, scores nothing (`@item-06-067`). The score is recorded as ORC's
-  judge score event, its judge name `checklist/<item-id>`, so each item keeps its own score.
-- The researcher and the judge call the model at `LOYLY_MODEL_API_BASE` as `LOYLY_GRADER_MODEL`,
-  another model than the one the builder session runs on.
+- `clear-evidence` creates a fresh item grading room from the passed gate room. It contains
+  the gated candidate, the selected stamped scenario, its public seam and event model, the
+  sealed rubric and a writable `work/` directory. It contains no builder room, gate evidence,
+  prior verdict, other item's room, or host credential. The item instruction explicitly forbids
+  reading candidate source and directs seam-only black-box probes. The candidate source is
+  present so the grader can launch it; source-use is checked in the grader trace.
+- `grade-item` launches `LOYLY_GRADER_HOST` with the absolute room, instruction file, and
+  `LOYLY_GRADER_IMAGE` as three arguments. The default is the provided
+  provided Pi grader launcher, which runs Pi with its tools in a Gondolin VM. ORC sets
+  `GRADER_EVIDENCE_DIR` to an item-specific folder and `LOYLY_GRADER_MODEL` to the selected
+  model. It also passes the builder launch evidence directory, so the host can refuse a
+  matching model. A configured provider host must satisfy the same contract. There is no
+  shell interpolation of host path or arguments.
+- The instruction names exactly one item and one output file, `work/verdicts.json`. The host
+  writes a JSON array of exactly one row: `id` equal to the item ID, `verdict` `pass` or `fail`,
+  and nonempty `evidence` describing the setup, seam request, and observed response. The host
+  records its model, instruction digest, session identity, and trace outside the verdict file.
+  The provided host writes `GRADER_EVIDENCE_DIR/launch-N/launch.txt` with `model=`,
+  `instruction_sha256=`, `request_id=` and `exit=`, plus `pi.stdout`, `pi.stderr` and a copy
+  of the verdict row. ORC checks those values against its item instruction, selected model,
+  host exit and row. A fixture host may write the same fields and trace in its own launch
+  folder. The policy manifest is UTF-8, one path, TAB and SHA-256 hex per LF-terminated
+  line. Relative paths resolve from the project repository root; absolute paths stay
+  absolute. ORC checks every listed file before the fence.
+  ORC validates all of these, the approved grader digest, and completion before recording
+  ORC's `:judge/score-emitted` with judge name `checklist/<item-id>`. Pass maps to score 1.0,
+  fail to 0.0, and evidence becomes the reason. An exit code, final prose, missing row,
+  malformed row, wrong ID, empty evidence, or model matching the builder never scores.
+- The item deadline is the score-stage budget divided by the checklist size. ORC terminates
+  the grader host and all its descendant programs, including Gondolin and qemu, on timeout or
+  cancellation before another item starts. A failed or timed-out host leaves that item
+  without a score; Measurement files it as an unreached fail. A host setup failure that
+  prevents any item room or session from running halts the run with `effect-could-not-run`.
+  All item rooms and host traces remain durable evidence.
 
-**The researcher's VM** (`@item-06-066`; `../decisions.md`, "Spec round 20"). Each item has a VM
-of its own, made from the guest image `LOYLY_GRADER_IMAGE` names, with the `gondolin` CLI found on
-`PATH`. The runner starts it when the item's `drive-seam` begins, keeps it for every call of that
-item's researcher, and stops it when the item's grading ends, scored or not, before the next
-item's begins. One VM per item, not one per call: a researcher makes several calls, and what one
-call starts in the background (the candidate, a stub) must still run in the next.
-- The item's grading room is a folder of its own in the run's directory, made fresh for the item.
-  It is mounted at its own host path and is the VM's only folder of the host: its siblings (the
-  other items' grading rooms, the builder rooms, the gate rooms and evidence, the store) and every
-  other folder of the host are absent in the VM.
-- The VM is started as `gondolin bash --image <LOYLY_GRADER_IMAGE> --mount-hostfs <room>:<room>
-  --allow-host egress-blocked.invalid -- sleep <seconds>`, in the background with an empty
-  standard input, `<seconds>` the grading delegate's bound ("Every wait has a bound"), so a VM the
-  runner lost ends by itself. Egress is blocked by allowing one host that cannot exist, because the
-  CLI leaves egress open when no host is allowed (ADR 0002). Its session is the row of `gondolin
-  list` whose PID is the CLI's.
-- Each shell call is `gondolin exec --sock <session-id> -- sh -c 'cd <room> && <command>'`: the
-  grading room is its working folder, and its exit status, standard output and standard error are
-  the tool's reply.
-- To stop it, the runner kills the CLI and every program the CLI started, its qemu among them:
-  killing the CLI alone orphans its qemu (ADR 0002).
-- A VM that cannot be started halts the run before any item is graded. After a passed gate, the
-  leaf `grading-vm` starts one VM as above, with no mount, runs `true` in it and stops it, and
-  writes `run` `gate-passed` again when it ran. No folder
-  at `LOYLY_GRADER_IMAGE`, no `gondolin` on `PATH`, or a VM that does not run `true` is an effect
-  that could not be performed: `halting`, effect `drive-seam`, `effect-could-not-run`, the detail
-  naming what failed, and no verdict is filed. An item whose own VM then fails to start leaves its
-  researcher failed, so the item has no score.
-
-An item whose child tick did not end with a score (a researcher or a judge that failed, a reply
-that scored nothing) has no score. The `grader` leaf, before the self-check, holds the run to the
-sealed grader: its digest ("Digests the runner computes") must be one of the run's approved
-grader digests, or the run halts before the cycle, `refused-before-the-cycle`, the detail naming
-the digest; no clean room is built and no builder runs.
+The Pi host's existing `grader.sh` supports a full-slice bootstrap session. In `grade.v2` it
+receives a one-item room and instruction, so its `work/verdicts.json` is a singleton. ORC
+validates the row itself and never treats the host's own copied verdict file as a Measurement
+receipt. The per-item VM is the host's isolation boundary; ORC checks the recorded policy
+manifest and the host's VM launch evidence. A local provider host without a verified
+boundary cannot be used as the grader.
 
 ### The plan and its slices
 
@@ -261,7 +258,7 @@ the run halts before the cycle (`../decisions.md`, "Spec round 8").
 
 ## The tree
 
-The run is one ORC tree, built with ORC's DSL as the workflow `cycle-runner/cycle.v1`, and
+The run is one ORC tree, built with ORC's DSL as the workflow `cycle-runner/cycle.v2`, and
 `start-run` runs one tick of it (`../decisions.md`, "Spec round 14", "Spec round 18"). Each effect
 and each command of the runner is a named leaf of its own (`code`), and the tree holds their order;
 the leaves hold the domain rules ("The effects", above). The tree follows ORC's own principles
@@ -299,7 +296,7 @@ no shape of its own travels as text):
 | `stamp` | Stamp, `[:map [:slice :string] [:run [:enum "running" "halting"]] [:halt {:optional true} Halt]]` | what one slice's stamp came to |
 | `stamps` | `[:vector Stamp]` | the stamps', in slice order (`map-each`'s result) |
 | `items` | `[:vector Item]`, Item `[:map [:item-id :string] [:slice :string] [:source :string] [:title :string]]` | the checklist's items, in checklist order, as `checklist-derived` gave them |
-| `grader` | `[:map [:version :string] [:digest :string]]` | the sealed grader: `cycle-runner/grade.v1` and its digest |
+| `grader` | `[:map [:version :string] [:digest :string] [:model :string]]` | the sealed grader: `cycle-runner/grade.v2`, its digest and selected model |
 | `builder-instruction` | `:string` | the instruction `render` wrote |
 | `attempt` | `[:int {:min 0 :max 3}]` | the gate attempt: 0 before the first candidate, then the attempt the last builder opened |
 | `builder-room` | `:string` | the last builder's room |
@@ -308,7 +305,8 @@ no shape of its own travels as text):
 | `evidence-root` | `:string` | the last gate's evidence directory |
 | `gate-refusal` | `[:map [:refusal :string] [:detail :string]]` | a gate refused with one of the three codes `record-gate-refusal` takes |
 | `item` | Item | the item a grading delegate grades (`map-each`'s item) |
-| `evidence` | `:string` | what the item's researcher set up, sent and observed |
+| `grading-room` | `:string` | the fresh item room created from the passed gate room |
+| `evidence` | `:string` | what the item's grader observed through the seam |
 | `score` | Score, `[:map [:item-id :string] [:verdict [:enum "pass" "fail"]] [:reason :string]]` | the judge's score of the item |
 | `scores` | `[:vector Score]` | every item's score, in checklist order, an item with no score left out (`map-each`'s result) |
 | `cycle` | `:string` | the `cycle` of the last `regeneration-cycle/cycle-progress` reply, its JSON text verbatim |
@@ -347,10 +345,9 @@ node's contract:
 | `gate` | `params`, `handed-in`, `config`, `run-dir`, `attempt`, `candidate`, `gate-room` | `evidence-root`, `gate-refusal`, `cycle`, `run`, `failure`, `halt` |
 | `gate-refusal` | `params`, `attempt`, `gate-refusal` | `cycle`, `run`, `halt` |
 | `repair` | `params`, `handed-in`, `config`, `run-dir`, `attempt`, `candidate`, `evidence-root`, `builder-instruction` | `builder-room`, `attempt`, `run`, `failure`, `halt` |
-| `grading-vm` | `handed-in` | `run`, `halt` |
-| `clear-evidence` | | `evidence` |
-| `drive-seam` (`repl-researcher`) | `item`, `gate-room`, `handed-in` | `evidence` |
-| `judge` | `item`, `evidence`, `grader` | `score` |
+| `grader-host-check` | `handed-in`, `grader` | `run`, `halt` |
+| `clear-evidence` | `item`, `gate-room`, `grader`, `handed-in` | `grading-room`, `evidence` |
+| `grade-item` | `item`, `grading-room`, `grader`, `handed-in` | `score` |
 | `file-verdicts`, `file-score` | `params`, `grader`, `items`, `scores`, `attempt`, `candidate` | `cycle`, `run`, `failure`, `halt` |
 | `fail-cycle`, `fail-score-stage` | `params`, `attempt`, `failure` | `cycle`, `run`, `halt` |
 | `conclude` | `params`, `cycle` | `run` |
@@ -371,7 +368,7 @@ is `failing`, `halting`, `gate-refused` or `refused` (`../decisions.md`, "Spec r
 `self-check`, `fence`, `fail-cycle`, `regenerate`, `install`, `gate`, `gate-refusal`, `repair`,
 `file-verdicts`, `file-score`, `fail-score-stage`) or its command (`start` for `start-run`,
 `conclude` for `conclude-run`, `halt` for `halt-run`); `stamped`, `grader`, `render-failed`,
-`grading-vm`, `clear-evidence` and `judge` record no effect. A name is unique in its workflow, so a leaf that
+`grader-host-check`, `clear-evidence` and `grade-item` record no context effect. A name is unique in its workflow, so a leaf that
 stands more than once in one workflow carries a qualifier after a `:`: the first self-check
 (`self-check:0`), a gate's try within its attempt (`gate:2`, `gate-refusal:2`), a conclusion's
 branch (`conclude:passed`). The attempt is never part of a leaf's name: it is `attempt` on the
@@ -407,7 +404,7 @@ child tick it delegated (`EachEffectInItsOwnLeaf`).
   `effect-could-not-run`: a handed-in command that could not be started, a gate command whose
   result says the gate could not be performed ("The gate command's result", above), a `render`
   that failed (`render-failed`, the effect `render`), a grading VM that could not be started
-  (`grading-vm`, the effect `drive-seam`; "The researcher's VM", above).
+  (`grader-host-check`, the effect `grade-item`; "Grading", above).
 - After each recording that may conclude the cycle (the self-check, the fence, `fail-cycle`, a
   gate, a gate refusal, the score), the leaf reads the Regeneration cycle's `cycle-progress` of the
   run's cycle into `cycle` and writes `cycle-passed` or `cycle-failed` when its `status` says so;
@@ -421,7 +418,7 @@ bound of what it waits for, and each delegate and each tick is bounded by the st
 spends (the run's `budget`, its `stage-timeouts-seconds`):
 - a program a leaf runs: what is left of the timeout of the stage it runs in (the builder in
   `regenerate`, a repair's in `regenerate` too; legacy `fence.sh` in `fence`; the self-check
-  before the gate, the gate's own programs or the gate command in `gate`; `grading-vm`'s VM in
+  before the gate, the gate's own programs or the gate command in `gate`; `grade-item`'s host in
   `score`); the first self-check
   runs before the cycle has a stage, and only its tick bounds it;
 - one model reply: `model_reply_seconds`, 600 (`context.allium`, config), held by the provider
@@ -433,7 +430,7 @@ spends (the run's `budget`, its `stage-timeouts-seconds`):
   and `tick_margin_seconds`, 3600, more for what no stage clock times (the start, the stamps, the
   pin, the checklist, the grader, the first self-check, the render).
 
-A delegate's bound is part of its tree as ORC builds it, so `cycle.v1` is built when a run starts,
+A delegate's bound is part of its tree as ORC builds it, so `cycle.v2` is built when a run starts,
 with that run's bounds (ORC builds a workflow by its name and content: a run whose budget is the
 last run's builds nothing new). A tick that does not end with success, because its bound or a
 delegate's passed before the leaves wrote an outcome, is no leaf's outcome: the runner then halts
@@ -444,12 +441,12 @@ of the last that did), `effect-could-not-run`, and the bound that passed as the 
 equals that value, `not gate-refused?` the condition `run` does not equal `gate-refused`,
 and `not running?` the condition `run` does not equal `running`. A gate attempt is one subtree, the workflow
 `cycle-runner/gate-attempt.v1`, delegated once per attempt (`gate-attempt:N`); an item's grading
-is the sealed grader `cycle-runner/grade.v1`, delegated once per item. Each is versioned by its
-name, so a changed one is a new workflow (`gate-attempt.v2`, `grade.v2`) and `cycle.v1` names the
-version it delegates to; a changed `cycle.v1` is `cycle.v2`.
+is the sealed grader `cycle-runner/grade.v2`, delegated once per item. Each is versioned by its
+name. The changed grading delegate is `grade.v2`, and the parent that delegates to it is
+`cycle.v2`; the accepted `cycle.v1` and `grade.v1` remain in prior build history.
 
 ```text
-cycle-runner/cycle.v1                fallback
+cycle-runner/cycle.v2                fallback
 ├─ sequence
 │  ├─ start, ok?
 │  ├─ map-each slices as slice into stamps, in slice order: stamp
@@ -465,9 +462,9 @@ cycle-runner/cycle.v1                fallback
 │  ├─ fallback: not running?, gate-attempt:2
 │  ├─ fallback: not running?, gate-attempt:3
 │  ├─ gate-passed?
-│  ├─ grading-vm, gate-passed?
+│  ├─ grader-host-check, gate-passed?
 │  ├─ map-each items as item into scores, in checklist order:
-│  │     fallback: delegate cycle-runner/grade.v1, (no score)
+│  │     fallback: delegate cycle-runner/grade.v2, (no score)
 │  ├─ file-verdicts, ok?, file-score, cycle-passed?
 │  └─ conclude:passed
 ├─ sequence: failing?, fail-cycle, cycle-failed?, conclude:failed
@@ -489,10 +486,9 @@ cycle-runner/gate-attempt.v1         fallback
 │  └─ fallback: not running?, repair
 └─ not running?
 
-cycle-runner/grade.v1                sequence
+cycle-runner/grade.v2                sequence
 ├─ clear-evidence
-├─ drive-seam                        repl-researcher
-└─ judge
+└─ grade-item                         code
 ```
 
 So a repair follows a failed attempt only while the cycle is still running, and the Regeneration
@@ -509,13 +505,13 @@ concludes with its cycle (`../decisions.md`, "Spec round 12" D4).
 ORC's `resume-in-progress!`, in the background, before it replies to a `start-run`: the run continues
 in its own tick, where it stopped, what it recorded before stands, and the leaf that was running
 runs again (a builder leaf reopens its session, "The builder session"). A run is never started
-again to recover it. At ORC's pin a `repl-researcher` in flight is not resumed (ORC's
-`runtime.clj` resumes leaves only); a run stopped while grading is a known gap, until ORC resumes
-researcher nodes.
+again to recover it. A `grade-item` code leaf is resumed by ORC after the old host program is
+confirmed dead. It reopens the same item session identity and room when the provider host
+supports resume; otherwise the item remains unscored with the failed launch retained.
 
 Before resuming a pending run, the runner recreates ORC's live model provider from that run's
 `handed-in` model endpoint and names on the blackboard. The resumed tick can reach `render`,
-`drive-seam` or `judge` without another `start-run`, and each must have its provider. Provider
+`render` without another `start-run`, and it must have its provider. Provider
 registration is provider setup, not a new run effect or a new reading of the host's
 current `LOYLY_*` variables.
 
@@ -611,21 +607,21 @@ Read when `start-run` runs, never only at boot, so a grader changes them between
   (`../decisions.md`, "Spec round 9" D2, D4).
 - `LOYLY_BUILDER_INSTRUCTION`: the seed of the builder instruction: the `render` node's
   instruction until GEPA publishes another version, between cycles.
-- `LOYLY_MODEL_API_BASE`: the OpenAI-compatible endpoint of the model ORC's nodes call (live, a
-  small OpenAI-compatible shim over pi-ai on the Codex login, provided and never regenerated), with `LOYLY_RENDER_MODEL`, the model
-  `render` calls, and `LOYLY_GRADER_MODEL`, the model the researcher and the judge call, another
-  than the one the builder session runs on. The runner registers that endpoint as ORC's model
+- `LOYLY_MODEL_API_BASE`: the OpenAI-compatible endpoint of the model ORC's `render` node calls,
+  with `LOYLY_RENDER_MODEL` naming that model. The runner registers that endpoint as ORC's model
   provider under a name of its own, never `:openai` (live: `:pi-codex`, an `:openai` provider
   with `:api-base` the endpoint and a 600-second timeout), so ORC frames every request and reply
   of its nodes in its marker format, each field under a `[[ ## <field> ## ]]` line, and uses no
   function calling.
-- `LOYLY_GRADER_RUBRIC`: the sealed grader's rubric file: the judge's criteria, stance and the two
-  bands, pass and fail. Its digest, with the judge workflow's version, is the grader digest
-  ("Digests the runner computes"); GEPA improves it on calibration only, and a new one is used only
-  once the operator approves its digest.
+- `LOYLY_GRADER_RUBRIC`: the sealed grader's rubric file, handed to the item agent.
+- `LOYLY_GRADER_HOST`: the absolute executable implementing the three-argument agent host
+  contract; default `.pi/harness/bin/grader.sh` in the provided runtime.
+  `LOYLY_GRADER_HOST_POLICY` defaults to `.pi/harness/config/grader-host-policy.txt`, a sealed
+  manifest of the provided Pi host's runtime and isolation files. `LOYLY_GRADER_MODEL` selects the Pi model for the agent session and
+  must differ from the builder's recorded model. These inputs determine the grader digest.
 - `LOYLY_GRADER_IMAGE`: the folder of a Gondolin guest image (live: the builder image
   `.pi/harness/.state/assets/builder-clojure`, built by `harness/Makefile`), outside the project
-  repository. Each item's researcher runs its shell in a VM made from it ("The researcher's VM",
+  repository. Each item's Pi grader runs its tools in a VM made from it ("Grading",
   above). The `gondolin` CLI is found on `PATH`, provided like the builder host and never
   regenerated (`../decisions.md`, "Spec round 20").
 - `LOYLY_SCORING_TOOL_PATHS`: read by the Regeneration cycle (its `seam.md`).
@@ -646,18 +642,18 @@ Everything the runner acts on is a fixture a grader states, so no item waits for
   suite, a slow boot, no marker, no `start.sh`), leaves it empty, sleeps past the timeout, or records
   the paths, the arguments, the instruction file and the session identity it was handed;
 - `LOYLY_MODEL_API_BASE` a stub model, an OpenAI-compatible endpoint the grader scripts: it
-  renders the instruction as a text the grader names, replies to the researcher and the judge of each
-  item as scripted (a score with a reason, a score with none, a failure), and records every request
+  renders the instruction as a text the grader names, and records every request
   it is sent. It replies in ORC's marker format (`[[ ## <field> ## ]]` per field, then
   `[[ ## completed ## ]]`), since the provider is registered under a name other than `:openai`
-  ("Handed in"). The first researcher request contains the item's scenario text and its slice's
-  seam and event-model text from the cut. It shows the structured `item` input's shape, not that
-  blackboard value; a scripted researcher's code reads `(get-input :item)` and branches on it.
+  ("Handed in"). The Pi grader host, rather than the model endpoint, supplies each item's
+  verdict. A fixture grader host records the room and instruction, writes a valid or invalid
+  singleton row, or sleeps past the deadline with a child program.
   Requests carry tick ids and timestamps, and ORC may retry a request, so a stub matches a request on stable substrings
   (the node's output contract, the item's text, the reply fragments that matter), never on the
   whole text, a hash or a count;
-- `LOYLY_GRADER_RUBRIC` a fixture rubric whose digest the grader computes and names, or not, in the
-  run's approved grader digests;
+- `LOYLY_GRADER_RUBRIC`, `LOYLY_GRADER_HOST`, `LOYLY_GRADER_HOST_POLICY` and
+  `LOYLY_GRADER_MODEL` fixtures whose joint digest the grader computes and names, or not, in
+  the run's approved grader digests;
 - a `PORT` the grader chooses, and holds itself to see the seam respond before boot;
 - for the `http` seam, a cut whose identity probe reads a file of the cut relative to its own
   location, as Löyly's `harness/probe.sh` sources `$(dirname $0)/../harness/config.sh`;
@@ -676,10 +672,9 @@ Everything the runner acts on is a fixture a grader states, so no item waits for
   each (the files of `<gate-room>`, the candidate's digest), writes a file into `<evidence-dir>`,
   prints the `BOOT` and `ANSWERED` lines and a last line as the grader scripts it, and exits 0 or
   1, or sleeps past the gate timeout; so no item of the gate command needs a VM or a world;
-- `LOYLY_GRADER_IMAGE` a real Gondolin guest image and `gondolin` on `PATH`, for every run that
-  reaches grading: the one fixture that is not a stub, since `grading-vm` starts a VM and
-  `@item-06-066` observes what the researcher's shell sees in it (the system it runs, its working
-  folder, the folders of the host it can list).
+- `LOYLY_GRADER_IMAGE` a real Gondolin guest image and `gondolin` on `PATH` for the
+  `@item-06-066` isolation probe. Other host-fixture cases may use a stub that records its
+  arguments, result row and child program termination.
 
 The grader observes through `run-progress` and the five contexts' queries on the same candidate.
 There are two exceptions, each the grader's own. The one store (`LOYLY_GRAIN_STORE`): after the
@@ -700,7 +695,7 @@ product's.
 
 The spine comes first. A build makes one run go through the whole tree before it widens: start,
 stamp, pin, checklist, grader, self-check, fence, render, regenerate, a gate attempt, each item's
-grading (`clear-evidence`, `drive-seam`, `judge`), `file-verdicts`, `file-score` and `conclude`,
+grading (`clear-evidence`, `grade-item`), `file-verdicts`, `file-score` and `conclude`,
 with the stubs above. Only then does it carry the other items one at a time. The gate's
 identity probe drives such a run to a filed score (`@item-06-064`), so a candidate that halts
 before the score fails the gate, however many other items it carries.
@@ -726,15 +721,15 @@ refused method. A context's refusal is not the runner's: it is recorded as an ef
 
 The one store: Grain's `event-store-v3`, SQLite, at `LOYLY_GRAIN_STORE`, holding the runner's
 events, ORC's own, and the five contexts' events, appended by their commands; ORC shares its file
-and tenant. Each command of the runner is issued by a leaf of the run's tick of `cycle.v1`, or of a
+and tenant. Each command of the runner is issued by a leaf of the run's tick of `cycle.v2`, or of a
 child tick it delegated, and the gate's store check holds each event to its leaf
 (`event-model/area.edn`, `:leaf`):
 
 | Command | ORC workflow | Leaf |
 |---|---|---|
-| `start-run`; `record-effect` of the stamps, the pin, the checklist, the first self-check, the fence, the regenerate and the score | `cycle-runner/cycle.v1` | `start`; the effect's |
+| `start-run`; `record-effect` of the stamps, the pin, the checklist, the first self-check, the fence, the regenerate and the score | `cycle-runner/cycle.v2` | `start`; the effect's |
 | `record-effect` of an attempt's install, self-check, gates, gate refusals and repair | `cycle-runner/gate-attempt.v1`, a child tick of the run's tick | the effect's |
-| `conclude-run`, `halt-run` | `cycle-runner/cycle.v1` | `conclude`, `halt` |
+| `conclude-run`, `halt-run` | `cycle-runner/cycle.v2` | `conclude`, `halt` |
 
 The five contexts' commands a leaf issues are issued inside that leaf, in the same tick, on the
 same store. A flow's events may lie in a workflow its tree delegates to: a delegate runs as a
@@ -775,4 +770,4 @@ which runs between cycles and publishes versions this tree names; the room polic
 and bounds as ORC recorded them (`TheBlackboardIsTheRunsState`, `EveryWaitHasABound`, planned
 `leaf-contract`), of what the candidate's folder holds (`TheCandidateHoldsOnlyItsBuild`, planned
 `candidate-contents`) and of the grader's model (`AModelOtherThanTheBuildersOwn`, planned
-`model-independence`); resuming a run stopped while a researcher was in flight.
+`model-independence`); resuming an interrupted grader host with its item session identity.

@@ -1,0 +1,31 @@
+{
+  "description" : "The cut held impl but not harness/cycles and fenced both. Fence was refused fenced-path-matched-nothing, followed by a recorded fail-cycle; progress failed at fence for fence-refused, with no builder configured or launched.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-012"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "d66e0829b4e09488227ee9169fa2eec2",
+  "name" : "06-012",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "a24af28e-1a4e-397b-a3e9-130c6116fb4a-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "d66e0829b4e09488227ee9169fa2eec2",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-012",
+  "uuid" : "a24af28e-1a4e-397b-a3e9-130c6116fb4a"
+}

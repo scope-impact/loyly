@@ -46,7 +46,7 @@
 (defn- sha256 [s]
   (format "%064x" (BigInteger. 1 (.digest (java.security.MessageDigest/getInstance "SHA-256") (.getBytes s "UTF-8")))))
 
-;; The guest image slice 06's suite may use for the researcher's VM (spec round 20).
+;; The guest image slice 06's suite may use for the Pi grader VM.
 (def grader-image (str (or (System/getenv "PI_HARNESS_STATE_ROOT") (str root "/.pi/harness/.state")) "/assets/builder-clojure"))
 
 (def slice-words
@@ -116,13 +116,13 @@
                         "other, and report the one cut through `cycle-preparation/source-cuts`")}
    "06" {:allium (str "the contracts `OneStore`, `ProjectRepository`, `BuilderSession`, `GateOnTheHost` and "
                       "`TheJudge`, the value `RunBudget` and the config")
-         :product (str "it runs one regeneration cycle as one tick of the ORC tree `cycle-runner/cycle.v1`, its "
+         :product (str "it runs one regeneration cycle as one tick of the ORC tree `cycle-runner/cycle.v2`, its "
                        "leaves in the order `seam.md` lists them (\"The tree\"): it reads the project repository at the "
                        "cut with git, stamps each selected slice, pins the cut, derives the checklist, holds the run to "
                        "the sealed grader, runs the harness self-check, builds and probes the clean room, renders the "
                        "builder instruction, runs a builder session through the provided builder host and waits for it, "
                        "installs a copy of the candidate in a gate room and gates it, repairs within the budget, grades "
-                       "each checklist item with the sealed grader `cycle-runner/grade.v1`, and files the verdicts and "
+                       "each checklist item through a separate Pi grader host in `cycle-runner/grade.v2`, validates its singleton verdict row, and files the verdicts and "
                        "the score. Each leaf records its effect's result into the context that owns it, by that "
                        "context's own command on the one store. It concludes the run as its cycle concludes, halts "
                        "loudly when an effect cannot be performed or a refusal comes before the cycle, resumes every "
@@ -136,31 +136,31 @@
                         "There is no previous candidate of theirs to look for. There is no relay, hand-in method or "
                         "handoff contract: each event is appended once, by its producer's command, and every context "
                         "that folds it reads it from the one store. Your own tests need no stand-in for them: the "
-                        "fixture repository, the stub self-check, the stub builder host, the stub model and the fixture "
+                        "fixture repository, the stub self-check, the stub builder host, the stub render model, the stub grader host and the fixture "
                         "candidates belong to your suite, never to the product.")
          :inputs (str "It is also handed, and reads at every `cycle-runner/start-run`, never only at boot: "
                       "`LOYLY_RUNS_DIR`, `LOYLY_PROJECT_REPO`, `LOYLY_HARNESS_CONFIG`, `LOYLY_SELF_CHECK_CMD`, "
                       "`LOYLY_STORE_CHECK_CMD`, `LOYLY_BUILDER_HOST`, `LOYLY_GATE_CMD`, `LOYLY_BUILDER_IMAGES`, "
                       "`LOYLY_BUILDER_INSTRUCTION`, `LOYLY_MODEL_API_BASE`, `LOYLY_RENDER_MODEL`, `LOYLY_GRADER_MODEL`, "
-                      "`LOYLY_GRADER_RUBRIC`, `LOYLY_GRADER_IMAGE`, `LOYLY_SCORING_TOOL_PATHS` and the optional "
+                      "`LOYLY_GRADER_RUBRIC`, `LOYLY_GRADER_HOST`, `LOYLY_GRADER_HOST_POLICY`, `LOYLY_GRADER_IMAGE`, `LOYLY_SCORING_TOOL_PATHS` and the optional "
                       "`OTEL_EXPORTER_OTLP_ENDPOINT` (`seam.md`, \"Handed in\"). `cycle-runner/start-run` responds once "
                       "the run concluded or halted, and a `cycle-runner/run-progress` sent meanwhile is answered "
                       "without waiting for it.")
-         :machine (str "You run on the host, macOS with a BSD userland, not in a VM, and so do the gate and its scripts: "
-                       "use only portable shell and tools in them (no GNU-only options such as `stat -c`, `sed -i` "
-                       "without a suffix argument, `readlink -f`, `date -d` or `timeout`). `gondolin` is on `PATH`, and "
-                       "your suite may use the guest image at `" grader-image "`, read-only, as `LOYLY_GRADER_IMAGE` to "
-                       "test the researcher's VM.")
-         :identity (str "the product, handed a fixture project repository whose commit holds a one-slice plan with one "
-                        "stamped scenario, a stub self-check, a stub builder host and a grader rubric, must refuse "
+         :machine (str "Your Pi tools run in a Linux Gondolin VM. The independent gate runs the scripts on the macOS host, "
+                       "so write portable shell in the product and its suite (no GNU-only `stat -c`, `sed -i` without "
+                       "a suffix, `readlink -f`, `date -d` or `timeout`). The host gate has `gondolin` on `PATH` and "
+                       "the guest image at `" grader-image "` as `LOYLY_GRADER_IMAGE`; tests that launch a nested VM "
+                       "may need the host gate to exercise them. Do not assume nested VM access in your builder room.")
+         :identity (str "the product, handed a fixture project repository whose commit holds a one-slice plan with two "
+                        "stamped scenarios, 01-001 and 01-003 with retired 01-002 absent, a stub self-check, a stub builder host, a stub grader host and a grader rubric, must refuse "
                         "`cycle-runner/start-run` at a hex string that is no commit of the repository (`not-a-commit`), "
                         "refuse a start whose configuration names a builder image `LOYLY_BUILDER_IMAGES` does not hold "
                         "(`builder-image-missing`), and run a start whose approved grader digests do not name the "
-                        "rubric's through the stamp, the pin and the checklist, each recorded into its context, to a "
+                        "sealed host and rubric digest through the stamp, the pin and the checklist, each recorded into its context, to a "
                         "halt at the `grader` effect, `refused-before-the-cycle`, its detail naming that grader digest, "
                         "reported through `cycle-runner/run-progress`, the self-check and the builder never launched; "
-                        "then, with the rubric's digest approved, a stub builder host, a stub gate command "
-                        "(`LOYLY_GATE_CMD`) and a stub model in ORC's marker format, run one start through the whole tree "
+                        "then, with the host and rubric's digest approved, a stub builder host, a stub gate command "
+                        "(`LOYLY_GATE_CMD`), a stub render model in ORC's marker format and a stub grader host, run one start through the whole tree "
                         "to a passed run whose `run-progress` shows the self-check, fence, regenerate, file-verdicts and "
                         "file-score effects recorded and one score per checklist item, within ten minutes of that start")}})
 

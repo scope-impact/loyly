@@ -1,0 +1,31 @@
+{
+  "description" : "The gate command received the cut tree without impl, the candidate copy matching the install digest, and an empty evidence directory, from the project repository; the candidate launch marker was absent. Its BOOT 20 10, ANSWERED 3 and final probe line produced the corresponding gate-attempt-passed event.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-053"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "f6da03677817f2d777c1ef0d594aa1dc",
+  "name" : "06-053",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "cc9997c0-a89f-31dc-b205-f1e450df1d35-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "f6da03677817f2d777c1ef0d594aa1dc",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-053",
+  "uuid" : "cc9997c0-a89f-31dc-b205-f1e450df1d35"
+}

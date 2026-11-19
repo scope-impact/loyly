@@ -1,0 +1,34 @@
+{
+  "description" : "After stopping the runner and its sleeping builder five seconds into the first launch, I restarted on the same store and polled progress for 40 seconds. R-1 remained running at five effects and the session log contained only one launch, so it neither resumed the builder nor passed.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-070"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "statusDetails" : {
+    "message" : "After stopping the runner and its sleeping builder five seconds into the first launch, I restarted on the same store and polled progress for 40 seconds. R-1 remained running at five effects and the session log contained only one launch, so it neither resumed the builder nor passed."
+  },
+  "stage" : "finished",
+  "historyId" : "60cda6259b83c1b0310cf864640eeee3",
+  "name" : "06-070",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "b33a4639-bb0c-37fe-95e2-d5aec34c5070-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "60cda6259b83c1b0310cf864640eeee3",
+  "status" : "failed",
+  "fullName" : "loyly.slice-06.item-06-070",
+  "uuid" : "b33a4639-bb0c-37fe-95e2-d5aec34c5070"
+}

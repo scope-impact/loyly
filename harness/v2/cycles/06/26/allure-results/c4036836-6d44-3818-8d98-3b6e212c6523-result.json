@@ -1,0 +1,31 @@
+{
+  "description" : "The stdio probe recorded the absolute gate-room start.sh and 30 as its two arguments. Its GATE_STORE was in the evidence directory outside the gate room, no LOYLY_ variable reached it, and the store-check argument matched that file.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-040"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "e53680d11b590acc3c9c185080e7abb0",
+  "name" : "06-040",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "c4036836-6d44-3818-8d98-3b6e212c6523-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "e53680d11b590acc3c9c185080e7abb0",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-040",
+  "uuid" : "c4036836-6d44-3818-8d98-3b6e212c6523"
+}

@@ -1,0 +1,31 @@
+{
+  "description" : "With one attempt and a red suite, the gate recorded gate-attempt-failed for suite-red; the launch marker was absent and progress failed at gate for gate-attempts-exhausted.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-019"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "a46b460777db327516b11920e53fc560",
+  "name" : "06-019",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "d90bf8c1-bcb6-339c-82e2-2756c69d5d14-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "a46b460777db327516b11920e53fc560",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-019",
+  "uuid" : "d90bf8c1-bcb6-339c-82e2-2756c69d5d14"
+}

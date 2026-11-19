@@ -1,0 +1,31 @@
+{
+  "description" : "The cut linked plan/01-a to ../spec/a with two stamped scenarios. Stamp recorded both, checklist named 01-001 and 01-002 under plan/01-a, and the run did not halt; it later failed the fixture self-check.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-047"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "70ca27a9754bb0dadedb9f5e7d54116a",
+  "name" : "06-047",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "f5c68e9a-1139-38ad-9ce4-25ca8c9c2bce-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "70ca27a9754bb0dadedb9f5e7d54116a",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-047",
+  "uuid" : "f5c68e9a-1139-38ad-9ce4-25ca8c9c2bce"
+}

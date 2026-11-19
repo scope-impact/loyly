@@ -1,0 +1,31 @@
+{
+  "description" : "After the scored fixture run passed, two consecutive run-progress queries returned identical results and both reported passed.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-035"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "7ae9afc07ffc2fea86ac9a191daf41f2",
+  "name" : "06-035",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "063bde80-9ddd-3ca3-9794-b9b0bda29263-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "7ae9afc07ffc2fea86ac9a191daf41f2",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-035",
+  "uuid" : "063bde80-9ddd-3ca3-9794-b9b0bda29263"
+}

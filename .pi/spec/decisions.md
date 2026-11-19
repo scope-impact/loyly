@@ -2293,10 +2293,148 @@ instrument shadow matched the legacy harness at the clean tree, app bytes, gate 
 
 The filed profile is still `failed`: its sole problem is eight separately named fresh
 retries outside the checklist. The raw captures were audited individually for ordered
-boundaries, model and store evidence, no owned process after shutdown, and live QEMU samples
+boundaries, model and store evidence, no owned program after shutdown, and live QEMU samples
 where grading ran (`harness/v2/cycles/06/25/profile-retry-audit.md`). Every canonical case
 was clean and a live JVM diagnostic exists. The operator explicitly chose "Accept audited
 exception" for this finding. This acceptance preserves the failed report and raw evidence;
 it does not change the 61 verdicts or make a claim that the profile reporter itself passed.
 The complete cycle-25 artifact is the running build at `harness-impl/06-cycle-runner/`, with
 its provenance and source digest. The five other accepted contexts are retained.
+
+## Legacy parity reading after cycle 25 (2026-11-17)
+
+The operator clarified the boundary: apart from slice handling and the instrument's result
+projection, the product cycle keeps legacy harness behavior while ORC runs it. The result
+projection uses Allure test-result JSON and an Allure `tag` label for each stamped item;
+OTLP profiles and the legacy golden oracle remain separate evidence, while OCI names the
+container image format. This round
+records that reading in `architecture/README.md` and corrects the source attribution of
+`@item-06-068`: archived `score.clj` accepts a verdicts file and has no grader-approval check;
+the later `harness/regen.clj` wrapper selected approved sealed spec-v1 graders. Spec-v2
+bootstrap cycles use external black-box verdicts through `harness/v2/score.sh`; the accepted
+runner's `grade.v1` scores inside ORC. All retain the legacy checklist and honest score
+semantics. The product grader's calibration and full workflow sealing remain open under ADR
+0003. The cycle-25 same-cut shadow proves one fixture, not the stale `make verdicts` launcher.
+No stamped scenario, item selection, grader instruction or candidate changed in this reading;
+slice 06 remains 61 items and the full checklist remains 210.
+
+## Allure grading result format (2026-11-17)
+
+The operator specified Allure as the grader's result schema. The slice-06 bootstrap grader
+still files its authoritative `verdicts.json` and profile. It now also exports one Allure
+test result per stamped item, with `tag=item-06-NNN`, stable test identity, pass/fail status,
+evidence text and that case's profile summary as a JSON attachment. The instrument verifies
+the Allure files against the same checklist, verdicts and profile before filing them. A
+failed profile remains failed in its attachment and cannot turn a behavior verdict green or
+red. The accepted ORC runner is not edited here; Measurement's equivalent Allure projection
+is drafted for its next regeneration. The existing 61-item slice and 210-item accepted
+checklist are unchanged. The grader instruction changed for this format, so its new digest
+is SHA-256 `4d093a63c0ac7267b1e6d3ea83532f57997dda636776839f668e1f08ee6ccc1b` and
+requires exact approval before the next fenced cycle.
+
+## Spec round 27 (proposed, 2026-11-18)
+
+The operator requested one more cycle to compare the updated spec and candidate with the
+legacy harness. The accepted cycle-25 runner remains the running build. Its same-cut
+shadow matched legacy on one HTTP fixture; the new preflight is
+`harness/v2/preflight/06/26.md`.
+
+**Allure is a reporting projection after Measurement files a score.** New item 06-074
+requires one Allure test-result JSON file for every filed checklist item, including an
+unreached item, under the run's results directory. Its tag carries the stamped identity,
+and its status and reason agree with the filed Measurement receipt. Legacy checklist,
+verdict, zero-verdict refusal, denominator and scoreboard behavior remain authoritative.
+The runner must not use Allure as a grader or a second score. This intentional instrument
+extension does not rewrite any older stamp. Slice 06 has 62 items and the full spec has
+211. The external bootstrap grader's Allure projection is separate from the product
+runner's projection; both use the same result schema.
+
+Measurement's draft scenario also asks for a per-item diagnostic profile attachment.
+That part remains a draft because the accepted ORC runner has no per-item diagnostic
+profile and a slice-06-only cycle cannot ratify a new slice-02 item. Item 06-074 checks
+the product result files and preserves the filed score. It does not claim to carry the
+broader Measurement draft. The next cycle must grade the new item and all 61 protected
+slice-06 items, pass its independent gate, produce a clean grading profile, and match a
+same-cut legacy instrument shadow before replacing the accepted runner. The approved
+cycle-25 profile exception does not transfer.
+
+## Acceptance of cycle 26 runner (2026-11-18)
+
+The operator accepted the fresh cycle-26 candidate as the running slice-06 build after its
+independent gate, 62/62 black-box score and clean filed profile. All 61 items shared with
+cycle 25 stayed passing; new item 06-074 passed, including tagged Allure results for filed
+and unreached verdicts. The initial 06-070 VM watcher exceeded its own limit, and the
+initial 06-061 fixture allowed one gate attempt. Both initial captures and the corrected
+fresh retry events are retained in `harness/v2/cycles/06/26/profile-retry-audit.md`; the
+filed clean profile binds the reconciled raw events. Cycle 25's profile exception was not
+reused. The same-cut legacy shadow matched the clean tree, installed app, gate and ordered
+11 score rows; the Allure projection is the specified instrument extension. This shadow
+proves one fixture, not general equivalence. The complete candidate was copied unchanged
+into `harness-impl/06-cycle-runner/`, whose provenance records its source and gate evidence.
+The cycle-25 build remains recoverable in Git history. Product grader calibration and
+sealing, and the old public launcher, remain open.
+
+## Spec round 28 (approved selection, 2026-11-18): Pi grader host and bounded self-hosting
+
+The operator requested that the accepted ORC harness build its own successor, with Pi as the
+actual builder and grader agent host. The accepted cycle-26 `cycle.v1` remains fixed as parent;
+the candidate is `cycle.v2` delegating each item to `grade.v2`. This lifts the earlier
+self-hosting stop only for a bounded slice-06 regeneration. It does not promote a candidate or
+let a candidate grade itself. The parent owns its fence, builder continuation, gate and score;
+an independent Pi black-box bootstrap grader and same-candidate legacy instrument shadow are
+acceptance evidence. `harness/v2/preflight/06/27.md` compares the proposed behavior with the
+legacy loop and records the previous cycle-26 shadow's limit.
+
+1. `grade.v2` starts one Pi grader host session per item in a fresh Gondolin grading room.
+   The host writes the legacy singleton verdict row (`id`, `verdict`, nonempty observed
+   `evidence`), with model and trace metadata separately. ORC validates before emitting its
+   judge score. Missing or invalid rows remain unreached in Measurement's full denominator.
+2. The grader digest binds `grade.v2`, the row schema, rubric bytes, host executable and policy
+   manifest bytes, and model identity. ORC checks it against the approved run before any
+   clean room. The builder's model and grader's model must differ. Host and descendants stop
+   at the item deadline.
+3. The changed delegate makes the parent workflow `cycle.v2`. The accepted `cycle.v1` and
+   `grade.v1` stay recoverable in Git. The slice retains its 62 existing stamped IDs and adds
+   06-075 and 06-076 for deadline cleanup and model independence: 64 items total. The
+   external bootstrap grader instruction is revised to drive the host boundary. It must be
+   separately sealed and approved with the exact item selection before fencing.
+4. The provided Pi launcher and agent host overlay are supplied tooling. Another provider
+   may be selected only after proving equivalent VM
+   isolation, model independence, cancellation, result validation and a same-candidate
+   shadow. Allure remains a projection of filed Measurement results.
+
+The operator approved the exact 64-item selection and the parent, candidate and bootstrap
+grader digests recorded in `harness/v2/preflight/06/27.md` on 2026-11-18. Approval authorizes
+the bounded cycle-27 build and grade; it is not candidate acceptance.
+
+## Spec round 29 (proposed, 2026-11-18): Preserve a tagged cut in a fresh ledger
+
+Self-host attempt 27 halted at stamp before it fenced or launched Pi. The accepted runner
+stripped item tags and gave 64 active scenarios fresh consecutive identities; the slice-06
+cut retains retired gaps and ends at 06-076. Its same-cut shadow had used a contiguous
+single-item fixture, so it did not exercise this case. The legacy stamper leaves existing
+tags intact and the checklist reads the current tags. The operator chose one legacy-driven
+bootstrap to build a successor capable of preserving them; the accepted cycle-26 build
+stays untouched.
+
+1. Specification's `stamp-slice` accepts an optional complete `stamped` vector. It reads
+   the tagged source itself and refuses a false, duplicate or foreign-slice offer. It
+   imports each valid item identity absent from its ledger unchanged, without inventing
+   retired rows, and advances the next free identity beyond the highest known tag. The
+   existing authoring path still gives untagged scenarios new identities.
+2. Cycle runner reads each selected tagged file at the approved commit without stripping
+   item tags. It requires every scenario to be stamped exactly once, offers the file's
+   stamped vector to Specification, then derives the current checklist. A prior ledger
+   may hold retired items, but it does not add them to the current denominator. An
+   untagged, malformed, duplicate or foreign-slice identity halts before self-check and
+   fence. This supersedes the stripped-copy decision of round 7b.
+3. The new bootstrap cycle regenerates the whole slice-06 candidate from a fresh legacy
+   clean room, then independently gates and grades it. Before acceptance, the candidate
+   must replay a gapped cut on a fresh store, reject malformed cuts, preserve a prior
+   ledger, and match the legacy instrument on the same candidate and cut. The following
+   cycle may use the accepted successor as its controller. Exact selection and sealed
+   grader digests require fresh approval before fencing because the spec changed.
+
+The operator approved the cycle-28 exact 65-item selection and sealed grader digests in
+`harness/v2/preflight/06/28.md` on 2026-11-18. Approval permits the legacy bootstrap and
+independent evaluation; it is not acceptance of the generated successor.

@@ -1,0 +1,31 @@
+{
+  "description" : "Both fresh and repair builder launches received exactly three arguments, the third the configured builder-clojure image path. Both effect details named the image and the independently computed image digest.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-049"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "3d13f31a4d78d0bf6289675377c1fd8c",
+  "name" : "06-049",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "72d08652-82ed-3aa4-a8f5-ddeee4bcfc07-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "3d13f31a4d78d0bf6289675377c1fd8c",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-049",
+  "uuid" : "72d08652-82ed-3aa4-a8f5-ddeee4bcfc07"
+}

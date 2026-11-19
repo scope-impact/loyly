@@ -1,0 +1,31 @@
+{
+  "description" : "A separate HTTP server occupied the configured port. Three seam-answered-before-boot refusals were followed by three gate-refusal effects, the cycle failed at gate for infrastructure, and the candidate launch marker was absent.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-018"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "d9b946c4f8a1ee313aa3255e573b73ec",
+  "name" : "06-018",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "f6979e58-14c6-37e8-ae63-d188312c813c-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "d9b946c4f8a1ee313aa3255e573b73ec",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-018",
+  "uuid" : "f6979e58-14c6-37e8-ae63-d188312c813c"
+}

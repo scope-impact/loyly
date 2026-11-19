@@ -52,24 +52,69 @@ if `/Users/` or `/private/` survives anywhere in the page.
 
 ## Publishing
 
-`tools/spec/publish.sh` publishes every checked-in `tools/spec/replay/*.html` as
-`replay/<name>.html` on gh-pages.
-
-Published so far: [Löyly run-03](https://scope-impact.github.io/loyly/replay/loyly-run-03.html).
-The spec page's menu (<https://scope-impact.github.io/loyly/>) lists every published replay.
+`tools/spec/publish.sh` publishes the replay named in the Runs `:only` list of
+`tools/spec/views/project.edn` as `replay/<name>.html` on gh-pages. Historical
+replay HTML remains in this repository. The spec page's menu lists only the
+current published replay.
 
 ## Cycle 25 grading playback
 
-`build_grading.py` builds `cycle-25-grading.html` from the filed cycle-25 OTLP trace,
-score and profile under `harness/v2/cycles/06/25/`. It shows the independent grader's
-61 item timelines and selected diagnostics (3,023 recorded trace events). This is a
-grading playback, distinct from the run-03 cycle-runner replay above. The filed failed
-profile and its audited retry-name exception remain visible. The generator selects
-specific diagnostic fields and omits raw identifiers, paths and prompts.
+`extract_grading_storm.clj` reads the 61 canonical Grain stores retained under
+`.pi/harness/.state/grading/06-c25/work/06-*/events.sqlite` and writes a compact,
+checked-in timeline of 1,910 domain event types and relative times. It omits
+payloads, IDs, paths and prompts. Two passing grader cases emitted no domain event.
+
+`extract_grading_orc.clj` reads the same 61 stores and writes 883 selected,
+timestamped ORC grading transitions: digest check, VM check, item grader ticks,
+evidence clearing, seam research, judge, verdict filing and score filing. It
+decodes the Fressian event bodies locally to resolve node names, then retains
+only the relative time, step name and start/done/score transition in the public
+JSON. It carries no event payload, ID, path or prompt.
+
+`build_grading.clj` combines both timelines, the original six-context storm SVG,
+and the filed cycle-25 OTLP trace, score and profile under `harness/v2/cycles/06/25/`.
+The resulting `cycle-25-grading.html` uses one scrubber for the domain event board
+and the ORC black-box grading strip. It lights the actual spec event nodes as a
+selected case's Grain events are played, and the grading steps as their ORC
+transitions occur. Events outside the 25-node spec board remain in the event list.
+The board's arrows are spec relationships, never
+inferred causal links from the trace. The 3,023 OTLP diagnostics remain available
+as selected-case details. The filed failed profile and its audited retry-name
+exception stay visible. This is grading playback, distinct from run-03's product
+build replay.
+
+The page inlines the same event-model and replay stylesheets as run-03 and the
+current generated `story.svg`, so it is self-contained.
 
 ```bash
-python3 tools/spec/replay/build_grading.py
+bb --classpath tools/spec/replay/src tools/spec/replay/build_grading.clj
+# On the machine retaining the raw grader stores, to refresh the compact timeline:
+bb --classpath tools/spec/replay/src tools/spec/replay/extract_grading_storm.clj
+bb --classpath tools/spec/replay/src tools/spec/replay/extract_grading_orc.clj
 ```
 
-The Pages publisher includes the generated HTML at
-`replay/cycle-25-grading.html` and the event-model menu links to it.
+The cycle-25 page remains a historical source artifact in this repository.
+
+## Cycle 26 grading playback and Allure report
+
+Cycle 26 uses the same event-storm board and grading workflow strip. Its 62 final
+cases yielded 1,504 Grain domain events, 689 selected ORC grading transitions,
+and 2,769 OTLP diagnostic events. For 06-061 and 06-070, the extractors select
+the preserved fresh retry stores that back the filed clean profile; the initial
+captures remain in the cycle record. The separate Allure report presents the 62
+tagged item results and their attachments, without changing the filed score. Its
+publisher parses the approved-cut Gherkin with Cucumber's JVM parser and adds
+Allure Feature and Story labels, the scenario title, source link, and a parsed
+scenario attachment to a derived copy of the filed result files. Given/When/Then
+lines are source text, not individually graded execution steps.
+
+```bash
+bb --classpath tools/spec/replay/src tools/spec/replay/extract_grading_storm.clj 26
+bb --classpath tools/spec/replay/src tools/spec/replay/extract_grading_orc.clj 26
+bb --classpath tools/spec/replay/src tools/spec/replay/build_grading.clj 26
+bash tools/spec/allure/build.sh 26
+```
+
+`tools/spec/publish.sh ragavsathish` publishes the current playback at
+`replay/cycle-26-grading.html` and the generated Allure site at
+`allure/cycle-26/index.html`. The playback links directly to the report.

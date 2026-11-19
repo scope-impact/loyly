@@ -6,13 +6,15 @@
 {:specification
  {:commands
   {:specification/stamp-slice
-   {:description "Stamp every unstamped scenario of one slice's spec file with the slice's next item identity, in file order. Idempotent: a scenario already stamped produces nothing; no identity is renumbered or reused, and none is derived from wording. An empty-title heading is not an item: the stamper reports each one loudly, by line (decisions.md, R2 question 6). Issued by: operator (spec author), through the stamper."
+   {:description "Verify the file's offered stamped and unstamped scenarios in order. Import already tagged identities missing from the ledger unchanged, then stamp unstamped scenarios above the highest known number. A tagged scenario already in the ledger produces no event. No identity is renumbered or reused. An empty-title heading is reported, not counted. Issued by the operator for authoring or by the cycle runner for an approved cut."
     :grain/allium [{:spec ".pi/spec/specification/allium/slice.allium" :kind :rule :name "StampFirstScenarios"}
-                   {:spec ".pi/spec/specification/allium/slice.allium" :kind :rule :name "StampSlice"}]
+                   {:spec ".pi/spec/specification/allium/slice.allium" :kind :rule :name "StampSlice"}
+                   {:spec ".pi/spec/specification/allium/slice.allium" :kind :rule :name "ImportStampedScenarios"}]
     :schema [:map
              [:slice [:re "^[0-9]+$"]]
              [:source :string]
              [:unstamped [:vector [:map [:line pos-int?] [:title :string]]]]
+             [:stamped {:optional true} [:vector [:map [:line pos-int?] [:title :string] [:item-id :string]]]]
              [:empty-title-lines [:vector pos-int?]]]
     :reads #{:specification/stamped-items}
     :produces #{:specification/scenario-stamped :specification/empty-title-headings-reported}}}

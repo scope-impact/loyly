@@ -6,8 +6,9 @@ Feature: Cycle runner
   a grader drives it without a live pi"): a fixture project repository at commit
   "4f2a9c1e0b7d3a5f9c2e8b1d4a6f0c3e7b9d2a51" with a plan of one slice, 01, of two stamped
   scenarios, 01-001 and 01-002, a seam.md and an event model beside them, a passing
-  self-check, a stub builder, a stub model that renders the builder instruction, drives each
-  item and scores every item pass with a reason, a fresh store, a budget of 3 gate attempts,
+  self-check, a stub builder, a stub model that renders the builder instruction, and a stub
+  grader host that writes a valid pass row with observed evidence for each item; a fresh
+  store, a budget of 3 gate attempts,
   and approved grader digests that name the sealed grader's digest, "r-1", unless a scenario
   says otherwise.
 
@@ -74,16 +75,28 @@ Feature: Cycle runner
       And run R-1 is halted at the checklist effect for a refusal before the cycle
       And it has no self-check effect and no fence effect
 
-    # cycle-run.allium, rule HaltRun (the restamped identities are not the plan's; decisions.md, "Spec round 7b" 2)
+    # cycle-run.allium, rule HaltRun (the approved cut has an unstamped scenario; decisions.md, "Spec round 29")
     # Legacy: AGENTS.md "an unstamped scenario or an empty selection stops the cycle"
     @minimum @allium-rule-success.HaltRun
     @item-06-009
-    Scenario: A plan whose item identities a fresh stamp does not give back halts the run before the cycle
+    Scenario: A plan with an unstamped scenario halts before the cycle
       Given the plan at the commit also holds a scenario with no item identity
       When the operator starts run R-1 of cycle C-1 at source cut K-1
       Then the stamp effect of run R-1 was recorded, as specification answered
       And run R-1 is halted at the stamp effect for a refusal before the cycle
       And it has no pin effect and no checklist effect
+
+    # Specification ImportStampedScenarios; legacy stamp_item_ids.clj preserves existing tags
+    @balance
+    @item-06-077
+    Scenario: A fresh runner store preserves the approved cut's item IDs across retired gaps
+      Given the plan at the commit holds the stamped slice-06 scenarios 06-001, 06-003 and 06-076, with 06-002 retired
+      And the runner has a fresh Grain store and a stub builder and grader host that pass
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then the stamp effect imports exactly 06-001, 06-003 and 06-076 in file order
+      And the checklist and filed score contain those three IDs in that order, with no 06-002
+      And the next item identity in Specification's ledger is 06-077
+      And run R-1 passed with its cycle
 
   Rule: No clean room is built over a failed harness self-check
 
@@ -247,16 +260,16 @@ Feature: Cycle runner
       When the operator starts run R-1 of cycle C-1 at source cut K-1
       Then the stub builder was launched three times
       And run R-1 failed with its cycle at the gate for "gate-attempts-exhausted"
-      And the stub model was asked to drive no item, and run R-1 has no file-verdicts effect
+      And the grader host was asked to grade no item, and run R-1 has no file-verdicts effect
 
-  Rule: The judge grades each item of the gated candidate, its scores are filed as scored, and the run ends as its cycle ends
+  Rule: An independent Pi grader grades each gated item, and ORC files its scores
 
     # surface RunDesk, guarantee TheRunnerJudgesNoItem
     # Legacy: score.clj, "not scored: the grader never reached this item"
     @balance @allium-guarantee.TheRunnerJudgesNoItem
     @item-06-026
-    Scenario: An item the judge did not score is Measurement's to record as unreached
-      Given the stub model returns researcher code that reads (get-input :item) and fails for 01-002, while 01-001 reaches a judge score
+    Scenario: An item the grader did not score is Measurement's to record as unreached
+      Given the stub grader host writes a valid pass row for 01-001 and no valid row for 01-002
       When the operator starts run R-1 of cycle C-1 at source cut K-1
       Then the file-verdicts effect of run R-1 offered a verdict for 01-001 alone
       And the file-score effect's measurement/measurement-filed event shows 01-002 failed with the reason "unreached"
@@ -552,7 +565,7 @@ Feature: Cycle runner
       Then the self-check effects of run R-1 carry the SHA-256 of the configuration file, the self-check command and the identity probe, in that order, as the harness digest
       And the self-check effects of runs R-1, R-2 and R-3 carry three different harness digests
 
-  Rule: The run is one ORC tree, cycle.v1, and each effect the runner performs is a leaf of its own
+  Rule: The run is one ORC tree, cycle.v2, and each effect the runner performs is a leaf of its own
 
     # cycle-run.allium, surface EffectNodes, guarantee EachEffectInItsOwnLeaf; seam.md "The tree"
     # decisions.md "Spec round 14" D3: every context so far ran each flow as one ORC leaf around orchestration of its own, which the store check could not tell apart
@@ -562,7 +575,7 @@ Feature: Cycle runner
       Given the stub builder leaves a candidate whose suite is green and whose launch entrypoint serves the marker on the port
       When the operator starts run R-1 of cycle C-1 at source cut K-1
       Then run R-1 passed with its cycle
-      And in the one store, each effect result of run R-1 lies between the start and the completion of a leaf, of the run's tick of the ORC workflow "cycle-runner/cycle.v1" or of a child tick that tick delegated, whose name is its effect, or its effect followed by ":" and a qualifier
+      And in the one store, each effect result of run R-1 lies between the start and the completion of a leaf, of the run's tick of the ORC workflow "cycle-runner/cycle.v2" or of a child tick that tick delegated, whose name is its effect, or its effect followed by ":" and a qualifier
       And those are eleven leaves, one for each of stamp, pin, checklist, self-check, fence, regenerate, install, self-check, gate, file-verdicts and file-score
 
   Rule: The gate grades a copy of the candidate on the host, in legacy verify.sh's order
@@ -592,7 +605,7 @@ Feature: Cycle runner
       When the operator starts run R-1 of cycle C-1 at source cut K-1
       Then run R-1 passed with its cycle, its gate effect for attempt 2 recorded with the event "regeneration-cycle/gate-attempt-passed"
       And in the one store, the install, self-check and gate effect results of attempt 1 lie inside leaves of one tick of the ORC workflow "cycle-runner/gate-attempt.v1", and those of attempt 2 inside leaves of another
-      And each of those two ticks is a child tick of the run's tick of the ORC workflow "cycle-runner/cycle.v1"
+      And each of those two ticks is a child tick of the run's tick of the ORC workflow "cycle-runner/cycle.v2"
       And the repair effect result of attempt 2 lies inside a leaf of attempt 1's tick of "cycle-runner/gate-attempt.v1"
 
   Rule: The runner carries its own event model, as its room gave it
@@ -610,46 +623,45 @@ Feature: Cycle runner
   Rule: The judge grades each item of the gated candidate, its scores are filed as scored, and the run ends as its cycle ends
 
     # cycle-run.allium, rule ConcludeRunPassed; invariant PassedOnlyWithAScore; surface EffectNodes, guarantee EachItemGradedInItsOwnTick
-    # Legacy: step 5, a grading subagent's verdicts file, then score.clj and scoreboard.clj; decisions.md "Spec round 18" 4: the judge scores checklist items
+    # Legacy: step 5, a grading subagent's verdicts file, then score.clj and scoreboard.clj
     @minimum @allium-rule-success.ConcludeRunPassed @allium-invariant.PassedOnlyWithAScore @allium-guarantee.EachItemGradedInItsOwnTick
     @item-06-064
-    Scenario: The judge scores each item in a child tick of its own, the scores are filed as scored, and the run passes as its cycle passes
-      Given the stub model, as the judge, replies with integer level 2 and the reason "booked" for 01-001, and integer level 1 and the reason "no receipt" for 01-002
+    Scenario: ORC records each Pi grader verdict in a child tick of its own and files the score
+      Given the stub grader host writes one verdict row per item: 01-001 pass with observed evidence "booked", and 01-002 fail with observed evidence "no receipt"
       When the operator starts run R-1 of cycle C-1 at source cut K-1
       Then the file-verdicts and file-score effects of run R-1 were recorded
       And the file-score effect's measurement/measurement-filed event shows 1 of 2 passing, 01-001 pass with the evidence "booked" and 01-002 fail with the evidence "no receipt"
-      And in the one store, 01-001 has judge score 1.0 and 01-002 has judge score 0.0, each in a child tick of its own of the ORC workflow "cycle-runner/grade.v1", its judge name carrying the item's identity, and each such tick is a child tick of the run's tick
+      And in the one store, 01-001 has judge score 1.0 and 01-002 has judge score 0.0, each in a child tick of its own of the ORC workflow "cycle-runner/grade.v2", its judge name carrying the item's identity, and each such tick is a child tick of the run's tick
       And run R-1 passed with its cycle
 
     # context.allium, contract TheJudge, invariant EachItemStartsClear
-    # prototype proto/orc-harness R4: map-each leaked the previous item's evidence into the next item's researcher
+    # prototype proto/orc-harness R4: map-each leaked the previous item's evidence into the next item
     @minimum @allium-boundary.EachItemStartsClear
     @item-06-065
-    Scenario: Each item's grading starts with no other item's evidence
-      Given the stub model records every request it is sent, and as the researcher of 01-001 records the evidence "E-ONE"
+    Scenario: Each Pi grader session starts with no other item's evidence
+      Given the stub grader host records each instruction and room, and for 01-001 writes the evidence "E-ONE"
       When the operator starts run R-1 of cycle C-1 at source cut K-1
-      Then no request sent for the researcher or the judge of 01-002 holds "E-ONE"
-      And the request sent for the judge of 01-001 holds "E-ONE"
+      Then the instruction and room handed to 01-002 contain no "E-ONE"
+      And the score of 01-001 has "E-ONE" as its feedback
 
     # context.allium, contract TheJudge, invariant TheResearcherDrivesTheSeamOnly
-    # prototype proto/orc-harness R4: the researcher guessed "cut" for "cut-id" until the event model was in its input
-    # decisions.md "Spec round 20" 1: the shell's VM is observed, not named (cycle 13's shell ran on the host)
+    # The host's shell is observed in a VM, not merely named one (cycle 13)
     @minimum @allium-boundary.TheResearcherDrivesTheSeamOnly
     @item-06-066
-    Scenario: The researcher is given the item, the seam and the event model, and a shell in the grading room only
-      Given the stub model records every request it is sent, and as the researcher of 01-001 asks its shell for the system it runs, its working folder, that folder's files and the folders above it
+    Scenario: The Pi grader receives the item and public seam in a room that is its VM's only host mount
+      Given the Pi grader for 01-001 asks its shell for the system it runs, its working folder, that folder's files and the folders above it
       When the operator starts run R-1 of cycle C-1 at source cut K-1
-      Then the first request sent for the researcher of 01-001 holds the scenario of 01-001, and the text of slice 01's seam.md and of its event model at the cut
-      And the shell's replies came from a Linux VM in which the item's grading room is the only folder of the host: it held the clean room's files and the gated candidate's copy at its scope, and no builder room, no gate evidence, no store and no other item's grading room
+      Then its instruction holds the scenario of 01-001, and the text of slice 01's seam.md and of its event model at the cut
+      And its shell's replies came from a Linux VM in which the item's grading room is the only folder of the host: it held the gated candidate's copy at its scope, and no builder room, no gate evidence, no store and no other item's grading room
 
     # context.allium, contract TheJudge, invariant ReasonBeforeScore
     # decisions.md "Spec round 18" 4 and 12: the reason before the score
-    # prototype proto/orc-harness round 3: ORC's banded-output check reads the level only, so a level with no reasoning scored 1.0
+    # A command exit and an unsupported verdict are never a score
     @minimum @allium-boundary.ReasonBeforeScore
     @item-06-067
-    Scenario: A judge reply with the level of a pass and no reasoning scores nothing, and the item is filed unreached
-      Given the stub model, as the judge, scores 01-001 pass with the reason "booked"
-      And as the judge of 01-002 replies with integer level 2 and its feedback, and no reasoning
+    Scenario: A grader host that exits zero without a valid evidence row scores nothing for the item
+      Given the stub grader host writes a valid pass row for 01-001 with evidence "booked"
+      And for 01-002 the host exits zero but writes a pass row with empty evidence
       When the operator starts run R-1 of cycle C-1 at source cut K-1
       Then the file-verdicts effect of run R-1 offered a verdict for 01-001 alone
       And the progress of run R-1 shows a score for 01-001 alone, and the one store holds no judge score of 01-002
@@ -658,7 +670,7 @@ Feature: Cycle runner
   Rule: A run grades only with the approved sealed grader
 
     # context.allium, contract TheJudge, invariant OnlyAnApprovedGrader; cycle-run.allium, rule HaltRun
-    # Legacy: score.clj files verdicts only under an approved grader digest; AGENTS.md "used only after an operator approves that exact digest"
+    # Legacy: regen.clj selects approved sealed spec-v1 graders before score.clj files their verdicts; score.clj itself does not approve a digest. AGENTS.md requires operator approval of the product grader.
     @minimum @allium-boundary.OnlyAnApprovedGrader @allium-rule-success.HaltRun
     @item-06-068
     Scenario: A sealed grader whose digest the run did not approve halts the run before the cycle
@@ -668,14 +680,14 @@ Feature: Cycle runner
       Then run R-1 is halted at the grader for a refusal before the cycle, its detail naming "r-2"
       And it has no self-check effect and no fence effect, and no builder was launched
 
-  Rule: The judge grades each item of the gated candidate, its scores are filed as scored, and the run ends as its cycle ends
+  Rule: The grader host's valid rows are filed, and an empty score fails the cycle
 
     # context.allium, contract OneStore, invariant RefusalsAreTheContexts; rule ConcludeRunPassed (requires 2), rule ConcludeRunFailed (requires 2); invariant NoBuilderAfterTheScoring
     # Legacy: score.clj, zero verdicts are no score; AGENTS.md "a failed score is measured, not retried within the cycle"
     @minimum @allium-boundary.RefusalsAreTheContexts @allium-rule-failure.ConcludeRunPassed.2 @allium-rule-failure.ConcludeRunFailed.2 @allium-invariant.NoBuilderAfterTheScoring
     @item-06-069
     Scenario: No item scored fails the score stage, and the run fails with its cycle
-      Given the stub model fails every request of every item's researcher
+      Given the stub grader host writes no valid row for any checklist item
       When the operator starts run R-1 of cycle C-1 at source cut K-1
       Then the file-verdicts effect of run R-1 was refused "zero-verdicts", as measurement answered, and its fail-score-stage effect was recorded
       And run R-1 failed with its cycle at the score for "score-stage-failed", and no builder was launched after the file-verdicts effect
@@ -725,5 +737,40 @@ Feature: Cycle runner
     Scenario: Reading a running run shows its tick and the leaves it completed
       Given run R-1 of cycle C-1 is running, its stub builder sleeping
       When the operator reads the run progress of run R-1
-      Then it shows run R-1 running, with the identity of its tick of "cycle-runner/cycle.v1"
+      Then it shows run R-1 running, with the identity of its tick of "cycle-runner/cycle.v2"
       And the nodes it completed so far, in order, end with the fence and the render, and the regenerate leaf is running
+
+  Rule: A filed score has an Allure result for every checklist item
+
+    # Instrument reporting projection: legacy score.clj's checklist, verdict and unreached
+    # semantics remain authoritative. Allure is an additional result format, not a grader.
+    @balance
+    @item-06-074
+    Scenario: The run projects filed verdicts and unreached items into tagged Allure results
+      Given the checklist of cycle C-1 holds 01-001 and 01-002
+      And the stub grader host writes a valid pass row for 01-001 with evidence "booked" and leaves 01-002 unscored
+      When the operator starts run R-1 of cycle C-1 at source cut K-1
+      Then Measurement files a score of 1 of 2, with 01-002 failed as unreached
+      And the run's allure-results directory holds exactly one Allure test result JSON file for each checklist item
+      And each result has a tag label with its stamped item identity, a stable test identity and a status matching the filed verdict
+      And the failed result carries the filed unreached reason, while neither result changes the score or denominator
+
+  Rule: ORC bounds and validates every external grading session
+
+    # context.allium, contract TheJudge, invariant AGraderDeadlineStopsItsChildren
+    @minimum @allium-boundary.AGraderDeadlineStopsItsChildren
+    @item-06-075
+    Scenario: A grader host that outlives its item deadline is stopped with its child
+      Given the stub grader host for 01-001 starts a child program and does not return by its item deadline
+      When ORC ends that grading attempt
+      Then the host and its child are stopped, and the one store holds no judge score for 01-001
+      And Measurement files 01-001 as unreached without starting another builder
+
+    # context.allium, contract TheJudge, invariant AModelOtherThanTheBuildersOwn
+    @minimum @allium-boundary.AModelOtherThanTheBuildersOwn
+    @item-06-076
+    Scenario: An agent verdict from the builder's model is not scored
+      Given the builder launch recorded model A and the grader host for 01-001 reports model A
+      When ORC checks the grader host's verdict row
+      Then ORC records no judge score for 01-001 and Measurement files it as unreached
+      And a host reporting a different model B may score a valid row for 01-002

@@ -1,0 +1,31 @@
+{
+  "description" : "The candidate suite created and removed a directory inside its scope, after which the gate passed; regenerate and install events had the same digest.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-037"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "6f57cfa831384b7009356969573512e4",
+  "name" : "06-037",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "233a731e-446b-321d-8fc7-8d738206b5d2-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "6f57cfa831384b7009356969573512e4",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-037",
+  "uuid" : "233a731e-446b-321d-8fc7-8d738206b5d2"
+}

@@ -1,0 +1,31 @@
+{
+  "description" : "The gate command exited 1 with seam-answered-before-boot. Three gate refusals were each followed by a recorded gate-refusal effect, and the run failed at gate for infrastructure.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-055"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "93c13fdcc1b437e3d7fc04f1674b66bd",
+  "name" : "06-055",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "80a46937-2d31-3b66-a970-c2d84c6be87c-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "93c13fdcc1b437e3d7fc04f1674b66bd",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-055",
+  "uuid" : "80a46937-2d31-3b66-a970-c2d84c6be87c"
+}

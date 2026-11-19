@@ -1,0 +1,31 @@
+{
+  "description" : "The builder copied a candidate and exited 1; regenerate recorded its candidate digest and the run passed with its cycle.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-015"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "e021dfbb9e008f3a0f735c9728ffac91",
+  "name" : "06-015",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "9c5b058e-7969-3890-b04d-85b544cbcf81-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "e021dfbb9e008f3a0f735c9728ffac91",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-015",
+  "uuid" : "9c5b058e-7969-3890-b04d-85b544cbcf81"
+}

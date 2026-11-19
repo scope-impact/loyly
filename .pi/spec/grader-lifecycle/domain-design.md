@@ -52,7 +52,7 @@ preparation) and the legacy README ("The goldens, and the three reasons one can 
 ## Drafts (R3, 2026-11-06)
 
 `drafts.feature`: 11 draft scenarios for the 14 must-cover obligations of this context
-(`tools/spec/v2/coverage.py`: each rule's success, each `requires` that is behaviour, each
+(`tools/spec/coverage.sh --v2`: each rule's success, each `requires` that is behaviour, each
 invariant, each contract invariant, each guarantee), every one tagged; 0 uncovered. Each
 draft names its rule, file and the Gherkin `Rule:` it goes under, cites the legacy
 `@harness-NNN` it preserves, and suggests a tier. Unit-level, not drafted (1): `WriteInstrumentGolden.1` (an idempotent creation), which invariant `OneGoldenPerIdentity` checks through its draft.

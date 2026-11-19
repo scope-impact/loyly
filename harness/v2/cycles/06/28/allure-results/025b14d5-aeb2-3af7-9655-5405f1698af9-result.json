@@ -1,0 +1,31 @@
+{
+  "description" : "After R-1 failed at fence, starting R-1 for C-2 returned run-already-started; the progress list contained exactly R-1 for C-1.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-002"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "dc92f4c5ba748c11c64968785fbb95eb",
+  "name" : "06-002",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "025b14d5-aeb2-3af7-9655-5405f1698af9-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "dc92f4c5ba748c11c64968785fbb95eb",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-002",
+  "uuid" : "025b14d5-aeb2-3af7-9655-5405f1698af9"
+}

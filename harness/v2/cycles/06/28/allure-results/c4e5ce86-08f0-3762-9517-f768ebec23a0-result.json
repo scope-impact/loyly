@@ -1,0 +1,31 @@
+{
+  "description" : "A committed plan/01-a symlink to ../spec/a produced a recorded stamp and a checklist containing 01-001 and 01-002 with source plan/01-a/spec.feature; the run concluded rather than halting.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-047"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "70ca27a9754bb0dadedb9f5e7d54116a",
+  "name" : "06-047",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "c4e5ce86-08f0-3762-9517-f768ebec23a0-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "70ca27a9754bb0dadedb9f5e7d54116a",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-047",
+  "uuid" : "c4e5ce86-08f0-3762-9517-f768ebec23a0"
+}

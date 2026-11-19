@@ -6,17 +6,17 @@
 #   2. Grain: every context's event-model fragments merged into one model, structural and
 #      composition (every command links an Allium rule, every screen a surface, and every
 #      link resolves): 0 errors, 0 warnings
-#   2b. structural (structural.py): each named check that verifies a guarantee or contract
+#   2b. structural (structural.sh): each named check that verifies a guarantee or contract
 #      invariant saying "Verified by: gate <name>" holds
 #   3. allium plan: the must-cover obligations per context (rule success, each requires,
 #      each invariant), reported
-#   4. coverage (coverage.py): every must-cover obligation (rule success, each requires less
+#   4. coverage (coverage.sh): every must-cover obligation (rule success, each requires less
 #      the unit-level ones, invariants, contract invariants, guarantees not verified by a
 #      gate) tagged on a scenario or a draft of its context; 0 uncovered, no unknown tags,
 #      every `guarded by:` naming a must-cover requires, every "Verified by: gate" a known
 #      gate or a planned one
-#   5. gwt (gwt-lint.py): every scenario and draft has a Given, a When and a Then
-#   6. glossary (glossary-lint.py): no avoided term of .pi/model/GLOSSARY.md in .pi/spec
+#   5. gwt (gwt-lint.sh): every scenario and draft has a Given, a When and a Then
+#   6. glossary (glossary-lint.sh): no avoided term of .pi/model/GLOSSARY.md in .pi/spec
 #      (the R0 board and the legacy trace reported, not counted)
 set -uo pipefail
 T="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(git -C "$T" rev-parse --show-toplevel)"
@@ -33,13 +33,13 @@ done
 g="$(cd "$T" && clojure -M -i grain-validate.clj 2>&1)"; gs=$?
 grep -E '^(structural|composition)' <<<"$g"
 [[ $gs = 0 ]] || { bad=1; grep -E '^\{' <<<"$g"; }
-st="$(python3 "$T/structural.py" 2>&1)" || bad=1
+st="$(bash "$ROOT/tools/spec/structural.sh" 2>&1)" || bad=1
 echo "$st"
 for c in "${ctxs[@]}"; do "$T/allium-plan.sh" "$c" | grep '^plan' || bad=1; done
-cov="$(python3 "$T/coverage.py" "${ctxs[@]}" 2>&1)" || bad=1
+cov="$(bash "$ROOT/tools/spec/coverage.sh" --v2 "${ctxs[@]}" 2>&1)" || bad=1
 sed 's/^/coverage /' <<<"$cov"
-gw="$(python3 "$T/gwt-lint.py" 2>&1)" || bad=1
+gw="$(bash "$ROOT/tools/spec/gwt-lint.sh" "$SPEC" 2>&1)" || bad=1
 grep INCOMPLETE <<<"$gw"; tail -1 <<<"$gw"
-gl="$(python3 "$T/glossary-lint.py" --quiet 2>&1)" || bad=1
+gl="$(bash "$ROOT/tools/spec/glossary-lint.sh" --v2 --quiet 2>&1)" || bad=1
 grep '^AVOIDED' <<<"$gl" | sed 's/^/    /'; tail -1 <<<"$gl"
 [[ $bad = 0 ]] && echo "ALL GATES PASS" || { echo "GATES FAIL"; exit 1; }

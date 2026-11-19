@@ -1,5 +1,17 @@
 # Slice 06 grading profile
 
+## Allure result projection
+
+The grader writes one [Allure test result file](https://allurereport.org/docs/how-it-works-test-result-file/)
+per stamped checklist item under `work/allure-results/`. The Allure `tag` label is the
+stamped item ID without `@` (`item-06-001`), and the suite is `cycle-runner`.
+The item verdict maps to Allure `passed` or `failed`; the evidence is its description
+and, for a failed item, its status message. A case profile summary is a JSON attachment,
+not an extra test. `testCaseId` and `fullName` are stable for the item across cycles.
+The Allure output is verified against the authoritative checklist, verdicts and profile
+before scoring. OTLP traces and metrics remain separate diagnostic artifacts. This is a
+reporting projection: it does not move a golden or change an item verdict.
+
 Cycle 16 passed its gate and all 61 checklist items, but its grader observed Gondolin QEMU
 children still alive after grading. A host probe reproduced the cause: stopping the Gondolin CLI
 reparented its QEMU child to PID 1; stopping the child cleared it. The candidate is not accepted.

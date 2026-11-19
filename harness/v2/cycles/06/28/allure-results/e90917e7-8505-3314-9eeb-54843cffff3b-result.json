@@ -1,0 +1,34 @@
+{
+  "description" : "The builder logged one session and supplied a red first candidate, with a green second candidate prepared; the run failed after attempt 1 and never launched the required repair session.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-014"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "statusDetails" : {
+    "message" : "The builder logged one session and supplied a red first candidate, with a green second candidate prepared; the run failed after attempt 1 and never launched the required repair session."
+  },
+  "stage" : "finished",
+  "historyId" : "4dc05b88cc67d2417f67e61fa405a201",
+  "name" : "06-014",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "e90917e7-8505-3314-9eeb-54843cffff3b-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "4dc05b88cc67d2417f67e61fa405a201",
+  "status" : "failed",
+  "fullName" : "loyly.slice-06.item-06-014",
+  "uuid" : "e90917e7-8505-3314-9eeb-54843cffff3b"
+}

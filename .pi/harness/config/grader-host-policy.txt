@@ -1,0 +1,8 @@
+.pi/harness/bin/grader-process.sh	bae29298689b69a5fa0a036c1d022f4d492db24bbf8b900ced0f47015f5fd9b9
+.pi/harness/bin/agent-process.sh	086e4ac5c01a546944b4c91d72b05c9ada0be243c96697ea717eeac48a0c0e84
+.pi/harness/bin/grader.sh	e03fb5e0377495b6f7cc463fd4fc04305a387a6c1b77a39e236c5a8422d945bc
+.pi/harness/builder-host/host.ts	339a07fddc9b594e45775b1d77f44bc148085a191b6874c6f7703e8acb6594cf
+.pi/harness/builder-host/policy.ts	984ac7b0697effd5c1b229cde7f12fa42faea48a071551272c18de73af30e2e5
+.pi/harness/config/pi.grader.settings.json	9d2c89c126f1e8faad1134f65131680c1ba33d6728236c310c1b0605492108b0
+.pi/harness/builder-host/package-lock.json	bc17c4ed8648fcf8a61ee5243c29e2e53a6df7dbdda0d4882138a05e84e043b4
+.pi/harness/.state/assets/builder-clojure/manifest.json	5eaa21b5f1e346086ba2e628d365a20222c1a72246ebaf7af82b75092c7b76b1

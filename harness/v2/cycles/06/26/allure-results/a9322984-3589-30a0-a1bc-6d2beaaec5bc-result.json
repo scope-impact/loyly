@@ -1,0 +1,31 @@
+{
+  "description" : "The gate command exited 2 with infrastructure the world did not come up. Progress halted at gate for effect-could-not-run with that detail, and showed no gate or fail-cycle result and no cycle.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-056"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "8ffc69e234be59764aeb951264676fb2",
+  "name" : "06-056",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "a9322984-3589-30a0-a1bc-6d2beaaec5bc-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "8ffc69e234be59764aeb951264676fb2",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-056",
+  "uuid" : "a9322984-3589-30a0-a1bc-6d2beaaec5bc"
+}

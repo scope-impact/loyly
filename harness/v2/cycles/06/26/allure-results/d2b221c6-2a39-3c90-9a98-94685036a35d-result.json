@@ -1,0 +1,31 @@
+{
+  "description" : "The model stub rejected every researcher request; file-verdicts was refused zero-verdicts and fail-score-stage was recorded. The run failed at score for score-stage-failed, with no later builder effect.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-069"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "491ebe42cfeb203dd3fa479881589af0",
+  "name" : "06-069",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "d2b221c6-2a39-3c90-9a98-94685036a35d-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "491ebe42cfeb203dd3fa479881589af0",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-069",
+  "uuid" : "d2b221c6-2a39-3c90-9a98-94685036a35d"
+}

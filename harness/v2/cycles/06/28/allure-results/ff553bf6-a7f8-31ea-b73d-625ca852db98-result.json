@@ -1,0 +1,34 @@
+{
+  "description" : "A fresh cut imported 06-001, 06-003 and 06-076 in order and showed next-number 77, and an untagged cut halted at stamp. A later cut with duplicate 06-001 identities nevertheless ran through self-check, fence and scoring instead of halting; the direct command to seed a retired identity also returned -32601.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-077"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "statusDetails" : {
+    "message" : "A fresh cut imported 06-001, 06-003 and 06-076 in order and showed next-number 77, and an untagged cut halted at stamp. A later cut with duplicate 06-001 identities nevertheless ran through self-check, fence and scoring instead of halting; the direct command to seed a retired identity also returned -32601."
+  },
+  "stage" : "finished",
+  "historyId" : "8ded06571608559fc91dcc661a830fbb",
+  "name" : "06-077",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "ff553bf6-a7f8-31ea-b73d-625ca852db98-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "8ded06571608559fc91dcc661a830fbb",
+  "status" : "failed",
+  "fullName" : "loyly.slice-06.item-06-077",
+  "uuid" : "ff553bf6-a7f8-31ea-b73d-625ca852db98"
+}

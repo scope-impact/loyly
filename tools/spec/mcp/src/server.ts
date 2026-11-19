@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // spec-review: an MCP App for reviewing the Pi harness spec (.pi/model) with an agent.
-// Data comes from the spec tools themselves: tools/spec/coverage.py --report (the gate's
+// Data comes from the spec tools themselves: tools/spec/coverage.sh --report (the gate's
 // classification) and tools/spec/views/extract.clj (the page's extraction, via bb/spec-data.clj).
 // Review threads live in .pi/model/review.edn (read and written as EDN by bb/review-store.clj).
 // The UI is the event-model page rendered by the page's own renderer in app mode (RENDER_APP).
@@ -39,7 +39,7 @@ const STUB_PAGE = path.resolve(MCP, "../views/dist/event-model.html");
 // Origins the page loads from: Mermaid (jsDelivr) and its fonts (Google Fonts).
 const CSP = { resourceDomains: ["https://cdn.jsdelivr.net", "https://fonts.googleapis.com", "https://fonts.gstatic.com"] };
 
-// ---------- types (the JSON of coverage.py --report and extract.clj) ----------
+// ---------- types (the JSON of coverage.sh --report and extract.clj) ----------
 type Scen = { slice: string; kind: "spec" | "drafts"; rule: string | null; title: string; item: string | null;
               tier: string; tags: string[]; steps: string[]; file: string; line: number; module: string | null };
 type Rule = { name: string; src: string; when: string | null; requires: string[]; emits: string[] };
@@ -58,7 +58,7 @@ function run(cmd: string, args: string[], input?: string) {
   return r;
 }
 function coverageLine(): string {
-  const r = run("python3", [path.join(ROOT, "tools/spec/coverage.py")]);
+  const r = run("bash", [path.join(ROOT, "tools/spec/coverage.sh")]);
   return (r.stdout.split("\n")[0] || "").trim();
 }
 function fingerprint(): string {
@@ -73,8 +73,8 @@ function loadSpec(): Spec {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "spec-review-"));
   try {
     const cov = path.join(tmp, "coverage.json"), model = path.join(tmp, "model.edn");
-    const c = run("python3", [path.join(ROOT, "tools/spec/coverage.py"), "--report", cov]);
-    if ((c.status ?? 2) > 1) throw new Error(`coverage.py failed (${c.status}): ${c.stderr}`);
+    const c = run("bash", [path.join(ROOT, "tools/spec/coverage.sh"), "--report", cov]);
+    if ((c.status ?? 2) > 1) throw new Error(`coverage.sh failed (${c.status}): ${c.stderr}`);
     fs.writeFileSync(model, "{:model {} :files {}}");
     const out = execFileSync("bb", [path.join(MCP, "bb/spec-data.clj"), ROOT, model, cov], { cwd: ROOT, encoding: "utf8", maxBuffer: 64 << 20 });
     const spec = JSON.parse(out) as Spec;
@@ -398,7 +398,7 @@ export function createServer({ allowEdits = true } = {}): McpServer {
 
   if (allowEdits) server.registerTool("spec_accept_draft", {
     title: "Accept draft (edits spec.feature)",
-    description: "PRODUCT OWNER ONLY. Edits the spec: moves a @draft scenario from drafts.feature into spec.feature at the end of its '# Goes under: Rule:', drops @draft, keeps its @allium tags, adds its tier (the suggested one unless given), runs the stamper (harness/stamp_item_ids.clj) and coverage.py, and reports what changed.",
+    description: "PRODUCT OWNER ONLY. Edits the spec: moves a @draft scenario from drafts.feature into spec.feature at the end of its '# Goes under: Rule:', drops @draft, keeps its @allium tags, adds its tier (the suggested one unless given), runs the stamper (harness/stamp_item_ids.clj) and coverage.sh, and reports what changed.",
     inputSchema: { slice: z.string().describe("e.g. 01-regeneration-cycle"), title: z.string().describe("the draft's Scenario title"),
                    tier: z.enum(["minimum", "balance", "deferred"]).optional() },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },

@@ -1,0 +1,31 @@
+{
+  "description" : "A failing stdio identity probe printed the 30-second no-response line; the gate recorded identity-probe-failed with that detail, and the store-check marker was absent.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-042"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "7a920f78ad2b68bbc7d5ac903fe9cb7b",
+  "name" : "06-042",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "b735a6e3-1012-3639-84e1-a8ba20abaeeb-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "7a920f78ad2b68bbc7d5ac903fe9cb7b",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-042",
+  "uuid" : "b735a6e3-1012-3639-84e1-a8ba20abaeeb"
+}

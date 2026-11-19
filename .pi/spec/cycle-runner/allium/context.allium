@@ -2,14 +2,14 @@
 -- .pi/spec/cycle-runner/allium/context.allium
 --
 -- Scope: the shared language of the Cycle runner (slice 06; drafted in spec round 7a,
---        accepted in spec round 7b, rewritten as the one tree cycle-runner/cycle.v1 in spec
+--        accepted in spec round 7b, rewritten as the one tree cycle-runner/cycle.v2 in spec
 --        round 18, decisions.md "Spec round 18"): the ORC workflow that performs a
 --        cycle's effects in the real world and records each effect's result into the
 --        context that owns it, by that context's command on the one store. It owns no rule
 --        of the five contexts: every refusal it shows is a context's, as heard, and a run
 --        ends as its cycle ends.
 --
--- One run, one tick of cycle.v1, in the legacy shape (archive/legacy-harness/README.md):
+-- One run, one tick of cycle.v2, in the legacy shape (archive/legacy-harness/README.md):
 --     stamp, pin, checklist, the sealed grader -> self-check -> fence -> the builder
 --     instruction -> regenerate -> install, self-check, gate (repair, at most three
 --     attempts) -> grade each item -> file the verdicts, file the score -> the cycle
@@ -235,9 +235,9 @@ contract GateOnTheHost {
         -- none handed in, the digest is as before.
 }
 
--- The judge: for each checklist item a researcher drives the gated candidate over its public
--- seam, and the judge scores the item pass or fail on what the researcher recorded. The sealed grader is a published, versioned judge workflow, cycle-runner/grade.v1,
--- with its rubric; its digest is approved by the operator.
+-- The grader: for each checklist item a fresh Pi session drives the gated candidate over its
+-- public seam and writes one legacy verdict row. ORC validates that row and records its judge
+-- score in cycle-runner/grade.v2. The grader's digest is approved before a room is built.
 contract TheJudge {
     @invariant OnlyAnApprovedGrader
         -- A run grades only with the sealed grader whose digest is one of the run's approved
@@ -245,31 +245,25 @@ contract TheJudge {
         -- clean room or builder (AGENTS.md, The instrument).
 
     @invariant EachItemStartsClear
-        -- Each item's grading starts with its evidence cleared: no item's researcher sees
-        -- the evidence another item's researcher recorded.
+        -- Each item gets a fresh room and grader session; another item's evidence is absent.
 
     @invariant TheResearcherDrivesTheSeamOnly
-        -- The researcher is given the item's scenario, the candidate's seam and the event
-        -- model it names, and one tool, a shell in a Gondolin VM whose only mount is the
-        -- grading room (the clean room's files with the gated candidate's copy at its
-        -- scope), fresh for each item. The runner starts one VM per item from the image
-        -- LOYLY_GRADER_IMAGE names, egress blocked, and stops it, its qemu included, when
-        -- the item's grading ends; the room is a folder of its own, so no other item's room
-        -- is in the VM. A VM that cannot be started halts the run before any item is graded
-        -- (seam.md, "The researcher's VM"; decisions.md, "Spec round 20"). It records what
-        -- it set up, sent and observed.
+        -- The Pi grader receives the selected scenario, its public seam and event model,
+        -- and a shell in a Gondolin VM whose only host mount is the item's grading room.
+        -- It drives the candidate through that seam and records what it sent and observed.
+        -- No builder room, gate evidence, store, other item room or host credential is mounted.
 
     @invariant ReasonBeforeScore
-        -- The judge writes its reason before its score, on ORC's binary discrete scale:
-        -- level 1 is fail (score 0.0), level 2 is pass (score 1.0), and level 0 is outside
-        -- the scale. A reply with a score and no reason scores nothing, a level with no reasoning among
-        -- them (ORC's banded-output check reads the level only). Each score is recorded as ORC's
-        -- judge score event, its judge name carrying the item identity, so each item keeps
-        -- its own score.
+        -- ORC records a score only from a matching singleton verdict row with nonempty
+        -- observed evidence. Pass maps to score 1.0 and fail to 0.0; the evidence becomes
+        -- the score explanation. An exit code or final prose alone is never a verdict.
+
+    @invariant AGraderDeadlineStopsItsChildren
+        -- ORC stops a grader host and its descendants at the item's deadline, records no
+        -- judge score for that item, and leaves Measurement to file it as unreached.
 
     @invariant AModelOtherThanTheBuildersOwn
-        -- The researcher and the judge run on another model than the one the builder
-        -- session runs on. Verified by: gate model-independence (planned).
+        -- A grader host reporting the builder's recorded model cannot supply a score.
 }
 
 ------------------------------------------------------------
@@ -343,12 +337,11 @@ config {
 -- Decided questions (spec round 7b; decisions.md, "Spec round 7b")
 ------------------------------------------------------------
 --
--- Q1: the stamped plan against Specification's ledger: the runner restamps a copy of each
---     plan spec file with its item tags removed; the restamped identities must equal the
---     file's own tags, else the run halts (HaltReason above). A slice the one store's
---     ledger already holds is not stamped again; its identities are read from the ledger,
---     and must equal the file's own tags in the same way (spec round 18). Specification
---     is unchanged.
+-- Q1 revised in spec round 29: the runner copies each tagged plan spec without stripping
+--     item tags. Specification verifies and imports its current IDs unchanged into a fresh
+--     ledger. Gaps from retired items remain gaps. A duplicate, malformed, foreign-slice
+--     or absent item ID halts before the self-check and fence. Existing ledger items stay;
+--     only the current approved file determines the checklist.
 -- Q2, Q5: the benchmark's configuration is its own, handed in: the archived Löyly
 --     configuration with the fence "impl harness-impl .pi archive/legacy-harness/cycles".
 -- Q3: the harness digest is the SHA-256 of the configuration file, the self-check command

@@ -1,0 +1,31 @@
+{
+  "description" : "Two fresh stores each filed 1 of 2 with 01-002 unreached and produced exactly two tagged Allure result files. Both runs gave 01-001 passed/booked and 01-002 failed/unreached, with matching historyId and testCaseId across stores.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-074"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "050818d6448861a2579be538beacc4d3",
+  "name" : "06-074",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "33196a6d-2cca-39fe-9482-2018639b35a4-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "050818d6448861a2579be538beacc4d3",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-074",
+  "uuid" : "33196a6d-2cca-39fe-9482-2018639b35a4"
+}

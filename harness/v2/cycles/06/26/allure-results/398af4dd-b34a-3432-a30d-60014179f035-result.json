@@ -1,0 +1,31 @@
+{
+  "description" : "The gate command ran once in the project repository with the cut tree, candidate copy and initially empty evidence directory; the candidate digest matched install and its launch marker was absent. The recorded pass carried 10 seconds, 20 polls, poll 3 and ledger answered as itself.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-053"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "f6da03677817f2d777c1ef0d594aa1dc",
+  "name" : "06-053",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "398af4dd-b34a-3432-a30d-60014179f035-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "f6da03677817f2d777c1ef0d594aa1dc",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-053",
+  "uuid" : "398af4dd-b34a-3432-a30d-60014179f035"
+}

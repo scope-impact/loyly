@@ -27,7 +27,7 @@ It fails closed (exit 1) unless every gate passes, and prints the gate lines the
    both.** The merged model is the one event model of the one candidate (`.pi/spec/decisions.md`,
    "Spec round 18"; ADR 0001): no context is checked alone, and no context has a
    `handoffs.edn`. Run alone: `cd tools/spec/v2 && clojure -M -i grain-validate.clj`.
-2b. **Structural** (`structural.py`): the named checks that verify a guarantee or a contract
+2b. **Structural** (`tools/spec/structural.sh`): the named checks that verify a guarantee or a contract
    invariant whose prose says "Verified by: gate <name>" (decisions.md, "Calls after R3",
    3: structural obligations are not drafted as scenarios). One so far,
    `budget-in-seconds-and-polls` (contract `GateRoom`, `BudgetInSecondsAndPolls`): the boot
@@ -40,7 +40,7 @@ It fails closed (exit 1) unless every gate passes, and prints the gate lines the
    counted per file and per context. Must-cover = `rule_success` + `rule_failure` (one per
    `requires`, numbered in order) + `invariant`. Reported, not a gate; a spec that does not
    parse fails here too.
-4. **Coverage** (`coverage.py [context ...]`, ported from `tools/spec/coverage.py`): per
+4. **Coverage** (`tools/spec/coverage.sh --v2 [context ...]`): per
    context, the must-cover obligations (each rule's success; each `requires` less the
    unit-level ones: the rule's own aggregate tested on its status, stage or path, one half
    of an `exists`/`not exists` pair between sibling rules of one trigger, the guard of an
@@ -57,19 +57,19 @@ It fails closed (exit 1) unless every gate passes, and prints the gate lines the
    a sibling's or another context's event, `FileScore` 6 behind `FileItemVerdicts` 2). The
    gate checks each named guard is a `requires` of that context that is itself must-cover
    (`BAD GUARD` otherwise). A "Verified by: gate <name>" must name a gate of this file or a
-   check of `structural.py`, or end "(planned)" (`UNKNOWN GATE` otherwise).
+   check of `tools/spec/structural.sh`, or end "(planned)" (`UNKNOWN GATE` otherwise).
    **The gate: 0 uncovered, no unknown tag, no bad guard, no unknown gate.**
    `--list` also lists the unit-level (with each guard) and gate-verified ones.
-5. **Given/When/Then** (`gwt-lint.py`, ported from `tools/spec/gwt-lint.py`): every scenario
+5. **Given/When/Then** (`tools/spec/gwt-lint.sh .pi/spec`): every scenario
    and draft has a Given, a When and a Then. **The gate: 0 incomplete.**
-6. **Glossary** (`glossary-lint.py`, ported from `tools/spec/glossary-lint.py`): no term an
+6. **Glossary** (`tools/spec/glossary-lint.sh --v2`): no term an
    `_Avoid_` list of `.pi/model/GLOSSARY.md` names, in any file of `.pi/spec` (Allium, EDN,
    Markdown, Gherkin). The R0 board (`event-storm.md`, `event-storm.edn`) and
    `legacy-trace.md` keep other people's words and are reported, not counted; a line that
    says "legacy", "formerly" or "avoid" is exempt. **The gate: 0 findings.** `--file F` lints
    a draft before it lands.
 
-Needs `allium` (3.6), `jq`, `python3`, the Clojure CLI and a JVM.
+Needs `allium` (3.6), `jq`, the Clojure CLI and a JVM.
 
 `deps.edn` points Grain at this checkout's pinned `grain` submodule
 (`:local/root`), because the spec-v2 worktree has no submodules. In a checkout with the

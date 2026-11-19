@@ -1,0 +1,31 @@
+{
+  "description" : "The builder exited 0 without writing a candidate. Progress showed no regenerate effect, recorded fail-cycle, and a failed regenerate stage for candidate-not-regenerated.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-016"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "e6103254f16294d24ce6cf2b848303c2",
+  "name" : "06-016",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "60e21775-ba65-3b4f-9ac4-a10d04e40588-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "e6103254f16294d24ce6cf2b848303c2",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-016",
+  "uuid" : "60e21775-ba65-3b4f-9ac4-a10d04e40588"
+}

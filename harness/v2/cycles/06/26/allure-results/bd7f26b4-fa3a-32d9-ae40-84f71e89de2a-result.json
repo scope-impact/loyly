@@ -1,0 +1,31 @@
+{
+  "description" : "The builder left an executable test.sh but no start.sh, with one gate attempt allowed. The gate recorded gate-attempt-failed for contract-missing.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-020"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "a67246e46af89105220c35091dcdd581",
+  "name" : "06-020",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "bd7f26b4-fa3a-32d9-ae40-84f71e89de2a-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "a67246e46af89105220c35091dcdd581",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-020",
+  "uuid" : "bd7f26b4-fa3a-32d9-ae40-84f71e89de2a"
+}

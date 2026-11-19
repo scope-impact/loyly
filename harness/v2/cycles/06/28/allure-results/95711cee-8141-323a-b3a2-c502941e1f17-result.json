@@ -1,0 +1,31 @@
+{
+  "description" : "A green stdio candidate and passing identity probe with no store-check command halted at gate with effect-could-not-run; progress recorded no gate effect.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-045"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "91eec5ca9a058502b6fc9eb1a5ea32c2",
+  "name" : "06-045",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "95711cee-8141-323a-b3a2-c502941e1f17-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "91eec5ca9a058502b6fc9eb1a5ea32c2",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-045",
+  "uuid" : "95711cee-8141-323a-b3a2-c502941e1f17"
+}

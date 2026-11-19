@@ -25,6 +25,13 @@ value UnstampedScenario {
     title: String
 }
 
+-- A scenario whose item tag is already present in the file, including its fixed identity.
+value AlreadyStampedScenario {
+    line: Integer
+    title: String
+    item_id: String
+}
+
 ------------------------------------------------------------
 -- Contracts
 ------------------------------------------------------------
@@ -39,6 +46,7 @@ contract ScenarioReading {
     item_tag_of: (tag_run: List<String>) -> String?
     spec_exists: (source: String) -> Boolean
     unstamped_scenarios: (source: String) -> List<UnstampedScenario>
+    stamped_scenarios: (source: String) -> List<AlreadyStampedScenario>
     empty_title_lines_of: (source: String) -> List<Integer>
     slice_of: (source: String) -> String
 

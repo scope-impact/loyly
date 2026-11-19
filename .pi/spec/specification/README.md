@@ -3,6 +3,8 @@
 The scenarios and the item identity stamped on each; upstream of every cycle.
 
 - `event-model/slice.edn`: aggregate Slice (`stamp-slice` → `scenario-stamped`).
+  Authoring allocates IDs for untagged scenarios; an approved runner cut imports its
+  existing tags unchanged, including gaps from retired items (spec round 29).
 - `scenario-stamped` is folded by Measurement from the one store (spec round 18; no handoff contract).
 - `event-model/area.edn`: screen `spec-authoring`; flow `stamping`, which stays inside the context.
 - `allium/`: `context.allium` (contract ScenarioReading: one reading of Gherkin for the stamper and the checklist), `slice.allium` (Slice, surface SpecAuthoring).

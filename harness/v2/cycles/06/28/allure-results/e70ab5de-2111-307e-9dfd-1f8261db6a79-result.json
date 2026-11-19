@@ -1,0 +1,31 @@
+{
+  "description" : "Two stdio runs on the same store used store-check commands ending in one and two; both first self-checks passed, and their harness digests differed.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-046"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "34d149d09f038f3a4eee3c0f07033f9d",
+  "name" : "06-046",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "e70ab5de-2111-307e-9dfd-1f8261db6a79-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "34d149d09f038f3a4eee3c0f07033f9d",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-046",
+  "uuid" : "e70ab5de-2111-307e-9dfd-1f8261db6a79"
+}

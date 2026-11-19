@@ -1,0 +1,31 @@
+{
+  "description" : "Sent start-run for the absent deadbeef commit against a fixture git repository; it returned not-a-commit, and run-progress returned null with no builder configured or launched.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-005"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "766a4eadf35bfcb3737e8f9c45043720",
+  "name" : "06-005",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "7fe9e704-821b-3d49-8833-20c28b9413f4-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "766a4eadf35bfcb3737e8f9c45043720",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-005",
+  "uuid" : "7fe9e704-821b-3d49-8833-20c28b9413f4"
+}

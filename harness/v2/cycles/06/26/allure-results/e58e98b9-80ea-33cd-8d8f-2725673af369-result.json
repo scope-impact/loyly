@@ -1,0 +1,31 @@
+{
+  "description" : "Two scored runs on one store used distinct cut IDs and the same selection. R-2 passed with an empty stamp event list, and Measurement’s C-2 scoreboard named C-1 as previous-cycle-id.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-051"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "4bac70ec7611889ac9eb7dd2540d1f49",
+  "name" : "06-051",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "e58e98b9-80ea-33cd-8d8f-2725673af369-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "4bac70ec7611889ac9eb7dd2540d1f49",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-051",
+  "uuid" : "e58e98b9-80ea-33cd-8d8f-2725673af369"
+}

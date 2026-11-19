@@ -1,0 +1,31 @@
+{
+  "description" : "The builder saw plan and configuration, an absent candidate scope, one commit and no fenced path in the tree or reachable objects. Its provided-runtime entry retained mode 160000 and exactly the cut gitlink object ID.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-013"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "4deea44b9092ee6fae257b46d115593d",
+  "name" : "06-013",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "d1519ddb-f679-3217-bbe2-2f6321227e43-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "4deea44b9092ee6fae257b46d115593d",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-013",
+  "uuid" : "d1519ddb-f679-3217-bbe2-2f6321227e43"
+}

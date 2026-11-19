@@ -7,11 +7,11 @@
 # repository it is handed, record a run's first effects into the contexts it holds, and halt
 # the run before the cycle when its sealed grader is not approved, and then take one run through
 # the whole tree to a filed score (spec round 19, `@item-06-064`). Everything it acts on is the
-# probe's own fixture, written to a temporary directory: a stub builder host, a stub gate command
-# and a stub model stand in for pi, Gondolin and the model, so no live builder, VM or model runs.
+# probe's own fixture, written to a temporary directory: a stub builder host, a stub grader
+# host, a stub gate command and a stub render model, so no live builder, VM or model runs.
 #
-#   0. a fixture project repository (git, one commit): a plan of one slice with one stamped
-#      scenario, its harness configuration; a stub self-check and a stub builder host that
+#   0. a fixture project repository (git, one commit): a plan of one slice with two stamped
+#      scenarios, 01-001 and 01-003 (retired gap), its harness configuration; a stub self-check and a stub builder host that
 #      each leave a mark when launched (neither may run); a grader rubric; the configuration
 #      file the probe hands in, rewritten between the steps (the seam: read at every start-run)
 #   1. cycle-runner/start-run of R-probe at a well-formed hex string that is no commit of the
@@ -22,17 +22,18 @@
 #      rubric's: start-run answers exactly one cycle-runner/run-started, once the run halted
 #   4. cycle-runner/run-progress of R-probe: halted at the grader effect, reason
 #      refused-before-the-cycle, its detail naming the rubric's grader digest ("sha256:" and the
-#      SHA-256 of the line cycle-runner/grade.v1 LF followed by the rubric's bytes); its effect
+#      grade.v2 digest of the rubric, host, policy and model); its effect
 #      results the stamp, the pin and the checklist, each recorded into its context; the run
 #      list holds R-probe once (the two refusals recorded nothing); neither the self-check nor
 #      the builder ran
 #   5. cycle-runner/start-run of R-full at the commit, its approved grader digests naming the
 #      rubric's, with LOYLY_GATE_CMD a stub gate command that passes and LOYLY_MODEL_API_BASE a
-#      stub model (ORC's marker format: it answers every output field a request names, `level` 2,
-#      a researcher's code a bare `(final! ...)` with the keys the request asks for): within
+#      stub render model (ORC's marker format) and a stub grader host returning one observed
+#      pass row: within
 #      RUN_BUDGET seconds the run passed with its cycle, the self-check and the builder ran, the
 #      model was called, run-progress shows the file-verdicts and file-score effects recorded and a
-#      pass score for the one item, 01-001. A runner that halts or fails before the score fails here.
+#      pass scores for 01-001 and 01-003, with retired 01-002 absent. A runner that halts
+#      or fails before the score fails here.
 #      The run is handed LOYLY_GRADER_IMAGE, the real guest image (spec round 20: a run with no
 #      image halts before grading): PROBE_GRADER_IMAGE, else the checkout's builder-clojure image.
 #   6. a fresh process and store run R-built-in with no LOYLY_GATE_CMD. Its stub builder
@@ -71,7 +72,9 @@ config = (f"APP_DIR=app\nPORT={port}\nPLAN_DIR=plan\nAPP_MARKER=probe\nAPP_PROBE
 repo = os.path.join(work, "repo")
 write(os.path.join(repo, "plan/01-probe/spec.feature"),
       "Feature: Probe\n\n  Rule: One rule\n\n    @item-01-001\n    Scenario: The probe's scenario\n"
-      "      Given a probe\n      When it runs\n      Then it is heard\n")
+      "      Given a probe\n      When it runs\n      Then it is heard\n\n"
+      "    @item-01-003\n    Scenario: The probe's second scenario after a retired gap\n"
+      "      Given a probe\n      When it runs\n      Then the gap is kept\n")
 write(os.path.join(repo, "config.sh"), config)
 write(os.path.join(repo, "probe.sh"), "#!/bin/sh\necho probe identity\nexit 0\n", executable=True)
 write(os.path.join(repo, "secret/README.md"), "fenced\n")
@@ -87,13 +90,24 @@ os.makedirs(marks)
 self_check = write(os.path.join(work, "stubs/self-check.sh"),
                    f"#!/bin/sh\ntouch '{marks}/self-check'\nexit 0\n", executable=True)
 builder = write(os.path.join(work, "stubs/builder.sh"),
-                f"#!/bin/sh\ntouch '{marks}/builder'\nmkdir -p \"$1/app\"\n"
+                f"#!/bin/sh\ntouch '{marks}/builder'\nmkdir -p \"$1/app\" \"$BUILDER_EVIDENCE_DIR/launch-1\"\n"
+                "printf 'model=probe-builder\\n' > \"$BUILDER_EVIDENCE_DIR/launch-1/launch.txt\"\n"
                 "printf '#!/bin/sh\\nexit 0\\n' > \"$1/app/test.sh\"\n"
                 "printf '#!/bin/sh\\necho probe\\n' > \"$1/app/start.sh\"\n"
                 "chmod +x \"$1/app/test.sh\" \"$1/app/start.sh\"\nexit 0\n", executable=True)
 gate_cmd = write(os.path.join(work, "stubs/gate.sh"),
                  f"#!/bin/sh\ntouch '{marks}/gate'\necho gated > \"$3/gate.txt\"\n"
                  "echo 'BOOT 20 10'\necho 'ANSWERED 1'\necho 'the probe answered'\nexit 0\n", executable=True)
+grader_host = write(os.path.join(work, "stubs/grader.sh"),
+                    f"#!/bin/sh\ntouch '{marks}/grader'\n"
+                    "mkdir -p \"$1/work\" \"$GRADER_EVIDENCE_DIR/launch-1\"\n"
+                    "item=$(grep -Eo '01-(001|003)' \"$2\" | head -1)\n"
+                    "printf '[{\"id\":\"%s\",\"verdict\":\"pass\",\"evidence\":\"probe answered over the public seam\"}]\\n' \"$item\" > \"$1/work/verdicts.json\"\n"
+                    "cp \"$1/work/verdicts.json\" \"$GRADER_EVIDENCE_DIR/launch-1/verdicts.json\"\n"
+                    "ih=$(shasum -a 256 \"$2\" | cut -d' ' -f1)\n"
+                    "printf 'model=probe-grader\\ninstruction_sha256=%s\\nrequest_id=probe-item\\nexit=0\\n' \"$ih\" > \"$GRADER_EVIDENCE_DIR/launch-1/launch.txt\"\n"
+                    "printf 'public seam probe\\n' > \"$GRADER_EVIDENCE_DIR/launch-1/pi.stdout\"\n"
+                    "touch \"$GRADER_EVIDENCE_DIR/launch-1/pi.stderr\"\nexit 0\n", executable=True)
 
 # the stub model: an OpenAI-compatible /chat/completions in ORC's marker format, no live model
 model_calls = []
@@ -132,9 +146,13 @@ class StubModel(http.server.BaseHTTPRequestHandler):
 model_server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), StubModel)
 threading.Thread(target=model_server.serve_forever, daemon=True).start()
 instruction = write(os.path.join(work, "instruction.md"), "Build the probe's product.\n")
-rubric = write(os.path.join(work, "rubric.md"), "Pass when the item's behaviour is observed over the seam; else fail. Binary bands: 1 = fail, 2 = pass.\n")
-with open(rubric, "rb") as f:
-    grader_digest = "sha256:" + hashlib.sha256(b"cycle-runner/grade.v1\n" + f.read()).hexdigest()
+rubric = write(os.path.join(work, "rubric.md"), "Pass when the item's behaviour is observed over the seam; else fail.\n")
+def sha(path):
+    with open(path, "rb") as f: return hashlib.sha256(f.read()).hexdigest()
+policy = write(os.path.join(work, "grader-policy.txt"), grader_host + "\t" + sha(grader_host) + "\n")
+grader_digest = "sha256:" + hashlib.sha256(("cycle-runner/grade.v2\n"
+    + "singleton-id-verdict-evidence-v1\n" + sha(rubric) + "\n" + sha(grader_host) + "\n"
+    + sha(policy) + "\nprobe-grader\n").encode()).hexdigest()
 images = os.path.join(work, "images")
 os.makedirs(images)
 config_file = write(os.path.join(work, "config.sh"), config + "BUILDER_IMAGE=probe-image\n")
@@ -146,9 +164,12 @@ env = dict(os.environ,
            LOYLY_HARNESS_CONFIG=config_file,
            LOYLY_SELF_CHECK_CMD=self_check,
            LOYLY_BUILDER_HOST=builder,
+           BUILDER_EVIDENCE_DIR=os.path.join(work, "builder-evidence"),
            LOYLY_BUILDER_IMAGES=images,
            LOYLY_BUILDER_INSTRUCTION=instruction,
            LOYLY_GRADER_RUBRIC=rubric,
+           LOYLY_GRADER_HOST=grader_host,
+           LOYLY_GRADER_HOST_POLICY=policy,
            LOYLY_GRADER_IMAGE=grader_image,
            LOYLY_GATE_CMD=gate_cmd,
            LOYLY_MODEL_API_BASE=f"http://127.0.0.1:{model_server.server_address[1]}/v1",
@@ -232,6 +253,11 @@ if (not isinstance(results, list)
         or any(x.get("outcome") != "recorded" for x in results)):
     fail(f"the effect results of R-probe are {json.dumps(results)[:400]}: want the stamp, the pin and the "
          f"checklist, each recorded into its context")
+stamp_ids = [e.get("item-id") for e in (results[0].get("events") or [])
+             if e.get("type") == "specification/scenario-stamped"]
+if stamp_ids != ["01-001", "01-003"]:
+    fail(f"the fresh runner ledger imported {stamp_ids}, not the file's 01-001 and 01-003; "
+         "retired 01-002 must not be fabricated")
 runs = (call(5, "cycle-runner/run-progress", {}) or {}).get("runs")
 if not isinstance(runs, list) or [x.get("run-id") for x in runs] != ["R-probe"]:
     fail(f"cycle-runner/run-progress answered {json.dumps(runs)[:300]}: want R-probe once, the refused "
@@ -259,9 +285,9 @@ if r.get("status") != "passed":
          f"effects {sorted(done)}; want passed with its cycle")
 missing = [e for e in ("self-check", "fence", "regenerate", "file-verdicts", "file-score")
            if done.get(e) != "recorded"]
-if missing or scored != ["01-001"] or (r.get("scores") or [{}])[0].get("verdict") != "pass":
+if missing or scored != ["01-001", "01-003"] or any(s.get("verdict") != "pass" for s in (r.get("scores") or [])):
     fail(f"R-full passed, but its effect results {json.dumps(done)[:300]} lack {missing} recorded, or its "
-         f"scores are {json.dumps(r.get('scores'))[:300]}, not one pass for 01-001")
+         f"scores are {json.dumps(r.get('scores'))[:300]}, not passes for 01-001 and 01-003")
 ran = [m for m in ("self-check", "builder", "gate") if not os.path.exists(os.path.join(marks, m))]
 if ran or not model_calls:
     fail(f"R-full passed, but " + (f"the {' and the '.join(ran)} never ran" if ran else "the model was never called"))
@@ -291,7 +317,7 @@ if not isinstance(events, list) or not any(e.get("type") == "cycle-runner/run-st
 r = (call(9, "cycle-runner/run-progress", {"run-id": "R-built-in"}, deadline=t6 + RUN_BUDGET) or {}).get("run") or {}
 done = {x.get("effect"): x.get("outcome") for x in (r.get("effect-results") or []) if isinstance(x, dict)}
 if (r.get("status") != "passed" or done.get("gate") != "recorded"
-        or [s.get("item-id") for s in (r.get("scores") or [])] != ["01-001"]
+        or [s.get("item-id") for s in (r.get("scores") or [])] != ["01-001", "01-003"]
         or os.path.exists(os.path.join(marks, "gate"))):
     fail(f"R-built-in did not pass through the built-in gate and score: status {r.get('status')!r}, "
          f"halt {json.dumps(r.get('halt'))[:200]}, effects {sorted(done)}")

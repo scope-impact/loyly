@@ -1,0 +1,31 @@
+{
+  "description" : "The green HTTP fixture served the marker and the run passed. Progress recorded the eleven effects in the specified order, including gate-attempt-passed and both scoring effects.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-001"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "f4d9aa7fb6c862b75d9f0c05c85275e3",
+  "name" : "06-001",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "405634c8-2a52-3a41-add0-33611294312b-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "f4d9aa7fb6c862b75d9f0c05c85275e3",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-001",
+  "uuid" : "405634c8-2a52-3a41-add0-33611294312b"
+}

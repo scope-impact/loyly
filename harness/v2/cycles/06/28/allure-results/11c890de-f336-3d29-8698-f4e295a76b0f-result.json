@@ -1,0 +1,31 @@
+{
+  "description" : "R-1 failed at fence and R-2 halted at an empty checklist; repeated progress reads five seconds later were identical to the first reads, retaining failed and halted respectively.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-034"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "5ebfdbe61735dc834d0ef58b08b0ef0a",
+  "name" : "06-034",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "11c890de-f336-3d29-8698-f4e295a76b0f-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "5ebfdbe61735dc834d0ef58b08b0ef0a",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-034",
+  "uuid" : "11c890de-f336-3d29-8698-f4e295a76b0f"
+}

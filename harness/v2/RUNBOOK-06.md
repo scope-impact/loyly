@@ -4,9 +4,16 @@ How cycles 13 onward of slice 06 (`cycle-runner`, the one ORC tree `cycle.v1`) a
 (`.pi/spec/decisions.md`, "Spec round 19" 4). The builder and grader are fresh subagents on
 the host, on different models (ADR 0003): no pi in the legacy loop. Cycle 13 used Claude
 Opus and Sonnet; cycles 14 to 22 used Codex builders, and cycles 23 and 24 used Astra.
-Cycle 25 is the accepted running context, repaired from accepted cycle 23. Its score was
-61/61 and its legacy shadow matched; its profile exception is recorded in
-`harness-impl/06-cycle-runner/PROVENANCE.md`. Cycle 24's gate passed on attempt 1 but scored
+Cycle 26 is the accepted running context, freshly regenerated after cycle 25. Its score was
+62/62, its grading profile was clean after preserved fresh retries, and its same-cut legacy
+shadow matched. Its evidence is recorded in `harness-impl/06-cycle-runner/PROVENANCE.md`.
+The approved self-host attempt 27 halted at stamp before a builder launched: the accepted
+runner renumbered retired gaps. Round 29 proposes a tagged-cut import; cycle 28 is the
+one legacy-driven bootstrap selected by the operator. Its exact proposed selection and
+legacy comparison are in `harness/v2/preflight/06/28.md`. Obtain exact digest approval
+before step 2. The accepted cycle-26 runner remains in service until a successor passes
+gate, independent grading, profile and same-candidate legacy shadow.
+Cycle 24's gate passed on attempt 1 but scored
 31/61, with a failed profile and two legacy shadow regressions (`harness/v2/cycles/06/24/`,
 `harness/v2/shadow/06/24/`). It is not accepted.
 The next grader's profile contract and its recorded reason are in `harness/v2/PROFILE-06.md`.
@@ -51,10 +58,10 @@ The fence clones HEAD, so the spec the builder reads must be committed.
 1. `git status` / `git diff`: review the next spec round and obtain approval of its exact
    deterministic selection and sealed grader digest before fencing (AGENTS.md, "Pi and ORC
    ownership" and "The instrument").
-2. Check the item count is unchanged (210; slice 06 at 61):
+2. Check the approved item count (proposed cycle 28: 217 total; slice 06 at 65):
    `grep -c '@item-06-' .pi/spec/cycle-runner/spec.feature`
 3. Commit and push:
-   `git add -A .pi/spec harness .pi/harness/grader-instruction-06.md orc tools/spec/views/dist`
+   `git add -A AGENTS.md .pi/spec harness .pi/harness/grader-instruction-06.md .pi/harness/bin/grading-room.sh orc tools/spec/views/dist`
    `git commit -m "Spec round NN: ..."` then push to the authorized remote.
 
 ## 2. Fence and render
@@ -176,13 +183,14 @@ jq -r 'group_by(.verdict)|map("\(.[0].verdict): \(length)")|.[]' $STATE/grading/
 
 ```bash
 V=$STATE/grading/06-c$MM/work/verdicts.json
-jq length $V                                                     # 61
+jq length $V                                                     # proposed cycle 28: 65
 diff <(jq -r '.[].id' $V) $STATE/grading/06-c$MM/checklist.txt && echo order-ok
 jq '[.[]|select(.evidence|test("not reached"))]|length' $V       # 0
 harness/v2/score.sh 06 $ROOM --verdicts $V --by "codex subagent gpt-6.1-terra, grader-instruction-06" \
   --profile $STATE/grading/06-c$MM/work/profile.json \
+  --allure $STATE/grading/06-c$MM/work/allure-results \
   > $STATE/logs/score-c$MM-slice06.log 2>&1; tail -12 $STATE/logs/score-c$MM-slice06.log
-git add harness/v2/cycles/06/$MM && git commit -m "Harness: cycle $MM of slice 06 scored X/61 ..." && git push ragavsathish spec-v2
+git add harness/v2/cycles/06/$MM && git commit -m "Harness: cycle $MM of slice 06 scored X/65 ..." && git push ragavsathish spec-v2
 ```
 
 The report compares with the last scored cycle on shared items: newly passing and newly
@@ -192,6 +200,9 @@ take into the next round. For the revised grader, also read `work/profile.json`;
 and copy beside the score. A failed profile
 is still filed with the honest score and blocks acceptance until investigated. The revised
 grader instruction digest requires operator approval under AGENTS.md before use.
+The Allure directory has one result per checklist item, each with its stamped item ID as an
+Allure `tag` label and its case profile as an attachment; `score.sh` verifies it against
+the filed verdicts and profile before copying it into the cycle record.
 
 ## 7. After a score and instrument comparison
 
@@ -224,3 +235,4 @@ grader instruction digest requires operator approval under AGENTS.md before use.
 | 23 | cb19e87 | Codex gpt-6-astra subagents, host | passed, attempt 2 | 59/61 | profile clean; legacy shadow matched; 047 and 066 failed; accepted with both open |
 | 24 | 76ee55b | Codex gpt-6-astra subagent, host | passed, attempt 1 | 31/61 | profile failed; built-in gate missing and gitlinks dropped in legacy shadow; not accepted |
 | 25 | 3d58399 | Codex gpt-6-astra repair subagent, host | passed, attempt 1 | 61/61 | 047 and 066 newly passed vs accepted 23; no newly failing; legacy shadow matched; profile failed on eight audited retry names; accepted by explicit operator exception |
+| 26 | a0c700f | Codex gpt-6.2-astra fresh builder, gpt-6.1-terra independent grader | passed, attempt 1 | 62/62 | 61 shared items unchanged vs 25; new 074 passed; profile clean after preserved fresh retries; legacy shadow matched; accepted |

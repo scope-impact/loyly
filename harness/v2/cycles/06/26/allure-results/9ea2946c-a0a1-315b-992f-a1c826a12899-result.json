@@ -1,0 +1,31 @@
+{
+  "description" : "The fixture contained slices 01 and 02 with PLAN_SLICES=02. The only stamp event was 02-001 and the derived checklist contained 02-001 alone.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-048"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "cfa63dc431fabb2774bbc773e38c5e5c",
+  "name" : "06-048",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "9ea2946c-a0a1-315b-992f-a1c826a12899-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "cfa63dc431fabb2774bbc773e38c5e5c",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-048",
+  "uuid" : "9ea2946c-a0a1-315b-992f-a1c826a12899"
+}

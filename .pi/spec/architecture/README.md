@@ -12,6 +12,27 @@ cycle-23 build ran that tree and matched legacy on one shared HTTP fixture; ADR 
 accepted for this context. Other proposed rules retain their own ADR status. The prototype
 on branch `proto/orc-harness` and the product owner's decisions remain design evidence.
 
+## Legacy parity boundary
+
+For product cycles, preserve the legacy harness's observable rules: derive the checklist from
+the approved spec; prove a clean room; continue the same builder session on its own uncarried
+items before the gate; let an independent gate decide completion and use a fresh repair builder
+after a failed gate; refuse an empty score, count unreached items as failures, and report newly
+passing and newly failing items separately. `archive/legacy-harness/` supplies the fence,
+gate and scoring reference; `harness/regen.clj` supplies the builder-continuation and sealed
+spec-v1 grader wrapper; `harness/v2/score.sh` supplies the external-verdict bootstrap path for
+spec-v2 cycles. These are distinct versions of the legacy workflow.
+
+Slice selection and bounded repair (ADR 0007), and ORC's grading and event evidence
+(ADRs 0001 and 0003), have their own explicit contracts. The grader's Allure result files
+are a view of the verdicts; OTLP profiling (ADR 0005) and the legacy golden oracle are
+separate instrument evidence. OCI names the container image packaging, not a result schema.
+ORC may change
+how the cycle runs, including one store, internal per-item grading and restart recovery, while
+the inherited fence, gate and score outcomes remain observable. Compare instrument changes on
+the same cut and candidate against the legacy reference before acceptance. Cycle 25's shadow
+established that match for one HTTP fixture, not for every project launcher or grader input.
+
 ## The cycle is one ORC tree
 
 The new harness is one small ORC workflow on one Grain store, and ORC's own features do the work

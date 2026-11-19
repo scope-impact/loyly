@@ -1,0 +1,31 @@
+{
+  "description" : "The cut probe sourced harness/config.sh relative to its own path and required the configured marker at its URL. The gate passed and the install digest matched the regenerate digest.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-052"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "386c15096e360a039df61728c78ca443",
+  "name" : "06-052",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "2c267419-3889-313d-949a-8e67e6215772-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "386c15096e360a039df61728c78ca443",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-052",
+  "uuid" : "2c267419-3889-313d-949a-8e67e6215772"
+}

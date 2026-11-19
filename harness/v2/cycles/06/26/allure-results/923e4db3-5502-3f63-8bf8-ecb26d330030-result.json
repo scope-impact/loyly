@@ -1,0 +1,31 @@
+{
+  "description" : "A cut with one stamped and one unstamped scenario recorded two stamp events, then halted at stamp with refused-before-the-cycle and mismatched identities. Progress showed no pin or checklist effect.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-009"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "fcdaf077ca3674b05d4f516871e4bc5e",
+  "name" : "06-009",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "923e4db3-5502-3f63-8bf8-ecb26d330030-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "fcdaf077ca3674b05d4f516871e4bc5e",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-009",
+  "uuid" : "923e4db3-5502-3f63-8bf8-ecb26d330030"
+}

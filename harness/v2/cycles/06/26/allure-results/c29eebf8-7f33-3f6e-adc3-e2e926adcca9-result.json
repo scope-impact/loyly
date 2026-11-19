@@ -1,0 +1,31 @@
+{
+  "description" : "The green stdio suite, probe and store check yielded gate-attempt-passed with 30 seconds, one poll, answered on poll 1 and answered as the context. There were no gate-refusal effects, and the run passed with its cycle.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-039"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "e846e84a4ef206afead308b7aca999de",
+  "name" : "06-039",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "c29eebf8-7f33-3f6e-adc3-e2e926adcca9-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "e846e84a4ef206afead308b7aca999de",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-039",
+  "uuid" : "c29eebf8-7f33-3f6e-adc3-e2e926adcca9"
+}

@@ -1,8 +1,14 @@
 Feature: Cycle runner, draft scenarios
-  Drafts for the Allium obligations of this context. The harness does not read this file.
-  Only the product owner moves a draft into spec.feature, under the Rule it names, where the
-  stamper gives it an @item id and the @draft tag is dropped. Every noun is a term of
-  .pi/model/GLOSSARY.md.
-  None left: spec round 7b accepted all 34 drafts of round 7a, and added one (decisions.md,
-  "Spec round 7b"); spec round 18 wrote its new scenarios straight into spec.feature
-  (decisions.md, "Spec round 18").
+  The harness does not read this file. A draft becomes an item only after the product owner
+  moves it into spec.feature with a stamped identity. The Pi grader host contract is now in
+  spec.feature; this remaining draft concerns promotion policy outside the candidate.
+
+  Rule: A successor cannot accept its own score
+
+    @draft
+    Scenario: The accepted runner builds its successor without letting the candidate judge itself
+      Given the accepted cycle runner starts a fenced regeneration of slice 06
+      And the candidate contains a changed grader workflow
+      When the accepted runner gates and scores that candidate
+      Then the accepted runner's gate and score remain the only ones used in that run
+      And the candidate is not promoted until an independent Pi grader and a same-candidate instrument shadow agree with the filed evidence

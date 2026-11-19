@@ -1,0 +1,31 @@
+{
+  "description" : "A builder left a green candidate and a delayed child turned its builder-room suite red after exit; that suite later exited 1, while the gate copy passed. The regenerate and install digests matched.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-022"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "d2d02657b80fb6655f095cf86264e580",
+  "name" : "06-022",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "6073d124-a0b6-3184-a29f-e88a94a9be29-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "d2d02657b80fb6655f095cf86264e580",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-022",
+  "uuid" : "6073d124-a0b6-3184-a29f-e88a94a9be29"
+}

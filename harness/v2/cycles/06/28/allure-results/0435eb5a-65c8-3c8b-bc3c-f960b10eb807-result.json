@@ -1,0 +1,31 @@
+{
+  "description" : "A candidate containing test.sh but no start.sh produced gate-attempt-failed for contract-missing on attempt 1.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-020"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "a67246e46af89105220c35091dcdd581",
+  "name" : "06-020",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "0435eb5a-65c8-3c8b-bc3c-f960b10eb807-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "a67246e46af89105220c35091dcdd581",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-020",
+  "uuid" : "0435eb5a-65c8-3c8b-bc3c-f960b10eb807"
+}

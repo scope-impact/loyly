@@ -1,0 +1,31 @@
+{
+  "description" : "A committed slice with no scenarios produced a checklist effect refused empty-checklist; progress showed a pre-cycle checklist halt and no self-check or fence effects.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-008"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "dd2ae5ba8ff455b9e43f51132580ba5c",
+  "name" : "06-008",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "51754663-81a3-3845-a8bd-acc5026ff6ff-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "dd2ae5ba8ff455b9e43f51132580ba5c",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-008",
+  "uuid" : "51754663-81a3-3845-a8bd-acc5026ff6ff"
+}

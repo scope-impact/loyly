@@ -1,0 +1,31 @@
+{
+  "description" : "With an approved list containing x and a different fixture rubric digest, the run halted at grader for refused-before-the-cycle, naming the computed sha256 digest. It recorded no self-check or fence and no builder was configured or launched.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-068"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "f73714bee8fa8420330af50d4f179392",
+  "name" : "06-068",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "188f7304-666c-38e5-a266-81cdb3d26cec-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "f73714bee8fa8420330af50d4f179392",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-068",
+  "uuid" : "188f7304-666c-38e5-a266-81cdb3d26cec"
+}

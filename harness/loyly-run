@@ -1,10 +1,9 @@
 #!/usr/bin/env bb
 ;; harness/loyly-run: the launcher for a Löyly run of the cycle runner (harness-impl/06-cycle-runner).
 ;; Operator tooling, hand-written, like .pi/harness/bin/builder.sh; it is not part of harness-impl/.
-;; It does what Löyly run-03's one-off driver did (.pi/harness/.state/loyly/run-03/driver/):
-;; a detached daemon owns the runner's stdin/stdout and serves a file request queue, so the runner
-;; outlives the session that started it (a run cannot resume: keep it alive until the score is
-;; filed). The seam it speaks is .pi/spec/cycle-runner/seam.md. Run with --help.
+;; It adapts Löyly's project cut and pi builder to the accepted ORC cycle.v1 runner.
+;; A detached daemon owns the runner's stdin/stdout and serves a file request queue, so the runner
+;; outlives the session that started it. The seam it speaks is .pi/spec/cycle-runner/seam.md.
 (ns loyly-run
   (:require [babashka.fs :as fs]
             [cheshire.core :as json]
@@ -42,11 +41,12 @@
       --budget-file F      budget as JSON or EDN (.edn); default run-03's: gate-attempt-limit 3,
                            max-outer-cycles 1, max-continuations 0, stage timeouts fence 1800,
                            regenerate 14400, gate 3600, score 28800 (seconds)
-      --grader-digest D    repeatable; default ID-grading-subagent
-      --env KEY=VALUE      repeatable; overrides one variable of the runner's environment. The runner's
-                           LOYLY_BUILDER_CMD is the run's bin/builder.sh, which runs LOYLY_BUILDER_CMD
-                           (default .pi/harness/bin/builder.sh) with LOYLY_BUILDER_SESSION_ID=ID-<n>
-                           for launch n, as run-03 did
+      --grader-rubric F    sealed rubric read by the ORC judge
+      --grader-digest D    approved sha256: digest of grade.v1 and the rubric; required
+      --env KEY=VALUE      repeatable; overrides one variable of the runner's environment.
+                           Set LOYLY_MODEL_API_BASE, LOYLY_RENDER_MODEL and LOYLY_GRADER_MODEL
+                           for the live model provider. LOYLY_GRADER_IMAGE defaults to the
+                           builder-clojure Gondolin image. The builder host is pi on Gondolin.
       --state-dir DIR      default .pi/harness/.state/loyly/ID
       --no-wait            queue start-run and return
 
@@ -55,7 +55,6 @@
       Exit 0 on a result, 1 on a JSON-RPC error, 2 on a launcher or daemon failure.
       After the daemon exited (below), run-progress prints the run's final progress it saved.
       e.g. send cycle-runner/run-progress '{\"run-id\":\"ID\"}'
-           send cycle-runner/hand-in-verdicts '{\"run-id\":\"ID\",\"verdicts-path\":\"/abs/verdicts.json\",\"grader-digest\":\"ID-grading-subagent\"}'
 
   harness/loyly-run stop [--run-id ID | --state-dir DIR] [--force]
       Stops the daemon and the runner (and the contexts it started), only while idle.
@@ -77,6 +76,10 @@ evidence/builder/ the builder launches, runs/ LOYLY_RUNS_DIR, project/ LOYLY_PRO
 (defn write-json! [f v]
   (let [tmp (str f ".tmp")] (spit tmp (json/generate-string v {:pretty true})) (fs/move tmp f {:replace-existing true :atomic-move true})))
 (defn read-json [f] (json/parse-string (slurp f)))
+(defn sha256 [s]
+  (let [bytes (.digest (doto (java.security.MessageDigest/getInstance "SHA-256")
+                         (.update (.getBytes ^String s "UTF-8"))))]
+    (str "sha256:" (apply str (map #(format "%02x" (bit-and 0xff %)) bytes)))))
 (defn sh! [{:keys [dir env in]} & args]
   (let [pb (ProcessBuilder. ^java.util.List (mapv str args))]
     (when dir (.directory pb (io/file dir)))
@@ -93,7 +96,7 @@ evidence/builder/ the builder launches, runs/ LOYLY_RUNS_DIR, project/ LOYLY_PRO
     (cond (empty? as) opts
           (#{"--no-wait" "--force"} a) (recur more (assoc opts (keyword (subs a 2)) true))
           (#{"-h" "--help"} a) (do (print usage) (flush) (System/exit 0))
-          (#{"--grader-digest" "--env"} a) (do (when-not (seq more) (die 2 a " needs a value"))
+          (= "--env" a) (do (when-not (seq more) (die 2 a " needs a value"))
                                                 (recur (rest more) (update opts (keyword (subs a 2)) (fnil conj []) (first more))))
           (str/starts-with? a "--") (do (when-not (seq more) (die 2 a " needs a value"))
                                         (recur (rest more) (assoc opts (keyword (subs a 2)) (first more))))
@@ -286,6 +289,16 @@ evidence/builder/ the builder launches, runs/ LOYLY_RUNS_DIR, project/ LOYLY_PRO
                            (str (fs/canonicalize f))))
         instruction (or (file-opt :instruction) (str root "/harness/loyly/builder-instruction.md"))
         harness-config (file-opt :harness-config)
+        rubric (or (file-opt :grader-rubric) (die 2 "start needs --grader-rubric F (the approved ORC judge rubric)"))
+        actual-digest (sha256 (str "cycle-runner/grade.v1\n" (slurp rubric)))
+        approved-digest (or (:grader-digest opts) (die 2 "start needs --grader-digest " actual-digest " after operator approval"))
+        _ (when-not (= approved-digest actual-digest)
+            (die 2 "approved grader digest differs from the rubric: expected " actual-digest))
+        overrides (into {} (for [kv (:env opts)] (let [[k v] (str/split kv #"=" 2)] (when-not v (die 2 "--env wants KEY=VALUE: " kv)) [k v])))
+        _ (doseq [key ["LOYLY_MODEL_API_BASE" "LOYLY_RENDER_MODEL" "LOYLY_GRADER_MODEL"]]
+            (when (str/blank? (overrides key)) (die 2 "start needs --env " key "=...")))
+        grader-image (or (overrides "LOYLY_GRADER_IMAGE") (str root "/.pi/harness/.state/assets/builder-clojure"))
+        _ (when-not (fs/directory? grader-image) (die 2 "grader image missing: " grader-image))
         _ (when (and pr (not (fs/exists? (str pr "/.git")))) (die 2 "--project-repo " pr ": not a git repository"))
         commit (sh! {:dir (or pr root)} "git" "rev-parse" "--verify" (str rev "^{commit}"))
         _ (doseq [s ["driver/in" "driver/out" "driver/done" "bin" "logs" "evidence/builder" "runs"]] (fs/create-dirs (str sd "/" s)))
@@ -299,25 +312,22 @@ evidence/builder/ the builder launches, runs/ LOYLY_RUNS_DIR, project/ LOYLY_PRO
                          (println "cut" cut "on base" base "in" repo)
                          [repo cut])))
         config (str sd "/benchmark-config.sh")
-        overrides (into {} (for [kv (:env opts)] (let [[k v] (str/split kv #"=" 2)] (when-not v (die 2 "--env wants KEY=VALUE: " kv)) [k v])))
         _ (cond (overrides "LOYLY_HARNESS_CONFIG") nil
                 harness-config (fs/copy harness-config config)
                 :else (spit config (str (sh! {:dir repo} "git" "show" (str cut ":harness/config.sh")) "\n")))
-        contexts (into (sorted-map) (for [f (sort (map str (fs/glob (str root "/harness-impl") "0[1-5]-*/start.sh")))]
-                                      [(subs (str (fs/file-name (fs/parent f))) 3) f]))
-        _ (write-json! (str sd "/contexts.json") contexts)
         _ (fs/copy instruction (str sd "/builder-instruction.md"))
+        _ (fs/copy rubric (str sd "/grader-rubric.md"))
         env (merge {"PATH" (System/getenv "PATH") "HOME" (System/getenv "HOME") "LANG" "C.UTF-8"
                     "TMPDIR" (or (System/getenv "TMPDIR") "/tmp")
                     "LOYLY_GRAIN_STORE" (str sd "/runner-store.sqlite")
                     "LOYLY_RUNS_DIR" (str sd "/runs")
                     "LOYLY_PROJECT_REPO" repo
                     "LOYLY_HARNESS_CONFIG" (str sd "/benchmark-config.sh")
-                    "LOYLY_CONTEXTS" (str sd "/contexts.json")
                     "LOYLY_SELF_CHECK_CMD" (str repo "/harness/check.sh --local")
-                    "LOYLY_BUILDER_CMD" (str root "/.pi/harness/bin/builder.sh")
-                    "LOYLY_BUILDER_INSTRUCTION" (str sd "/builder-instruction.md")
+                    "LOYLY_BUILDER_INSTRUCTION" (slurp (str sd "/builder-instruction.md"))
                     "LOYLY_BUILDER_IMAGES" (str root "/.pi/harness/.state/assets")
+                    "LOYLY_GRADER_IMAGE" (str root "/.pi/harness/.state/assets/builder-clojure")
+                    "LOYLY_GRADER_RUBRIC" (str sd "/grader-rubric.md")
                     "LOYLY_SCORING_TOOL_PATHS" "[]"
                     ;; read by .pi/harness/bin/builder.sh, which the runner starts with its own environment
                     "BUILDER_EVIDENCE_DIR" (str sd "/evidence/builder")
@@ -326,22 +336,23 @@ evidence/builder/ the builder launches, runs/ LOYLY_RUNS_DIR, project/ LOYLY_PRO
         ;; As run-03's bin/builder.sh: each builder launch is its own durable session, <run-id>-<n>.
         wrapper (str sd "/bin/builder.sh")
         q (fn [x] (str "'" (str/replace x "'" "'\\''") "'"))
-        _ (spit wrapper (str "#!/usr/bin/env bash\n# LOYLY_BUILDER_CMD of run " run-id ", written by harness/loyly-run: launch n gets\n"
+        _ (spit wrapper (str "#!/usr/bin/env bash\n# LOYLY_BUILDER_HOST of run " run-id ", written by harness/loyly-run: launch n gets\n"
                              "# LOYLY_BUILDER_SESSION_ID=" run-id "-<n> (unless set), stdin from /dev/null.\n"
                              "c=" (q (str sd "/bin/builder-launches")) "; n=$(( $(cat \"$c\" 2>/dev/null || echo 0) + 1 )); echo \"$n\" > \"$c\"\n"
                              "export LOYLY_BUILDER_SESSION_ID=\"${LOYLY_BUILDER_SESSION_ID:-" run-id "-$n}\"\n"
-                             "exec " (q (env "LOYLY_BUILDER_CMD")) " \"$@\" < /dev/null\n"))
+                             "exec " (q (or (overrides "LOYLY_BUILDER_HOST") (env "LOYLY_BUILDER_HOST") (str root "/.pi/harness/bin/builder.sh"))) " \"$@\" < /dev/null\n"))
         _ (fs/set-posix-file-permissions wrapper "rwxr-xr-x")
-        env (assoc env "LOYLY_BUILDER_CMD" wrapper)
+        env (assoc env "LOYLY_BUILDER_HOST" wrapper)
         budget (if-let [f (:budget-file opts)]
                  (if (str/ends-with? f ".edn") (json/parse-string (json/generate-string (edn/read-string (slurp f)))) (read-json f))
                  default-budget)
         params {"run-id" run-id "cycle-id" (or (:cycle-id opts) (str run-id "-cycle"))
                 "cut-id" (or (:cut-id opts) "loyly-full-app-cut") "commit" cut
                 "selection-id" (or (:selection-id opts) "loyly-docs-plan-all") "budget" budget
-                "grader-digests" (or (:grader-digest opts) [(str run-id "-grading-subagent")])}]
+                "grader-digests" [approved-digest]}]
     (write-json! (str sd "/evidence/runner-env.json") env)
     (write-json! (str sd "/start-run-params.json") params)
+    (fs/create-dirs state-root)
     (spit current-file (str sd "\n"))
     ;; Detached: its own process group (set -m), immune to hangup, stdin from /dev/null.
     (sh! {} "bash" "-c" "set -m; nohup \"$0\" _daemon \"$1\" </dev/null >>\"$1/driver/driver.log\" 2>&1 &" script sd)

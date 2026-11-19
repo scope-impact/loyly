@@ -1,0 +1,31 @@
+{
+  "description" : "A builder recorded its PID and slept with a two-second regenerate budget; the PID had exited and progress showed the cycle failed at regenerate for budget.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-017"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "9edeae11a705d35e345364638ac9ec73",
+  "name" : "06-017",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "cee6a4c2-d74e-321b-8c14-42c2643d9875-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "9edeae11a705d35e345364638ac9ec73",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-017",
+  "uuid" : "cee6a4c2-d74e-321b-8c14-42c2643d9875"
+}

@@ -1,0 +1,31 @@
+{
+  "description" : "The builder wrote a candidate and exited 1. Regenerate recorded its candidate digest, the command gate passed that digest, and the scored run passed with its cycle.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-015"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "e021dfbb9e008f3a0f735c9728ffac91",
+  "name" : "06-015",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "7519b77a-18c1-3c80-ba8e-9ddf1f07300f-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "e021dfbb9e008f3a0f735c9728ffac91",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-015",
+  "uuid" : "7519b77a-18c1-3c80-ba8e-9ddf1f07300f"
+}

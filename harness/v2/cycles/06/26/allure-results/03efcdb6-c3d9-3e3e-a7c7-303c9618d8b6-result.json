@@ -1,0 +1,31 @@
+{
+  "description" : "While R-1’s builder slept, starting R-2 was refused run-in-progress; progress returned null for R-2 and running for R-1.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-003"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "05160f9a43e3501a68cbc360830e369f",
+  "name" : "06-003",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "03efcdb6-c3d9-3e3e-a7c7-303c9618d8b6-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "05160f9a43e3501a68cbc360830e369f",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-003",
+  "uuid" : "03efcdb6-c3d9-3e3e-a7c7-303c9618d8b6"
+}

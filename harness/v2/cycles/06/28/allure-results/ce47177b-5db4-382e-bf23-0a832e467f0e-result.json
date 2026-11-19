@@ -1,0 +1,31 @@
+{
+  "description" : "The 01-001 host started a child and exceeded its three-second deadline; both recorded PIDs were gone, and Grain held one judge score while progress named 01-002 alone. Measurement filed 01-001 unreached, with no additional regenerate effect.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-075"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "376d2ade4f79e455d89725727accecba",
+  "name" : "06-075",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "ce47177b-5db4-382e-bf23-0a832e467f0e-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "376d2ade4f79e455d89725727accecba",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-075",
+  "uuid" : "ce47177b-5db4-382e-bf23-0a832e467f0e"
+}

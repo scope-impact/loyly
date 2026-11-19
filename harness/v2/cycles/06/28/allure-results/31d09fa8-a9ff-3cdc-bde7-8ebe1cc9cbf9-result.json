@@ -1,0 +1,31 @@
+{
+  "description" : "The stdio probe recorded gate-1/impl/start.sh and 30 as its two arguments, with GATE_STORE under gate-evidence-1 outside the gate room and no LOYLY_ variables. The store check recorded that same events.sqlite path.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-040"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "e53680d11b590acc3c9c185080e7abb0",
+  "name" : "06-040",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "31d09fa8-a9ff-3cdc-bde7-8ebe1cc9cbf9-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "e53680d11b590acc3c9c185080e7abb0",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-040",
+  "uuid" : "31d09fa8-a9ff-3cdc-bde7-8ebe1cc9cbf9"
+}

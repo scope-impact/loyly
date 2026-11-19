@@ -1,0 +1,31 @@
+{
+  "description" : "A cut whose spec contained no scenarios recorded stamp and pin, then Measurement refused derive-checklist with empty-checklist. Progress halted at checklist before the cycle and showed no self-check or fence.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-008"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "dd2ae5ba8ff455b9e43f51132580ba5c",
+  "name" : "06-008",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "4a75f294-4c93-3811-9699-721eda383bee-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "dd2ae5ba8ff455b9e43f51132580ba5c",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-008",
+  "uuid" : "4a75f294-4c93-3811-9699-721eda383bee"
+}

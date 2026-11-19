@@ -1,0 +1,31 @@
+{
+  "description" : "The first builder received exactly INSTRUCTION-7. After its red suite, the repair instruction consisted of that text followed by one closing paragraph naming the previous candidate and gate evidence paths as read-only.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-071"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "502060a6dbed9f3722b8c983603add85",
+  "name" : "06-071",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "bc68a90c-7b0d-3411-b8ca-981cf72aac2d-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "502060a6dbed9f3722b8c983603add85",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-071",
+  "uuid" : "bc68a90c-7b0d-3411-b8ca-981cf72aac2d"
+}

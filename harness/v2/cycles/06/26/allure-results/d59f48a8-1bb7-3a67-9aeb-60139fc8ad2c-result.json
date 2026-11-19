@@ -1,0 +1,31 @@
+{
+  "description" : "Two fixture items received booked/pass and no receipt/fail; Measurement filed 1 of 2 and the run passed. Grain showed judge scores 1.0 and 0.0 under their item names in distinct grade.v1 child ticks of the cycle tick.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-064"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "c5b7091b6192105ab3c34fb2805dea9f",
+  "name" : "06-064",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "d59f48a8-1bb7-3a67-9aeb-60139fc8ad2c-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "c5b7091b6192105ab3c34fb2805dea9f",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-064",
+  "uuid" : "d59f48a8-1bb7-3a67-9aeb-60139fc8ad2c"
+}

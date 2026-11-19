@@ -1,0 +1,31 @@
+{
+  "description" : "After R-1 passed for C-1, starting R-2 for C-1 was refused cycle-already-run. A progress query for R-2 returned null.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-004"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "0782c439713857002d024e00d45b37b2",
+  "name" : "06-004",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "5b938b14-7e2b-353b-88f3-08314a64c43d-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "0782c439713857002d024e00d45b37b2",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-004",
+  "uuid" : "5b938b14-7e2b-353b-88f3-08314a64c43d"
+}

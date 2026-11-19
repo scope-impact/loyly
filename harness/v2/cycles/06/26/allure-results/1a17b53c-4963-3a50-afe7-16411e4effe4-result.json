@@ -1,0 +1,31 @@
+{
+  "description" : "The runner and sleeping first builder were killed after five seconds; restarting on the same store resumed R-1 to passed. Both launches recorded the same session identity, and progress contained exactly one each of stamp, pin, checklist, first self-check, fence and regenerate.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-070"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "60cda6259b83c1b0310cf864640eeee3",
+  "name" : "06-070",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "1a17b53c-4963-3a50-afe7-16411e4effe4-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "60cda6259b83c1b0310cf864640eeee3",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-070",
+  "uuid" : "1a17b53c-4963-3a50-afe7-16411e4effe4"
+}

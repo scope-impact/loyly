@@ -1,0 +1,31 @@
+{
+  "description" : "The HTTP marker run passed with eleven recorded effects. The Grain-based event-store check accepted all eleven effect-recorded events inside their named leaves of the cycle or delegated tick, with completed successful workflows.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-059"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "504615443d801ef2f9dda36a24c51f3b",
+  "name" : "06-059",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "2a719daa-bef1-32d5-b463-3ce68cf7f9d3-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "504615443d801ef2f9dda36a24c51f3b",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-059",
+  "uuid" : "2a719daa-bef1-32d5-b463-3ce68cf7f9d3"
+}

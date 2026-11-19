@@ -1,0 +1,31 @@
+{
+  "description" : "A delayed writer changed the builder-room suite to exit 1 after the builder ended; its marker and changed file were observed. The installed copy retained the regenerate digest and passed the HTTP gate.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-022"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "d2d02657b80fb6655f095cf86264e580",
+  "name" : "06-022",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "2095a44a-af2d-3089-930a-2bb3134a9f43-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "d2d02657b80fb6655f095cf86264e580",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-022",
+  "uuid" : "2095a44a-af2d-3089-930a-2bb3134a9f43"
+}

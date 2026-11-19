@@ -1,0 +1,34 @@
+{
+  "description" : "With a red candidate and a budget allowing three gate attempts, progress failed the cycle for gate-attempts-exhausted after attempt 1, with no repair or attempts 2 and 3. The required three failed attempts did not occur.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-024"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "statusDetails" : {
+    "message" : "With a red candidate and a budget allowing three gate attempts, progress failed the cycle for gate-attempts-exhausted after attempt 1, with no repair or attempts 2 and 3. The required three failed attempts did not occur."
+  },
+  "stage" : "finished",
+  "historyId" : "7697c5c61862dbdf2bd2b2310acb006b",
+  "name" : "06-024",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "912b409b-d60a-3afc-96c7-8b6dfbb1913b-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "7697c5c61862dbdf2bd2b2310acb006b",
+  "status" : "failed",
+  "fullName" : "loyly.slice-06.item-06-024",
+  "uuid" : "912b409b-d60a-3afc-96c7-8b6dfbb1913b"
+}

@@ -1,0 +1,31 @@
+{
+  "description" : "The green HTTP run passed with the eleven specified effects. Grain’s event-store checker accepted every model event as lying within its named leaf of a completed cycle.v2 run or delegated child tick.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-059"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "504615443d801ef2f9dda36a24c51f3b",
+  "name" : "06-059",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "6a117afb-1d5e-3067-ab49-40eece744bac-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "504615443d801ef2f9dda36a24c51f3b",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-059",
+  "uuid" : "6a117afb-1d5e-3067-ab49-40eece744bac"
+}

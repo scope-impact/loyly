@@ -48,7 +48,7 @@ entity StampedItem {
 -- Rules
 ------------------------------------------------------------
 
--- The first stamping of a slice opens its ledger at 1. A spec file with no scenario yet
+-- The first authoring stamp of a slice opens its ledger at 1. A spec file with no scenario yet
 -- opens it with nothing stamped (legacy @harness-022: not an error).
 rule StampFirstScenarios {
     when: StampSlice(author, slice_number, source, unstamped, empty_title_lines)
@@ -101,6 +101,21 @@ rule StampSlice {
             ScenarioStamped(item_id: item_identity(slice_number, first + index_of(unstamped, s)), slice: slice_number, source: source, line: s.line, title: s.title)
 }
 
+-- A runner imports the identities already carried by its approved cut. It never assigns
+-- them by ordinal position: retired gaps in a fresh store remain gaps. The original
+-- authoring rules above still assign IDs to untagged scenarios.
+rule ImportStampedScenarios {
+    when: StampSlice(author, slice_number, source, unstamped, empty_title_lines, stamped)
+    requires: stamped = stamped_scenarios(source)
+    requires: all_distinct(stamped.item_id)
+    requires: all_item_slices_match(stamped, slice_number)
+    ensures:
+        for s in stamped where not exists StampedItem{item_id: s.item_id}:
+            StampedItem.created(slice: Slice{number: slice_number}, item_id: s.item_id, number: identity_suffix(s.item_id), source: source, line: s.line, title: s.title, stamped_at: now)
+            ScenarioStamped(item_id: s.item_id, slice: slice_number, source: source, line: s.line, title: s.title)
+        Slice{number: slice_number}.next_number >= 1 + max_number(stamped, Slice{number: slice_number}.items)
+}
+
 ------------------------------------------------------------
 -- Invariants
 ------------------------------------------------------------
@@ -149,6 +164,7 @@ surface SpecAuthoring {
 
     provides:
         StampSlice(author, slice_number, source, unstamped, empty_title_lines)
+        ImportStampedScenarios(author, slice_number, source, stamped)
 
     contracts:
         fulfils ScenarioReading

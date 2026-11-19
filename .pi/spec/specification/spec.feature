@@ -187,3 +187,41 @@ Feature: Specification
       When the operator stamps slice 03
       Then "has tags but no item tag" is stamped "@item-03-001"
       And its tags "@wip" and "@slow" are kept
+
+  Rule: An approved tagged cut imports its identities without assigning new ones
+
+    # slice.allium, rule ImportStampedScenarios; legacy stamp_item_ids.clj keeps old tags
+    @minimum @allium-rule-success.ImportStampedScenarios
+    @item-01-016
+    Scenario: A fresh ledger imports tagged scenarios with retired gaps
+      Given no scenario of slice 03 has ever been stamped in the ledger
+      And "plan/03-gate/spec.feature" holds tagged scenarios 03-001 and 03-004 in file order
+      When the operator imports that tagged file through stamp-slice
+      Then exactly 03-001 and 03-004 are recorded as scenario-stamped in file order
+      And no 03-002 or 03-003 is fabricated
+      And the next item identity slice 03 hands out is "@item-03-005"
+
+    # slice.allium, rule ImportStampedScenarios (requires 1 to 3)
+    @minimum @allium-rule-failure.ImportStampedScenarios.1 @allium-rule-failure.ImportStampedScenarios.2 @allium-rule-failure.ImportStampedScenarios.3
+    @item-01-017
+    Scenario Outline: A false tagged offer is refused without importing an identity
+      Given "plan/03-gate/spec.feature" holds the tagged scenarios 03-001 and 03-004
+      When the operator offers <offer> as its stamped scenarios
+      Then stamp-slice refuses "stamped-mismatch" and records no specification event
+
+      Examples:
+        | offer                                     |
+        | a vector missing 03-004                   |
+        | 03-001 twice for different scenarios      |
+        | 04-004 for the scenario tagged 03-004      |
+
+    # slice.allium, rule ImportStampedScenarios; existing ledger may include retired IDs
+    @balance @allium-rule-success.ImportStampedScenarios
+    @item-01-018
+    Scenario: A later cut imports only its new identity and keeps retired ledger rows
+      Given the ledger for slice 03 holds 03-001, 03-002 and 03-004
+      And the current tagged file holds 03-001 and 03-005 in file order
+      When the operator imports that tagged file through stamp-slice
+      Then only 03-005 is newly recorded as scenario-stamped
+      And the ledger still holds 03-002 and 03-004 while the current checklist has only 03-001 and 03-005
+      And the next item identity slice 03 hands out is "@item-03-006"

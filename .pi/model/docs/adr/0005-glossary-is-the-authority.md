@@ -40,7 +40,7 @@ the builder session, and the instruction candidate had states nothing reached.
    meaning, and the surface that relies on it `demands` it. An invariant is a state predicate;
    one that only restated a `transitions` block or a rule's own `requires`, or only prose, is a
    `@guarantee` or a contract `@invariant` instead.
-7. `tools/spec/glossary-lint.py` enforces the `_Avoid_` lists over the Allium, the harness's
+7. `tools/spec/glossary-lint.sh` enforces the `_Avoid_` lists over the Allium, the harness's
    Grain Event Model, `.pi/architecture.md`, and the ADRs; `tools/spec/gates.sh` runs it. A
    line that says "formerly" or "avoid" may name an old term. The Gherkin in `plan/` is
    reported, not failed: an accepted scenario changes only with the product owner's say-so.

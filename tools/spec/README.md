@@ -17,9 +17,9 @@ own gates in [`v2/`](v2/README.md). The event-model page (`views/`) renders spec
 | `gates.sh` | Every gate below, in order, failing closed; each prints its line even when an earlier one fails |
 | `allium-check.sh` | `allium check` and `allium analyse` of `.pi/model` as one set (imports resolve only within the set). One `CHECK` line per error or warning, one `ANALYSE` line per finding; info is not tracked |
 | `grain-validate.clj` | Loads every `defeventmodel` under `.pi/model/event-model/` and runs Grain's structural validator (`{:structural-only true :strict true}`) and its Allium composition gate (every `:grain/allium` link resolves). `--dump <file>` writes the evaluated model as EDN for the page |
-| `coverage.py` | Every must-cover Allium obligation is tagged on a scenario of a `spec.feature` or `drafts.feature`, and no tag names an unknown obligation. Prints `must-cover N \| covered N \| drafted N \| uncovered N \| unit-level N`, then the uncovered ids. `--report <file>` writes the full classification as JSON |
-| `gwt-lint.py` | Every scenario of every `spec.feature` and `drafts.feature` has a Given, a When and a Then |
-| `glossary-lint.py` | No term an `_Avoid_` list of `.pi/model/GLOSSARY.md` names appears, as an identifier or in prose, in `.pi/model/*.allium`, the harness's Grain Event Model (`event-model/loyly/`), `.pi/architecture.md`, or the ADRs. Lists the Gherkin's hits in `plan/` for the product owner without failing |
+| `coverage.sh` | Every must-cover Allium obligation is tagged on a scenario of a `spec.feature` or `drafts.feature`, and no tag names an unknown obligation. Prints `must-cover N \| covered N \| drafted N \| uncovered N \| unit-level N`, then the uncovered ids. `--report <file>` writes the full classification as JSON |
+| `gwt-lint.sh` | Every scenario of every `spec.feature` and `drafts.feature` has a Given, a When and a Then |
+| `glossary-lint.sh` | No term an `_Avoid_` list of `.pi/model/GLOSSARY.md` names appears, as an identifier or in prose, in `.pi/model/*.allium`, the harness's Grain Event Model (`event-model/loyly/`), `.pi/architecture.md`, or the ADRs. Lists the Gherkin's hits in `plan/` for the product owner without failing |
 | `views/build.sh [date] [--base <ref>]` | Builds the drill-down page from spec v2 in `.pi/spec/` (`views/src/specviews/`, configured by `views/project.edn`): `views/dist/event-model.html` (the sealed record, for gh-pages), `views/dist/review.html` (the same page, self-contained, for review as a private artifact; with `--base`, what changed since that ref is marked) and `views/dist/story.svg` (the event storm alone). See `views/README.md` |
 | `views/check.sh` | Checks the built pages (`views/check.clj`): every view present and non-empty, ids unique, every internal `#` link resolves, and, against `.pi/spec`, every context, handoff edge and the item count shown; the drill-down levels (the event storm, a swimlane board per flow, a spec card per rule with its hood folded); `review.html` self-contained; every Mermaid diagram renders (`mmdc`, skipped with a note if absent); every top-level address shows its view in headless Chrome with no JavaScript error (skipped if absent); with `npm install` in `views/`, every view fits 375 and 1280, light and dark (Playwright); and the example project in `views/example/` builds and passes |
 
@@ -29,7 +29,7 @@ since 2026-11-06; it was 94 spec-v1 items. Gate 6 is the glossary lint.
 
 ## The glossary lint
 
-`GLOSSARY.md` is the authority for the model's words (ADR 0005). `glossary-lint.py` reads every
+`GLOSSARY.md` is the authority for the model's words (ADR 0005). `glossary-lint.sh` reads every
 entry's `_Avoid_:` list (a parenthetical in an item is a note) and splits each line of the
 linted files into phrases at punctuation and `/`, and each phrase into lowercased words at
 camelCase, `_`, and `-`, dropping a plural `s`: `RegenerationCut`, `regeneration_cut`,
@@ -42,12 +42,12 @@ says "formerly" or "avoid" may name an old term. ORC's declared `:sheet` copy
 line per finding and one `PLAN` line per Gherkin hit (`--quiet` omits those), then
 `glossary: N terms, M avoided | K findings | P plan/ hits`; it exits 1 on any finding.
 
-Needs `allium` (3.6), `bb`, the Clojure CLI and a JVM (Grain from the `grain/` submodule),
-and `python3`; `mmdc` and Chrome are optional, for `views/check.sh`.
+Needs `allium` (3.6), `bb`, the Clojure CLI and a JVM (Grain from the `grain/` submodule).
+`mmdc` and Chrome are optional for `views/check.sh`.
 
 ## Obligations: what must be covered
 
-`coverage.py` runs `allium plan` on each `.pi/model/*.allium` file (in that folder, so `use`
+`coverage.sh` runs `allium plan` on each `.pi/model/*.allium` file (in that folder, so `use`
 resolves) and keeps, once each:
 
 - `rule-success.<Rule>`: each rule;
@@ -81,7 +81,7 @@ which holds every Löyly-specific value. It reads spec v2 into one map
 (`extract.clj`): per context in `.pi/spec/<context>/`, its Allium, its Grain Event Model
 fragments (merged one home per block, as `tools/spec/v2/load.clj` does), its handoffs, its `spec.feature` and
 `drafts.feature`, and its slice number from `.pi/plan/`; plus the coverage gate's own report,
-`tools/spec/v2/coverage.py --report`. It renders every view from that map at build time: one
+`tools/spec/coverage.sh --v2 --report`. It renders every view from that map at build time: one
 pure function per view or component, spec data → Hiccup data → HTML, by
 [Replicant](https://github.com/cjohansen/replicant) (`views/bb.edn`), which escapes all spec text.
 The page drills down: L0 the event storm (`story.clj`), L1 each context's event model as

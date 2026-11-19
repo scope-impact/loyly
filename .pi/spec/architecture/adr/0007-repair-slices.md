@@ -21,8 +21,8 @@ two unrelated failures would add a seam and assembly work without isolating shar
 | Option | Benefit | Cost or risk |
 | --- | --- | --- |
 | Full fresh regeneration of 06 | Existing clean-room contract; simple provenance | Repeats all 61 behaviors and has regressed working code |
-| Extract new contexts around the failures | Independent future builds if genuine domain boundaries emerge | 047 and 066 have different responsibilities; the one-tree runner still needs assembly changes |
-| Repair selection from an accepted base | Builder effort targets two behaviors; accepted code is pinned and auditable | Prior source deliberately crosses the fence, so the exception and full regression proof must be explicit |
+| Extract new contexts around the failures | Independent later builds if genuine domain boundaries emerge | 047 and 066 have different responsibilities; the one-tree runner still needs assembly changes |
+| Repair selection from an accepted base | Builder effort targets two behaviors; accepted code is pinned and auditable | Prior source deliberately crosses the fence, so the exception and full regression evidence must be explicit |
 
 ## Decision
 
@@ -33,7 +33,7 @@ the current spec, with the complete accepted cycle-23 artifact as a read-only ba
 its 39-file source digest `947d49609d24e2325fcb027a695b03c3b68c2b9cd9337a3401d39cf58df5231a`.
 
 The instrument fences the current spec cut as usual, then places the pinned base in a
-separate read-only `repair-input/accepted-base/` mount. This is the sole prior implementation
+separate read-only `repair-input/accepted-base/` mount. This is the sole prior source
 the builder may read. The builder copies it into a new candidate and changes code only to
 carry the selected items. It receives the current spec and the two selected IDs, but no
 prior grader transcript, verdict file, or score details. It records a file-level diff and
@@ -52,7 +52,7 @@ selected 066 repair. A changed event-model or seam contract outside the selected
 invalidates this path and requires a fresh full-context regeneration or a separately approved
 migration.
 
-## Consequences and proof
+## Consequences and evidence
 
 - The builder's task is bounded to 047 and 066; the acceptance denominator remains 61.
 - This is an explicit exception to `AGENTS.md`'s fresh-builder exclusion of prior candidates.

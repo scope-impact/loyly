@@ -1,0 +1,31 @@
+{
+  "description" : "The same researcher code branched on get-input :item and failed for 01-002. File-verdicts contained 01-001 alone, Measurement filed 01-002 unreached with 1 of 2 passing, and the run passed with its cycle.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-026"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "e02df9c02db1168a505f0efed5035cd3",
+  "name" : "06-026",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "3a7fd71e-2801-31ef-8978-3cc429182d4f-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "e02df9c02db1168a505f0efed5035cd3",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-026",
+  "uuid" : "3a7fd71e-2801-31ef-8978-3cc429182d4f"
+}

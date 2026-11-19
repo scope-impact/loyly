@@ -216,6 +216,19 @@ committed, at `.pi/harness/.state/shadow/run-01` to `run-05`.
 
 ### The goldens, and why they moved
 
+**2026-11-18: tagged-cut import after self-host attempt 27.** The proposed round-29 spec
+adds `@item-01-016` to `018` and `@item-06-077`, rewords the title of 06-009, and moves
+source lines below the inserted scenarios. The audit found all 213 prior IDs still in
+their previous relative order, no removed IDs, and a total of 217. Re-recording this
+checklist golden reflects that deliberate spec change; it says nothing about a candidate.
+
+**2026-11-18: the proposed Pi grader host changes slice 06.** The cycle-27 spec adds
+`@item-06-075` and `@item-06-076` and rewrites the titles and behavior of 06-026 and
+06-064 to 06-067 for `grade.v2`. The checklist diff preserves every earlier ID in order,
+adds exactly those two IDs, changes those five titles, updates source line positions and
+the total from 211 to 213. The golden was re-recorded for this spec change, before the
+self-hosted fence; it is not evidence that the new candidate passed.
+
 Since 2026-11-07 no spec-v2 cycle has a sealed grader ("Scoring a spec-v2 cycle", above): where
 an entry from then on says a slice's grader grows, the grading agent grades the grown checklist.
 "Approved grader" in these entries means `graders.approved.json`, written for spec v1.
@@ -473,3 +486,10 @@ observation added one line inside `@item-06-013`, shifting the `source` lines fo
 `06-014` through `06-073` forward by one. No item, name, rule, order, or count changed.
 The checklist golden was re-recorded with `harness/oracle.sh record`; its diff consists
 only of those source line numbers.
+
+**2026-11-18: the spec grew by one Allure result item in proposed round 27.**
+The product owner asked for a further instrument cycle with legacy comparison. Slice 06
+appended `06-074`; its earlier item identities, names, rules, order and source lines are
+unchanged. The golden is re-recorded for the stated reason "spec grew". Its expected diff
+is one item appended and `total` 210 → 211. The slice-06 grader instruction grows by this
+item and changes digest; the accepted cycle-25 verdicts are unchanged.

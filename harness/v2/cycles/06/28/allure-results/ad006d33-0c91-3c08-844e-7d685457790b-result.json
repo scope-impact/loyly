@@ -1,0 +1,34 @@
+{
+  "description" : "While the builder slept, run-progress showed R-1 running and five completed effect results through fence, but returned no tick identity or node list; the required render and running regenerate nodes were absent.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-073"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "statusDetails" : {
+    "message" : "While the builder slept, run-progress showed R-1 running and five completed effect results through fence, but returned no tick identity or node list; the required render and running regenerate nodes were absent."
+  },
+  "stage" : "finished",
+  "historyId" : "822279f37bdde7855857d9a724decb20",
+  "name" : "06-073",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "ad006d33-0c91-3c08-844e-7d685457790b-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "822279f37bdde7855857d9a724decb20",
+  "status" : "failed",
+  "fullName" : "loyly.slice-06.item-06-073",
+  "uuid" : "ad006d33-0c91-3c08-844e-7d685457790b"
+}

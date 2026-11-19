@@ -1,0 +1,34 @@
+{
+  "description" : "A server returned 503 for its first three requests and then served the marker; the gate passed with 20 polls, 10 seconds and answered-on-poll 5. The required attempt margin could not be observed: regeneration-cycle/cycle-progress returned -32601 and run-progress did not expose it.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-060"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "statusDetails" : {
+    "message" : "A server returned 503 for its first three requests and then served the marker; the gate passed with 20 polls, 10 seconds and answered-on-poll 5. The required attempt margin could not be observed: regeneration-cycle/cycle-progress returned -32601 and run-progress did not expose it."
+  },
+  "stage" : "finished",
+  "historyId" : "5b0ec81826fb3bc8910b36341be92a1c",
+  "name" : "06-060",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "e84a974b-c9bc-383a-b913-7c1ab87b6d9c-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "5b0ec81826fb3bc8910b36341be92a1c",
+  "status" : "failed",
+  "fullName" : "loyly.slice-06.item-06-060",
+  "uuid" : "e84a974b-c9bc-383a-b913-7c1ab87b6d9c"
+}

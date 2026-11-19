@@ -1,0 +1,31 @@
+{
+  "description" : "A one-attempt fixture with a red test.sh recorded gate-attempt-failed for suite-red and then gate-attempts-exhausted; its launch marker was absent.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-019"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "a46b460777db327516b11920e53fc560",
+  "name" : "06-019",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "dd72374d-73c3-3dd9-9f22-7bc34a185f4d-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "a46b460777db327516b11920e53fc560",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-019",
+  "uuid" : "dd72374d-73c3-3dd9-9f22-7bc34a185f4d"
+}

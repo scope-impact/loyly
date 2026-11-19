@@ -1,0 +1,31 @@
+{
+  "description" : "The red-then-green fixture logged two builder sessions with distinct identities. Its ordered start/end log showed the first ended before the second began.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-014"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "4dc05b88cc67d2417f67e61fa405a201",
+  "name" : "06-014",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "25acd3a5-a108-3b6c-bcc9-952249892520-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "4dc05b88cc67d2417f67e61fa405a201",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-014",
+  "uuid" : "25acd3a5-a108-3b6c-bcc9-952249892520"
+}

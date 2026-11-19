@@ -8,6 +8,19 @@
         :participants [:operator :workflow :instrument :skeptic]
         :status "simulated workshop; not yet reviewed by the product owner"}
 
+ :current-grading-workflow
+ {:status "accepted slice-06 execution overlay; R0 phases below remain the workshop snapshot"
+  :workflow "cycle-runner/cycle.v1"
+  :grader "cycle-runner/grade.v1"
+  :boundary "black-box execution in the cycle; grader preparation has its own clock"
+  :steps [{:name "verify approved grader digest" :record "ORC grader leaf; cycle-runner/run-halted on refusal"}
+          {:name "pass gate and start item grading VM" :record "regeneration-cycle/gate-attempt-passed; ORC grading-vm and grade.v1 ticks"}
+          {:name "clear evidence and drive public seam" :record "ORC clear-evidence and drive-seam nodes; researcher evidence"}
+          {:name "judge item evidence" :record "judge/score-emitted when scored"}
+          {:name "file verdicts" :record "measurement/item-verdicts-filed"}
+          {:name "file and report score" :record "measurement/measurement-filed; measurement/scoreboard-reported"}]
+  :notes "ORC node and judge records share the Grain store with domain events; they are not Grader lifecycle domain events. Instrument golden writes and moves are not steps of each grading run."}
+
  :phases
  [{:id :specify
    :name "Specify (upstream of every cycle)"

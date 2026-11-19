@@ -3,14 +3,15 @@
 ## Status
 
 Accepted for direction (2026-11-13). The product owner: the expectation is to use ORC's judge
-"exactly what we are doing". Its build waits on ADR 0001.
+"exactly what we are doing". The accepted cycle-25 runner builds `grade.v1` under ADR 0001;
+calibration remains outstanding.
 
 ## Context
 
 The instrument's rule was graders in a functional language other than the product's, sharing no
-code or runtime with what they measure. The Elixir graders were retired (`cb8f5c7`); since then a
-black-box agent drives the candidate's seam and its verdicts file is handed in
-(`cycle-runner/hand-in-verdicts`, legacy step 5). ORC has a judge (`criteria × stance × scale`,
+code or runtime with what they measure. The Elixir graders were retired (`cb8f5c7`); the
+spec-v2 bootstrap cycles instead used a black-box agent and handed its verdicts file to
+`harness/v2/score.sh` (legacy step 5). ORC has a judge (`criteria × stance × scale`,
 discrete bands, reason before score) whose scores are events (`:judge/score-emitted`).
 
 ## Decision

@@ -1,0 +1,31 @@
+{
+  "description" : "A fresh retry with a red first candidate and green second passed at attempt 2. Grain showed install, self-check and gate for each attempt in distinct gate-attempt.v1 child ticks of the cycle; repair attempt 2 lay in the first child tick.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-061"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "cbe54c6dfb0a749882d11a011400b606",
+  "name" : "06-061",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "5377b16e-2aa0-3ab9-9409-de49e05a1aa6-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "cbe54c6dfb0a749882d11a011400b606",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-061",
+  "uuid" : "5377b16e-2aa0-3ab9-9409-de49e05a1aa6"
+}

@@ -1,0 +1,22 @@
+[
+  {
+    "id": "profile",
+    "note": "Fixture retries for 001, 003, 009, 021, 024, 046, 051, 053, 056, 069, 071, 075 and 077 were run after the original after boundary; the saved process and Grain profiles do not consistently describe the final retry. The profile tool did not flag all of these gaps."
+  },
+  {
+    "id": "profile",
+    "note": "Fixture grader hosts do not create QEMU; bounded watchers timed out in grading runs, so live QEMU was not observed. The profile report did not flag every such store."
+  },
+  {
+    "id": "06-066",
+    "note": "The real Pi grader host and policy manifest were absent from permitted room paths; no VM isolation trace was obtainable."
+  },
+  {
+    "id": "06-003",
+    "note": "The first fixture failed in setup after starting a model stub; its runner exited and after snapshot showed no tracked survivor. The corrected fixture was run separately."
+  },
+  {
+    "id": "profile",
+    "note": "Invoking the provided Clojure reader from harness/v2 caused the Clojure CLI to create .cpcache there outside work; the grading instruction authorized dependency caches only under ~/.m2 and ~/.gitlibs."
+  }
+]

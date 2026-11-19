@@ -13,11 +13,12 @@
  :acronyms {"orc" "ORC" "pi" "Pi" "rpc" "RPC" "json" "JSON" "gepa" "GEPA" "otel" "OTel" "vm" "VM" "ui" "UI"}
  :glossary ".pi/model/GLOSSARY.md"               ; optional: **Term**: definition, a fallback for missing descriptions
  :architecture ".pi/architecture.md"             ; optional: ### Level N: … then a ```mermaid block (the C4 view)
- :coverage ["python3" "tools/spec/v2/coverage.py" "--report"]   ; optional: writes the coverage JSON to the path appended
+ :coverage ["bash" "tools/spec/coverage.sh" "--v2" "--report"]   ; optional: writes the coverage JSON to the path appended
  :out-dir "tools/spec/views/dist"
  :outputs {:page "event-model.html" :review "review.html" :story "story.svg"}
  :publish {:remote "scope-impact" :branch "gh-pages"}           ; read by tools/spec/publish.sh
- :site-pages [{:label "Runs" :dir "tools/spec/replay" :href "replay"}   ; optional: the other pages publish.sh
+ :site-pages [{:label "Runs" :dir "tools/spec/replay" :href "replay"
+               :only ["cycle-26-grading.html"]}                         ; only the current replay is published
               {:label "Eval" :dir "tools/spec/eval" :href "eval"}]    ; publishes, linked from the site menu
  ;; The event storm (L0): its order comes from the event models' flows and handoffs; :after adds
  ;; the order they do not hold. The cycle runner's tree issues the other contexts' commands in its
@@ -42,8 +43,8 @@
         :drafts-unread "The harness does not read them until they are accepted and stamped."
         :outside "outside the harness"
         :runtime "ORC's runtime"
-        :coverage-tool "tools/spec/v2/coverage.py"
-        :coverage-report "tools/spec/v2/coverage.py --report"
+        :coverage-tool "tools/spec/coverage.sh --v2"
+        :coverage-report "tools/spec/coverage.sh --v2 --report"
         :loader "tools/spec/v2/load.clj"
         :footer-by "tools/spec/views/build.sh"
         :footer-spec "spec v2"}}

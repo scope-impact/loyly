@@ -1,0 +1,31 @@
+{
+  "description" : "The stdio suite recorded its environment and exited 1; the gate recorded suite-red. Its environment contained neither GATE_STORE nor LOYLY_ variables, and neither probe nor store-check marker appeared.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-041"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "409b31f5eb3557e5cb16666d13075a42",
+  "name" : "06-041",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "b9f1758b-8bcd-374d-a2ce-b13646199717-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "409b31f5eb3557e5cb16666d13075a42",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-041",
+  "uuid" : "b9f1758b-8bcd-374d-a2ce-b13646199717"
+}

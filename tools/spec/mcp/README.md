@@ -11,7 +11,7 @@ the event-model page with review controls; everywhere else every tool answers in
 spec tool for planning rounds: it never builds or ratifies an implementation.
 
 Data comes from the spec tools themselves, never a copy of their logic:
-`tools/spec/coverage.py --report` (the gate's classification of every obligation) and
+`tools/spec/coverage.sh --report` (the gate's classification of every obligation) and
 `tools/spec/views/extract.clj` (the page's extraction, loaded by `bb/spec-data.clj`). The UI is the
 page's own renderer in app mode (`render.clj --mode app --app-js dist/app.js --threads …`, the
 `RENDER_APP` constant in `src/server.ts`); `src/app.ts` only wires the controls the renderer draws
@@ -28,7 +28,7 @@ page's own renderer in app mode (`render.clj --mode app --app-js dist/app.js --t
 | `spec_threads(target?, status?)` | Review threads |
 | `spec_comment(target, text, author?)` | Adds to the open thread on a target, or starts one |
 | `spec_resolve_thread(id, note)` | Resolves a thread with a note |
-| `spec_accept_draft(slice, title, tier?)` | **Edits the spec** (annotated `destructiveHint: true`, so hosts ask first). Product owner only: moves the draft from `drafts.feature` to the end of its `# Goes under: Rule:` in `spec.feature` (another slice's when the comment names one, a new `Rule:` for `new Rule:`), drops `@draft`, keeps its `@allium-` tags, adds the tier, runs `harness/stamp_item_ids.clj`, puts the `@item` on the tag line, runs `coverage.py`, reports before and after |
+| `spec_accept_draft(slice, title, tier?)` | **Edits the spec** (annotated `destructiveHint: true`, so hosts ask first). Product owner only: moves the draft from `drafts.feature` to the end of its `# Goes under: Rule:` in `spec.feature` (another slice's when the comment names one, a new `Rule:` for `new Rule:`), drops `@draft`, keeps its `@allium-` tags, adds the tier, runs `harness/stamp_item_ids.clj`, puts the `@item` on the tag line, runs `coverage.sh`, reports before and after |
 
 Targets: `rule:<Name>`, `obligation:<id>`, `scenario:<item-id>` (e.g. `01-006`),
 `draft:<slice>:<title>`. Threads live in `.pi/model/review.edn` (created on the first comment):
@@ -45,7 +45,7 @@ npm test                          # test/smoke.mjs (stdio) and test/http.mjs (HT
 
 `test/smoke.mjs` reads the real spec, writes threads only to a temporary store
 (`SPEC_REVIEW_STORE`), and accepts drafts only in a temporary `git worktree` (`SPEC_REVIEW_ROOT`),
-which it removes. Needs `node` 20+, `bb`, `python3`, `allium`; the UI also needs the Clojure CLI
+which it removes. Needs `node` 20+, `bb`, `allium`; the UI also needs the Clojure CLI
 (the renderer evaluates the Grain Event Model).
 
 Environment: `SPEC_REVIEW_ROOT` (the repo whose spec the tools read and edit; default this

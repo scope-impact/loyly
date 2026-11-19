@@ -1,0 +1,31 @@
+{
+  "description" : "After R-1 of C-1 failed at fence, starting R-1 of C-2 was refused run-already-started. The all-runs progress query listed R-1 once, with cycle C-1.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-002"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "dc92f4c5ba748c11c64968785fbb95eb",
+  "name" : "06-002",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "6dab49bf-931d-3a07-a688-9500f1100e6d-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "dc92f4c5ba748c11c64968785fbb95eb",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-002",
+  "uuid" : "6dab49bf-931d-3a07-a688-9500f1100e6d"
+}

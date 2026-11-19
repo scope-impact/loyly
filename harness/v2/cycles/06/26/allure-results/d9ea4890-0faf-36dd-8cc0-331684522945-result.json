@@ -1,0 +1,31 @@
+{
+  "description" : "The builder started a 30-second sleep under a 2-second regenerate budget; after the deadline its completion marker did not appear and progress failed regenerate for budget.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-017"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "9edeae11a705d35e345364638ac9ec73",
+  "name" : "06-017",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "d9ea4890-0faf-36dd-8cc0-331684522945-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "9edeae11a705d35e345364638ac9ec73",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-017",
+  "uuid" : "d9ea4890-0faf-36dd-8cc0-331684522945"
+}

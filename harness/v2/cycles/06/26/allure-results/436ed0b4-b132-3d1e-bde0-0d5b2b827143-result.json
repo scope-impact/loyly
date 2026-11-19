@@ -1,0 +1,31 @@
+{
+  "description" : "The green stdio suite was followed by a probe that printed no response within the 30s boot budget and exited 1. The gate recorded identity-probe-failed with that detail, and the store-check marker was absent.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-042"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "7a920f78ad2b68bbc7d5ac903fe9cb7b",
+  "name" : "06-042",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "436ed0b4-b132-3d1e-bde0-0d5b2b827143-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "7a920f78ad2b68bbc7d5ac903fe9cb7b",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-042",
+  "uuid" : "436ed0b4-b132-3d1e-bde0-0d5b2b827143"
+}

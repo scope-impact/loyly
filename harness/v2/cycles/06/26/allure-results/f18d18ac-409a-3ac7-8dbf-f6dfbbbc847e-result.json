@@ -1,0 +1,31 @@
+{
+  "description" : "Started R-1 against an empty Git repository with the nonexistent deadbeef commit; start-run refused not-a-commit and run-progress returned null. No builder was configured or launched.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-005"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "766a4eadf35bfcb3737e8f9c45043720",
+  "name" : "06-005",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "f18d18ac-409a-3ac7-8dbf-f6dfbbbc847e-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "766a4eadf35bfcb3737e8f9c45043720",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-005",
+  "uuid" : "f18d18ac-409a-3ac7-8dbf-f6dfbbbc847e"
+}

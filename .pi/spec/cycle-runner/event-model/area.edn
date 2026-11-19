@@ -1,5 +1,5 @@
 ;; .pi/spec/cycle-runner/event-model/area.edn
-;; The Cycle runner (slice 06): its screen and its one flow, the tree cycle-runner/cycle.v1 (spec
+;; The Cycle runner (slice 06): its screen and its one flow, the tree cycle-runner/cycle.v2 (spec
 ;; round 18). The aggregate's blocks are in cycle-run.edn. The six contexts are one
 ;; candidate on one store: the leaves of the tree issue the five contexts' commands on that
 ;; store, and the one event model is the union of every context's event-model/*.edn. There is
@@ -13,10 +13,10 @@
 ;; event: a name, or :effect for the leaf named by the event's own :effect. The gate's store
 ;; check holds each such event to that leaf, in a tick of the flow or a child tick that tick
 ;; delegated (a gate attempt is the workflow cycle-runner/gate-attempt.v1, an item's grading
-;; cycle-runner/grade.v1; each is part of the flow's tree, not a flow of its own).
+;; cycle-runner/grade.v2; each is part of the flow's tree, not a flow of its own).
 ;; Allium: ../allium/ (surface RunDesk; the flow links the rules it passes through).
 {:cycle-runner
- {:description "Cycle runner: the one ORC tree, cycle.v1, that performs a cycle's effects (stamp, pin, checklist, the sealed grader, self-check, fence, the builder instruction, regenerate, install and gate with repair, grade each item, file the score) and records each effect's result into the context that owns it, on the one store. It owns no rule of the five contexts."
+ {:description "Cycle runner: the one ORC tree, cycle.v2, that performs a cycle's effects (stamp, pin, checklist, the sealed grader, self-check, fence, the builder instruction, regenerate, install and gate with repair, grade each item, file the score) and records each effect's result into the context that owns it, on the one store. It owns no rule of the five contexts."
   :screens
   {:cycle-runner/run-desk
    {:description "The operator's run desk: start a run, observe its effects, its tick, its items' scores and how it ended. Reading changes nothing."
@@ -24,8 +24,8 @@
     :queries #{:cycle-runner/run-progress}
     :commands #{:cycle-runner/start-run}}}
   :flows
-  {:cycle-runner/cycle.v1
-   {:description "The operator starts a run; the leaves of the tree cycle.v1 perform the cycle's effects in order (stamp, pin, checklist, the sealed grader, self-check, fence, render the builder instruction, regenerate, then each gate attempt as the delegated subtree cycle-runner/gate-attempt.v1: install, self-check, gate, and a repair after a failed attempt the cycle allows; then each checklist item graded by the delegated subtree cycle-runner/grade.v1; then the score), each recording its result into its context; the tick ends when the run concluded with its cycle, or halted, always through a branch of the root fallback."
+  {:cycle-runner/cycle.v2
+   {:description "The operator starts a run; the leaves of the tree cycle.v2 perform the cycle's effects in order (stamp, pin, checklist, the sealed grader, self-check, fence, render the builder instruction, regenerate, then each gate attempt as the delegated subtree cycle-runner/gate-attempt.v1: install, self-check, gate, and a repair after a failed attempt the cycle allows; then each checklist item graded by the delegated subtree cycle-runner/grade.v2 through a bounded Pi host command; then the score), each recording its result into its context; the tick ends when the run concluded with its cycle, or halted, always through a branch of the root fallback."
     :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "StartRun"}
                    {:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "RecordEffect"}
                    {:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "ConcludeWithTheCycle"}

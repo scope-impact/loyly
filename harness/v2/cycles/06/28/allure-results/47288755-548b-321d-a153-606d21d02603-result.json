@@ -1,0 +1,34 @@
+{
+  "description" : "The command printed BOOT 20 10 followed by seam-answered-before-boot and exited 1; the runner halted at gate as effect-could-not-run after one launch, instead of recording three refusals and failing the cycle for infrastructure.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-055"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "statusDetails" : {
+    "message" : "The command printed BOOT 20 10 followed by seam-answered-before-boot and exited 1; the runner halted at gate as effect-could-not-run after one launch, instead of recording three refusals and failing the cycle for infrastructure."
+  },
+  "stage" : "finished",
+  "historyId" : "93c13fdcc1b437e3d7fc04f1674b66bd",
+  "name" : "06-055",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "47288755-548b-321d-a153-606d21d02603-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "93c13fdcc1b437e3d7fc04f1674b66bd",
+  "status" : "failed",
+  "fullName" : "loyly.slice-06.item-06-055",
+  "uuid" : "47288755-548b-321d-a153-606d21d02603"
+}

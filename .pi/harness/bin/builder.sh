@@ -14,6 +14,9 @@
 #   LOYLY_BUILDER_SESSION_ID  optional: the durable session's key, [A-Za-z0-9._-]; store
 #                             $BUILDER_EVIDENCE_DIR/sessions/<id>/session.sqlite, request id <id>.
 #                             Without it: launch-N/session.sqlite, request id launch-N (a fresh session).
+#   LOYLY_BUILDER_TURN        optional continuation number, 1 to 4; the same session store
+#                             receives a distinct request id for each turn. Default 1 preserves
+#                             retry of the same request after an interrupted launch.
 #   LOYLY_BUILDER_PI_SETTINGS a pi settings.json whose defaultTools selects the builder's tools
 #                             (default ../config/pi.builder.settings.json)
 #   PI_HARNESS_STATE_ROOT     the state root (default .pi/harness/.state beside this script)
@@ -33,6 +36,9 @@ PI_SETTINGS="${LOYLY_BUILDER_PI_SETTINGS:-$HERE/../config/pi.builder.settings.js
 PI_SETTINGS="$(cd "$(dirname "$PI_SETTINGS")" && pwd)/$(basename "$PI_SETTINGS")"
 SID="${LOYLY_BUILDER_SESSION_ID:-}"
 [[ -z "$SID" || "$SID" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "bad LOYLY_BUILDER_SESSION_ID: $SID" >&2; exit 2; }
+TURN="${LOYLY_BUILDER_TURN:-1}"
+[[ "$TURN" =~ ^[1-4]$ ]] || { echo "bad LOYLY_BUILDER_TURN: $TURN" >&2; exit 2; }
+[[ "$TURN" == 1 || -n "$SID" ]] || { echo "continuation needs LOYLY_BUILDER_SESSION_ID" >&2; exit 2; }
 if [[ -n "$IMAGE" ]]; then
   export GONDOLIN_GUEST_DIR="$IMAGE"
 else
@@ -46,6 +52,7 @@ mkdir -p "$EV"
 n=$(ls -d "$EV"/launch-* 2>/dev/null | wc -l | tr -d ' '); n=$((n+1)); L="$EV/launch-$n"; mkdir -p "$L"
 if [[ -n "$SID" ]]; then
   STORE="$EV/sessions/$SID/session.sqlite"; RID="$SID"
+  [[ "$TURN" == 1 ]] || RID="$SID-turn-$TURN"
 else
   STORE="$L/session.sqlite"; RID="launch-$n"
 fi
@@ -57,7 +64,7 @@ mkdir -p "$(dirname "$STORE")"
   echo "image_manifest=$GONDOLIN_GUEST_DIR/manifest.json"; echo "image_manifest_sha256=$(sha "$GONDOLIN_GUEST_DIR/manifest.json")"
   echo "pi_settings=$PI_SETTINGS"; echo "pi_settings_sha256=$(sha "$PI_SETTINGS")"
   echo "vm_policy=$HOST/policy.ts"; echo "vm_policy_sha256=$(sha "$HOST/policy.ts")"
-  echo "session_id=$SID"; echo "store=$STORE"; echo "request_id=$RID"
+  echo "session_id=$SID"; echo "turn=$TURN"; echo "store=$STORE"; echo "request_id=$RID"
   echo "model=${LOYLY_PI_MODEL:-openai-codex/gpt-6.1-sol}"; echo "steer_dir=$L/steer"; echo "wrapper_pid=$$"
   echo "start=$(date -u +%FT%TZ)"; echo "cwd_before=$(pwd)"; } > "$L/launch.txt"
 cp "$INSTR" "$L/instruction-as-handed.md"

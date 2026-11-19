@@ -1,0 +1,31 @@
+{
+  "description" : "The always-red builder logged exactly three launches and the run failed at gate for gate-attempts-exhausted. The model was called only to render, and no file-verdicts effect appeared.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-024"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "7697c5c61862dbdf2bd2b2310acb006b",
+  "name" : "06-024",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "a98f1da7-b0e1-3dd1-bdda-5a36c22f6794-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "7697c5c61862dbdf2bd2b2310acb006b",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-024",
+  "uuid" : "a98f1da7-b0e1-3dd1-bdda-5a36c22f6794"
+}

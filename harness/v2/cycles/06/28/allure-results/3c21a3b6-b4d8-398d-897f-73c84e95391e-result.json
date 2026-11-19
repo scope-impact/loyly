@@ -1,0 +1,31 @@
+{
+  "description" : "A host writing no verdict rows led file-verdicts to refuse zero-verdicts, followed by fail-score-stage; the cycle failed for score-stage-failed and the builder log contained only its original launch.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-069"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "491ebe42cfeb203dd3fa479881589af0",
+  "name" : "06-069",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "3c21a3b6-b4d8-398d-897f-73c84e95391e-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "491ebe42cfeb203dd3fa479881589af0",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-069",
+  "uuid" : "3c21a3b6-b4d8-398d-897f-73c84e95391e"
+}

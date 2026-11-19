@@ -1,0 +1,31 @@
+{
+  "description" : "The approved list contained r-1 while the computed sealed grader digest differed; progress halted at grader with the actual digest, before any self-check, fence, or builder launch.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-068"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "f73714bee8fa8420330af50d4f179392",
+  "name" : "06-068",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "29afef63-cb6d-3ec0-8bfa-5ca1d0935231-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "f73714bee8fa8420330af50d4f179392",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-068",
+  "uuid" : "29afef63-cb6d-3ec0-8bfa-5ca1d0935231"
+}

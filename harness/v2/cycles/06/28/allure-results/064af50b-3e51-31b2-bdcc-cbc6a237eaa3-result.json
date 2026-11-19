@@ -1,0 +1,34 @@
+{
+  "description" : "A server occupied the configured port before gating and the candidate launch marker stayed absent, but the run halted effect-could-not-run at gate instead of recording three seam-answered-before-boot refusals and failing for infrastructure.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-018"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "statusDetails" : {
+    "message" : "A server occupied the configured port before gating and the candidate launch marker stayed absent, but the run halted effect-could-not-run at gate instead of recording three seam-answered-before-boot refusals and failing for infrastructure."
+  },
+  "stage" : "finished",
+  "historyId" : "d9b946c4f8a1ee313aa3255e573b73ec",
+  "name" : "06-018",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "064af50b-3e51-31b2-bdcc-cbc6a237eaa3-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "d9b946c4f8a1ee313aa3255e573b73ec",
+  "status" : "failed",
+  "fullName" : "loyly.slice-06.item-06-018",
+  "uuid" : "064af50b-3e51-31b2-bdcc-cbc6a237eaa3"
+}

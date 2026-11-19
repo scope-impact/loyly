@@ -1,0 +1,31 @@
+{
+  "description" : "The config named builder-clojure in an empty image directory; start-run refused builder-image-missing and run-progress returned null before any builder launch.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-050"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "de649f5418eec3bf4c0d3475080876c0",
+  "name" : "06-050",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "7d0f6ef0-81b1-37f3-9267-44b5889404e0-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "de649f5418eec3bf4c0d3475080876c0",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-050",
+  "uuid" : "7d0f6ef0-81b1-37f3-9267-44b5889404e0"
+}

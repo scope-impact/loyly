@@ -1,0 +1,31 @@
+{
+  "description" : "The grader returned one valid pass and no row for 01-002; file-verdicts offered only 01-001, and Measurement filed 01-002 unreached with 1 of 2 passing while the cycle passed.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-026"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "e02df9c02db1168a505f0efed5035cd3",
+  "name" : "06-026",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "c1daed14-5af1-3ee9-9fb2-3ce93ad1231f-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "e02df9c02db1168a505f0efed5035cd3",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-026",
+  "uuid" : "c1daed14-5af1-3ee9-9fb2-3ce93ad1231f"
+}

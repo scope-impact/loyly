@@ -1,0 +1,31 @@
+{
+  "description" : "During the sleeping builder, progress reported R-1 running with its tick ID. Its completed nodes included fence then render and its last node was regenerate marked running.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-073"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "822279f37bdde7855857d9a724decb20",
+  "name" : "06-073",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "40be110d-5f9a-334d-b20c-7eb56c53be09-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "822279f37bdde7855857d9a724decb20",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-073",
+  "uuid" : "40be110d-5f9a-334d-b20c-7eb56c53be09"
+}

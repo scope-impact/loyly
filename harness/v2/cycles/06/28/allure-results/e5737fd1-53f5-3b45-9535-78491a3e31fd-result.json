@@ -1,0 +1,31 @@
+{
+  "description" : "After R-1 passed, a start for R-2 on the same cycle returned cycle-already-run; Grain contained only one run-started event.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-004"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "0782c439713857002d024e00d45b37b2",
+  "name" : "06-004",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "e5737fd1-53f5-3b45-9535-78491a3e31fd-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "0782c439713857002d024e00d45b37b2",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-004",
+  "uuid" : "e5737fd1-53f5-3b45-9535-78491a3e31fd"
+}

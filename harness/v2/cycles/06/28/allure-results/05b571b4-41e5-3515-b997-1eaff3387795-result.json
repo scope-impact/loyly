@@ -1,0 +1,31 @@
+{
+  "description" : "The passing self-check printed the full legacy SKIP line; the recorded self-check passed and its detail and skipped-checks included the complete text after SKIP.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-038"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "4b3c9d72520e8155da9f76ed7081a69e",
+  "name" : "06-038",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "05b571b4-41e5-3515-b997-1eaff3387795-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "4b3c9d72520e8155da9f76ed7081a69e",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-038",
+  "uuid" : "05b571b4-41e5-3515-b997-1eaff3387795"
+}

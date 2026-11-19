@@ -1,8 +1,8 @@
 # harness-impl: the promoted build of spec v2
 
 The accepted builds of the six spec-v2 contexts (`../.pi/spec/`) are recorded here. Contexts
-01–05 were promoted in the first switch; context 06 was repaired from its accepted cycle-23
-base and replaced by cycle 25 on 2026-11-17. Each passed its independent gate and was scored.
+01–05 were promoted in the first switch; context 06 was freshly regenerated and promoted
+from cycle 26 on 2026-11-18. Each passed its independent gate and was scored.
 
 | Folder | Context | Cycle | Score |
 |---|---|---|---|
@@ -11,15 +11,15 @@ base and replaced by cycle 25 on 2026-11-17. Each passed its independent gate an
 | `03-grader-lifecycle/` | grader-lifecycle | 05 | 11/11 |
 | `04-regeneration-cycle/` | regeneration-cycle | 05 | 76/76 |
 | `05-cycle-preparation/` | cycle-preparation | selfhost-01 (runner c05), the first self-hosted cycle | 4/4 |
-| `06-cycle-runner/` | cycle-runner | 25, bounded repair from accepted cycle 23 | 61/61 |
+| `06-cycle-runner/` | cycle-runner | 26, fresh regeneration | 62/62 |
 
 Each folder's `PROVENANCE.md` names the room it came from, its gate log and verdict, its score
 and cycle commit, the spec commit it was built from, and the digest of its source, which equals
 the digest computed in the room.
 
-The cycle-25 runner carries `06-047` and `06-066`; none of the other 59 items newly failed.
-Its filed profile remains failed under an explicit audited retry-naming exception. See its
-provenance. The five other accepted contexts were retained as built.
+The cycle-26 runner carries all 61 items shared with cycle 25, plus new Allure item 06-074.
+Its filed profile is clean after two preserved fresh retries; see its provenance. The five
+other accepted contexts were retained as built.
 
 ## Running a context
 
@@ -34,7 +34,7 @@ LOYLY_GRAIN_STORE=/tmp/prep/events.sqlite LOYLY_PROJECT_COMMITS=/tmp/prep/commit
 ```
 
 Some contexts read more (`LOYLY_PROJECT_COMMITS`, `LOYLY_SCENARIO_DIGESTS`,
-`LOYLY_SCORING_TOOL_PATHS`); their seams say which. The cycle-25 runner carries the six
+`LOYLY_SCORING_TOOL_PATHS`); their seams say which. The cycle-26 runner carries the six
 contexts' event-model fragments in its build. Build outputs and caches
 (`.cpcache/`, `target/`, `classes/`) are made on first start and ignored (`.gitignore`).
 

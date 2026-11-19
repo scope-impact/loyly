@@ -106,7 +106,7 @@ verdict and never changes the checklist or its denominator:
   validates reachable screens, operable accessible actions, declared calls, and visible feedback.
 - `GLOSSARY.md` fixes the regeneration-cycle vocabulary and is the authority for every name in
   the Allium, the Grain Event Model, `.pi/architecture.md`, and the ADRs;
-  `tools/spec/glossary-lint.py` enforces its `_Avoid_` lists (ADR 0005).
+  `tools/spec/glossary-lint.sh` enforces its `_Avoid_` lists (ADR 0005).
 - `docs/adr/0001-session-and-cycle-ownership.md` records why ORC owns the inner cycle while
   operator sessions own approval and outer continuation.
 - `docs/adr/0002-pi-harness-is-an-orc-grain-service-area.md` records why the harness shares

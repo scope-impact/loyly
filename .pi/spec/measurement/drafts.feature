@@ -78,3 +78,16 @@ Feature: Measurement, draft scenarios
       When the open grader returns pass for 03-001 with the surprise "the scenario and seam.md disagree on the refusal's wording"
       Then the measurement of C-7 files 03-001 as pass
       And the measurement receipt of C-7 shows the surprise beside 03-001, apart from the item verdicts
+
+  Rule: A filed item verdict has an Allure test result tagged with its stamped identity
+
+    # New reporting projection; its schema is Allure test-result JSON, not a second score.
+    # Suggested tier: balance, pending Measurement's next regeneration.
+    @draft
+    Scenario: Allure results preserve item identity, verdict and profile evidence
+      Given the checklist of cycle C-7 holds 03-001 and 03-002
+      And the grader has evidence for both and a profile of each
+      When Measurement files 03-001 as pass and 03-002 as fail
+      Then each item has one Allure test result with its stamped identity as a tag label
+      And each result's status matches its filed verdict and attaches that item's profile summary
+      And the score of C-7 still counts exactly two checklist items

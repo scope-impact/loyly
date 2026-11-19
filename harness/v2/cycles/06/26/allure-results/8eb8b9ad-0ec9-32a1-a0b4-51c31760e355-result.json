@@ -1,0 +1,31 @@
+{
+  "description" : "The probe accepted exactly one argument, the configured HTTP URL, and required its marker. The gate recorded gate-attempt-passed and the scored run passed.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-036"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "bf4a5c0115b13432ba1e29db29d20d15",
+  "name" : "06-036",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "8eb8b9ad-0ec9-32a1-a0b4-51c31760e355-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "bf4a5c0115b13432ba1e29db29d20d15",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-036",
+  "uuid" : "8eb8b9ad-0ec9-32a1-a0b4-51c31760e355"
+}

@@ -4,7 +4,7 @@ You are the grader of one regeneration cycle. You file one verdict per checklist
 the `cycle-runner` context. You did not build the candidate and you must not repair it. Your
 verdicts are the instrument: they report to a person and never go back to the builder.
 
-Since spec round 18 the candidate is one ORC tree, `cycle-runner/cycle.v1`, on one Grain store.
+Since spec round 18 the candidate under grade is one ORC tree, `cycle-runner/cycle.v2`, on one Grain store.
 The five contexts 01 to 05 (specification, measurement, grader-lifecycle, regeneration-cycle,
 cycle-preparation) are inside it. They are never built or launched on their own.
 
@@ -19,6 +19,7 @@ cycle-preparation) are inside it. They are never built or launched on their own.
 | `harness-impl/06-cycle-runner/` | The gated candidate (a copy). `start.sh` boots it on its JSON-RPC stdio seam. `test.sh` runs its own suite. It carries its own copy of the event models |
 | `harness/v2/event_store_check.clj` (+ `event-store-check.sh`, `deps.edn`) | Reference only: how the gate reads a Grain SQLite store with Grain's own reader. Reuse its reading code to inspect a store |
 | `harness/v2/profile.py`, `profile_store.clj` | Host process and JVM sampler, Grain trace reader, and profile report; they record process IDs, usage, node facts and prompt digests, never command lines or raw prompts |
+| `harness/v2/allure.clj` | Projects final item verdicts and case profiles into Allure result files and verifies their tags and schema |
 | `.pi/harness/grader-instruction-06.md` | This sealed grader instruction, copied from the same spec commit; its digest is recorded in the profile |
 | `work/` | Yours, read-write: fixtures, stubs, stores, logs, and your output |
 
@@ -53,9 +54,8 @@ reconstruct them.
      the builder room's candidate scope, or leaves it empty, or sleeps. It records its arguments,
      its instruction file and `LOYLY_BUILDER_SESSION_ID`;
    - a stub model (`LOYLY_MODEL_API_BASE`, below);
-   - a fixture rubric (`LOYLY_GRADER_RUBRIC`). The grader digest is `sha256:` and the SHA-256 of
-     the line `cycle-runner/grade.v1` and a LF, then the rubric's bytes. Name that digest, or
-     another, in `start-run`'s `grader-digests`;
+   - a fixture rubric, host executable, host policy manifest, and grader model. Compute the
+     `grade.v2` digest exactly as `seam.md` defines and hand it in as an approved digest;
    - stub self-checks, identity probes, store checks and gate commands, as each scenario needs.
 4. Each scenario's Given/When/Then is what you set up, what you do, and what you check. A Then
    passes only when you observed it: a response, a refusal code, a recorded effect, a file, a
@@ -64,79 +64,52 @@ reconstruct them.
 6. Unreached is fail. If you cannot set a scenario up, it fails, with the reason as its evidence.
    Never pass an item because it "probably" holds.
 
-## The stub model
+## The stub model and grader host
 
-The candidate calls the model for three nodes: `render` (the builder instruction), the
-researcher `drive-seam`, and the judge. Point `LOYLY_MODEL_API_BASE` at a stub you write. Give
-`LOYLY_RENDER_MODEL` and `LOYLY_GRADER_MODEL` names of your own.
+The candidate calls the OpenAI-compatible model endpoint only for `render`. Give
+`LOYLY_MODEL_API_BASE` a stub that returns the rendered `builder-instruction` in ORC marker
+format and records requests. Its selected name is `LOYLY_RENDER_MODEL`. Make a fixture grader
+host executable and supply its absolute path as `LOYLY_GRADER_HOST`. The host receives the
+item grading room, its instruction file, and grader image path as three arguments; it records
+them and writes `work/verdicts.json` in the room. The valid output is a one-element array of
+`{ "id": "01-001", "verdict": "pass", "evidence": "what was observed" }` with the matching item
+ID. The host also writes launch evidence naming its model, instruction digest, session and
+trace. Use a fixture `LOYLY_GRADER_HOST_POLICY` manifest and `LOYLY_GRADER_RUBRIC`. The grader
+digest is the `grade.v2` formula in `seam.md`; name it in `start-run`'s `grader-digests`.
 
-The approach that worked in the prototype: a small OpenAI-compatible HTTP server
-(`/v1/chat/completions`) that answers from a script of rules. A rule names substrings. The first
-rule whose substrings all occur in the request wins. The server saves every request to a file.
-An unmatched request gets HTTP 400 and is saved too, so you write the script by running with no
-rules and reading the saved requests. You can write it in `bb` (http-kit's server is built in).
-Write your own; there is no stub in this room.
+For 013, add a non-fenced gitlink `provided-runtime` to the fixture cut, then have the stub
+builder record `git ls-tree HEAD provided-runtime` inside its clean room. Compare its mode
+and object ID with the cut. For 026 and 074, make 01-001 return a valid pass and 01-002 return
+no valid row. For 064, return a valid pass and a valid fail, then inspect the ORC judge score
+events and filed Measurement receipt. For 065, inspect both item instructions and rooms to
+prove the second contains no first-item evidence. For 066, use the real Pi grader host in its
+Gondolin VM and have it probe `uname`, `pwd`, `ls`, and parent folders; retain the trace and
+mount evidence. For 067, exit zero but give 01-002 empty evidence; it must stay unscored.
+For 068, use a grader digest absent from the approved set. For 069, write no valid rows.
+For 075, start a host child that outlives the item deadline; prove both stop. For 076, report
+the builder's model from the grader launch and prove no score, then report a distinct model
+for a valid row. For 077, make a fixture cut whose tagged scenarios are 06-001, 06-003 and
+06-076, with a fresh store; inspect Specification's three imported events, the ordered
+Measurement checklist and receipt, and the next free identity. Repeat with a prior ledger
+that includes a retired identity, then offer an untagged or duplicate item and show the
+run halts before self-check or fence. A host exit code or final prose is never a verdict.
 
-What `seam.md` says, and what to expect:
-- Replies are in ORC's marker format: each field under a `[[ ## <field> ## ]]` line, then
-  `[[ ## completed ## ]]`. The render reply's field is `builder-instruction`. The researcher's are
-  `reasoning` and `code`. The judge's are `reasoning`, `level` and `feedback`.
-- The researcher's `code` is raw Clojure (no markdown fences). Its tool is `vm_bash`, which
-  returns `{:exit :stdout :stderr}`. It ends with `(final! {:evidence "..."})`.
-- The first researcher request contains the item's scenario text and the slice's seam and
-  event-model text from the cut. The structured `item` input appears by shape, not by value.
-  One researcher rule can still serve every item: its code reads `(get-input :item)` and
-  branches on the item's id.
-- Prompts carry tick ids and timestamps, and ORC may retry a request. Match on stable substrings
-  (the node's output contract, the item's text, the reply fragments that matter). Never match on
-  a whole prompt, a hash or a hit count.
-- For `@item-06-026`, give the researcher the same code for each item and branch on
-  `(get-input :item)` inside that code, so 01-002 fails while 01-001 reaches its judge.
-  Match the same response rule for both items even though their scenario text may differ.
-- For `@item-06-013`, add a non-fenced gitlink named `provided-runtime` to the fixture cut
-  (mode `160000`, pointing to an existing commit), then have the stub builder record
-  `git ls-tree HEAD provided-runtime` inside its clean room. Compare its mode and object id
-  with the cut's tree, as well as the one-commit and fenced-path observations.
-- Let the evidence decide the judge: a pass rule matches on what the candidate really answered,
-  and a fail rule catches the rest.
-- The judge's ORC binary scale is integer level `1` for fail (score `0.0`) and level `2` for pass
-  (score `1.0`). Use those levels in the stub replies. Level `0` is out of range. For 064, inspect
-  the two ORC judge score events as well as the filed verdicts. For 067, reply with level `2`
-  and feedback but no reasoning for 01-002; verify it leaves no judge score.
+## Scoring and the store (items 059, 061 and 064 to 077)
 
-## Scoring and the store (items 059, 061 and 064 to 073)
+Each checklist item is graded in its own `cycle-runner/grade.v2` child tick after a passed gate.
+`clear-evidence` prepares a fresh room; `grade-item` launches the host and validates its result.
+The validated rows become ORC judge scores, then `file-verdicts` and `file-score` hand them to
+Measurement. A missing score becomes an unreached fail in the full denominator; zero scored
+items makes Measurement refuse the verdicts. `run-progress` shows the tick and scores.
 
-- When a gate attempt passed, each checklist item of the fixture plan is graded by the sealed
-  grader `cycle-runner/grade.v1`, in a child tick of its own: `clear-evidence`, `drive-seam`,
-  `judge`. The judge's scores reach Measurement through `file-verdicts` and `file-score`. An item
-  with no score is filed as an unreached fail and stays in the denominator.
-- `run-progress` shows the run's tick (its nodes in the order completed, the running one last)
-  and the judge's `scores`.
-- Some Thens need the **runner's own Grain store**, the SQLite file you handed in as
-  `LOYLY_GRAIN_STORE`. Read it directly after the run, with Grain's reader
-  (`harness/v2/event_store_check.clj` shows how). Find the run's tick of `cycle-runner/cycle.v1`,
-  its delegated child ticks (`gate-attempt.v1`, `grade.v1`), each leaf's start and completion,
-  and ORC's judge score events (judge name `checklist/<item-id>`). Check where each effect result
-  and each context event lies.
-- The new items, in short:
-  - 064: each item scored in its own `grade.v1` child tick; scores filed as scored; the run passes.
-  - 065: no request for one item holds another item's evidence.
-  - 066: the researcher's first request holds the item's scenario and the slice's seam and event
-    model; its shell's replies come from a Linux VM whose only host folder is the item's grading
-    room (clean room files and the candidate's copy), with no other item's room beside it. Hand
-    the run `LOYLY_GRADER_IMAGE` (below) and script the researcher to ask `uname`, `pwd`, `ls`
-    and `ls ..`.
-  - 067: a judge reply with no reason scores nothing: the reply carries a `level` and `feedback`
-    and no `reasoning`. Look for no judge score of that item in the store and in
-    `run-progress`, and an unreached fail in the measurement.
-  - 068: an unapproved grader digest halts the run before the cycle.
-  - 069: no item scored: `file-verdicts` refused, the score stage fails.
-  - 070: stop the runner during a builder session; start it again on the same store; the run
-    resumes, and the stub builder sees the same session identity twice.
-  - 071: the builder's instruction is exactly the rendered text; the repair's adds only a closing
-    paragraph.
-  - 072: a render the model fails halts the run before any builder.
-  - 073: `run-progress` of a running run shows its tick and the running leaf.
+Read the runner's own `LOYLY_GRAIN_STORE` directly after a run with Grain's reader as
+`harness/v2/event_store_check.clj` demonstrates. Find the `cycle-runner/cycle.v2` tick and its
+`gate-attempt.v1` and `grade.v2` child ticks. Confirm leaf start and completion, the context
+effects, and judge score events named `checklist/<item-id>`. For 074, inspect the filed
+Measurement receipt and Allure results: one tagged result per checklist item, including the
+unreached item, with status and reason matching the receipt. Repeat on a fresh store to check
+stable Allure history and case IDs. The Allure files you export for this grading run are
+separate from these product results.
 
 ## The machine
 
@@ -145,7 +118,7 @@ You run on the macOS host, as your own user, with a BSD userland: no GNU-only op
 the Clojure CLI, babashka (`bb`) and Python 3. `gondolin` is on `PATH`. For every run that
 reaches grading, hand the candidate `LOYLY_GRADER_IMAGE` set to the guest image
 `/Users/sathish.narayanan/Documents/git/loyly-spec-v2/.pi/harness/.state/assets/builder-clojure`:
-the candidate starts a Gondolin VM from it for each item's researcher, and a run without it halts
+the Pi grader host starts a Gondolin VM from it for each item, and a run without it halts
 before grading. Never write into that folder.
 
 Stay in this room: write only under `work/`. One exception, for `@item-06-062`: the grading room
@@ -185,11 +158,11 @@ whose runner stays live long enough, and keep its JSON-RPC stdin open until the 
 finishes. If attachment fails, record the cause and retry on another live case. This changes
 no item verdict; the final profile reports a gap if it saw live candidate Java but has no
 matching JVM diagnostic.
-For a fixture that reaches `grade.v1`, start `profile.py watch` while its `start-run` request is
+For a fixture that reaches `grade.v2`, start `profile.py watch` while its `start-run` request is
 in flight. It polls the owned process tree until it observes QEMU and records an active capture,
 or times out after a bounded interval. Start it before the grade leaf can finish, not after the
 run response. A timeout is a profile gap to record; the final report checks every Grain store
-with a `grade.v1` trace for at least one live QEMU sample. Wait for the watcher before `after`.
+with a `grade.v2` trace for at least one live QEMU sample. Wait for the watcher before `after`.
 
 ```bash
 P=work/profile-events.jsonl
@@ -279,5 +252,21 @@ you will be asked to continue with them.
 Optionally, write `work/surprises.json`: `[{"id", "note"}]`, places where the spec was ambiguous
 or the candidate did something the spec does not mention. A surprise never changes a verdict.
 
-When every item has a verdict and `work/profile.json` exists, answer with one line: the number of
-items, passes, fails and the profile status.
+After `work/profile.json` exists, export and verify Allure results:
+
+```bash
+bb harness/v2/allure.clj export --checklist checklist.txt --verdicts work/verdicts.json \
+  --profile work/profile.json --out work/allure-results
+bb harness/v2/allure.clj verify --checklist checklist.txt --verdicts work/verdicts.json \
+  --profile work/profile.json --out work/allure-results
+```
+
+Each checklist item has one `{uuid}-result.json` in the [Allure test result format](https://allurereport.org/docs/how-it-works-test-result-file/).
+Its `labels` include `{"name":"tag","value":"item-06-001"}` for `@item-06-001`;
+`status` maps `pass` to `passed` and `fail` to `failed`. A JSON attachment holds the
+case's profile summary. The profile's own `failed` status stays visible in that attachment
+and never changes an item verdict. Allure is a view of `verdicts.json`, not a second score;
+the OTLP trace and metric files remain separate.
+
+When every item has a verdict, `work/profile.json` exists, and Allure verification passes,
+answer with one line: the number of items, passes, fails and the profile status.

@@ -1,0 +1,31 @@
+{
+  "description" : "R-1 failed at the fence self-check and R-2 halted on an empty checklist. Five seconds later, both progress results were identical to their earlier readings, including all effects and statuses.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-034"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "5ebfdbe61735dc834d0ef58b08b0ef0a",
+  "name" : "06-034",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "d17c781e-c511-316a-90f3-c1f313a8af35-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "5ebfdbe61735dc834d0ef58b08b0ef0a",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-034",
+  "uuid" : "d17c781e-c511-316a-90f3-c1f313a8af35"
+}

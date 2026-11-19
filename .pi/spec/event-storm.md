@@ -2,6 +2,28 @@
 
 > A snapshot of round R0; later decisions are in [`decisions.md`](decisions.md).
 
+## Current ORC grading overlay (after spec round 18)
+
+The R0 board below records the discovery workshop. In the accepted slice-06 workflow,
+`cycle-runner/cycle.v1` performs black-box grading after the gate passes. This overlay follows
+the **execution** of that grader, not its authoring or approval. Grader preparation remains on
+its own clock; the current Grader lifecycle event model records only instrument goldens.
+
+| Order | What happens | Observable record | Owner |
+|---|---|---|---|
+| 1 | Check the sealed `grade.v1` digest against the run's approved digests, before the fence | `cycle-runner/run-halted` if refused; the `grader` ORC leaf otherwise | Cycle runner |
+| 2 | Pass the gate and start a fresh grading VM for each item | `regeneration-cycle/gate-attempt-passed`; ORC `grading-vm` and child `grade.v1` ticks | Regeneration cycle / ORC |
+| 3 | Clear prior evidence and drive the gated candidate through its public seam, black-box | ORC `clear-evidence` and `drive-seam` node records; researcher evidence | ORC grader |
+| 4 | Judge that item's evidence with the sealed rubric | `judge/score-emitted` when the judge scores; no score if the researcher or judge cannot score | ORC grader |
+| 5 | File scored items against the gated candidate and approved digest; keep unreached items in the denominator | `measurement/item-verdicts-filed` | Measurement |
+| 6 | File and report the measurement | `measurement/measurement-filed`, then `measurement/scoreboard-reported` | Measurement |
+
+The ORC node and judge records are on the same Grain store as domain events, but are **not**
+Grader lifecycle domain events. A cycle that merely uses an approved grader need not write or
+move an instrument golden. The two golden events on the board below feed the harness self-check
+when they occur; neither is a required step of every grading run. This overlay introduces no
+new domain event or stamped checklist item.
+
 One consolidated timeline of domain events for the Pi harness, merged from four participants'
 stickies. ◆ marks a pivotal event; ✗ marks an unhappy branch, listed after the happy event it
 diverges from. Hot spots are numbered H1–H35 (see below). The same board as data is

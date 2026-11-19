@@ -1,0 +1,34 @@
+{
+  "description" : "The builder fixture recorded model-A; the 01-001 grader launch also reported model-A and 01-002 reported model-B. Progress scored both as passes and Measurement filed both, so the builder-model row was not rejected as required.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-076"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "statusDetails" : {
+    "message" : "The builder fixture recorded model-A; the 01-001 grader launch also reported model-A and 01-002 reported model-B. Progress scored both as passes and Measurement filed both, so the builder-model row was not rejected as required."
+  },
+  "stage" : "finished",
+  "historyId" : "3368406027c7f35474fb6865d8d0c490",
+  "name" : "06-076",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "0c42a23b-d958-3464-a0ce-92c8d9799f42-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "3368406027c7f35474fb6865d8d0c490",
+  "status" : "failed",
+  "fullName" : "loyly.slice-06.item-06-076",
+  "uuid" : "0c42a23b-d958-3464-a0ce-92c8d9799f42"
+}

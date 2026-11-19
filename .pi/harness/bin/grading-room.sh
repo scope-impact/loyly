@@ -37,7 +37,7 @@ instruction=".pi/harness/grader-instruction-$NN.md"
 if git -C "$REPO" cat-file -e "$COMMIT:$instruction" 2>/dev/null; then
   others+=("$instruction")
 fi
-for profile_tool in harness/v2/profile.py harness/v2/profile_store.clj; do
+for profile_tool in harness/v2/profile.py harness/v2/profile_store.clj harness/v2/allure.clj; do
   if git -C "$REPO" cat-file -e "$COMMIT:$profile_tool" 2>/dev/null; then
     others+=("$profile_tool")
   fi

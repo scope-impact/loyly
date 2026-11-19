@@ -1,7 +1,7 @@
 # Löyly Agent Instructions
 
 The maintained assets are the behavioral specifications under `.pi/spec/` (spec v2, one folder
-per bounded context, 210 stamped items; `.pi/model/` is spec v1, history, kept for its
+per bounded context, 217 stamped items; `.pi/model/` is spec v1, history, kept for its
 glossary); generated
 implementation is a reproducible build product. Keep specification planning and
 implementation in separate rounds. Never repair a specification from inside a fenced
@@ -24,9 +24,9 @@ Each part has one language. Do not mix them.
 |---|---|---|
 | The model: behaviour | Gherkin scenarios, one stamped `@item-NN-SSS` per checklist item | `.pi/spec/<context>/spec.feature`; an accepted context is slice `NN` through its link `.pi/plan/NN-<context>` |
 | The model: event storming and rules | Grain Event Model (commands, events, read models, queries, processors) and Allium (entities, rules, invariants, surfaces); the public seam | `.pi/spec/<context>/event-model/*.edn`, `.pi/spec/<context>/allium/`, `.pi/spec/<context>/seam.md` |
-| The harness implementation | Clojure on ORC, with Grain for the event store: one ORC tree, `cycle.v1`, on one store whose event model is the union of the contexts' (ADR 0001); until it is built, the promoted builds per context | `harness-impl/`, generated from `.pi/spec` by the regeneration cycle |
+| The harness implementation | Clojure on ORC, with Grain for the event store: the accepted cycle-26 `cycle.v1` runs on one store whose event model is the union of the contexts' (ADR 0001) | `harness-impl/`, generated from `.pi/spec` by the regeneration cycle |
 | The builder and Gondolin rooms | `pi` with its Gondolin backend, on the existing Codex login, launched by the cycle runner (`LOYLY_BUILDER_CMD`, `.pi/spec/cycle-runner/seam.md`). Provided, like ORC and Grain: never regenerated. `.pi/harness/bin/builder.sh` runs each builder as a pi-durable session (`.pi/harness/builder-host/`) whose tools run in a Gondolin VM | `.pi/harness/`, `harness/Makefile`, `harness/<project-id>/` |
-| The graders | An ORC judge workflow: a researcher drives the candidate black-box over its seam only and the judge scores each item, on a model other than the builder's; a published, approved workflow version is the sealed grader (`.pi/spec/architecture/adr/0003-judge-scores-checklist-items.md`). Not built yet; until then a black-box grading agent's verdicts file is handed in with `cycle-runner/hand-in-verdicts` (legacy step 5, `harness/README.md`) | sealed under `.pi/harness/.state/graders/` |
+| The graders | The accepted runner's `grade.v1` uses a black-box researcher and an ORC judge per item (ADR 0003). Product grader calibration and sealing are still owed. Bootstrap cycles for slice 06 use an external black-box agent and `harness/v2/score.sh`, as the legacy reference does | `harness-impl/06-cycle-runner/`, `.pi/spec/grader-lifecycle/` |
 | The legacy driver | Babashka and shell, the legacy harness tools: the reference since the switch, never deleted, not how the loop runs | `harness/`, `archive/legacy-harness/` |
 
 A grader's independence is black-box access (the seam only, never the candidate's sources) and a
@@ -55,7 +55,7 @@ later rounds.
 ## The regeneration cycle
 
 ORC runs one cycle, in the shape of the legacy harness. The accepted cycle runner
-(`harness-impl/06-cycle-runner/`, cycle 25) drives slices 01-05; the legacy harness (`harness/`,
+(`harness-impl/06-cycle-runner/`, cycle 26) drives slices 01-05; the legacy harness (`harness/`,
 `archive/legacy-harness/`) remains the reference and builds replacements for slice 06 (ADR 0006).
 A run rebuilds **the Löyly app** (`docs/plan` into `impl/`); the harness is not asked to rebuild
 itself ("Self-hosting stopped"). Run-03 (2026-11-10) is the worked example: gate passed,
@@ -63,16 +63,18 @@ grading 11/11. The accepted runner's score, audited profile exception and legacy
 recorded in `harness-impl/06-cycle-runner/PROVENANCE.md`. ADR 0007 permits a bounded repair slice from
 an accepted base under the pinned workflow in `harness/v2/REPAIR-06.md`.
 
-A run: start the runner with its `LOYLY_*` environment (seam.md, "Handed in"), call
-`cycle-runner/start-run`, grade the gated candidate black-box, then `cycle-runner/hand-in-verdicts`
-and `cycle-runner/run-progress` (`README.md`, the tutorial). Keep the runner alive until the score
-is filed: a run cannot resume. `make -C harness/loyly start` (then `progress`, `verdicts`; `help`) launches and drives it; another project copies `harness/project-template/`. The spec page,
-run replays and the eval page are published at https://scope-impact.github.io/loyly/
+A run: hand in the environment in `.pi/spec/cycle-runner/seam.md`, then call
+`cycle-runner/start-run`. Its ORC tree builds, gates, grades and scores before the call returns;
+`cycle-runner/run-progress` reports the result. On restart, the runner resumes active code
+leaves on the same store; an in-flight researcher remains a known gap (seam.md, "Resume").
+The `harness/loyly/` and `harness/project-template/` launchers still describe the retired
+verdict hand-in path and need migration before they are a supported way to start this runner.
+The spec page, run replays and eval page are published at https://scope-impact.github.io/loyly/
 (`tools/spec/publish.sh`).
 
 The assembly is one tree on one Grain store (ADR 0001): no relay, hand-in methods or handoff
-contracts between contexts. Until that tree is built, the promoted builds keep a store per
-context and relay their handoffs ("Spec round 5").
+contracts between contexts. The separately promoted builds of contexts 01–05 remain recorded
+in `harness-impl/`; the accepted runner includes their event models in its one store.
 
 ```text
 fence → regenerate → gate → score → scoreboard
@@ -90,13 +92,13 @@ fence → regenerate → gate → score → scoreboard
   command produced lies inside a completed run of its ORC workflow in that same store. Done is the gate's verdict, never the builder's claim. A failed gate may start
   a fresh builder with only the previous candidate and the gate's evidence, at most three
   attempts.
-- **Score**: the approved sealed grader files one verdict per checklist item.
+- **Score**: `grade.v1` produces per-item judge scores that Measurement files as verdicts.
 - **Scoreboard**: report the pass rate and compare with the previous cycle on shared items.
 
 The fence and the gate are the **harness**: they feed the build loop. The score and the
-scoreboard are the **instrument**: they report to a person once a cycle, and the judge's scores
-feed GEPA between cycles, never a running build (ADR 0004). Anything not written into the spec
-dies with the implementation.
+scoreboard are the **instrument**: they report to a person once a cycle. ADR 0004 directs future
+GEPA work to use the judge's scores between cycles, never in a running build. Anything not
+written into the spec dies with the implementation.
 
 ## The clean room
 
@@ -115,6 +117,13 @@ checklist score, profile, and instrument shadow still judge the entire replaceme
 (ADR 0007; `harness/v2/REPAIR-06.md`).
 
 ## The instrument
+
+This is the target instrument contract. The accepted runner executes `grade.v1`; ADR 0003
+records calibration as outstanding. Its current digest covers the workflow name and rubric,
+not the grading implementation (`.pi/spec/cycle-runner/seam.md`, "Digests the runner computes").
+For the slice-06 bootstrap grader, `harness/v2/allure.clj` projects each final verdict into
+an Allure test result tagged with its stamped item ID. Allure is a report view; verdicts
+and the checklist remain the score's source, while OTLP carries diagnostic profiles.
 
 - The **checklist** is one item per stamped scenario of the approved selection. It is
   derived, never written; an unstamped scenario or an empty selection stops the cycle.
@@ -135,9 +144,9 @@ checklist score, profile, and instrument shadow still judge the entire replaceme
 The builder cannot declare completion. The gate and the score drive the real public seam
 from fresh state, preserve the approved denominator, and report failed, missing, unreached,
 or inconclusive items explicitly. Score evidence never enters a running build; a failed score
-is measured, not retried within the cycle. Between cycles, GEPA improves the builder
-instruction on held-out items and the grader instruction on calibration only, per project
-context (ADR 0004).
+is measured, not retried within the cycle. ADR 0004 specifies future GEPA improvement of the
+builder instruction on held-out items and the grader instruction on calibration only, per
+project context.
 
 ## How the harness improves itself
 
@@ -163,6 +172,8 @@ context: a fenced clean room, a fresh builder, the gate, grading, the score. Nev
   regression (runner cycle 04, `@item-06-018`; `.pi/spec/decisions.md`, "Spec round 8b").
 - **The builder never sees `harness-impl/`**: `harness/config.sh` fences it from every clean
   room.
-- **Self-hosting is stopped** (`.pi/spec/decisions.md`, "Self-hosting stopped"): the harness
-  builds Löyly and is not asked to rebuild itself. The legacy shell harness builds the new harness instead
-  (ADR 0006): one tree from all six contexts' specs, after slice 06 is rewritten.
+- **Self-hosting bootstrap** (`.pi/spec/decisions.md`, "Spec round 29"): the approved
+  bounded self-host attempt 27 halted before fencing because the accepted runner
+  renumbered retired ID gaps. The legacy shell harness builds the corrected successor
+  once; only an accepted successor may run its following regeneration cycle. The
+  earlier general stop remains the default outside this approved path (ADR 0006).

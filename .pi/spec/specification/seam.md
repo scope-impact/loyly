@@ -28,7 +28,7 @@ that are instants travel as ISO-8601 UTC text.
 
 | Method | Block | Params | Result |
 |---|---|---|---|
-| `specification/stamp-slice` | command `:specification/stamp-slice` | `slice`, `source`, `unstamped` (`[{line, title}]`), `empty-title-lines` (`[line]`) | `{"events": [...]}`: the events the command produced, in order |
+| `specification/stamp-slice` | command `:specification/stamp-slice` | `slice`, `source`, `unstamped` (`[{line, title}]`), optional `stamped` (`[{line, title, item-id}]`), `empty-title-lines` (`[line]`) | `{"events": [...]}`: the events the command produced, in file order |
 | `specification/stamped-items` | query `:specification/stamped-items` | `slice` (optional) | `{"slices": [...]}`: one entry per slice, shaped as the read model `:specification/stamped-items`; only the named slice when `slice` is given, and none for a slice never stamped |
 
 Each produced event is `{"type": "specification/scenario-stamped", ...}` or
@@ -39,11 +39,23 @@ that event's `:schema`. A stamping with nothing to stamp succeeds with no
 - `source` is the path of the slice's spec file, absolute or relative to the candidate's
   working directory. Its slice is the name of the folder holding it, up to the first `-`
   (`plan/03-gate/spec.feature` is slice `03`).
-- `unstamped` and `empty-title-lines` are what the stamper read in that file: every
+- `unstamped`, `stamped` when supplied, and `empty-title-lines` are what the stamper read in that file: every
   unstamped scenario's heading line (counted from 1, in the file as it was read) and title,
-  in file order, and every empty-title heading's line. The candidate reads the file itself
+  every already tagged scenario's heading line, title and exact identity, in file order,
+  and every empty-title heading's line. The candidate reads the file itself
   with the one reading of Gherkin (`allium/context.allium`, contract `ScenarioReading`) and
-  refuses an offer that differs from it.
+  refuses an offer that differs from it. An omitted `stamped` keeps the authoring call's
+  earlier behavior. When `stamped` is supplied, it must be the complete file reading,
+  including an empty vector if the file has no item tags. A duplicate identity, an identity
+  for another slice, or an untagged scenario in an approved runner cut is refused before
+  the runner's self-check or fence.
+- An already tagged identity absent from a fresh ledger is imported unchanged through
+  `scenario-stamped`. An identity already in the ledger is not re-emitted. Importing a gap
+  never fabricates retired items. The next free number is above both the ledger's previous
+  maximum and every identity in the file; a later authoring stamp cannot reuse a gap.
+  Rewording or moving a scenario keeps its existing identity. The runner checks that the
+  current file's identities exactly match its approved selection; the ledger may also hold
+  retired items from prior runs.
 - A stamped scenario carries its identity in the spec file: the candidate writes the tag
   `@item-<slice>-<number>` (the number zero padded to three digits) on a line of its own
   directly above the scenario's heading, with the heading's indentation, and keeps every
@@ -58,6 +70,7 @@ A refusal records nothing and is the error `-32000` with `data.refusal`, one of:
 | `no-spec-found` | `StampFirstScenarios` and `StampSlice`, requires 1 | names the `source` it looked for; never says "fully stamped" |
 | `not-this-slice` | requires 2 | names the source's slice and the slice asked for |
 | `unstamped-mismatch` | requires 4 | the scenarios offered are not exactly the file's unstamped ones, in file order |
+| `stamped-mismatch` | `ImportStampedScenarios`, requires 1 | the offered stamped scenarios differ from the file, contain duplicate IDs or name another slice |
 | `empty-title-mismatch` | requires 5 | the empty-title headings offered are not exactly the file's |
 
 Requires 3 of each rule only chooses between the two rules (a ledger exists or not); no
@@ -83,11 +96,11 @@ The candidate records its facts in Grain's event store, the SQLite backend of Gr
   event's `:schema`.
 - ORC runs on this candidate's store: ORC shares its file and tenant, not a store or tenant
   of its own. The store is the one store of the one candidate: since spec round 18 the six contexts are one candidate,
-  `cycle-runner/cycle.v1`, on one Grain store, and in a run each command of this context is a
+  `cycle-runner/cycle.v2`, on one Grain store, and in a run each command of this context is a
   leaf of that tree (`../cycle-runner/seam.md`; `../decisions.md`, "Spec round 18"). Over this seam, each command method runs as the ORC
   workflow named after the flow its command belongs to (`specification/stamp-slice` as the
   workflow `specification/stamping`); a query method runs none. The gate requires every event a command produced to be written
-  inside a completed run of that workflow or of `cycle-runner/cycle.v1`, whose leaves issue the
+  inside a completed run of that workflow or of `cycle-runner/cycle.v2`, whose leaves issue the
   five contexts' commands (a child tick it delegated included): between its
   `:sheet/tree-tick-started` and its `:sheet/tree-tick-completed`, `:root-status :success`.
 - The candidate registers the one event model, every context's `event-model/*.edn` merged, as

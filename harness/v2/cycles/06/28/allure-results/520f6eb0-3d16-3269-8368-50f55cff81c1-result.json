@@ -1,0 +1,31 @@
+{
+  "description" : "Measurement filed one pass out of two with 01-002 unreached; the two tagged Allure results matched those statuses and reasons. A separate fresh-store run produced the same history and case IDs for both items.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-074"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "050818d6448861a2579be538beacc4d3",
+  "name" : "06-074",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "520f6eb0-3d16-3269-8368-50f55cff81c1-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "050818d6448861a2579be538beacc4d3",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-074",
+  "uuid" : "520f6eb0-3d16-3269-8368-50f55cff81c1"
+}

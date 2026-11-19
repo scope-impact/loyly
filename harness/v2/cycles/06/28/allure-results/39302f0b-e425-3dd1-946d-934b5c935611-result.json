@@ -1,0 +1,34 @@
+{
+  "description" : "Three passing runs without a gate command and with gate-a and gate-b had three different harness digests. The no-command digest 06561766... did not equal SHA-256 of the configuration bytes, self-check command text and probe bytes concatenated in that order (46bd0e85...).",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-057"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "statusDetails" : {
+    "message" : "Three passing runs without a gate command and with gate-a and gate-b had three different harness digests. The no-command digest 06561766... did not equal SHA-256 of the configuration bytes, self-check command text and probe bytes concatenated in that order (46bd0e85...)."
+  },
+  "stage" : "finished",
+  "historyId" : "96c371f75ed1c6e0bd9213c917366106",
+  "name" : "06-057",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "39302f0b-e425-3dd1-946d-934b5c935611-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "96c371f75ed1c6e0bd9213c917366106",
+  "status" : "failed",
+  "fullName" : "loyly.slice-06.item-06-057",
+  "uuid" : "39302f0b-e425-3dd1-946d-934b5c935611"
+}

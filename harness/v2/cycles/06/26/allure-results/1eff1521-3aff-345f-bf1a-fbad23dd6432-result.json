@@ -1,0 +1,31 @@
+{
+  "description" : "The first researcher request contained the scenario plus the cut seam and event-model sentinels. Its shell returned Linux and the grading-room files including impl and plan; ls .. exposed only grade-01-001, with no builder, gate evidence, store or sibling room.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-066"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "76db58c2e67e0e1856f55870c5b0755a",
+  "name" : "06-066",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "1eff1521-3aff-345f-bf1a-fbad23dd6432-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "76db58c2e67e0e1856f55870c5b0755a",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-066",
+  "uuid" : "1eff1521-3aff-345f-bf1a-fbad23dd6432"
+}

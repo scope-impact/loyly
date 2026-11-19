@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# harness/v2/score.sh NN ROOM --verdicts FILE [--profile FILE] [--by "who/how graded"]: the score and the
+# harness/v2/score.sh NN ROOM --verdicts FILE [--profile FILE] [--allure DIR] [--by "who/how graded"]: the score and the
 # scoreboard of one spec-v2 context's cycle (.pi/spec/decisions.md, "First light"), run from
 # THIS checkout against the candidate a builder left in ROOM, after harness/v2/gate.sh passed.
 # The instrument: it reports to a person and never into the build loop. In order:
@@ -35,13 +35,14 @@
 #
 set -uo pipefail
 die() { echo "score.sh: $*" >&2; exit 1; }
-usage='usage: harness/v2/score.sh NN ROOM --verdicts FILE [--profile FILE] [--by "who/how graded"]'
-SLICE="${1:-}"; ROOM="${2:-}"; VERDICTS=""; PROFILE=""; BY="unspecified"
+usage='usage: harness/v2/score.sh NN ROOM --verdicts FILE [--profile FILE] [--allure DIR] [--by "who/how graded"]'
+SLICE="${1:-}"; ROOM="${2:-}"; VERDICTS=""; PROFILE=""; ALLURE=""; BY="unspecified"
 shift 2 2>/dev/null || die "$usage"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --verdicts) [[ $# -ge 2 ]] || die "$usage"; VERDICTS="$2"; shift 2 ;;
     --profile)  [[ $# -ge 2 ]] || die "$usage"; PROFILE="$2"; shift 2 ;;
+    --allure)   [[ $# -ge 2 ]] || die "$usage"; ALLURE="$2"; shift 2 ;;
     --by)       [[ $# -ge 2 ]] || die "$usage"; BY="$2"; shift 2 ;;
     *)          die "$usage" ;;
   esac
@@ -56,6 +57,7 @@ CONTEXT="$(basename "$link")"
 # ---- 1. the verdicts FILE, its digest and who graded recorded, never judged here
 [[ -f "$VERDICTS" && -r "$VERDICTS" ]] || die "score refused: no readable verdicts file at $VERDICTS"
 [[ -z "$PROFILE" || ( -f "$PROFILE" && -r "$PROFILE" ) ]] || die "score refused: no readable profile at $PROFILE"
+[[ -z "$ALLURE" || ( -d "$ALLURE" && -n "$PROFILE" ) ]] || die "score refused: --allure requires a result directory and --profile"
 graders="verdicts: sha256:$(shasum -a 256 "$VERDICTS" | cut -d' ' -f1) $(basename "$VERDICTS")
 by: $BY"
 if [[ -n "${SCORE_WHICH:-}" ]]; then echo "slice $SLICE ($CONTEXT):"; echo "$graders"; exit 0; fi
@@ -119,6 +121,15 @@ assert len(spans) == len(ids) + 1
 assert spans[0]['traceId'] == profile['otel_trace_id']
 print('profile status:', profile['status'], 'cases:', len(ids), 'problems:', len(profile['problems']))
 PY
+fi
+if [[ -n "$ALLURE" ]]; then
+  jq -r '.items[].id' "$CYC/checklist.json" >"$scratch/checklist.txt" || die "score refused: cannot read checklist for Allure"
+  bb "$ROOT/harness/v2/allure.clj" verify --checklist "$scratch/checklist.txt" \
+    --verdicts "$CYC/verdicts.json" --profile "$CYC/profile.json" --out "$ALLURE" \
+    || die "score refused: Allure results differ from the filed verdicts or profile"
+  cp -R "$ALLURE" "$CYC/allure-results" || die "score refused: cannot copy Allure results"
+  ALLURE_DIGEST="$(cd "$CYC/allure-results" && shasum -a 256 * | shasum -a 256 | cut -d' ' -f1)"
+  echo "allure-results: sha256:$ALLURE_DIGEST $(find "$CYC/allure-results" -type f | wc -l | tr -d ' ') files" >>"$CYC/graders.txt"
 fi
 
 # ---- 5. file and report, with the legacy tools

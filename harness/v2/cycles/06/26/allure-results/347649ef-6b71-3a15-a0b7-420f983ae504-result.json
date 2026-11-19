@@ -1,0 +1,31 @@
+{
+  "description" : "The stdio suite exited 0 only when plan/01-slice/spec.feature was visible from its working directory. Gate recorded gate-attempt-passed and the install digest equaled the regenerated digest.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-044"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "9edc8da0415eede1d37003143205b32c",
+  "name" : "06-044",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "347649ef-6b71-3a15-a0b7-420f983ae504-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "9edc8da0415eede1d37003143205b32c",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-044",
+  "uuid" : "347649ef-6b71-3a15-a0b7-420f983ae504"
+}

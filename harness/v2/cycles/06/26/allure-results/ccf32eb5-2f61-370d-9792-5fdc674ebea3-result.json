@@ -1,0 +1,31 @@
+{
+  "description" : "A candidate copy under a fresh /tmp directory with no .pi ancestor ran the HTTP marker fixture. Its gate recorded gate-attempt-passed and the scored run passed with its cycle.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-062"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "1df6b2b5d5c8abf6c399496dad58c6de",
+  "name" : "06-062",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "ccf32eb5-2f61-370d-9792-5fdc674ebea3-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "1df6b2b5d5c8abf6c399496dad58c6de",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-062",
+  "uuid" : "ccf32eb5-2f61-370d-9792-5fdc674ebea3"
+}

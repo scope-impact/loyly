@@ -172,7 +172,7 @@ worker replaced, model drift.
 ## Drafts (R3, 2026-11-06; trimmed in R3.1)
 
 `drafts.feature`: 83 draft scenarios (95 in R3) for the 114 must-cover obligations of this
-context (126 in R3; `tools/spec/v2/coverage.py`: each rule's success, each `requires` that
+context (126 in R3; `tools/spec/coverage.sh --v2`: each rule's success, each `requires` that
 is behaviour, each invariant, each contract invariant, each guarantee not verified by a
 gate), every one tagged; 0 uncovered. Each draft names its rule, file and the Gherkin
 `Rule:` it goes under, cites the legacy `@harness-NNN` it preserves, and suggests a tier
@@ -216,7 +216,7 @@ The checks that verify this context's structural obligations ("Verified by: gate
 
 | Check | Verifies | State |
 |---|---|---|
-| `budget-in-seconds-and-polls` (`tools/spec/v2/structural.py`, in `gates.sh`) | contract `GateRoom`, `BudgetInSecondsAndPolls`: the boot budget declared once as seconds and polls (one config block), both on every gate verdict in the Allium and the event model, the margin derived from the poll that answered | real |
+| `budget-in-seconds-and-polls` (`tools/spec/structural.sh`, in `gates.sh`) | contract `GateRoom`, `BudgetInSecondsAndPolls`: the boot budget declared once as seconds and polls (one config block), both on every gate verdict in the Allium and the event model, the margin derived from the poll that answered | real |
 | `room-policy` | guarantees `TheClaimantNeverControlsTheGate`, `ProbeOutOfReach`, `GateEvidenceOnly` and measurement's `PublicSeamOnly` and `NeverIntoTheLoop` (spec round 3; the mount itself is `RecordRegeneratedCandidate` requires 9, `@item-04-035`): for each room ORC builds (builder, repair, gate, validation) it reads ORC's room policy and proves what is mounted, writable and reachable. The builder and repair rooms hold neither the identity probe nor a scoring tool; the gate room is not a builder room and no builder session has a handle on it; the validation room reaches the candidate only through its public seam. The "fence-like check" of decisions.md H6 | planned: needs ORC's room policy, which arrives with the builder host (open item) |
 
 ## Open questions

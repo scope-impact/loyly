@@ -1,0 +1,31 @@
+{
+  "description" : "A self-check printing SKIP bb-tools and exiting zero produced harness-self-check-passed, with skipped-checks containing bb-tools and the detail naming the skip.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-011"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "353a094911e9ff5c4268acf84e05fa07",
+  "name" : "06-011",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "c247b844-df14-3019-a91d-7c00cf9cdd28-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "353a094911e9ff5c4268acf84e05fa07",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-011",
+  "uuid" : "c247b844-df14-3019-a91d-7c00cf9cdd28"
+}

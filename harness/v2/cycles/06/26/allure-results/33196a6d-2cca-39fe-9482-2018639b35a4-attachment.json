@@ -1,0 +1,11 @@
+{
+  "peak_observed_qemu" : 1,
+  "samples" : 6,
+  "elapsed_ms" : 41087,
+  "problems" : [ ],
+  "model_requests" : 10,
+  "grain_profiles" : 2,
+  "status" : "clean",
+  "id" : "06-074",
+  "peak_observed_rss_kib" : 2858176
+}

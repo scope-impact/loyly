@@ -1,0 +1,31 @@
+{
+  "description" : "The HTTP suite created and removed impl/temp-check before succeeding. The gate passed, and the install digest equaled the regenerate digest.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-037"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "6f57cfa831384b7009356969573512e4",
+  "name" : "06-037",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "c65a4b85-e0a9-31a3-a997-7770ea4cd61c-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "6f57cfa831384b7009356969573512e4",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-037",
+  "uuid" : "c65a4b85-e0a9-31a3-a997-7770ea4cd61c"
+}

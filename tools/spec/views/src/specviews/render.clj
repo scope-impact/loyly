@@ -195,12 +195,14 @@
        (if (seq GAPS) (qlist (map code GAPS)) (none "None: every block, flow and rule has its words."))])))
 
 ;; ---------- the site menu: every view of this page, then the other published pages ----------
-;; :site-pages names each group of published pages, {:label :dir :href}: every <dir>/*.html,
+;; :site-pages names each group of published pages, {:label :dir :href :only}; :only limits
+;; the menu and publisher to named files, otherwise every <dir>/*.html is included,
 ;; linked as <href>/<file name>, labelled with its <title>. Above every view; review.html, which
 ;; is one self-contained page, keeps only its own views.
 (defn site-pages []
-  (for [{:keys [label dir href]} (:site-pages cfg)
-        :let [fs* (sort (map str (fs/glob (fs/path (:root cfg) dir) "*.html")))] :when (seq fs*)]
+  (for [{:keys [label dir href only]} (:site-pages cfg)
+        :let [fs* (sort (filter #(or (nil? only) (some #{(str (fs/file-name %))} only))
+                                 (map str (fs/glob (fs/path (:root cfg) dir) "*.html"))))] :when (seq fs*)]
     [label (for [f fs* :let [t (some->> (slurp f) (re-find #"<title>([^<]*)</title>") second
                                         (#(-> % (str/replace "&lt;" "<") (str/replace "&gt;" ">") (str/replace "&quot;" "\"") (str/replace "&#39;" "'") (str/replace "&amp;" "&"))))]]
              [(or (not-empty (some-> t str/trim)) (fs/file-name f)) (str href "/" (fs/file-name f))])]))

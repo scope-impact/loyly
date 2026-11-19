@@ -1,1 +1,1 @@
-- @item-06-062: The self-contained build carries its copied event model, but the exact acceptance fixture requires writing a copy outside every .pi ancestor; the clean-room boundary permits writes only inside this room's candidate folder, so that fixture has not been run.
+- @item-06-062: A standalone copy passes its HTTP gate and files a score with every ancestor .pi hidden from its JVM. The authorized directory physically descends from .pi, so the literal no-.pi ancestry fixture remains unverified.

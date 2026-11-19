@@ -1,0 +1,34 @@
+{
+  "description" : "The model returned ORC markers around INSTRUCTION-7, but the builder instruction retained those markers instead of exactly INSTRUCTION-7. After its red suite the run ended at attempt 1, so no repair instruction was produced.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-071"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "statusDetails" : {
+    "message" : "The model returned ORC markers around INSTRUCTION-7, but the builder instruction retained those markers instead of exactly INSTRUCTION-7. After its red suite the run ended at attempt 1, so no repair instruction was produced."
+  },
+  "stage" : "finished",
+  "historyId" : "502060a6dbed9f3722b8c983603add85",
+  "name" : "06-071",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "acf3ed8e-ee86-3ddc-9400-f218e6df31ff-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "502060a6dbed9f3722b8c983603add85",
+  "status" : "failed",
+  "fullName" : "loyly.slice-06.item-06-071",
+  "uuid" : "acf3ed8e-ee86-3ddc-9400-f218e6df31ff"
+}

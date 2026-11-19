@@ -1,6 +1,6 @@
 ;; .pi/spec/cycle-runner/event-model/cycle-run.edn: aggregate CycleRun, on the one store (one
 ;; per run). Slice 06 (decisions.md, "Slice 06 (draft)", "Spec round 7b"; rewritten as the one
-;; tree cycle-runner/cycle.v1 in "Spec round 18"). A run performs one cycle's effects in
+;; tree cycle-runner/cycle.v1 in "Spec round 18", with cycle.v2 proposed in round 28). A run performs one cycle's effects in
 ;; the real world and records each effect's result into the context that owns it, by that
 ;; context's command on the one store; its own facts are which effect it performed and what the
 ;; context answered, and how the run ended. The judge's scores are ORC's own events
@@ -12,7 +12,7 @@
 {:cycle-runner
  {:commands
   {:cycle-runner/start-run
-   {:description "Start a run of one cycle: the cut's commit, the selection, the budget and the approved grader digests. The run is one tick of cycle-runner/cycle.v1 on the one store, and it performs every effect of the cycle, the grading and the score included, before the method responds. Issued by: operator."
+   {:description "Start a run of one cycle: the cut's commit, the selection, the budget and the approved grader digests. The run is one tick of cycle-runner/cycle.v2 on the one store, and it performs every effect of the cycle, the grading and the score included, before the method responds. Issued by: operator."
     :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "StartRun"}]
     :schema [:map
              [:run-id :string]
@@ -29,7 +29,7 @@
     :reads #{:cycle-runner/runs}
     :produces #{:cycle-runner/run-started}}
    :cycle-runner/record-effect
-   {:description "Record one effect's result: the effect a leaf performed, the context command it was recorded through, and what the context replied (recorded, with the events it replied, verbatim, or refused, with its refusal code as heard). Issued by: the leaf of cycle.v1, or of a workflow it delegates to, named for the effect, after it performed the effect (seam.md, \"The tree\")."
+   {:description "Record one effect's result: the effect a leaf performed, the context command it was recorded through, and what the context replied (recorded, with the events it replied, verbatim, or refused, with its refusal code as heard). Issued by: the leaf of cycle.v2, or of a workflow it delegates to, named for the effect, after it performed the effect (seam.md, \"The tree\")."
     :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "RecordEffect"}]
     :schema [:map
              [:run-id :string]
@@ -45,7 +45,7 @@
     :reads #{:cycle-runner/runs}
     :produces #{:cycle-runner/effect-recorded}}
    :cycle-runner/conclude-run
-   {:description "Conclude the run as its cycle concluded in the Regeneration cycle: passed or failed, with the cycle's progress as read. Issued by: a conclude leaf of cycle.v1, when the cycle's progress shows it concluded."
+   {:description "Conclude the run as its cycle concluded in the Regeneration cycle: passed or failed, with the cycle's progress as read. Issued by: a conclude leaf of cycle.v2, when the cycle's progress shows it concluded."
     :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "ConcludeRunPassed"}
                    {:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "ConcludeRunFailed"}]
     :schema [:map
@@ -55,7 +55,7 @@
     :reads #{:cycle-runner/runs}
     :produces #{:cycle-runner/run-concluded}}
    :cycle-runner/halt-run
-   {:description "Halt the run: an effect could not be performed at all (a handed-in command could not be started, a node that calls the model failed), so nothing was recorded for it; or the stamp, the pin or the checklist was refused before the cycle opened, the stamp handed out identities that are not the plan's own, or the sealed grader is not approved, so there is no cycle to fail. A halt is the runner's fact, never the cycle's conclusion. Issued by: the halt leaf of cycle.v1."
+   {:description "Halt the run: an effect could not be performed at all (a handed-in command could not be started, a node that calls the model failed), so nothing was recorded for it; or the stamp, the pin or the checklist was refused before the cycle opened, the stamp handed out identities that are not the plan's own, or the sealed grader is not approved, so there is no cycle to fail. A halt is the runner's fact, never the cycle's conclusion. Issued by: the halt leaf of cycle.v2."
     :grain/allium [{:spec ".pi/spec/cycle-runner/allium/cycle-run.allium" :kind :rule :name "HaltRun"}]
     :schema [:map
              [:run-id :string]

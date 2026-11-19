@@ -1,0 +1,31 @@
+{
+  "description" : "The repair recorded verification-repair and named the failed gate evidence root. Its room contained clean files, previous candidate and evidence; attempts to create a file in each of the latter two directories were denied.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-023"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "b56b59d1cc43ed5ff902b8009c0013ef",
+  "name" : "06-023",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "49141bd2-e547-30dd-8eea-ecec02eece70-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "b56b59d1cc43ed5ff902b8009c0013ef",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-023",
+  "uuid" : "49141bd2-e547-30dd-8eea-ecec02eece70"
+}

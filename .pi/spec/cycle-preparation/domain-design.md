@@ -43,7 +43,7 @@ approve).
 ## Drafts (R3, 2026-11-06)
 
 `drafts.feature`: 5 draft scenarios for the 6 must-cover obligations of this context
-(`tools/spec/v2/coverage.py`: each rule's success, each `requires` that is behaviour, each
+(`tools/spec/coverage.sh --v2`: each rule's success, each `requires` that is behaviour, each
 invariant, each contract invariant, each guarantee), every one tagged; 0 uncovered. Each
 draft names its rule, file and the Gherkin `Rule:` it goes under, and suggests a tier. None
 cites legacy behaviour (no `# Legacy:` line): the legacy harness pins no cut, so every draft

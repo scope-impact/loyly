@@ -32,6 +32,11 @@ identity**, the **stamped scenario** and, since R2, the **one reading of Gherkin
    `StampSlice` continues it. A spec file with no scenario opens it with nothing stamped.
 5. **One reading of Gherkin** for the stamper and the checklist (contract
    `ScenarioReading`), so the two tools cannot disagree about what is an item.
+6. **An approved tagged cut imports its existing identities.** A fresh Grain ledger does
+   not imply a fresh specification. `stamp-slice` verifies the complete stamped vector
+   against the file, emits only missing identities, and advances its next free number
+   beyond the highest tag. A runner rejects any untagged scenario before its fence.
+   This closes the retired-gap failure in self-host attempt 27 (spec round 29).
 
 ## Legacy behaviours added in R2 (decisions.md "to add")
 
@@ -63,7 +68,7 @@ identity**, the **stamped scenario** and, since R2, the **one reading of Gherkin
 ## Drafts (R3, 2026-11-06)
 
 `drafts.feature`: 17 draft scenarios for the 24 must-cover obligations of this context
-(`tools/spec/v2/coverage.py`: each rule's success, each `requires` that is behaviour, each
+(`tools/spec/coverage.sh --v2`: each rule's success, each `requires` that is behaviour, each
 invariant, each contract invariant, each guarantee), every one tagged; 0 uncovered. Each
 draft names its rule, file and the Gherkin `Rule:` it goes under, cites the legacy
 `@harness-NNN` it preserves, and suggests a tier. Unit-level, not drafted (2): `StampFirstScenarios.3` and `StampSlice.3` (one half each of the ledger / no-ledger pair). Refusals 2, 4 and 5 of the two stamping rules are drafted as Scenario Outlines with one example per rule (no ledger, a ledger).

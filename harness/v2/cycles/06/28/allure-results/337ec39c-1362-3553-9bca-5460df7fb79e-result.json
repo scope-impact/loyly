@@ -1,0 +1,31 @@
+{
+  "description" : "A candidate copy in a temporary directory outside any .pi ancestor ran a green HTTP fixture; progress showed gate-attempt-passed and the cycle passed. The temporary copy was removed after profiling.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-062"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "1df6b2b5d5c8abf6c399496dad58c6de",
+  "name" : "06-062",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "337ec39c-1362-3553-9bca-5460df7fb79e-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "1df6b2b5d5c8abf6c399496dad58c6de",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-062",
+  "uuid" : "337ec39c-1362-3553-9bca-5460df7fb79e"
+}

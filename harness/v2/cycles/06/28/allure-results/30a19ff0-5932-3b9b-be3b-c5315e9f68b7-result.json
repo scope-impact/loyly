@@ -1,0 +1,31 @@
+{
+  "description" : "The builder observed the plan and config, an empty scope, one commit and no fenced paths in the reachable object listing. Its git ls-tree showed provided-runtime as mode 160000 with the same object ID as the cut.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-013"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "4deea44b9092ee6fae257b46d115593d",
+  "name" : "06-013",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "30a19ff0-5932-3b9b-be3b-c5315e9f68b7-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "4deea44b9092ee6fae257b46d115593d",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-013",
+  "uuid" : "30a19ff0-5932-3b9b-be3b-c5315e9f68b7"
+}

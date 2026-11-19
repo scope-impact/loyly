@@ -1,0 +1,31 @@
+{
+  "description" : "After the cycle passed, two run-progress queries returned identical run objects, both showing passed.",
+  "labels" : [ {
+    "name" : "tag",
+    "value" : "item-06-035"
+  }, {
+    "name" : "tag",
+    "value" : "slice-06"
+  }, {
+    "name" : "suite",
+    "value" : "cycle-runner"
+  }, {
+    "name" : "framework",
+    "value" : "loyly-black-box-grader"
+  }, {
+    "name" : "loyly.profileStatus",
+    "value" : "clean"
+  } ],
+  "stage" : "finished",
+  "historyId" : "7ae9afc07ffc2fea86ac9a191daf41f2",
+  "name" : "06-035",
+  "attachments" : [ {
+    "name" : "Grading profile",
+    "source" : "569f0dc8-eedb-3916-9051-2ada12925c8b-attachment.json",
+    "type" : "application/json"
+  } ],
+  "testCaseId" : "7ae9afc07ffc2fea86ac9a191daf41f2",
+  "status" : "passed",
+  "fullName" : "loyly.slice-06.item-06-035",
+  "uuid" : "569f0dc8-eedb-3916-9051-2ada12925c8b"
+}

@@ -21,7 +21,7 @@ an Allium rule.
 
 94 items in total. Slices 07 and 08 are not used: the durable Pi builder host and its
 Gondolin runtime are provided, not generated (see `.pi/architecture.md`). The glossary is
-`GLOSSARY.md`, the authority for the model's words (ADR 0005); `tools/spec/glossary-lint.py`
+`GLOSSARY.md`, the authority for the model's words (ADR 0005); `tools/spec/glossary-lint.sh`
 enforces its `_Avoid_` lists.
 
 ## Event Model
@@ -324,7 +324,7 @@ clojure -Sdeps '{:paths [".pi/model/event-model"]
                   '[ai.obney.grain.code-agent-tools.interface :as tools]
                   'loyly.pi-harness.event-model)
          (tools/validate-spec-composition (em/registered-model) {:project-root \".\"})"
-python3 tools/spec/glossary-lint.py   # no avoided glossary term in the model; plan/ hits reported
+bash tools/spec/glossary-lint.sh   # no avoided glossary term in the model; plan/ hits reported
 bash tools/spec/gates.sh               # every spec gate in one run
 ```
 

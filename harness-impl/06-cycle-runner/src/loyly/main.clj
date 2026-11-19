@@ -1,174 +1,96 @@
 (ns loyly.main
-  (:require [loyly.runtime :as runtime] [loyly.model :as model] [loyly.domain :as d] [loyly.effects :as effects] [loyly.grading]
-            [clojure.data.json :as json] [malli.core :as m] [clojure.string :as str] [litellm.router :as router]
-            [ai.obney.grain.event-store-v3.interface :as es]
-            [ai.obney.grain.query-processor.interface :as qp]
-            [ai.obney.orc.orc-service.interface :as orc]
-            [ai.obney.orc.orc-service.core.read-models :as orm]))
-(defn leaf [name reads writes]
-  (let [base (first (str/split name #":")) grading? (#{"grading-vm" "clear-evidence" "judge" "no-score"} base)]
-    (orc/code name :fn (str (if grading? "loyly.grading/" "loyly.effects/") base "-leaf") :reads reads :writes writes)))
-(defn is-run [name value] (orc/condition name :check {:key :run :op :equals :value value}))
-(defn continuing [name] (is-run name "running"))
-(def item-schema [:map [:item-id :string] [:slice :string] [:source :string] [:title :string] [:scenario :string] [:seam :string] [:event-model :string]])
-(def bb (merge (zipmap [:params :handed-in :config :run-dir :run :refusal :halt :cycle :failure :builder-instruction :builder-room :candidate :gate-room :evidence-root :gate-refusal :evidence :score] (repeat :string))
-               {:slice [:map [:slice :string] [:path :string]] :slices [:vector [:map [:slice :string] [:path :string]]] :stamp [:map [:slice :string] [:run :string] [:halt {:optional true} [:map [:effect :string] [:reason :string] [:detail :string]]]] :stamps [:vector [:map [:stamp [:map [:slice :string] [:run :string] [:halt {:optional true} [:map [:effect :string] [:reason :string] [:detail :string]]]]]]] :attempt :int :item item-schema :items [:vector item-schema] :scores [:vector [:map [:score :string]]]}))
-(def stage-writes [:run :halt :cycle :failure])
-(def gate-reads [:params :handed-in :config :run-dir :attempt :candidate :gate-room])
-(def gate-writes (into [:evidence-root :gate-refusal] stage-writes))
-(defn not-run [name value] (orc/condition name :check {:key :run :op :not-equals :value value}))
-(defn gate-retries [n]
-  (orc/fallback (str "guard-result:" n)
-    (not-run (str "not-refused:" n) "gate-refused")
-    (apply orc/sequence (str "record-guard:" n)
-      (concat [(leaf (str "gate-refusal:" n) [:params :attempt :gate-refusal] stage-writes)]
-        (when (< n 3)
-          [(orc/fallback (str "retry-or-ended:" n)
-            (not-run (str "refusals-ended:" n) "running")
-            (orc/sequence (str "retry-guard:" n)
-              (leaf (str "gate:" (inc n)) gate-reads gate-writes)
-              (gate-retries (inc n))))])))))
-(defn gate-workflow []
-  (orc/workflow "cycle-runner/gate-attempt.v1" (orc/blackboard bb)
-    (orc/fallback "attempt"
-      (orc/sequence "gate-attempt"
-        (leaf "install" [:params :handed-in :config :run-dir :attempt :builder-room] (into [:candidate :gate-room] stage-writes))
-        (continuing "installed")
-        (leaf "self-check" [:params :handed-in :config :attempt] stage-writes)
-        (continuing "checked")
-        (leaf "gate:1" gate-reads gate-writes)
-        (gate-retries 1)
-        (orc/fallback "repair-or-ended"
-          (not-run "not-running" "running")
-          (leaf "repair" [:params :handed-in :config :run-dir :attempt :builder-room :candidate :evidence-root :builder-instruction] (into [:attempt :builder-room] stage-writes))))
-      (not-run "attempt-ended" "running"))))
-(defn gate-delegate [id gate]
-  (orc/delegate (str "gate-attempt:" id) :target-sheet-id gate :timeout-ms 240000
-    :reads [:params :handed-in :config :run-dir :attempt :builder-room :builder-instruction :cycle :run]
-    :writes [:attempt :builder-room :candidate :gate-room :evidence-root :cycle :run :failure :halt]))
-(defn grade-workflow [env]
-  (orc/workflow "cycle-runner/grade.v1" (orc/blackboard bb)
-    (orc/fallback "grade-or-unreached"
-    (orc/sequence "grade-item"
-      (leaf "clear-evidence" [] [:evidence])
-      (orc/repl-researcher "drive-seam" :rlm true :provider :loyly-model :model (get env "LOYLY_GRADER_MODEL" "grader")
-        :instruction (str "Drive this candidate over its public seam from fresh state. Read the item and its public contract with (get-input :item). Use shell to run programs in the grading room. Report evidence of what was set up, sent and observed.\n" (get env "research-contract" ""))
-        :reads [:item :gate-room :candidate :handed-in :config] :writes [:evidence] :mcp-tools ["shell"]
-        :tool-contracts {"shell" {:checkpoint-safe? true :arguments [:map ["command" :string]] :result [:map [:exit :int] [:out :string] [:err :string] [:timeout :boolean]]}}
-        :tool-caller-fn "loyly.grading/shell-caller" :max-iterations 5 :options {:tool-arg-specs {"shell" ["command"]}})
-      (leaf "judge" [:item :evidence :handed-in] [:score]))
-    (leaf "no-score" [] [:score]))))
-(defn workflow [env gate grade]
-  (orc/workflow "cycle-runner/cycle.v1" (orc/blackboard bb)
-    (orc/fallback "cycle"
-      (orc/sequence "perform"
-        (leaf "start" [:params] [:handed-in :config :run-dir :slices :run :refusal]) (continuing "start-accepted")
-        (orc/map-each "stamp-slices" :from :slices :as :slice :into :stamps :parallel 1
-          (leaf "stamp" [:params :handed-in :run-dir :slice] [:stamp]))
-        (leaf "stamped" [:stamps] [:run :halt]) (continuing "stamp-recorded")
-        (leaf "pin" [:params :handed-in] [:run :halt]) (continuing "pin-recorded")
-        (leaf "checklist" [:params :handed-in :slices] [:run :halt :items]) (continuing "checklist-recorded")
-        (leaf "grader" [:params :handed-in] [:run :halt]) (continuing "grader-approved")
-        (leaf "self-check:0" [:params :handed-in :config] stage-writes) (continuing "self-check-recorded")
-        (leaf "fence" [:params :handed-in :config :run-dir] stage-writes) (continuing "fence-recorded")
-        (orc/fallback "render-instruction"
-          (orc/llm "render" :provider :loyly-model :model (get env "LOYLY_RENDER_MODEL" "render")
-            :instruction (get env "LOYLY_BUILDER_INSTRUCTION" "Render the builder instruction from the selected slices.")
-            :reads [:config :slices] :writes [:builder-instruction])
-          (leaf "render-failed" [:params] [:run :halt]))
-        (continuing "instruction-ready")
-        (leaf "regenerate" [:params :handed-in :config :run-dir :builder-instruction] (into [:attempt :builder-room] stage-writes))
-        (continuing "candidate-ready")
-        (gate-delegate 1 gate)
-        (orc/fallback "second-attempt" (not-run "no-second-attempt" "running") (gate-delegate 2 gate))
-        (orc/fallback "third-attempt" (not-run "no-third-attempt" "running") (gate-delegate 3 gate))
-        (is-run "gate-passed" "gate-passed")
-        (leaf "grading-vm" [:handed-in] [:run :halt]) (is-run "vm-ready" "gate-passed")
-        (orc/map-each "grade-items" :from :items :as :item :into :scores :parallel 1
-          (orc/delegate "grade-item" :target-sheet-id grade :timeout-ms 120000
-            :reads [:item :gate-room :candidate :handed-in :config] :writes [:score]))
-        (leaf "file-verdicts" [:params :handed-in :config :candidate :scores :attempt] stage-writes) (continuing "verdicts-filed")
-        (leaf "file-score" [:params :handed-in :config :attempt] stage-writes) (is-run "cycle-passed" "cycle-passed")
-        (leaf "conclude:passed" [:params :cycle] [:run]))
-      (orc/sequence "failed-stage" (is-run "failing" "failing")
-        (leaf "fail-cycle" [:params :failure :attempt] stage-writes) (leaf "conclude:stage" [:params :cycle] [:run]))
-      (orc/sequence "failed-score" (is-run "scoring-failed" "scoring-failed")
-        (leaf "fail-score-stage" [:params :failure :attempt] stage-writes) (leaf "conclude:score" [:params :cycle] [:run]))
-      (orc/sequence "failed-cycle" (is-run "cycle-failed" "cycle-failed") (leaf "conclude:failed" [:params :cycle] [:run]))
-      (orc/sequence "halted-run" (is-run "halting" "halting") (leaf "halt" [:params :halt] [:run]))
-      (is-run "refused-start" "refused"))))
-(defn research-contract [env p]
-  ;; RLM describes structured input shapes. Supply the selected cut's public
-  ;; documents separately, while the current item stays behind get-input.
-  (try
-    (str/join "\n\n"
-      (for [slice (effects/slices-at env p (effects/config env))
-            :let [folder (.getParent (clojure.java.io/file (:path slice)))
-                  paths (str/split-lines (effects/git env "ls-tree" "-r" "--name-only" (:commit p) (str folder "/event-model/")))]]
-        (str "Public contract for " (:slice slice) "\n"
-          (effects/cut-file env p (:path slice)) "\n"
-          (try (effects/cut-file env p (str folder "/seam.md")) (catch Exception _ "")) "\n"
-          (str/join "\n" (map #(effects/cut-file env p %) paths)))))
-    (catch Exception _ "")))
-(defn build! [ctx env]
-  (router/register! :loyly-model {:provider :openai :model (get env "LOYLY_RENDER_MODEL" "render")
-    :config {:api-base (get env "LOYLY_MODEL_API_BASE" "http://127.0.0.1:1/v1") :api-key "fixture-or-host" :timeout 60000}})
-  (let [gate (orc/build-workflow! ctx (gate-workflow)) grade (orc/build-workflow! ctx (grade-workflow env))]
-    (orc/build-workflow! ctx (workflow env gate grade))))
-(defn resume! [ctx]
-  (let [pending (vec (orm/get-all-active-executions ctx))]
-    (when (seq pending)
-      (doseq [tick pending :let [raw (get-in (orm/get-tick-blackboard ctx (:tick-id tick)) [:handed-in :value])] :when raw]
-        (let [env (json/read-str raw)]
-          (router/register! :loyly-model {:provider :openai :model (get env "LOYLY_RENDER_MODEL")
-            :config {:api-base (get env "LOYLY_MODEL_API_BASE") :api-key "fixture-or-host" :timeout 60000}})))
-      (future (try
-        (loop [remaining 30]
-          (when (and (pos? remaining) (seq (orm/get-all-active-executions ctx)))
-            (orc/resume-in-progress! ctx) (Thread/sleep 1000) (recur (dec remaining))))
-        (catch Exception e (binding [*out* *err*] (println "Recovery stopped:" (.getMessage e)))))))))
-(defn start! [path]
-  (let [ctx (assoc (runtime/start! path) :llm-provider :loyly-model)
-        ctx (assoc ctx :cycle-sheet (build! ctx (effects/environment)))] (resume! ctx) ctx))
-(defn error [id code message data] {:jsonrpc "2.0" :id id :error {:code code :message message :data data}})
-(defn command-workflow [ctx method]
-  (let [flow (first (for [[_ area] model/model [name flow] (:flows area)
-                          :when (some #(= [:command method] (:to %)) (:steps flow))] name))]
-    (orc/build-workflow! ctx (orc/workflow (subs (str flow) 1)
-      (orc/blackboard {:params :string :method :string :reply :string})
-      (orc/code (name method) :fn "loyly.effects/command-leaf" :reads [:params :method] :writes [:reply])))))
-(defn handle [ctx req]
-  (let [id (:id req) method (keyword (:method req)) p (or (:params req) {})
-        cmd (get (model/blocks :commands) method) query (get (model/blocks :queries) method)]
+  (:require [loyly.domain :as domain] [loyly.cycle :as cycle] [loyly.instrument :as instrument] [loyly.commands :as commands] [loyly.views :as views] [ai.obney.grain.read-model-processor-v2.interface :as rm] [loyly.flow :as flow]
+            [clojure.data.json :as json]
+            [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.java.shell :as shell]
+            [clojure.string :as str]
+            [malli.core :as m]
+            [ai.obney.grain.event-model.interface :as model]
+            [ai.obney.grain.event-store-v3.interface :as store]
+            [ai.obney.grain.event-store-sqlite-v3.interface]))
+(defn merge-models [a b]
+  (if (and (map? a) (map? b)) (merge-with merge-models a b) b))
+(declare progress)
+(defn open! [path environment]
+  (let [models (reduce merge-models {} (for [file (file-seq (io/file "event-model"))
+                                             :when (str/ends-with? (.getName file) ".edn")]
+                                         (edn/read-string (slurp file))))]
+    (doseq [[area definitions] models] (model/register-event-model! area definitions))
+    (domain/register! models (merge domain/handlers cycle/handlers instrument/handlers))
+    (views/register! models progress)
+    (let [sys (flow/attach {:starting (atom nil) :models models :environment environment :tenant-id #uuid "00000000-0000-0000-0000-000000000000"
+     :event-store (store/start {:conn {:type :sqlite :database-file path}})})]
+      (assoc sys :recovery (flow/resume! sys)))))
+(defn close! [system] (flow/stop system) (store/stop (:event-store system)))
+(defn event-rows [system types]
+  (into [] (store/read (:event-store system) {:tenant-id (:tenant-id system) :types types})))
+(defn config [path]
+  (into {} (for [line (str/split-lines (slurp path))
+                 :let [[_ key value] (re-matches #"\s*([A-Z_]+)\s*=\s*(.*?)\s*" line)]
+                 :when key]
+             [key (str/replace value #"^([\"'])(.*)\1$" "$2")])))
+(defn refuse [reason] (throw (ex-info reason {:code -32000 :data {:refusal reason}})))
+(def handed-keys (mapv #(str "LOYLY_" %) ["RUNS_DIR" "PROJECT_REPO" "HARNESS_CONFIG" "SELF_CHECK_CMD" "STORE_CHECK_CMD" "BUILDER_HOST"
+                                            "GATE_CMD" "BUILDER_IMAGES" "BUILDER_INSTRUCTION" "MODEL_API_BASE" "RENDER_MODEL" "GRADER_MODEL"
+                                            "GRADER_RUBRIC" "GRADER_IMAGE" "SCORING_TOOL_PATHS"]))
+(defn start-run [system p]
+  (let [env ((:environment system)) reservation (:starting system)]
+    (locking reservation
+      (let [rows (vals (rm/project system :cycle-runner/runs))]
+        (when (or (= (:run-id p) (:run-id @reservation)) (some #(= (:run-id p) (:run-id %)) rows)) (refuse "run-already-started"))
+        (when (or @reservation (some #(= "running" (:status %)) rows)) (refuse "run-in-progress"))
+        (when (some #(= (:cycle-id p) (:cycle-id %)) rows) (refuse "cycle-already-run"))
+        (when-not (zero? (:exit (shell/sh "git" "-C" (env "LOYLY_PROJECT_REPO") "cat-file" "-e" (str (:commit p) "^{commit}")))) (refuse "not-a-commit"))
+        (let [image ((config (env "LOYLY_HARNESS_CONFIG")) "BUILDER_IMAGE")]
+          (when (and (seq image) (not (.isDirectory (io/file (env "LOYLY_BUILDER_IMAGES") image)))) (refuse "builder-image-missing")))
+        (reset! reservation p)))
     (try
-      (cond
-        (contains? #{:cycle-runner/record-effect :cycle-runner/halt-run :cycle-runner/conclude-run} method) (error id -32601 "Unknown method" {})
-        (not (or cmd query)) (error id -32601 "Unknown method" {})
-        (not (m/validate (:schema (or cmd query)) p)) (error id -32602 "Invalid params" {})
-        query {:jsonrpc "2.0" :id id :result (:query/result (qp/process-query (assoc ctx :query (assoc p :query/name method :query/id (random-uuid) :query/timestamp (java.time.OffsetDateTime/now)))))}
-        (= method :cycle-runner/start-run)
-        (let [result (orc/execute ctx (build! ctx (assoc (effects/environment) "research-contract" (research-contract (effects/environment) p))) {:params (json/write-str p) :attempt 0} :timeout-ms 240000)
-              outputs (:outputs result) refusal (:refusal outputs)]
-          (cond
-            (not= :success (:status result)) (error id -32603 "Workflow did not complete" result)
-            (= "refused" (:run outputs)) (error id -32000 refusal {:refusal refusal})
-            :else {:jsonrpc "2.0" :id id :result {:events (mapv d/public-event (into [] (filter #(= (:run-id p) (:run-id %))) (es/read (:event-store ctx) {:tenant-id (:tenant-id ctx) :types #{:cycle-runner/run-started}})))}}))
-        :else (let [r (orc/execute ctx (command-workflow ctx method) {:params (json/write-str p) :method (:method req)} :timeout-ms 30000)]
-          (if (= :success (:status r))
-            (let [reply (json/read-str (get-in r [:outputs :reply]) :key-fn keyword)]
-              (if (:refusal reply) (error id -32000 (:refusal reply) reply) {:jsonrpc "2.0" :id id :result reply}))
-            (error id -32603 "Command workflow failed" {}))))
-      (catch Exception e (error id -32603 (.getMessage e) {})))))
-(defn json-value [_ v] (if (instance? java.util.Date v) (.toString (.toInstant v)) v))
-(defn serve! [ctx reader writer]
-  (let [pool (java.util.concurrent.Executors/newCachedThreadPool)
-        send! (fn [response] (locking writer (.write writer (str (json/write-str response :value-fn json-value) "\n")) (.flush writer)))]
-    (doseq [line (line-seq reader)]
-      (try (let [req (json/read-str line :key-fn keyword)]
-        (.submit pool ^Runnable (fn [] (binding [*out* *err*] (send! (handle ctx req))))))
-        (catch Exception _ (send! (error nil -32700 "Parse error" {})))))
-    (.shutdown pool) (.awaitTermination pool 10 java.util.concurrent.TimeUnit/MINUTES)))
+      (flow/execute system {:env (select-keys env handed-keys) :config (config (env "LOYLY_HARNESS_CONFIG")) :p p})
+      {:events (mapv domain/public (filter #(= (:run-id p) (:run-id %)) (domain/rows system :cycle-runner/run-started)))}
+      (finally (reset! reservation nil)))))
+(defn tick-data [sys id]
+  (let [root (flow/tick-id sys id) starts (domain/rows sys :sheet/tree-tick-started)
+        ids (reduce (fn [ids e] (if (ids (:parent-tick-id e)) (conj ids (:tick-id e)) ids)) #{root} starts)
+        ticks (filter #(ids (:tick-id %)) starts)
+        names (into {} (mapcat #(get-in % [:execution-snapshot :nodes-by-id]) ticks))
+        lifecycle (filter #(ids (:tick-id %)) (domain/rows sys :sheet/node-execution-started :sheet/node-execution-completed))
+        finished (filter #(= :sheet/node-execution-completed (:event/type %)) lifecycle)
+        active (vals (reduce (fn [m e] ((if (= :sheet/node-execution-started (:event/type e)) #(assoc %1 %2 e) dissoc) m [(:tick-id e) (:node-id e)])) {} lifecycle))
+        nodes (mapv (fn [e] {:name (get-in names [(:node-id e) :name]) :status (name (or (:status e) :running))}) (concat finished active))
+        terminal (some #(when (= root (:tick-id %)) %) (domain/rows sys :sheet/tree-tick-completed))]
+    {:tick {:tick-id (str root) :status (name (or (:root-status terminal) (:status terminal) :running)) :nodes nodes}
+     :scores (mapv (fn [e] {:item-id (last (str/split (:judge-name e) #"/")) :verdict (if (pos? (:score e)) "pass" "fail") :reason (:feedback e)})
+                   (filter #(ids (:tick-id %)) (domain/rows sys :judge/score-emitted)))}))
+(defn progress [system {:keys [run-id]}]
+  (let [runs (rm/project system :cycle-runner/runs) effects (rm/project system :cycle-runner/effect-results)
+        enrich (fn [r] (merge r {:effect-results (get effects (:run-id r) [])} (tick-data system (:run-id r))))]
+    (if run-id (when-let [r (get runs run-id)] {:run (enrich r)})
+        {:runs (mapv #(enrich (runs (:run-id %))) (domain/rows system :cycle-runner/run-started))})))
+(defn route [sys k]
+  (let [area (get-in sys [:models (some-> k namespace keyword)])]
+    (cond (= :cycle-runner/start-run k) [:commands start-run]
+          (get-in area [:queries k]) [:queries (fn [sys p] (views/read-query sys k p))]
+          (and (not= "cycle-runner" (namespace k)) (get-in area [:commands k]))
+          [:commands (fn [sys p] (let [r (commands/invoke sys k p)] (if (:refusal r) (refuse (:refusal r)) r)))])))
+(defn respond [system {:keys [id method params]}]
+  (let [reply {:jsonrpc "2.0" :id id} k (keyword method)]
+    (try
+      (let [[kind f] (or (route system k) (throw (ex-info "Unknown method" {:code -32601})))
+            schema (get-in system [:models (keyword (namespace k)) kind k :schema])]
+        (when-not (m/validate schema params) (throw (ex-info "Invalid params" {:code -32602})))
+        (assoc reply :result (f system params)))
+      (catch Exception e (assoc reply :error (merge {:code -32603 :message (.getMessage e)} (ex-data e)))))))
 (defn -main [& _]
-  (let [out *out* ctx (binding [*out* *err*] (start! (System/getenv "LOYLY_GRAIN_STORE")))]
-    (try (serve! ctx (java.io.BufferedReader. *in*) out)
-      (finally (runtime/stop! ctx) (shutdown-agents)))))
+  (let [system (open! (System/getenv "LOYLY_GRAIN_STORE") #(into {} (System/getenv)))
+        workers (java.util.concurrent.Executors/newCachedThreadPool)
+        out *out*]
+    (try
+      (doseq [line (line-seq (java.io.BufferedReader. *in*))]
+        (.submit workers ^Runnable
+                 (fn []
+                   (let [reply (try (respond system (json/read-str line :key-fn keyword))
+                                    (catch Exception _ {:jsonrpc "2.0" :id nil :error {:code -32700 :message "Invalid JSON"}}))]
+                     (locking out (.write out (str (json/write-str reply) "\n")) (.flush out))))))
+      (finally (.shutdown workers) (.awaitTermination workers 1 java.util.concurrent.TimeUnit/DAYS)
+               (close! system) (shutdown-agents)))))
