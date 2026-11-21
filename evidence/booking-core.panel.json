@@ -1,0 +1,55 @@
+{
+  "schema": "loyly.grading-panel-plan.v1",
+  "project": "01-booking-core",
+  "feature": "Booking core",
+  "checks": [
+    {
+      "id": "black-box", "source": "raw-grader", "role": "scored",
+      "tool": "Pi black-box grader", "technique": "acceptance",
+      "items": ["01-001", "01-002", "01-003", "01-004", "01-005", "01-006", "01-007", "01-008", "01-009", "01-010"],
+      "criterion": "Independent HTTP observations prove each selected Gherkin scenario against a fresh candidate copy.",
+      "failure": "A scenario is contradicted, missing, or cannot be observed.",
+      "target_runtime": "gondolin-qemu-vm"
+    },
+    {
+      "id": "blind-handoff", "source": "raw-grader", "role": "handoff",
+      "tool": "Pi black-box grader", "technique": "usability",
+      "items": ["01-011"],
+      "criterion": "The grader records the refusal and leaves the blind judgment pending.",
+      "failure": "The grader judges the refusal from its own context or omits the handoff.",
+      "target_runtime": "gondolin-qemu-vm"
+    },
+    {
+      "id": "blind-review", "source": "blind-review", "role": "scored",
+      "tool": "fresh blind subagent", "technique": "usability",
+      "items": ["01-011"],
+      "criterion": "A fresh judge names an actionable request from only the refusal; a fresh app confirms that exact request.",
+      "failure": "The answer needs hidden context or its exact request is not confirmed over HTTP.",
+      "target_runtime": "gondolin-qemu-vm"
+    },
+    {
+      "id": "browser", "source": "specialist", "role": "corroborating",
+      "tool": "Playwright", "technique": "ui-ux",
+      "items": ["01-003"],
+      "criterion": "The public form confirms a free slot and displays the persistent holding and all three derived views; trace and screenshots are attached.",
+      "failure": "The UI cannot complete the journey or disagrees with the persisted booking.",
+      "target_runtime": "gondolin-qemu-vm"
+    },
+    {
+      "id": "protocol", "source": "specialist", "role": "corroborating",
+      "tool": "Node.js", "technique": "acceptance",
+      "items": ["01-010"],
+      "criterion": "One hundred fresh overlapping two-household races each produce exactly one confirmation and one held refusal; derived views name one holder.",
+      "failure": "Any race confirms twice, refuses twice, or leaves inconsistent views.",
+      "target_runtime": "gondolin-qemu-vm"
+    },
+    {
+      "id": "telemetry", "source": "specialist", "role": "diagnostic",
+      "tool": "OpenTelemetry", "technique": "tracing",
+      "items": ["01-003"],
+      "criterion": "A bounded real booking emits candidate-bound spans and metrics tied to the confirmed record.",
+      "failure": "The probe cannot associate the observed telemetry with the candidate and booking request.",
+      "target_runtime": "gondolin-qemu-vm"
+    }
+  ]
+}

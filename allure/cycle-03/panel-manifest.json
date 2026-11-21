@@ -1,0 +1,9 @@
+{
+  "schema": "loyly.grading-panel-report.v1",
+  "panel_summary_sha256": "f71afd0120c3eafdb3614ea28d38180052099cb7e5ad03bb5e77dbe7ccaa3a0e",
+  "report_html_sha256": "5a6bb85b1ba4b41239765a23734e4f604d768bdf92865c7f6875fd30714cf6aa",
+  "audit_entries_sha256": "a32d90a906dc97ea832509542c20452de4113c51f810d730f65805354e57538d",
+  "specialist_manifest_sha256": "15dea1e9d4d44fb756eab0978dcb5420b92b017565e4cf29278dd0c71a03b8ff",
+  "result_count": 15,
+  "original_score_unchanged": true
+}

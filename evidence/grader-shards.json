@@ -1,0 +1,107 @@
+{
+  "schema": "loyly.published-grader-shards.v1",
+  "run": "live-cycle-01",
+  "source": "committed Pi grade entry and schema-validated raw Allure results",
+  "grade_entry_id": "27",
+  "candidate_sha256": "79481d7eb90f617d58017cb3ec9676c2a00bd0633b58aff918847c10b9bf2657",
+  "allure_results_sha256": "6633be6e1bad4fa68ed46079b8cae49d88ea8fdf5102a00e151f2b59488b137a",
+  "allure_schema_sha256": "0eef607c5d9eef4a190ea0deb7c7a61228267d8ec556b722b37dd83ef253fee1",
+  "model": "openai-codex/gpt-6.1-terra",
+  "shards": [
+    {
+      "id": "shard-01",
+      "checklist_sha256": "661668a01cb9e2b1a2d9f3a841e60d16b7da50c8422c88bd0840b2b7067f7655",
+      "items": [
+        {
+          "id": "01-001",
+          "name": "The weekly schedule shows each dressing room's own sauna days",
+          "story": "Availability is per dressing room, per weekday",
+          "status": "passed",
+          "stage": "finished"
+        },
+        {
+          "id": "01-002",
+          "name": "A standing slot cannot be requested on a closed day",
+          "story": "Availability is per dressing room, per weekday",
+          "status": "passed",
+          "stage": "finished"
+        },
+        {
+          "id": "01-007",
+          "name": "Confirming a booking updates all three derived views together",
+          "story": "One booking is the single source of truth for the list, the timer and the billing",
+          "status": "passed",
+          "stage": "finished"
+        },
+        {
+          "id": "01-008",
+          "name": "Giving up a slot leaves no derived view still claiming it",
+          "story": "One booking is the single source of truth for the list, the timer and the billing",
+          "status": "passed",
+          "stage": "finished"
+        }
+      ]
+    },
+    {
+      "id": "shard-02",
+      "checklist_sha256": "5d200580a5bbf9d214baf8bdce1539aa24945bb3b32133063fcbbef52c6fde04",
+      "items": [
+        {
+          "id": "01-003",
+          "name": "A requested slot on an open day is confirmed",
+          "story": "A slot is confirmed against availability and held by one household",
+          "status": "passed",
+          "stage": "finished"
+        },
+        {
+          "id": "01-004",
+          "name": "A held slot cannot be confirmed for another household",
+          "story": "A slot is confirmed against availability and held by one household",
+          "status": "passed",
+          "stage": "finished"
+        },
+        {
+          "id": "01-009",
+          "name": "Two households request the same free slot with neither request answered",
+          "story": "Two households requesting one free slot leave exactly one holder",
+          "status": "passed",
+          "stage": "finished"
+        },
+        {
+          "id": "01-010",
+          "name": "The race is run one hundred times and never confirms twice",
+          "story": "Two households requesting one free slot leave exactly one holder",
+          "status": "passed",
+          "stage": "finished"
+        }
+      ]
+    },
+    {
+      "id": "shard-03",
+      "checklist_sha256": "f67bf065e46be44fcc114dd3c0f92f49c35b8bc4477408789d3d9043af15bf04",
+      "items": [
+        {
+          "id": "01-005",
+          "name": "A second standing slot is granted while there is room",
+          "story": "A household may hold a second standing slot when there is room",
+          "status": "passed",
+          "stage": "finished"
+        },
+        {
+          "id": "01-006",
+          "name": "A second standing slot is refused when the schedule is full",
+          "story": "A household may hold a second standing slot when there is room",
+          "status": "passed",
+          "stage": "finished"
+        },
+        {
+          "id": "01-011",
+          "name": "The refusal for a closed day is judged usable",
+          "story": "A refusal is judged by whether a resident can act on it without asking again",
+          "status": "skipped",
+          "stage": "pending"
+        }
+      ]
+    }
+  ]
+}

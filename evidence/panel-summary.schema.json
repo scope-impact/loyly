@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://loyly.example/schema/grading-panel-summary.v1.json",
+  "title": "Löyly grading panel summary",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema", "project", "source_commit", "candidate_sha256", "plan_sha256", "allure_schema_sha256", "original_score_sha256", "filed_score", "panel_outcome", "checks", "items", "gaps"],
+  "properties": {
+    "schema": { "const": "loyly.grading-panel-summary.v1" },
+    "project": { "type": "string", "minLength": 1 },
+    "source_commit": { "$ref": "#/$defs/sha" },
+    "candidate_sha256": { "$ref": "#/$defs/sha256" },
+    "plan_sha256": { "$ref": "#/$defs/sha256" },
+    "allure_schema_sha256": { "$ref": "#/$defs/sha256" },
+    "original_score_sha256": { "$ref": "#/$defs/sha256" },
+    "filed_score": { "type": "string", "pattern": "^[0-9]+/[0-9]+$" },
+    "panel_outcome": { "enum": ["ready-for-review", "not-ready"] },
+    "checks": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/check" } },
+    "items": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/item" } },
+    "gaps": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+  },
+  "$defs": {
+    "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "check": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "item", "role", "tool", "technique", "status", "runtime", "target_runtime", "result_sha256", "criterion", "failure", "message"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "item": { "type": "string", "pattern": "^[0-9]{2}-[0-9]{3}$" },
+        "role": { "enum": ["scored", "handoff", "corroborating", "diagnostic"] },
+        "tool": { "type": "string", "minLength": 1 },
+        "technique": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["passed", "failed", "broken", "skipped"] },
+        "runtime": { "type": "string", "minLength": 1 },
+        "target_runtime": { "const": "gondolin-qemu-vm" },
+        "result_sha256": { "$ref": "#/$defs/sha256" },
+        "criterion": { "type": "string", "minLength": 1 },
+        "failure": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    },
+    "item": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "rule", "filed_verdict", "check_ids", "panel_status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[0-9]{2}-[0-9]{3}$" },
+        "rule": { "type": "string", "minLength": 1 },
+        "filed_verdict": { "enum": ["pass", "fail"] },
+        "check_ids": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "panel_status": { "enum": ["supported", "failed", "conflicted"] }
+      }
+    }
+  }
+}

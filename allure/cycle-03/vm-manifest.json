@@ -1,0 +1,70 @@
+{
+  "schema": "loyly.panel-vm-run.v1",
+  "source_commit": "b97e4eda015167c571eb3296fa03fe4fea366130",
+  "candidate_sha256": "c885b22fdaf8fdf931570269d9516c111fe361841fa1d39c7bfdda7be44ada41",
+  "original_score_sha256": "8bf9bc936116dcf2dd73dceafd4b8df5a98fd7b4135306d95013f7e969e02ae2",
+  "allure_schema_sha256": "0eef607c5d9eef4a190ea0deb7c7a61228267d8ec556b722b37dd83ef253fee1",
+  "plan_sha256": "e4fca29d12716cc096ca5c8aea581b7cfa4be23fa7bb5b03b2b2f029628d6b32",
+  "image_digest": "sha256:ea5ee4377b274691fa3dfac999f1b9e567013b94c7f9c2a2298b4e322abc8f23",
+  "parallel_overlap_ms": 4059,
+  "original_score_unchanged": true,
+  "score_state": "filed",
+  "producers": [
+    {
+      "id": "browser",
+      "tool": "Playwright",
+      "item": "@item-01-003",
+      "status": "passed",
+      "result": "42a716dc-38c4-493d-8134-5a80c626aec4-result.json",
+      "start": 1795125054530,
+      "stop": 1795125057499,
+      "started": 1795125053106,
+      "stopped": 1795125059519,
+      "image_digest": "sha256:ea5ee4377b274691fa3dfac999f1b9e567013b94c7f9c2a2298b4e322abc8f23",
+      "execution_receipt_sha256": "009f3a72fdc72e10dbe3e61499528dde3aaf74fb15a769d41db95172ba2589d4",
+      "files": {
+        "42a716dc-38c4-493d-8134-5a80c626aec4-result.json": "f73cf42c9309db0a2e870d051e1334d586f5081f2aed7ac22598a0501a89aba0",
+        "aefe8450-a214-46fd-b2af-94e8af24d30e-attachment.png": "b887ba238f16e249a55e16ce6c4c34fb4229f0bca33397d7d3b249d95a8d7b7e",
+        "fa37da39-539e-4512-ac44-0b25e1694175-attachment.png": "d3a4f2fcdd0c562bccafc01934704f0ff477bc582be69d1951af588c6a4196ea",
+        "d2bb8fb8-4dfb-4e53-b77f-ff25f78d4c48-attachment.zip": "c1be003c8ffdcf80e4512b63c6cfd9616f50ea3f47804213e3616d61c5a27f33",
+        "c8629d30-bc6b-4197-ba49-409e551d84ce-attachment.receipt.json": "009f3a72fdc72e10dbe3e61499528dde3aaf74fb15a769d41db95172ba2589d4"
+      }
+    },
+    {
+      "id": "protocol",
+      "tool": "Node.js",
+      "item": "@item-01-010",
+      "status": "passed",
+      "result": "ebb5675d-4623-4acc-b6ce-0d268925e15d-result.json",
+      "start": 1795125053923,
+      "stop": 1795125055145,
+      "started": 1795125053108,
+      "stopped": 1795125057168,
+      "image_digest": "sha256:ea5ee4377b274691fa3dfac999f1b9e567013b94c7f9c2a2298b4e322abc8f23",
+      "execution_receipt_sha256": "a0ec9efdc2eaddc737361320cb09ccbd6627a8a46624b1a6db2cd6ab64835800",
+      "files": {
+        "ebb5675d-4623-4acc-b6ce-0d268925e15d-result.json": "4904477aac47a0ce280cc611bca86c4de003900e6ba05a6a4ba0b1fa2c8c0412",
+        "897fcdd7-404d-49c9-a400-a5b8984997bc-attachment.json": "19bd37d047aebe1d9b1806dd16582c20a5f581089b527337a8bfcfa317dee0aa",
+        "668838ff-d66d-44e3-b1ba-17af558516de-attachment.receipt.json": "a0ec9efdc2eaddc737361320cb09ccbd6627a8a46624b1a6db2cd6ab64835800"
+      }
+    },
+    {
+      "id": "telemetry",
+      "tool": "OpenTelemetry",
+      "item": "@item-01-003",
+      "status": "passed",
+      "result": "60a44518-6598-429d-9b61-120390fa44cc-result.json",
+      "start": 1795125054000,
+      "stop": 1795125061762,
+      "started": 1795125053109,
+      "stopped": 1795125063696,
+      "image_digest": "sha256:ea5ee4377b274691fa3dfac999f1b9e567013b94c7f9c2a2298b4e322abc8f23",
+      "execution_receipt_sha256": "e8beb03b01157cc1db0a0d316c5a65a4dfa6aedae1ff84e2629bced9fcf39a69",
+      "files": {
+        "60a44518-6598-429d-9b61-120390fa44cc-result.json": "3c8778d032196d8dad82f2a431af4fd9892038161dffa11ba866f45fcf4b0ac2",
+        "48e9ef71-911a-46f8-9d43-2bb064039a6d-attachment.json": "10aa91aea53f11d138eba4626fab632692fb3ead162d92747ff47e1e014b5e91",
+        "6460ff7d-fcce-4f06-9253-954d806498c2-attachment.receipt.json": "e8beb03b01157cc1db0a0d316c5a65a4dfa6aedae1ff84e2629bced9fcf39a69"
+      }
+    }
+  ]
+}

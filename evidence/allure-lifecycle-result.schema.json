@@ -1,0 +1,1158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Allure lifecycle evidence result",
+  "description": "Project profile for one evaluated check per {uuid}-result.json. Use lifecycle for delivery phase and stage for Allure execution state. Represent operational checks with a bounded time window, explicit criterion and observed outcome. Record references to audit events, alerts, incidents and runbooks in links or attach evidence files alongside the result. Use a fresh uuid per execution and a stable historyId across comparable runs.",
+  "type": "object",
+  "properties": {
+    "uuid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "historyId": {
+      "type": "string"
+    },
+    "testCaseId": {
+      "type": "string"
+    },
+    "fullName": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "$ref": "#/$defs/status"
+    },
+    "stage": {
+      "enum": [
+        "scheduled",
+        "running",
+        "finished",
+        "pending",
+        "interrupted"
+      ]
+    },
+    "statusDetails": {
+      "$ref": "#/$defs/statusDetails"
+    },
+    "start": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "stop": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "description": {
+      "type": "string"
+    },
+    "descriptionHtml": {
+      "type": "string"
+    },
+    "parameters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/parameter"
+      }
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/attachment"
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/link"
+      }
+    },
+    "labels": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/label"
+      },
+      "allOf": [
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "const": "lifecycle"
+              },
+              "value": {
+                "enum": [
+                  "pre-production",
+                  "deploy",
+                  "release",
+                  "post-release"
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "value"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "const": "technique"
+              },
+              "value": {
+                "$ref": "#/$defs/technique"
+              }
+            },
+            "required": [
+              "name",
+              "value"
+            ]
+          },
+          "minContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "const": "tool"
+              },
+              "value": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "name",
+              "value"
+            ]
+          },
+          "minContains": 1
+        }
+      ],
+      "description": "For Kubernetes evidence, add cluster, namespace, workload and revision labels where applicable. Repeat tool for cooperating producers. Use parameters for pod UID, image digest, observation window and measured values. Attach filtered snapshots and link live views."
+    }
+  },
+  "required": [
+    "uuid",
+    "name",
+    "status",
+    "labels"
+  ],
+  "$defs": {
+    "status": {
+      "enum": [
+        "passed",
+        "failed",
+        "broken",
+        "skipped",
+        "unknown"
+      ]
+    },
+    "statusDetails": {
+      "type": "object",
+      "properties": {
+        "known": {
+          "type": "boolean"
+        },
+        "muted": {
+          "type": "boolean"
+        },
+        "flaky": {
+          "type": "boolean"
+        },
+        "message": {
+          "type": "string"
+        },
+        "trace": {
+          "type": "string"
+        }
+      }
+    },
+    "attachment": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-attachment\\.[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*$",
+          "description": "Canonical Allure filename in the results directory. Generate a fresh UUID for each file."
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9!#$%&'*+.^_`|~-]*/[A-Za-z0-9][A-Za-z0-9!#$%&'*+.^_`|~-]*(?:[ \\t]*;[ \\t]*[A-Za-z0-9_-]+=(?:[A-Za-z0-9!#$%&'*+.^_`|~-]+|\"[^\"\\r\\n]*\"))*$",
+          "examples": [
+            "application/json",
+            "text/csv",
+            "image/png",
+            "video/webm",
+            "text/plain",
+            "application/vnd.allure.image.diff",
+            "application/zip",
+            "application/vnd.allure.playwright-trace"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "source",
+        "type"
+      ],
+      "description": "Evidence on a result or nested step. Write the actual attachment bytes beside the result JSON. Use links for external URLs. Allure selects the preview using the media type; other formats remain downloadable.",
+      "if": {
+        "properties": {
+          "type": {
+            "const": "application/vnd.allure.playwright-trace"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "pattern": "\\.zip$"
+          }
+        }
+      }
+    },
+    "parameter": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "type": "string"
+        },
+        "excluded": {
+          "type": "boolean"
+        },
+        "mode": {
+          "enum": [
+            "default",
+            "masked",
+            "hidden"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ]
+    },
+    "link": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ]
+    },
+    "label": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "const": "lifecycle"
+              }
+            }
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "value": {
+                "enum": [
+                  "pre-production",
+                  "deploy",
+                  "release",
+                  "post-release"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "const": "technique"
+              }
+            }
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "value": {
+                "$ref": "#/$defs/technique"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "const": "tool"
+              }
+            }
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "value": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "step": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "stage": {
+          "enum": [
+            "scheduled",
+            "running",
+            "finished",
+            "pending",
+            "interrupted"
+          ]
+        },
+        "statusDetails": {
+          "$ref": "#/$defs/statusDetails"
+        },
+        "start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stop": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "description": {
+          "type": "string"
+        },
+        "descriptionHtml": {
+          "type": "string"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/parameter"
+          }
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/attachment"
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "technique": {
+      "type": "string",
+      "enum": [
+        "lint",
+        "type-check",
+        "unit",
+        "functional",
+        "component",
+        "integration",
+        "database-integration",
+        "http-record-replay",
+        "consumer-contract",
+        "api-spec",
+        "property-based",
+        "fuzz",
+        "mutation",
+        "coverage",
+        "formal-verification",
+        "acceptance",
+        "mobile-acceptance",
+        "regression",
+        "smoke",
+        "usability",
+        "ui-ux",
+        "threat-modeling",
+        "authorization",
+        "penetration-test",
+        "benchmark",
+        "performance",
+        "configuration",
+        "load",
+        "soak",
+        "traffic-mirroring",
+        "tap-compare",
+        "canary",
+        "traffic-shaping",
+        "promotion-analysis",
+        "feature-flag",
+        "exception-tracking",
+        "monitoring",
+        "metrics",
+        "logs",
+        "tracing",
+        "dynamic-exploration",
+        "profiling",
+        "real-user-monitoring",
+        "ab-test",
+        "chaos",
+        "audit-trail",
+        "alerting",
+        "on-call",
+        "incident-recovery",
+        "recovery-verification",
+        "cluster-policy",
+        "workload-health",
+        "network-connectivity",
+        "network-isolation",
+        "runtime-process-activity",
+        "runtime-file-activity",
+        "kernel-diagnostics",
+        "service-latency",
+        "continuous-profiling",
+        "kubernetes-api-audit",
+        "restore-verification"
+      ]
+    }
+  },
+  "examples": [
+    {
+      "uuid": "00000000-0000-4000-8000-000000000001",
+      "name": "Pending translation keeps the article in draft",
+      "status": "passed",
+      "labels": [
+        {
+          "name": "lifecycle",
+          "value": "pre-production"
+        },
+        {
+          "name": "technique",
+          "value": "http-record-replay"
+        },
+        {
+          "name": "tool",
+          "value": "Polly.JS"
+        }
+      ],
+      "attachments": [
+        {
+          "name": "Translation replay (HAR)",
+          "type": "application/json",
+          "source": "3c19dff2-dbd3-4ba2-a92c-b1c03add83fb-attachment.har"
+        }
+      ]
+    },
+    {
+      "uuid": "00000000-0000-4000-8000-000000000002",
+      "name": "Every published revision has an approval event",
+      "status": "passed",
+      "labels": [
+        {
+          "name": "lifecycle",
+          "value": "post-release"
+        },
+        {
+          "name": "technique",
+          "value": "audit-trail"
+        },
+        {
+          "name": "tool",
+          "value": "audit verifier"
+        }
+      ],
+      "parameters": [
+        {
+          "name": "revisionsChecked",
+          "value": "40",
+          "excluded": true
+        },
+        {
+          "name": "missingApprovals",
+          "value": "0",
+          "excluded": true
+        }
+      ],
+      "attachments": [
+        {
+          "name": "Approval audit summary",
+          "type": "text/csv",
+          "source": "5f0a3245-ad7d-48d8-8aa4-3e5c6def7469-attachment.csv"
+        }
+      ]
+    },
+    {
+      "uuid": "00000000-0000-4000-8000-000000000003",
+      "name": "Publishing backlog drains after worker recovery",
+      "status": "passed",
+      "labels": [
+        {
+          "name": "lifecycle",
+          "value": "post-release"
+        },
+        {
+          "name": "technique",
+          "value": "recovery-verification"
+        },
+        {
+          "name": "tool",
+          "value": "Prometheus"
+        }
+      ],
+      "steps": [
+        {
+          "name": "Check queue depth after recovery",
+          "status": "passed",
+          "parameters": [
+            {
+              "name": "threshold",
+              "value": "<= 5 jobs"
+            },
+            {
+              "name": "observed",
+              "value": "2 jobs"
+            }
+          ],
+          "attachments": [
+            {
+              "name": "Recovery queue measurement",
+              "type": "application/json",
+              "source": "d0ce1b06-bf62-44f3-96b4-c59018ebb82c-attachment.json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "uuid": "cfb46ef2-a748-453f-9778-c8a6011bfe51",
+      "name": "Reviewer can publish an approved revision",
+      "status": "failed",
+      "statusDetails": {
+        "message": "Publish confirmation did not appear"
+      },
+      "labels": [
+        {
+          "name": "lifecycle",
+          "value": "pre-production"
+        },
+        {
+          "name": "technique",
+          "value": "acceptance"
+        },
+        {
+          "name": "tool",
+          "value": "Playwright"
+        }
+      ],
+      "attachments": [
+        {
+          "name": "trace",
+          "source": "a4b6bb81-8f72-4073-b081-7634c63b8d9b-attachment.zip",
+          "type": "application/vnd.allure.playwright-trace"
+        }
+      ]
+    },
+    {
+      "uuid": "a1b0d698-66da-42f8-adf4-4ddd7313d103",
+      "name": "Publishing worker satisfies the workload policy",
+      "status": "passed",
+      "labels": [
+        {
+          "name": "lifecycle",
+          "value": "deploy"
+        },
+        {
+          "name": "technique",
+          "value": "cluster-policy"
+        },
+        {
+          "name": "tool",
+          "value": "Kyverno"
+        },
+        {
+          "name": "cluster",
+          "value": "example-cluster"
+        },
+        {
+          "name": "namespace",
+          "value": "publishing"
+        },
+        {
+          "name": "workload",
+          "value": "publishing-worker"
+        }
+      ],
+      "attachments": [
+        {
+          "name": "policy-report",
+          "source": "27656551-aa6f-4c36-9d7a-eb80683d8dd5-attachment.json",
+          "type": "application/json"
+        }
+      ]
+    },
+    {
+      "uuid": "0f584f72-4790-4188-9c9e-6985ba70ca58",
+      "name": "Desired publishing replicas remain available",
+      "status": "passed",
+      "labels": [
+        {
+          "name": "lifecycle",
+          "value": "deploy"
+        },
+        {
+          "name": "technique",
+          "value": "workload-health"
+        },
+        {
+          "name": "tool",
+          "value": "kube-state-metrics"
+        },
+        {
+          "name": "cluster",
+          "value": "example-cluster"
+        },
+        {
+          "name": "namespace",
+          "value": "publishing"
+        },
+        {
+          "name": "workload",
+          "value": "publishing-worker"
+        }
+      ],
+      "attachments": [
+        {
+          "name": "replica-observations",
+          "source": "bd6f1df2-94b7-4d3e-a353-5aaa3df665eb-attachment.json",
+          "type": "application/json"
+        }
+      ]
+    },
+    {
+      "uuid": "53d706a9-5969-4716-adc3-4db1e2ccb765",
+      "name": "Canary worker reads the expected Postgres revision",
+      "status": "passed",
+      "labels": [
+        {
+          "name": "lifecycle",
+          "value": "release"
+        },
+        {
+          "name": "technique",
+          "value": "network-connectivity"
+        },
+        {
+          "name": "tool",
+          "value": "Hubble"
+        },
+        {
+          "name": "cluster",
+          "value": "example-cluster"
+        },
+        {
+          "name": "namespace",
+          "value": "publishing"
+        },
+        {
+          "name": "workload",
+          "value": "publishing-worker"
+        },
+        {
+          "name": "tool",
+          "value": "Node.js"
+        }
+      ],
+      "attachments": [
+        {
+          "name": "flow-verdicts",
+          "source": "cfd77c8e-aa5d-42c0-adf8-6f9dc3b33232-attachment.json",
+          "type": "application/json"
+        }
+      ],
+      "steps": [
+        {
+          "name": "Verify observer coverage on the candidate node",
+          "status": "passed"
+        },
+        {
+          "name": "Read expected revision from the candidate workload",
+          "status": "passed"
+        },
+        {
+          "name": "Correlate successful flow with the pod and destination",
+          "status": "passed"
+        }
+      ],
+      "parameters": [
+        {
+          "name": "windowStart",
+          "value": "2026-11-19T08:00:00Z",
+          "excluded": true
+        },
+        {
+          "name": "windowEnd",
+          "value": "2026-11-19T08:05:00Z",
+          "excluded": true
+        },
+        {
+          "name": "revision",
+          "value": "example-canary-42",
+          "excluded": true
+        }
+      ]
+    },
+    {
+      "uuid": "e50c003f-7fe9-4dae-add9-3cb7e3c75134",
+      "name": "Disallowed namespace probe is denied",
+      "status": "passed",
+      "labels": [
+        {
+          "name": "lifecycle",
+          "value": "release"
+        },
+        {
+          "name": "technique",
+          "value": "network-isolation"
+        },
+        {
+          "name": "tool",
+          "value": "Hubble"
+        },
+        {
+          "name": "cluster",
+          "value": "example-cluster"
+        },
+        {
+          "name": "namespace",
+          "value": "publishing"
+        },
+        {
+          "name": "workload",
+          "value": "publishing-worker"
+        }
+      ],
+      "attachments": [
+        {
+          "name": "denied-flow",
+          "source": "9ca71c9c-5ab2-437a-a522-5636fb9741b3-attachment.json",
+          "type": "application/json"
+        }
+      ]
+    },
+    {
+      "uuid": "04eb63eb-9470-4f40-8827-7a663ada3346",
+      "name": "Canary promotion requires sufficient samples",
+      "status": "skipped",
+      "labels": [
+        {
+          "name": "lifecycle",
+          "value": "release"
+        },
+        {
+          "name": "technique",
+          "value": "promotion-analysis"
+        },
+        {
+          "name": "tool",
+          "value": "Argo Rollouts"
+        },
+        {
+          "name": "cluster",
+          "value": "example-cluster"
+        },
+        {
+          "name": "namespace",
+          "value": "publishing"
+        },
+        {
+          "name": "workload",
+          "value": "publishing-worker"
+        }
+      ],
+      "attachments": [
+        {
+          "name": "analysis-run",
+          "source": "391dfc3f-0f00-4ea6-adc9-61695133eef3-attachment.json",
+          "type": "application/json"
+        }
+      ],
+      "statusDetails": {
+        "message": "Inconclusive: sample count below the minimum; promotion remains paused."
+      },
+      "parameters": [
+        {
+          "name": "analysisPhase",
+          "value": "Inconclusive"
+        }
+      ]
+    },
+    {
+      "uuid": "bbef883a-54e2-4c2f-9624-48b22bd0693a",
+      "name": "Publishing API latency meets its target",
+      "status": "passed",
+      "labels": [
+        {
+          "name": "lifecycle",
+          "value": "post-release"
+        },
+        {
+          "name": "technique",
+          "value": "service-latency"
+        },
+        {
+          "name": "tool",
+          "value": "OpenTelemetry OBI"
+        },
+        {
+          "name": "cluster",
+          "value": "example-cluster"
+        },
+        {
+          "name": "namespace",
+          "value": "publishing"
+        },
+        {
+          "name": "workload",
+          "value": "publishing-worker"
+        }
+      ],
+      "attachments": [
+        {
+          "name": "latency-summary",
+          "source": "b0fe7a27-c1c0-4886-8ca0-5979e815aeca-attachment.json",
+          "type": "application/json"
+        }
+      ]
+    },
+    {
+      "uuid": "7a04944f-4ee8-4de4-b407-dd13cdd54714",
+      "name": "Worker executes only expected subprocesses during the probe",
+      "status": "passed",
+      "labels": [
+        {
+          "name": "lifecycle",
+          "value": "post-release"
+        },
+        {
+          "name": "technique",
+          "value": "runtime-process-activity"
+        },
+        {
+          "name": "tool",
+          "value": "Tetragon"
+        },
+        {
+          "name": "cluster",
+          "value": "example-cluster"
+        },
+        {
+          "name": "namespace",
+          "value": "publishing"
+        },
+        {
+          "name": "workload",
+          "value": "publishing-worker"
+        }
+      ],
+      "attachments": [
+        {
+          "name": "process-events",
+          "source": "1ed1b3fa-e180-467f-b0a5-b2ad7f2b7ac5-attachment.json",
+          "type": "application/json"
+        }
+      ]
+    },
+    {
+      "uuid": "ccce1b05-4544-445c-8ab6-9dad2cf509d0",
+      "name": "Worker accesses only expected files during the probe",
+      "status": "passed",
+      "labels": [
+        {
+          "name": "lifecycle",
+          "value": "post-release"
+        },
+        {
+          "name": "technique",
+          "value": "runtime-file-activity"
+        },
+        {
+          "name": "tool",
+          "value": "Tetragon"
+        },
+        {
+          "name": "cluster",
+          "value": "example-cluster"
+        },
+        {
+          "name": "namespace",
+          "value": "publishing"
+        },
+        {
+          "name": "workload",
+          "value": "publishing-worker"
+        }
+      ],
+      "attachments": [
+        {
+          "name": "file-events",
+          "source": "cfdde025-04de-4e8b-af70-7f8e26edb642-attachment.json",
+          "type": "application/json"
+        }
+      ]
+    },
+    {
+      "uuid": "ac4d34c1-8251-4369-a52f-b6a4dda6f0f2",
+      "name": "Candidate CPU profile stays within its regression budget",
+      "status": "passed",
+      "labels": [
+        {
+          "name": "lifecycle",
+          "value": "post-release"
+        },
+        {
+          "name": "technique",
+          "value": "continuous-profiling"
+        },
+        {
+          "name": "tool",
+          "value": "Pyroscope"
+        },
+        {
+          "name": "cluster",
+          "value": "example-cluster"
+        },
+        {
+          "name": "namespace",
+          "value": "publishing"
+        },
+        {
+          "name": "workload",
+          "value": "publishing-worker"
+        }
+      ],
+      "attachments": [
+        {
+          "name": "profile-comparison",
+          "source": "55fbb7aa-d682-4218-a5a0-f5b4bcf9fee3-attachment.json",
+          "type": "application/json"
+        }
+      ]
+    },
+    {
+      "uuid": "987a9564-c8b7-4730-982c-550cc192a783",
+      "name": "Connection retries stay within the incident threshold",
+      "status": "passed",
+      "labels": [
+        {
+          "name": "lifecycle",
+          "value": "post-release"
+        },
+        {
+          "name": "technique",
+          "value": "kernel-diagnostics"
+        },
+        {
+          "name": "tool",
+          "value": "Inspektor Gadget"
+        },
+        {
+          "name": "cluster",
+          "value": "example-cluster"
+        },
+        {
+          "name": "namespace",
+          "value": "publishing"
+        },
+        {
+          "name": "workload",
+          "value": "publishing-worker"
+        }
+      ],
+      "attachments": [
+        {
+          "name": "socket-observations",
+          "source": "3e6d6dc1-fc8f-4b98-a4bc-2a0e042ce5ff-attachment.json",
+          "type": "application/json"
+        }
+      ]
+    },
+    {
+      "uuid": "0f9c6189-c816-4d32-a6c2-2bcae1673407",
+      "name": "Deployment change has an attributable API audit event",
+      "status": "passed",
+      "labels": [
+        {
+          "name": "lifecycle",
+          "value": "post-release"
+        },
+        {
+          "name": "technique",
+          "value": "kubernetes-api-audit"
+        },
+        {
+          "name": "tool",
+          "value": "Kubernetes audit log"
+        },
+        {
+          "name": "cluster",
+          "value": "example-cluster"
+        },
+        {
+          "name": "namespace",
+          "value": "publishing"
+        },
+        {
+          "name": "workload",
+          "value": "publishing-worker"
+        }
+      ],
+      "attachments": [
+        {
+          "name": "api-audit-event",
+          "source": "c1eab2d0-47c3-4a96-a417-38fb24d7e4e0-attachment.json",
+          "type": "application/json"
+        }
+      ]
+    },
+    {
+      "uuid": "2fac81d0-a61f-430f-aee2-4bb59ae0b8ae",
+      "name": "Publication backlog drains after worker recovery",
+      "status": "passed",
+      "labels": [
+        {
+          "name": "lifecycle",
+          "value": "post-release"
+        },
+        {
+          "name": "technique",
+          "value": "recovery-verification"
+        },
+        {
+          "name": "tool",
+          "value": "Chaos Mesh"
+        },
+        {
+          "name": "cluster",
+          "value": "example-cluster"
+        },
+        {
+          "name": "namespace",
+          "value": "publishing"
+        },
+        {
+          "name": "workload",
+          "value": "publishing-worker"
+        }
+      ],
+      "attachments": [
+        {
+          "name": "backlog-measurements",
+          "source": "9a936535-b5de-4755-b270-63af281fbc35-attachment.json",
+          "type": "application/json"
+        }
+      ]
+    },
+    {
+      "uuid": "b8f13717-0773-4504-bdcd-99363074b361",
+      "name": "A restored published revision can be read",
+      "status": "passed",
+      "labels": [
+        {
+          "name": "lifecycle",
+          "value": "post-release"
+        },
+        {
+          "name": "technique",
+          "value": "restore-verification"
+        },
+        {
+          "name": "tool",
+          "value": "Velero"
+        },
+        {
+          "name": "cluster",
+          "value": "example-cluster"
+        },
+        {
+          "name": "namespace",
+          "value": "publishing"
+        },
+        {
+          "name": "workload",
+          "value": "publishing-worker"
+        }
+      ],
+      "attachments": [
+        {
+          "name": "restore-and-read",
+          "source": "318f03b0-141f-4b87-8d7a-f0b868d8cbc7-attachment.json",
+          "type": "application/json"
+        }
+      ]
+    }
+  ]
+}

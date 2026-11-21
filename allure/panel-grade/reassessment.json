@@ -1,0 +1,17 @@
+{
+  "schema": "loyly.pi-panel-reassessment-result.v1",
+  "controller_commit": "4bc2655d2266bd1109b04e4bb0736a3f0da5689f",
+  "source_commit": "40101bb469eb0f1598c310e820bf8de21a051352",
+  "candidate_sha256": "f80bdc5305a6f018c0fef84c84099001779ef9f6a8728b08c9591ca4220bd0dc",
+  "filed_score_sha256": "1d326f537a14329b83371401074c36dc3ff999d24a57b3258421e2ee3cdaf38a",
+  "filed_score": "11/11",
+  "original_panel_manifest_sha256": "aac814db46f2effc2d9595aa57819c5c72c94b1b579148701cd1da4d3d008923",
+  "revised_plan_sha256": "e4fca29d12716cc096ca5c8aea581b7cfa4be23fa7bb5b03b2b2f029628d6b32",
+  "revised_vm_manifest_sha256": "c6ce4063830d152f516b3d0e55da1839d1fb33fe1ecacd286de5b0c5b0e620e5",
+  "revised_report_manifest_sha256": "0866a1e50b0c27372cab4b718cb1e02c6c7237bcf6fa6328344b6a615444f9fc",
+  "panel_outcome": "ready-for-review",
+  "allure_cases": 15,
+  "vm_attempt": 1,
+  "report_attempt": 1,
+  "original_cycle_unchanged": true
+}
